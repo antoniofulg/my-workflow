@@ -1,0 +1,60 @@
+# Reviews
+
+Review is how reliability gets a **second reader** without getting an infinite loop.
+
+An unbounded loop was measured at 30 rounds on one feature. The rule that caused it sounded
+responsible: remediate every confirmed finding **and every nitpick** in the same iteration. Each
+nit changes the diff; the next round finds new nits. The loop is unbounded by construction.
+
+[REVIEW-ROUNDS.md](../guidelines/REVIEW-ROUNDS.md) is the protocol. This page is the choice.
+
+## Three reviewers, three questions
+
+They run **inside each slice**, in this order. None repeats the others.
+
+| Reviewer | Question only it can answer | Cap |
+| --- | --- | --- |
+| **Verifier** | Do the tests actually prove the spec? | ≤3 fix rounds, then the human |
+| **QA walk** | Does this behaviour work for a real user? | This slice’s scenarios |
+| **Deep-review** | Is the code correct, safe, maintainable? | ≤2 rounds, Blocker/Major only |
+| **QA session** (last slice) | Does the finished feature feel right? | One session |
+
+A documentation-only slice still gets a Verifier and a deep-review. `docs/` is full of Markdown
+agents will act on; no compiler catches a plan that says work has not started when it has shipped.
+
+They do not send work back to each other. A deep-review finding never restarts the Verifier. The
+exception: if a deep-review fix changes user-visible behaviour, re-walk **the affected scenario
+rows only**.
+
+## What blocks, what files
+
+| Severity | Blocks another round? | Otherwise |
+| --- | --- | --- |
+| `Blocker` | Yes | Fix now |
+| `Major` | Yes | Fix now |
+| `Minor` | Only if it blocks a journey | Else file an issue |
+| `Cosmetic` | Never | File an issue |
+
+Filed issues are real backlog, not a disposal bin. They do **not** re-enter Verifier + QA +
+deep-review. That ceremony already happened; filing them was how they left the feature’s critical
+path.
+
+A user-visible fix still flags and walks its scenario. A fix that grows into a design or schema
+change is a feature.
+
+## Why the Verifier is not the author
+
+A model that implemented the change will defend it. The Verifier re-derives coverage from the spec
+and injects behavioural mutants. Enumerated cases in `tests.md` prove coverage *exists*; mutants
+prove it is *real*.
+
+A green gate is not a met requirement. Reviewers compare the deliverable to `spec.md`, `tests.md`,
+and `uiux.md` / `dx.md` field by field. Paraphrase is not parity.
+
+## Evidence
+
+[VERIFICATION-EVIDENCE.md](../guidelines/VERIFICATION-EVIDENCE.md): no completion claim without a
+fresh command. Scope binds — unit tests do not justify “feature complete”. A passing review over a
+red gate is void.
+
+Escalate when the cap is hit with blocking findings still open. A halt report is a result.

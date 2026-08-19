@@ -11,6 +11,7 @@ STENCIL = "<!-- product-stencil:"
 
 COPY_PATHS = [
     "docs/guidelines",
+    "docs/workflow",
     "knowledge/AGENTS.md",
     "knowledge/raw/README.md",
     "knowledge/wiki",

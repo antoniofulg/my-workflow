@@ -1,0 +1,41 @@
+# Workflow tour
+
+Human-facing. Agents run [`AGENTS.md`](../../AGENTS.md) and load a guideline only when its
+condition fires. This folder is the **why**: what each stage is for, what each guideline
+protects, and which trade-off it encodes.
+
+These pages do not restate the rules. The guidelines remain the source of truth for behaviour.
+
+## Walk this in order
+
+1. [Purpose — delivery and reliability](purpose.md)
+2. [The loop — stages from spec to merge](loop.md)
+3. [Reviews — three questions, hard caps](reviews.md)
+4. [Decisions — two namespaces, halt vs decide](decisions.md)
+5. [Guidelines — why each file exists](guidelines.md)
+6. [Skills, knowledge, adopt](pack.md)
+
+## Map
+
+| You want | Read |
+| --- | --- |
+| The thesis | [purpose.md](purpose.md) |
+| Specify → slice → gate → PR | [loop.md](loop.md) |
+| Verifier, QA, deep-review, filed issues | [reviews.md](reviews.md) |
+| `AD-NNN` vs architecture invariants | [decisions.md](decisions.md) |
+| One paragraph per guideline | [guidelines.md](guidelines.md) |
+| What is vendored and what is not | [pack.md](pack.md) |
+| The imperative rules | [`docs/guidelines/`](../guidelines/) |
+| What agents load every turn | [`AGENTS.md`](../../AGENTS.md) |
+
+## The loop at a glance
+
+```
+per slice    implement → scoped gate → atomic commit
+             Verifier ≤3  →  QA walk if user-visible  →  deep-review ≤2
+
+last slice   QA session (no product code)
+then         full gate → pull request
+```
+
+A filed issue skips the ceremony: `implement → scoped gate → one commit`.

@@ -1,7 +1,28 @@
 # my-workflow
 
-Personal agent operating system. It increments `tlc-spec-driven` with slice caps, a knowledge
-bundle, and an unattended-run skill. It is not a product template and not a stack starter.
+An operating system for agents. It increments [tlc-spec-driven](https://github.com/tech-leads-club)
+with a capped delivery loop, countable tests and security surfaces, and a knowledge bundle. It is
+not a product template and not a stack starter.
+
+The design problem is the usual one: **ship, without lying about quality**. Unbounded review feels
+responsible and never finishes. A green suite with no spec contract ships bugs. This pack picks a
+middle: small vertical slices, cheap gates while building, a hard cap on review rounds, and a
+human-owned merge.
+
+Start here: **[docs/workflow/](docs/workflow/)** — an index of every stage, guideline, and choice.
+
+## Purpose
+
+| Delivery | Reliability |
+| --- | --- |
+| Auto-sized planning (one line needs no spec) | Tests assert spec outcomes, not the implementation |
+| Scoped gate per slice; full gate once | Never weaken a test to go green |
+| Nitpicks become filed issues, not extra rounds | Blocker and Major still hold the ship |
+| `ponytail` at `full` — shortest code that works | Security surfaces declared and given `SEC-` ids |
+| Human schedules merge | Approval is local-only; push and deploy need an explicit go-ahead |
+
+The loop, the caps, and the guidelines are the mechanism. The tour explains **why** each exists.
+`AGENTS.md` is what agents run.
 
 ## New project
 
@@ -22,7 +43,7 @@ Copy the loop, not the product:
 
 - `AGENTS.md` delivery loop and dispatch table (merge; never overwrite a filled **What this project
   is** paragraph)
-- `docs/guidelines/`
+- `docs/guidelines/` and `docs/workflow/`
 - `.agents/skills/{tlc-spec-driven,ponytail*,autonomous}` plus a `.claude/skills/` symlink tree
 - empty `knowledge/` machinery (`AGENTS.md`, `raw/README.md`, wiki indexes, `tools/knowledge`)
 
