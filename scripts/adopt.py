@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+"""Copy this workflow pack into a target project. Stdlib only."""
+
+from __future__ import annotations
+
+import shutil
+import sys
+from pathlib import Path
+
+STENCIL = "<!-- product-stencil:"
+
+COPY_PATHS = [
+    "docs/guidelines",
+    "knowledge/AGENTS.md",
+    "knowledge/raw/README.md",
+    "knowledge/wiki",
+    "tools/knowledge",
+    "tools/shared/src/frontmatter.ts",
+    "tools/shared/tests/frontmatter.test.ts",
+    ".agents/skills/tlc-spec-driven",
+    ".agents/skills/ponytail",
+    ".agents/skills/ponytail-audit",
+    ".agents/skills/ponytail-debt",
+    ".agents/skills/ponytail-gain",
+    ".agents/skills/ponytail-help",
+    ".agents/skills/ponytail-review",
+    ".agents/skills/autonomous",
+]
+
+
+def die(message: str) -> None:
+    print(message, file=sys.stderr)
+    raise SystemExit(1)
+
+
+def copy_tree(src: Path, dest: Path) -> None:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if src.is_dir():
+        if dest.exists():
+            shutil.rmtree(dest)
+        shutil.copytree(src, dest, symlinks=True)
+    else:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dest)
+
+
+def product_section(text: str) -> str:
+    start = text.find("## What this project is")
+    if start < 0:
+        return ""
+    rest = text[start:]
+    nxt = rest.find("\n## ", 1)
+    return rest if nxt < 0 else rest[:nxt]
+
+
+def adopt_agents(src: Path, dest: Path) -> None:
+    incoming = (src / "AGENTS.md").read_text(encoding="utf-8")
+    target = dest / "AGENTS.md"
+    if not target.exists():
+        target.write_text(incoming, encoding="utf-8")
+        return
+    existing = target.read_text(encoding="utf-8")
+    section = product_section(existing)
+    if section and STENCIL not in section:
+        die(
+            f"refusing to overwrite {target}: What this project is is not the stencil. "
+            "Merge the loop by hand."
+        )
+    target.write_text(incoming, encoding="utf-8")
+
+
+def link_claude(dest: Path) -> None:
+    link = dest / "CLAUDE.md"
+    if link.exists() or link.is_symlink():
+        link.unlink()
+    link.symlink_to("AGENTS.md")
+    claude_skills = dest / ".claude" / "skills"
+    claude_skills.mkdir(parents=True, exist_ok=True)
+    agents = dest / ".agents" / "skills"
+    if not agents.is_dir():
+        return
+    for skill in agents.iterdir():
+        if not skill.is_dir():
+            continue
+        pointer = claude_skills / skill.name
+        if pointer.exists() or pointer.is_symlink():
+            pointer.unlink()
+        pointer.symlink_to(Path("../../.agents/skills") / skill.name)
+
+
+def main(argv: list[str]) -> None:
+    if len(argv) != 2:
+        die("usage: adopt.py <target-directory>")
+    dest = Path(argv[1]).resolve()
+    src = Path(__file__).resolve().parent.parent
+    if not dest.is_dir():
+        die(f"not a directory: {dest}")
+    adopt_agents(src, dest)
+    for rel in COPY_PATHS:
+        origin = src / rel
+        if not origin.exists():
+            continue
+        copy_tree(origin, dest / rel)
+    link_claude(dest)
+    print(f"adopted workflow into {dest}")
+
+
+if __name__ == "__main__":
+    main(sys.argv)

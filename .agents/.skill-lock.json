@@ -1,0 +1,36 @@
+{
+  "version": 2,
+  "skills": {
+    "tlc-spec-driven": {
+      "name": "tlc-spec-driven",
+      "source": "local",
+      "contentHash": "9f4c793556001f3210a2d9fe3b41bf24e82e581c522d8dd50f65addfee169a29",
+      "installedAt": "2026-08-19T00:56:56.430Z",
+      "updatedAt": "2026-08-19T00:56:56.504Z",
+      "agents": ["cursor", "claude-code", "codex", "opencode"],
+      "method": "symlink",
+      "global": false
+    },
+    "ponytail": {
+      "name": "ponytail",
+      "source": "dietrichgebert/ponytail",
+      "contentHash": "210fa0831f649ce9f8a305f7b7c8cf2a0dd09ac4dd53067109941b96e7811d4e",
+      "agents": ["cursor", "claude-code", "codex", "opencode"],
+      "method": "symlink",
+      "global": false
+    },
+    "ponytail-audit": { "name": "ponytail-audit", "source": "dietrichgebert/ponytail" },
+    "ponytail-debt": { "name": "ponytail-debt", "source": "dietrichgebert/ponytail" },
+    "ponytail-gain": { "name": "ponytail-gain", "source": "dietrichgebert/ponytail" },
+    "ponytail-help": { "name": "ponytail-help", "source": "dietrichgebert/ponytail" },
+    "ponytail-review": { "name": "ponytail-review", "source": "dietrichgebert/ponytail" },
+    "autonomous": {
+      "name": "autonomous",
+      "source": "local",
+      "contentHash": "6b8bb1b08be8ce54406dff16ed31dff33a3943d47208e043fe8ed0020e7c8bce",
+      "agents": ["claude-code"],
+      "method": "symlink",
+      "global": false
+    }
+  }
+}

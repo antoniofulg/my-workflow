@@ -1,0 +1,179 @@
+---
+name: autonomous
+description: Ship work unattended, from grounding through a merged pull request. Classifies the request as a feature or an issue batch and runs the matching loop.
+disable-model-invocation: true
+argument-hint: "[the work, in your own words]"
+---
+
+# Autonomous
+
+Ship work end to end while nobody is watching.
+
+`AGENTS.md` owns the process. Run it. This skill owns only what an **unattended** run needs on top:
+what to settle before starting, when to **halt**, and the authority to merge.
+
+## Run to the end
+
+Nobody is reading. A run that finishes Specify and reports for acknowledgement has stopped, and it
+stays stopped until someone happens to look — which is the whole cost the human was avoiding.
+
+Carry straight through Specify, Design, Tasks and Execute. Announcing what just finished is fine;
+waiting after announcing it is not. There are exactly two ways a run ends: **merged**, or **halted**
+on one of the conditions listed at the end of this file.
+
+Ambiguity that does not change what gets built is a decision to make, record in `decisions.md`, and
+move past — not a reason to pause. Only the halt conditions stop the run, and hitting one ends it
+rather than pausing it: write the report and stop for good.
+
+A phase boundary is not a checkpoint. The run reaches the end of the work or it reaches a halt.
+
+## Classify the run first
+
+The human describes the work in their own words. Decide which of two paths it takes, state the
+choice in one line with the reason, and proceed — this is a judgment to make, not a flag to be given.
+
+| The work is | Path |
+| --- | --- |
+| **A feature** — a capability or behaviour the product lacks | The full loop in `AGENTS.md` |
+| **An issue batch** — work already filed and reviewed | The filed-issue path in `docs/guidelines/REVIEW-ROUNDS.md` |
+
+The test is whether the work was already read by a reviewer. A filed issue was — that is how it came
+to be filed — so it does not re-enter the feature loop. Running a verifier and two review rounds over
+a one-line fix re-does work already done, which is the ceremony this workflow exists to remove.
+
+Two cases that look ambiguous and are not:
+
+- **A defect nobody filed** takes the feature path at its auto-sized depth. Nothing has reviewed it,
+  so nothing can be skipped on the grounds that it already was.
+- **A request spanning both** — "fix the P2s and add the new capability" — splits into separate runs
+  with separate pull requests. One run, one path; a batch that grows a feature inside it stops being
+  a batch.
+
+## 1. Ground
+
+**A feature:** name it in one sentence, then find the seam — the exact place the product stops. A
+hardcoded constant, an enum nothing writes, a table with no reader. With no feature named, take the
+next one: read the consuming project's product spec against the code that exists.
+
+**An issue batch:** read every candidate issue in full with `gh issue view`. Labels here are sparse —
+most issues carry none — so select by reading, not by filtering, and say which issues you selected
+and which you left. Map the human's severity words onto the taxonomy: P0 is `Blocker`, P1 `Major`,
+P2 `Minor`, P3 `Cosmetic`.
+
+Group by what a single reading covers: issues in one area, sharing a cause, or touching one file.
+Issues that depend on each other belong in one batch even when that makes it larger.
+
+**Done when:** for a feature, you can cite `file:line` for the code that stops it being true today;
+for a batch, every selected issue is read and grouped, with the ones you skipped named.
+
+## 2. Settle every decision, or halt now
+
+List the decisions the work needs that the documents do not already answer. Either decide from
+evidence in the repository and record it as an `AD-NNN` in `.specs/STATE.md`, or mark it as needing
+the human.
+
+A decision recorded with its reasoning is reversible in the morning. A decision made silently inside
+an implementation is found months later.
+
+**Halt here** if any remaining decision would change what gets built.
+
+**Done when:** every decision is either an `AD-NNN` or a named blocker in the halt report.
+
+## 3. Do the work
+
+**A feature:** follow `AGENTS.md`. Three rules an unattended run gets wrong:
+
+- **A slice closes fully before the next one opens** — implement, scoped gate, commit, Verifier,
+  deep-review, and a QA walk when it put something in front of a user. Carrying an unreviewed slice
+  forward is how a review ends up reading four behaviours at once, which is the size that produces
+  twenty rounds.
+- **One pull request for the feature**, with the slices as atomic commits inside it.
+- **The last slice is the QA session** and writes no product code, so it takes no Verifier and no
+  deep-review.
+
+**An issue batch:** `implement → scoped gate → one commit per batch`. No spec, no verifier, no
+deep-review round. Three things still fire, because they are about the change rather than the review:
+a user-visible fix flags and walks its scenario, a fix touching a security surface reads
+`docs/guidelines/SECURITY.md`, and a fix that grows — a schema change, a boundary crossed, a design
+question opened — stopped being a filed issue and takes the feature path instead. Say so when that
+happens.
+
+Close each issue in the commit that fixes it (`Closes #NN`), and leave open any you could not finish
+with a comment saying why.
+
+**Dispatch every subagent on Opus at medium reasoning effort.** Medium is the tier this workflow was
+tuned against: the guidelines carry the judgment, so a subagent is applying a written rule rather
+than inventing one. Raise it for a subagent doing genuinely open design work, and say why in
+`decisions.md`.
+
+**Done when:** for a feature, **every slice closed its own review** — verifier run, deep-review run,
+and any scenario it flagged walked — and the final slice's QA session is complete; for a batch, every
+selected issue is fixed and closed or explicitly left open with a reason.
+
+## 4. Merge
+
+Merge when all three hold:
+
+| | |
+| --- | --- |
+| The consuming project's full gate exits 0 | On the final tree, after the last commit. A cached or partial result is not evidence. `make check` when the project has it |
+| No blocking findings remain | `Blocker` and `Major` per `docs/guidelines/REVIEW-ROUNDS.md` |
+| `main` has not moved underneath | If it has: integrate it, re-run the full gate, then merge |
+| Every flagged scenario is terminal | See the three cases below. Only when the change is user-visible |
+
+What each verdict does to the merge:
+
+- **`pass`** — merge.
+- **`untested`** — **blocks.** It was flagged and never walked, which is a promise nobody checked and
+  the one failure a green gate cannot catch. Walk it, or get an explicit waiver and record the waiver
+  as an `AD-NNN` so the merge does not rest on silence.
+- **`blocked-verify`** — does not block, and the pull request names it. Some legs only a human can
+  complete; a feature touching one of them would otherwise never be mergeable.
+
+Merge with `gh pr merge <n> --merge`. Leave the branch.
+
+One pull request per run — a batch of issues ships together, the same way a feature's slices do.
+
+**Done when:** the pull request reads merged, or the run halted with the reason recorded.
+
+## 5. Report
+
+Write `.specs/features/<slug>/decisions.md` — everything the run chose while nobody was watching, in
+a form a stakeholder can review and reverse. It is the deliverable that makes an unattended run
+accountable, so it is written even when the run halts.
+
+Each decision carries: **what was chosen**, **why**, **the alternatives rejected and why**, **what it
+would cost to change now**, and **what it costs the user today**. Decisions weighty enough to outlive
+the feature also go to `.specs/STATE.md` as an `AD-NNN` and are named here; the rest are a table.
+
+Separate the decisions the human handed down from the ones the run made — a reviewer reading in the
+morning needs to know which are theirs.
+
+Then leave, in the pull request and in the final message: what shipped, the full-gate evidence, and
+— for a batch — which issues closed and which were left, with why.
+
+**Done when:** every choice the run made that the documents did not dictate appears in
+`decisions.md`, including the ones that felt too small to mention, which are the ones a reader most
+needs to see.
+
+## Halt conditions
+
+Stop, write up what exists, and merge nothing:
+
+- A decision from step 2 would change what gets built
+- The round caps in `docs/guidelines/REVIEW-ROUNDS.md` are reached with blocking findings open
+- The work turns out to need a capability that does not exist yet
+- The full gate cannot be made to run
+
+A halt report naming what stopped the run is a result. Shipping past a blocker to have something
+merged by morning is not.
+
+## Isolated checkouts
+
+A gate refusing because a runtime is already bound means another process holds this checkout's
+runtime. Identify the owner, then:
+
+- Another checkout of this repository: stop it there.
+- A process from **another project** keeps running — move this checkout instead.
+
+Never set `reuseExistingServer: true` across siblings. See `docs/guidelines/BRANCHING.md`.

@@ -1,0 +1,11 @@
+node_modules/
+coverage/
+__pycache__/
+.DS_Store
+.idea/
+*.iml
+.env
+.env.*
+!.env.example
+docs/qa/evidence/
+docs/qa/state.csv
