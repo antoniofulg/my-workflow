@@ -37,6 +37,22 @@ The loop, the caps, and the guidelines are the mechanism. The tour explains **wh
 python3 scripts/adopt.py /path/to/new-project
 ```
 
+Paste this to an agent (replace the pack path):
+
+```
+This is a new product. Adopt the agent OS from /path/to/my-workflow into this repo.
+
+Run `python3 /path/to/my-workflow/scripts/adopt.py` on this directory. Replace the stencil
+under "What this project is" in AGENTS.md with one paragraph describing this product — not
+the workflow, not the stack. Fill docs/product/, docs/architecture/, and docs/design/ only
+as the product earns them. This repo owns the full gate (`make check` or equivalent); the
+pack does not.
+
+Keep CLAUDE.md as the one line `@AGENTS.md`. Spawn planner, implementer, and verifier; pin
+models only on the agent files. Copy the loop, not a product skeleton, ports, or stack.
+Activate tlc-spec-driven and ponytail at full.
+```
+
 ## Adopt into an existing project
 
 Copy the loop, not the product:
@@ -55,6 +71,23 @@ python3 scripts/adopt.py /path/to/existing-project
 
 The script refuses to overwrite `AGENTS.md` when the target already has a non-stencil product
 paragraph.
+
+Paste this to an agent (replace the pack path):
+
+```
+Adopt the agent OS from /path/to/my-workflow into this existing project. Copy the loop, not
+the product.
+
+Run `python3 /path/to/my-workflow/scripts/adopt.py` on this directory. If it refuses to
+overwrite AGENTS.md, merge the delivery loop and dispatch table by hand — never replace a
+filled "What this project is" paragraph. Do not overwrite product docs, architecture, design,
+or stack.
+
+Keep CLAUDE.md as `@AGENTS.md`. If this repo already has `.cursor/agents/` (or Claude/Codex
+equivalents), keep those model pins; adopt copies agent folders only when they are missing.
+Decisions go through `.specs/AD-INDEX.md` (`python3 tools/ad-index.py`); do not Read all of
+STATE.md. Activate tlc-spec-driven and ponytail at full. The delivery loop stays.
+```
 
 ## Skills
 
