@@ -34,11 +34,13 @@ paragraph describing *its* product — not this workflow, not a stack, not a tem
 Use the `tlc-spec-driven` skill. It auto-sizes: a one-line change gets no spec, a multi-component
 feature gets full planning. The guidelines below increment it — they never replace its four phases.
 
-**Activate `ponytail` at `full` intensity before writing, refactoring, fixing or reviewing any code,
-and keep it active through completion.** It asks whether the task needs to exist, reaches for the
-standard library before custom code and a native platform feature before a dependency, and prefers
-one line to fifty. This workflow already says to delete rather than bridge and to add no test
-without an invariant; `ponytail` is the same instinct applied to the code itself.
+**Activate `ponytail` at `full` intensity before specify, design, issue selection, any subagent
+prompt, and before writing, refactoring, fixing or reviewing any code, and keep it active through
+completion.** It asks whether the work needs to exist, reaches for the standard library before
+custom code and a native platform feature before a dependency, and prefers one line to fifty. Each
+acceptance criterion still has to survive "does this need to exist?" This workflow already says
+to delete rather than bridge and to add no test without an invariant; `ponytail` is the same
+instinct applied to the plan and the code.
 
 **Tasks are atomic vertical slices.** One task delivers one observable behaviour — a user or an API
 caller can see the difference — together with the tests that prove it, at the cheapest layer that

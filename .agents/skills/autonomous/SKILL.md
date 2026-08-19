@@ -60,6 +60,9 @@ most issues carry none — so select by reading, not by filtering, and say which
 and which you left. Map the human's severity words onto the taxonomy: P0 is `Blocker`, P1 `Major`,
 P2 `Minor`, P3 `Cosmetic`.
 
+Before taking an issue, ask whether we would write it if the ticket did not exist. If not: skip it,
+comment why, and do not dispatch.
+
 Group by what a single reading covers: issues in one area, sharing a cause, or touching one file.
 Issues that depend on each other belong in one batch even when that makes it larger.
 

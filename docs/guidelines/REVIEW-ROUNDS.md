@@ -81,6 +81,10 @@ question has no meaningful answer until the last behaviour is in place.
    agents act on.
 8. **A passing verdict on a failing tree is void.** Re-run the scoped gate after remediation; a green
    review over a red gate is not a review.
+9. **A new control for an unobserved failure is Major (YAGNI) unless the spec named it.** A
+   killed-process shim, a test-of-the-test, or a prefix allowlist the spec did not name is overbuild.
+   Filed-issue review uses the same rule. `ponytail-review` is the skill; this rule is what makes
+   YAGNI blocking.
 
 ## Finding shape
 
