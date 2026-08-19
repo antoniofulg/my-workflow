@@ -2,7 +2,9 @@
 
 **Read when:** about to claim anything is done, or to commit.
 
-Claiming work is complete without verification is not efficiency. It is a false report.
+**Why this exists:** Completion language without a fresh command is a false report. A green linter
+does not mean the task is done; unit tests do not mean the feature is ready. Scope binds, and a
+secret in a diff is an absolute stop.
 
 ## The rule
 

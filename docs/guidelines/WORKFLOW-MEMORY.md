@@ -2,11 +2,9 @@
 
 **Read when:** starting any task in a multi-task feature.
 
-Atomic tasks buy short, reliable review rounds. They cost a ramp-up: every task is a fresh agent run
-that re-reads the spec, re-explores the codebase, and rebuilds its model of the system from zero
-before the first edit — then throws that reasoning away at the task boundary.
-
-Workflow memory is how the reasoning survives the boundary. It is what makes small tasks affordable.
+**Why this exists:** Atomic slices make review cheap and ramp-up expensive: every task is a fresh
+agent that rebuilds the system from zero, then throws that reasoning away. Shared memory is how
+constraints survive the boundary without becoming a second spec.
 
 ## The two files
 

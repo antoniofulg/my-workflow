@@ -2,12 +2,15 @@
 
 **Read when:** the diff changes user-visible behaviour, or you are planning a QA pass.
 
+**Why this exists:** Feature verification dies with the feature. Without a tracker, a stale `pass`
+looks like a current promise, and nothing remembers what a user can still do. A scenario holds a
+verdict that survives between features and goes stale when a diff invalidates it.
+
 `docs/qa/scenarios/` answers one question: **what does this product promise its users, and what state
 is each promise in right now?**
 
-This is not a test list. A test is checked when it runs; a scenario holds a verdict that survives
-between features and goes stale when a diff invalidates it. Feature verification dies with the
-feature. This does not.
+This is not a test list. A test is checked when it runs; a scenario's verdict survives until a diff
+invalidates it.
 
 ## Layout
 

@@ -2,8 +2,8 @@
 
 **Read when:** writing or planning any test, or breaking a spec into tasks.
 
-A coverage policy cannot be audited. "All branches covered" is a claim; `UT-001` through `UT-047`,
-each assigned to exactly one task, is a count. This guideline replaces the policy with a contract.
+**Why this exists:** "All branches covered" cannot be audited. Named cases assigned to one task can.
+A test that mirrors the implementation, or exists only to raise coverage, proves nothing.
 
 ## The artifact
 

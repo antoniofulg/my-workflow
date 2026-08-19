@@ -5,6 +5,10 @@ introduces, replaces or decouples an external provider; changes a port, adapter,
 message; or models an Entity, Value Object, Aggregate, Domain Service or Domain Event. Simple CRUD,
 local bug fixes and boundary-preserving refactors do not.
 
+**Why this exists:** A domain that imports the web, API, or persistence framework cannot outlive
+those frameworks. Invariants that live only in SQL cannot be exercised without the database. This
+file is how the model is written, not what the product means.
+
 This document owns how the domain is expressed in code. It does not own product language, domain
 rules or architecture decisions. `docs/product/` owns the domain; the consuming project's architecture
 docs own architecture invariants; `.specs/STATE.md` owns project decisions. Those sources win

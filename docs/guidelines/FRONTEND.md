@@ -3,6 +3,10 @@
 **Read when:** writing or reorganizing front-end application code, or working on a mockup under
 `docs/design/`.
 
+**Why this exists:** Feature-specific policy dumped into shared UI, and routes that draw their own
+layout, produce a front-end that cannot tell capability from reuse. Feature folders own capability;
+shared folders own reuse. Appearance still belongs in the project's design docs.
+
 This document owns front-end *code organization*. It does not own appearance or behaviour. The
 consuming project's design docs win on appearance and behaviour. Link to those instead of restating
 them here.

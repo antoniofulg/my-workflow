@@ -4,6 +4,10 @@
 one document — which is most of planning — or when durable knowledge surfaces in conversation and
 needs recording.
 
+**Why this exists:** Source documents cannot see each other. The wiki holds the graph and the
+contradictions; it is not a summary of `docs/`. When bundle and source disagree, the source wins.
+Silence when durable knowledge surfaces leaves an existing concept confidently wrong.
+
 `knowledge/wiki/` is an Open Knowledge Format bundle holding what no single source document can: the
 graph between them, and the contradictions no document resolves.
 

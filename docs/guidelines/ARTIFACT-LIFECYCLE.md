@@ -2,6 +2,11 @@
 
 **Read when:** deciding whether an artifact is kept or discarded.
 
+**Why this exists:** Planning artifacts kept forever become a second, drifting description of the
+code. The inverted arrangement gated drift on documents nobody read, while nothing remembered what
+the product currently promises users. Keep what is still true after the feature ships; discard the
+rest.
+
 Every artifact costs something forever: review attention, drift risk, and context budget. The question
 is never "is this useful" — it is "is this useful *after the feature ships*".
 

@@ -2,6 +2,10 @@
 
 **Read when:** creating a branch or a worktree.
 
+**Why this exists:** A branch named for the implementation (`add-users-table`) or for a checkout
+slot hides what the user gets. Work on `main`, leftover merged branches, and two checkouts sharing
+a runtime are how a gate silently verifies the wrong tree.
+
 ## Shape
 
 ```

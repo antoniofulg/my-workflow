@@ -3,6 +3,10 @@
 **Read when:** the change touches runtime code, configuration, dependencies, schemas, deployment, data
 flows, or public behaviour. Pure documentation and formatting changes are exempt.
 
+**Why this exists:** Security that lives only in a review at the end is theatre. Surfaces declared at
+Specify become countable `SEC-` cases; review looks for what the table missed. A control with no test
+is a memory, not a requirement.
+
 Security is built, not reviewed in. Review catches what construction missed; it is the last line, not
 the first. This guideline is self-contained — it does not depend on any other security document.
 

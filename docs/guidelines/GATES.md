@@ -2,8 +2,9 @@
 
 **Read when:** choosing which gate to run.
 
-Running the full gate after every atomic task is the largest avoidable cost in the loop. Atomic tasks
-are cheap only if their gate is cheap.
+**Why this exists:** Running the full product gate after every atomic task is the largest avoidable
+cost in the loop. Atomic tasks are cheap only if their gate is cheap: scoped while building, full
+once before the pull request. Never weaken a test to go green.
 
 The consuming project owns the commands. This pack does not ship a Makefile. If the project has
 `make check`, that is the full gate; if it has a scoped selector, that is the scoped gate. Name the

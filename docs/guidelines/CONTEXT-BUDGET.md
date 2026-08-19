@@ -2,13 +2,9 @@
 
 **Read when:** editing `AGENTS.md` / `CLAUDE.md` or any file in this directory.
 
-`AGENTS.md` loads into every prompt. A guideline loads whenever its condition fires. Every line costs
-tokens on every turn that reads it, and the cost is paid by the work — reasoning, code, and output all
-compete for the same window.
-
-A previous arrangement failed by loading more than a thousand lines of mandatory instruction before
-any task, most of it irrelevant to the work at hand. Dispatch by condition; do not preload the
-library.
+**Why this exists:** Instruction files compete with the work for the same window. A previous
+arrangement loaded more than a thousand mandatory lines before any task, most of it irrelevant.
+Dispatch by condition; growing a file with restated prose is a defect.
 
 ## Rules
 

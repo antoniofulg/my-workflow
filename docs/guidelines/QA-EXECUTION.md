@@ -2,12 +2,11 @@
 
 **Read when:** running the QA pass at the end of a feature.
 
-QA the product the way a real person meets it: a **persona** walks a journey through the interfaces a
-real user can reach, feels the friction, hits the edges, and reports what happened.
+**Why this exists:** A green automated suite can still fail its user. This pass is dogfooding: a
+persona through real surfaces, independent confirmation, a dated report. It finds what tests cannot.
 
-This is dogfooding, not a scripted test pass. The automated suite already ran — it is a
-**precondition** here, not the work. This pass exists to find what a green suite cannot: a product
-that passes every test and still fails its user.
+This is not a scripted test pass. The automated suite already ran — it is a **precondition** here, not
+the work.
 
 ## What this is not
 

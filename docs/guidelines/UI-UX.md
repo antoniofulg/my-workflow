@@ -2,16 +2,9 @@
 
 **Read when:** the feature adds or changes a screen.
 
-Optional by design. A feature with no new or changed screen skips this entirely.
-
-## Why it exists
-
-Two reasons, and the second one is the reason it earns its cost:
-
-1. Internals designed before the surface is settled get redesigned when the surface moves.
-2. **This document is the input a design agent reads.** Handed a filled `uiux.md`, a design agent
-   produces every component and state in one pass instead of guessing. That is where the time comes
-   back.
+**Why this exists:** Internals designed first get redesigned when the screen moves. `uiux.md` freezes
+states so a design agent can execute in one pass, and so QA knows the feature is UI-bearing. Features
+with no new or changed screen skip this.
 
 ## The artifact
 

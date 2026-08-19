@@ -3,7 +3,8 @@
 Each file in `docs/guidelines/` is a **triggered** protocol. `AGENTS.md` dispatches; the guideline
 states the rule once. Do not copy these paragraphs into `AGENTS.md`.
 
-Read the guideline when you need the imperative. This page is only **why it earned a file**.
+Every guideline now opens with **Why this exists** (the failure mode it prevents). This page is the
+catalog. The longer walk-through stays in this folder.
 
 ## Instruction cost
 

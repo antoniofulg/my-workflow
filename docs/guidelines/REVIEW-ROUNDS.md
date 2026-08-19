@@ -2,8 +2,9 @@
 
 **Read when:** reviewing code, or acting on review findings.
 
-A review loop that never converges is not thorough — it is broken. This guideline exists because an
-unbounded loop was measured reaching 30 rounds on a single feature.
+**Why this exists:** Remediating every nitpick in the same iteration is unbounded by construction:
+each fix changes the diff, the next round finds new nits. A loop measured at 30 rounds on one
+feature is not thoroughness. Caps, monotonic findings, and filed issues are how review ends.
 
 ## Why loops run away
 

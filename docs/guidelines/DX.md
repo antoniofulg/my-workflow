@@ -3,13 +3,9 @@
 **Read when:** the feature adds or changes a public surface — an HTTP route, a config key, a CLI verb,
 a package export.
 
-Optional by design. A feature that changes only internals skips this.
-
-## Why it exists
-
-The same reason as `UI-UX.md`, one layer down: a surface designed after its internals inherits the
-internals' shape instead of the caller's needs. Writing the surface first — **as if the feature already
-shipped** — surfaces the ergonomic problems while they are still free to fix.
+**Why this exists:** A surface designed after its internals inherits the internals' shape instead of
+the caller's needs. Writing the contract first — as if it already shipped, failures enumerated —
+surfaces ergonomic problems while they are still free to fix. Internals-only features skip this.
 
 ## The artifact
 
