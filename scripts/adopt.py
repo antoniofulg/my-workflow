@@ -18,6 +18,7 @@ COPY_PATHS = [
     "tools/knowledge",
     "tools/shared/src/frontmatter.ts",
     "tools/shared/tests/frontmatter.test.ts",
+    "tools/ad-index.py",
     ".agents/skills/tlc-spec-driven",
     ".agents/skills/ponytail",
     ".agents/skills/ponytail-audit",
@@ -26,6 +27,12 @@ COPY_PATHS = [
     ".agents/skills/ponytail-help",
     ".agents/skills/ponytail-review",
     ".agents/skills/autonomous",
+]
+
+AGENT_PATHS = [
+    ".cursor/agents",
+    ".claude/agents",
+    ".codex/agents",
 ]
 
 
@@ -70,11 +77,23 @@ def adopt_agents(src: Path, dest: Path) -> None:
     target.write_text(incoming, encoding="utf-8")
 
 
-def link_claude(dest: Path) -> None:
+def write_claude(dest: Path) -> None:
     link = dest / "CLAUDE.md"
     if link.exists() or link.is_symlink():
         link.unlink()
-    link.symlink_to("AGENTS.md")
+    link.write_text("@AGENTS.md\n", encoding="utf-8")
+
+
+def copy_agents(src: Path, dest: Path) -> None:
+    for rel in AGENT_PATHS:
+        origin = src / rel
+        target = dest / rel
+        if not origin.exists() or target.exists():
+            continue
+        copy_tree(origin, target)
+
+
+def link_claude_skills(dest: Path) -> None:
     claude_skills = dest / ".claude" / "skills"
     claude_skills.mkdir(parents=True, exist_ok=True)
     agents = dest / ".agents" / "skills"
@@ -102,7 +121,9 @@ def main(argv: list[str]) -> None:
         if not origin.exists():
             continue
         copy_tree(origin, dest / rel)
-    link_claude(dest)
+    copy_agents(src, dest)
+    write_claude(dest)
+    link_claude_skills(dest)
     print(f"adopted workflow into {dest}")
 
 

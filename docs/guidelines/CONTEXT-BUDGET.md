@@ -1,17 +1,20 @@
 # Context Budget
 
-**Read when:** editing `AGENTS.md` / `CLAUDE.md` or any file in this directory.
+**Read when:** editing `AGENTS.md`, `CLAUDE.md`, or any file in this directory.
 
 **Why this exists:** Instruction files compete with the work for the same window. A previous
 arrangement loaded more than a thousand mandatory lines before any task, most of it irrelevant.
 Dispatch by condition; growing a file with restated prose is a defect.
+
+`AGENTS.md` loads into every Cursor and Codex prompt. `CLAUDE.md` is `@AGENTS.md` — Claude Code
+imports it; Cursor does not expand `@`, so a symlink that duplicates the contract is a defect.
 
 ## Rules
 
 1. **Growing an instruction file with restated or redundant prose is a defect.** Adding a rule means
    finding the one it replaces, or justifying why both must exist.
 2. **`AGENTS.md` carries conditions and dispatch, not content.** If a rule applies only sometimes, it
-   belongs in a guideline behind a trigger.
+   belongs in a guideline behind a trigger. `CLAUDE.md` stays one import line.
 3. **One home per fact.** A guideline references `docs/` — it never copies from it. Two copies of a
    rule disagree eventually, and the disagreement is discovered by an agent following the wrong one.
 4. **Each guideline states its trigger in its first line.** An agent must be able to decide whether to

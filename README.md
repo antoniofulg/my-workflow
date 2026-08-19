@@ -71,7 +71,8 @@ npx --yes skills add dietrichgebert/ponytail \
   --agent claude-code --agent cursor --agent codex --agent opencode --yes
 ```
 
-`autonomous` is vendored here. `CLAUDE.md` is a symlink to `AGENTS.md`.
+`autonomous` is vendored here. `CLAUDE.md` is the one line `@AGENTS.md` (not a symlink). Planner,
+implementer and verifier packets live under `.cursor/agents/`, `.claude/agents/` and `.codex/agents/`.
 
 ## Knowledge checker
 

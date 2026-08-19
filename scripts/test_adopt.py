@@ -23,9 +23,13 @@ def test_fresh_and_refuse() -> None:
         run(tmp)
         agents = (tmp / "AGENTS.md").read_text(encoding="utf-8")
         assert STENCIL in agents
-        assert (tmp / "CLAUDE.md").is_symlink()
+        claude = tmp / "CLAUDE.md"
+        assert not claude.is_symlink()
+        assert claude.read_text(encoding="utf-8") == "@AGENTS.md\n"
         assert (tmp / "docs/guidelines/GATES.md").is_file()
+        assert (tmp / "tools/ad-index.py").is_file()
         assert (tmp / ".claude/skills/autonomous").is_symlink()
+        assert (tmp / ".cursor/agents/planner.md").is_file()
 
         (tmp / "AGENTS.md").write_text(
             "# Agent operating system\n\n## What this project is\n\nA shipped product.\n",
@@ -41,6 +45,20 @@ def test_fresh_and_refuse() -> None:
         shutil.rmtree(tmp)
 
 
+def test_agent_pins_survive_readopt() -> None:
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        run(tmp)
+        pin = tmp / ".cursor" / "agents" / "planner.md"
+        pin.write_text("local-pin\n", encoding="utf-8")
+        run(tmp)
+        assert pin.read_text(encoding="utf-8") == "local-pin\n"
+        assert (tmp / "CLAUDE.md").read_text(encoding="utf-8") == "@AGENTS.md\n"
+    finally:
+        shutil.rmtree(tmp)
+
+
 if __name__ == "__main__":
     test_fresh_and_refuse()
+    test_agent_pins_survive_readopt()
     print("ok")
