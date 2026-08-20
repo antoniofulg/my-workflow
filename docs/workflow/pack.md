@@ -36,7 +36,8 @@ Empty on purpose. Machinery only: operating schema, `raw/` README, stub indexes,
 
 `python3 scripts/adopt.py <target>` copies the loop into another repo and refuses to overwrite a
 non-stencil **What this project is** paragraph. It writes `@AGENTS.md` as `CLAUDE.md`. Agent folders
-copy only when the destination has none, so local model pins survive a re-adopt.
+copy missing packet files into existing folders without overwriting local files or model pins; a
+fresh destination gets all packets.
 
 The consuming project owns product docs, architecture, design, stack, and `make check`.
 

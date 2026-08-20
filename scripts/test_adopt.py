@@ -30,6 +30,12 @@ def test_fresh_and_refuse() -> None:
         assert (tmp / "tools/ad-index.py").is_file()
         assert (tmp / ".claude/skills/autonomous").is_symlink()
         assert (tmp / ".cursor/agents/planner.md").is_file()
+        for path in (
+            ".cursor/agents/explorer.md",
+            ".claude/agents/explorer.md",
+            ".codex/agents/explorer.toml",
+        ):
+            assert (tmp / path).is_file()
 
         (tmp / "AGENTS.md").write_text(
             "# Agent operating system\n\n## What this project is\n\nA shipped product.\n",
@@ -51,8 +57,13 @@ def test_agent_pins_survive_readopt() -> None:
         run(tmp)
         pin = tmp / ".cursor" / "agents" / "planner.md"
         pin.write_text("local-pin\n", encoding="utf-8")
+        explorer = tmp / ".cursor" / "agents" / "explorer.md"
+        explorer.unlink()
         run(tmp)
         assert pin.read_text(encoding="utf-8") == "local-pin\n"
+        assert explorer.read_text(encoding="utf-8") == (
+            ROOT / ".cursor" / "agents" / "explorer.md"
+        ).read_text(encoding="utf-8")
         assert (tmp / "CLAUDE.md").read_text(encoding="utf-8") == "@AGENTS.md\n"
     finally:
         shutil.rmtree(tmp)

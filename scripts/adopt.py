@@ -52,6 +52,21 @@ def copy_tree(src: Path, dest: Path) -> None:
         shutil.copy2(src, dest)
 
 
+def copy_missing(src: Path, dest: Path) -> None:
+    if src.is_dir():
+        if not dest.exists():
+            copy_tree(src, dest)
+            return
+        if not dest.is_dir():
+            return
+        for child in src.iterdir():
+            copy_missing(child, dest / child.name)
+        return
+    if dest.exists() or dest.is_symlink():
+        return
+    copy_tree(src, dest)
+
+
 def product_section(text: str) -> str:
     start = text.find("## What this project is")
     if start < 0:
@@ -88,9 +103,9 @@ def copy_agents(src: Path, dest: Path) -> None:
     for rel in AGENT_PATHS:
         origin = src / rel
         target = dest / rel
-        if not origin.exists() or target.exists():
+        if not origin.exists():
             continue
-        copy_tree(origin, target)
+        copy_missing(origin, target)
 
 
 def link_claude_skills(dest: Path) -> None:
