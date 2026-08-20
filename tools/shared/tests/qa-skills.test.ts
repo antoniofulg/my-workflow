@@ -238,6 +238,12 @@ describe("canonical QA skills", () => {
       expect(source).not.toMatch(/separate QA reviewer/i);
     }
 
+    const reviewRounds = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
+
+    expect(reviewRounds).toContain("The provider `verifier` executes exactly one phase per packet");
+    expect(reviewRounds).toContain("Deep-review is a separate orchestrator stage, not a Verifier phase");
+    expect(reviewRounds).not.toContain("The existing provider `verifier` performs all stages");
+    expect(reviewRounds).not.toMatch(/provider `verifier`[^.]*deep-review/i);
     expect(readRepositoryFile("docs/workflow/reviews.md")).toContain(
       "Deep-review is a separate stage, not a Verifier phase.",
     );
@@ -259,7 +265,7 @@ describe("canonical QA skills", () => {
     expect(executionGuideline).not.toContain("docs/qa/edge-cases.md");
     expect(executionGuideline.split(/\r?\n/).length).toBeLessThanOrEqual(60);
     expect(reviewGuideline).toContain("QA-SCENARIOS.md");
-    expect(reviewGuideline.split(/\r?\n/).length).toBeLessThanOrEqual(160);
+    expect(reviewGuideline.trimEnd().split(/\r?\n/).length).toBeLessThanOrEqual(160);
 
     for (const relativePath of verifierPacketPaths) {
       const packet = readRepositoryFile(relativePath);

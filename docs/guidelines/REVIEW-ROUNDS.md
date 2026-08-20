@@ -23,10 +23,11 @@ Every nitpick changes the diff, so the next round finds new nitpicks. The loop i
 | **deep-review** (every slice) | Is the code correct, safe and maintainable? | ≤2 rounds, blocking findings only |
 | **QA session** (the last slice) | Does the finished feature work for a real user? | One `qa-plan` and one `qa-execute` session |
 
-The existing provider `verifier` performs all stages. For a public slice, dispatch `technical`, then
-fresh `qa-plan` and `qa-execute`, followed by deep-review. Internal-only changes use technical and
-deep-review. All QA stages read `docs/guidelines/QA-SCENARIOS.md`; it owns fields and statuses. Each
-stage answers a question the others cannot, so none is redundant.
+The provider `verifier` executes exactly one phase per packet: `technical`, `qa-plan`, or
+`qa-execute`. The orchestrator dispatches a technical packet, then fresh QA Plan and QA Execute
+packets for a public slice. Deep-review is a separate orchestrator stage, not a Verifier phase;
+internal-only changes skip the QA packets. All QA stages read `docs/guidelines/QA-SCENARIOS.md`; it owns
+fields and statuses. Each stage answers a question the others cannot, so none is redundant.
 
 ## Why the slice, and not the feature
 
