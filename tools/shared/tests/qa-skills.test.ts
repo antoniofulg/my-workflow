@@ -44,6 +44,12 @@ function skillMetadata(relativePath: string): { name: string; description: strin
   return parseSkillMetadata(readRepositoryFile(relativePath), relativePath);
 }
 
+const verifierPacketPaths = [
+  ".cursor/agents/verifier.md",
+  ".claude/agents/verifier.md",
+  ".codex/agents/verifier.toml",
+] as const;
+
 describe("QA workflow artifact policy", () => {
   it("IT-007 ignores generated Deep Review output but keeps learnings eligible", () => {
     const gitignore = readRepositoryFile(".gitignore");
@@ -204,5 +210,64 @@ describe("canonical QA skills", () => {
     expect(() => parseSkillMetadata("name: qa-plan\ndescription: misplaced", "fixture")).toThrow(
       "Missing valid initial frontmatter",
     );
+  });
+
+  it("IT-003 dispatches all QA phases through each existing Verifier", () => {
+    for (const relativePath of verifierPacketPaths) {
+      const source = readRepositoryFile(relativePath);
+
+      expect(source).toMatch(/phase.*technical.*qa-plan.*qa-execute/s);
+      expect(source).toContain("Run exactly one phase per packet");
+      expect(source).toContain("invoke the canonical `qa-plan` skill");
+      expect(source).toContain("invoke the canonical `qa-execute` skill");
+      expect(source).toContain("fresh Verifier session");
+      expect(source).toContain("separate fresh Verifier");
+      expect(source).toContain("purely internal refactor");
+      expect(source).toMatch(/UI.*API.*CLI.*mobile.*adoption.*docs-as-interface/s);
+      expect(source).not.toMatch(/separate QA reviewer/i);
+    }
+  });
+
+  it("IT-004 keeps QA scenario fields and statuses in one authoritative guideline", () => {
+    const scenarioGuideline = readRepositoryFile("docs/guidelines/QA-SCENARIOS.md");
+    const executionGuideline = readRepositoryFile("docs/guidelines/QA-EXECUTION.md");
+    const reviewGuideline = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
+
+    expect(scenarioGuideline).toContain("Field rules");
+    expect(scenarioGuideline).toContain("Status enums");
+    expect(executionGuideline).toContain("QA-SCENARIOS.md");
+    expect(executionGuideline).toContain("qa-plan");
+    expect(executionGuideline).toContain("qa-execute");
+    expect(executionGuideline).not.toMatch(/(?:^|\n)(?:id|qa_status|fix_status|retest_status):/);
+    expect(executionGuideline).not.toContain("docs/qa/protocol.md");
+    expect(executionGuideline).not.toContain("docs/qa/tours.md");
+    expect(executionGuideline).not.toContain("docs/qa/edge-cases.md");
+    expect(executionGuideline.split(/\r?\n/).length).toBeLessThanOrEqual(60);
+    expect(reviewGuideline).toContain("QA-SCENARIOS.md");
+    expect(reviewGuideline.split(/\r?\n/).length).toBeLessThanOrEqual(160);
+
+    for (const relativePath of verifierPacketPaths) {
+      expect(readRepositoryFile(relativePath)).toContain("QA-SCENARIOS.md");
+    }
+  });
+
+  it("IT-013 records the selected QA adapter and checkout-local evidence", () => {
+    const qaExecute = readRepositoryFile(".agents/skills/qa-execute/SKILL.md");
+
+    expect(qaExecute).toContain("docs/qa/README.md");
+    expect(qaExecute).toMatch(/Report the exact adapter, path, evidence, and\s+limitation/);
+    expect(qaExecute).toMatch(/does not write product code, install a framework, invent a\s+command/);
+
+    for (const relativePath of verifierPacketPaths) {
+      const source = readRepositoryFile(relativePath);
+
+      expect(source).toContain("docs/qa/README.md");
+      expect(source).toContain("existing adapter");
+      expect(source).toContain("exact path");
+      expect(source).toContain("evidence");
+      expect(source).toContain("limitation");
+      expect(source).toMatch(/never install.*invent/s);
+      expect(source).toContain("checkout-local");
+    }
   });
 });

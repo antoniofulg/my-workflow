@@ -20,16 +20,18 @@ last column.
 | 3 | **Implement** | The cheapest code that makes the slice true | — | `ponytail` |
 | 4 | **Scoped gate** | Prove *this* diff, not the whole product | Escalate if the selector cannot scope it | [GATES.md](../guidelines/GATES.md) |
 | 5 | **Atomic commit** | One Conventional Commit; update `tasks.md` when present, or the inline execution plan when Tasks is skipped, first | — | `AGENTS.md` |
-| 6 | **Verifier** | Do the tests prove the acceptance criteria? Mutants must die | Filed-issue path; last slice (QA session) | [REVIEW-ROUNDS.md](../guidelines/REVIEW-ROUNDS.md) |
-| 7 | **QA walk** | Persona through this slice’s scenarios | No user-visible surface | [QA-SCENARIOS.md](../guidelines/QA-SCENARIOS.md) |
-| 8 | **Deep-review** | Correct, safe, maintainable — blocking findings only | Last slice | [REVIEW-ROUNDS.md](../guidelines/REVIEW-ROUNDS.md) |
-| 9 | **QA session** | The finished feature, as a person meets it | Feature has no user-visible change | [QA-EXECUTION.md](../guidelines/QA-EXECUTION.md) |
-| 10 | **Full gate** | The product gate, once, on the final tree | — | [GATES.md](../guidelines/GATES.md) |
-| 11 | **Pull request** | Human merge. Push and merge need an explicit instruction | Halt | [VERIFICATION-EVIDENCE.md](../guidelines/VERIFICATION-EVIDENCE.md) |
+| 6 | **Technical Verifier** | Do the tests prove the acceptance criteria? Mutants must die | Filed-issue path; no code in final QA session | [REVIEW-ROUNDS.md](../guidelines/REVIEW-ROUNDS.md) |
+| 7 | **QA Plan** | Map changed public promises to journeys, scenarios, and charters | No user-visible surface | [QA-EXECUTION.md](../guidelines/QA-EXECUTION.md) |
+| 8 | **QA Execute** | Walk public journeys through the declared adapter | No user-visible surface | [QA-EXECUTION.md](../guidelines/QA-EXECUTION.md) |
+| 9 | **Deep-review** | Correct, safe, maintainable — blocking findings only | Final QA session | [REVIEW-ROUNDS.md](../guidelines/REVIEW-ROUNDS.md) |
+| 10 | **QA session** | The finished feature, as a person meets it | Feature has no user-visible change | [QA-EXECUTION.md](../guidelines/QA-EXECUTION.md) |
+| 11 | **Full gate** | The product gate, once, on the final tree | — | [GATES.md](../guidelines/GATES.md) |
+| 12 | **Pull request** | Human merge. Push and merge need an explicit instruction | Halt | [VERIFICATION-EVIDENCE.md](../guidelines/VERIFICATION-EVIDENCE.md) |
 
-The **last slice is the QA session**. It writes no product code, so it gets no Verifier and no
-deep-review. Per-slice walks asked “does this behaviour work?”. The session asks “does the finished
-thing feel right?” — which has no answer until the last behaviour is in.
+The **last slice is the QA session**. It writes no product code, so it gets no technical Verifier or
+deep-review; two distinct fresh Verifier packets still run `qa-plan` and `qa-execute`. Per-slice QA
+asks “does this behaviour work?”. The session asks “does the finished thing feel right?” — which has
+no answer until the last behaviour is in.
 
 ## Why slices, not “the whole feature”
 
@@ -62,7 +64,7 @@ Copied as orientation; `AGENTS.md` is canonical:
 3. The Verifier is a different actor than the author.
 4. A round contains only findings not already raised.
 5. Only Blocker and Major trigger another round.
-6. Stages never loop into each other (worst case: six passes, then a human).
+6. Stages never loop into each other; blocking caps escalate to a human.
 7. Every count or measurement cites the command that produced it.
 
 ## Isolated checkouts

@@ -8,19 +8,22 @@ nit changes the diff; the next round finds new nits. The loop is unbounded by co
 
 [REVIEW-ROUNDS.md](../guidelines/REVIEW-ROUNDS.md) is the protocol. This page is the choice.
 
-## Three reviewers, three questions
+## One Verifier role, several phases
 
-They run **inside each slice**, in this order. None repeats the others.
+The existing provider `verifier` runs these phases in order inside each public slice. None repeats the
+others.
 
 | Reviewer | Question only it can answer | Cap |
 | --- | --- | --- |
-| **Verifier** | Do the tests actually prove the spec? | ≤3 fix rounds, then the human |
-| **QA walk** | Does this behaviour work for a real user? | This slice’s scenarios |
+| **Technical Verifier** | Do the tests actually prove the spec? | ≤3 fix rounds, then the human |
+| **QA Plan** | Which public promises need a walk? | One fresh Verifier session |
+| **QA Execute** | Does this behaviour work through the declared adapter? | One fresh Verifier session |
 | **Deep-review** | Is the code correct, safe, maintainable? | ≤2 rounds, Blocker/Major only |
-| **QA session** (last slice) | Does the finished feature feel right? | One session |
+| **QA session** (last slice) | Does the finished feature feel right? | One `qa-plan` and one `qa-execute` session |
 
-A documentation-only slice still gets a Verifier and a deep-review. `docs/` is full of Markdown
-agents will act on; no compiler catches a plan that says work has not started when it has shipped.
+A documentation-only slice still gets a Technical Verifier and a deep-review. If its docs are an
+interface users or adopters consume, it also gets the two QA phases. `docs/` is full of Markdown
+agents act on; no compiler catches a plan that says work has not started when it has shipped.
 
 They do not send work back to each other. A deep-review finding never restarts the Verifier. The
 exception: if a deep-review fix changes user-visible behaviour, re-walk **the affected scenario
