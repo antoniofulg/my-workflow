@@ -18,8 +18,10 @@ function hashSkillTree(directory: string): string {
     for (const entry of readdirSync(currentDirectory, { withFileTypes: true })) {
       const fullPath = join(currentDirectory, entry.name);
       if (entry.isDirectory()) {
-        if (entry.name !== ".git" && entry.name !== "node_modules") collect(fullPath);
-      } else if (entry.isFile()) {
+        if (entry.name !== ".git" && entry.name !== "node_modules" && entry.name !== "__pycache__") {
+          collect(fullPath);
+        }
+      } else if (entry.isFile() && !entry.name.endsWith(".pyc")) {
         files.push({
           relativePath: relative(directory, fullPath).split(sep).join("/"),
           content: readFileSync(fullPath),
