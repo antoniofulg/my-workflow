@@ -107,7 +107,8 @@ npx --yes skills add dietrichgebert/ponytail \
 ```
 
 `autonomous` is vendored here. `CLAUDE.md` is the one line `@AGENTS.md` (not a symlink). Planner,
-implementer and verifier packets live under `.cursor/agents/`, `.claude/agents/` and `.codex/agents/`.
+implementer, explorer and verifier packets live under `.cursor/agents/`, `.claude/agents/` and
+`.codex/agents/`.
 
 ## Knowledge checker
 
