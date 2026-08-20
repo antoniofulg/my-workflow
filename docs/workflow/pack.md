@@ -13,9 +13,10 @@ Three families, nothing else:
 Canonical copies: `.agents/skills/`. Claude: symlinks in `.claude/skills/`. Cursor / Codex /
 OpenCode consume `.agents`. Do not add `.cursor/skills`.
 
-Planner / implementer / verifier are three windows. Packet text lives on the agent files; spawn
-models live there too. Same `name` in `.cursor/agents/`, `.claude/agents/`, `.codex/agents/`. Real
-files, no symlinks. `CLAUDE.md` is `@AGENTS.md`.
+Planner / implementer / explorer / verifier are four windows. Packet text lives on the agent files;
+spawn models live there too. Same `name` in `.cursor/agents/`, `.claude/agents/`, `.codex/agents/`.
+Real files, no symlinks. `CLAUDE.md` is `@AGENTS.md`. Explorer is read-only and handles product-tree
+searches and flow traces for the parent agent.
 
 `autonomous` merge still needs: full gate 0 on the final tree, no Blocker/Major left, `main` not
 moved underneath, flagged scenarios terminal (`untested` blocks; `blocked-verify` does not).
@@ -35,7 +36,8 @@ Empty on purpose. Machinery only: operating schema, `raw/` README, stub indexes,
 
 `python3 scripts/adopt.py <target>` copies the loop into another repo and refuses to overwrite a
 non-stencil **What this project is** paragraph. It writes `@AGENTS.md` as `CLAUDE.md`. Agent folders
-copy only when the destination has none, so local model pins survive a re-adopt.
+copy missing packet files into existing folders without overwriting local files or model pins; a
+fresh destination gets all packets.
 
 The consuming project owns product docs, architecture, design, stack, and `make check`.
 

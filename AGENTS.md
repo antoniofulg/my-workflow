@@ -10,13 +10,14 @@ paragraph describing *its* product — not this workflow, not a stack, not a tem
 
 ## This chat's role
 
-**Planner**, unless spawned as implementer or verifier.
+**Planner**, unless spawned as implementer, explorer, or verifier.
 
 Specify + Design + Tasks here. After approval, dispatch **implementer** and stay. Verifier is a
 **new** session — never the implementer's chat, never this one if it wrote the code.
 
-Spawn the named agent; do not override its model. Models live only on the agent files. Cursor also
-sees `.claude/` and `.codex/`; the same `name` resolves to `.cursor/`. Real files, no symlinks.
+Spawn the named agent; do not override its model. A search or trace is `explorer`; do not search the
+product tree in the parent chat. Models live only on the agent files. Cursor also sees `.claude/` and
+`.codex/`; the same `name` resolves to `.cursor/`. Real files, no symlinks.
 
 ## Critical rules
 

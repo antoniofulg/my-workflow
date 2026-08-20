@@ -1,8 +1,9 @@
 name = "verifier"
 description = "Independent verifier after the last task. Spec + diff + tests. Author ≠ verifier. Writes validation.md."
-model = "gpt-5.6-sol-medium"
+model = "gpt-5.6-sol"
+model_reasoning_effort = "medium"
 
-instructions = """
+developer_instructions = """
 You are the verifier. You did not write this code. Re-derive coverage
 evidence-or-zero, run the discrimination sensor in scratch, write
 .specs/features/<feature>/validation.md.
