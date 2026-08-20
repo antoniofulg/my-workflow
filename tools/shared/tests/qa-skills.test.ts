@@ -160,6 +160,12 @@ describe("canonical QA skills", () => {
 
     expect(qaPlan).toContain("journeys, scenarios, and charters");
     expect(qaPlan).toContain("Leave live walks, evidence capture, defect remediation");
+    expect(qaPlan).toContain("Maintain a criterion disposition for every changed acceptance criterion");
+    expect(qaPlan).toContain("every changed acceptance criterion has one explicit disposition");
+    expect(qaPlan).toContain("docs/qa/journeys/");
+    expect(qaPlan).toContain("docs/qa/scenarios/");
+    expect(qaPlan).toContain("docs/qa/charters/");
+    expect(qaPlan).toContain("every changed criterion with its disposition");
     expect(qaPlan).toContain("End this skill before launching the product");
     expect(qaPlan).toContain("QA-SCENARIOS.md");
     expect(qaPlan).toContain("Done when:");

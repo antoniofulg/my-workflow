@@ -39,10 +39,13 @@ changed surface as user-visible or internal. Include routes, screens, public con
 commands, API responses, mobile surfaces, and user-facing copy when their observable behaviour
 changed.
 
-If no user-visible promise changed, record `no user-visible change` in the task handoff and stop.
+Maintain a criterion disposition for every changed acceptance criterion. Map user-visible criteria
+to a QA journey/scenario; for an internal criterion, enumerate it in the handoff with the reason it
+does not change a user-visible promise. If no criterion is user-visible, record `no user-visible
+change` in the task handoff and stop.
 
-**Done when:** every changed acceptance criterion has a user-visible/internal classification and the
-no-surface case has a written handoff.
+**Done when:** every changed acceptance criterion has one explicit disposition, and the no-surface
+case has a written handoff.
 
 ### 2. Load the QA context
 
@@ -57,42 +60,47 @@ scenario that can cover the changed surface.
 
 ### 3. Map the promises
 
-Map every affected acceptance criterion to an existing journey and scenario. Mint a stable,
-content-addressed scenario for a new promise. Fold duplicate coverage into the canonical scenario
-and record overlaps there. Include one adjacent canary journey when the feature has a user-visible
-surface.
+Map every user-visible acceptance criterion to an existing journey under `docs/qa/journeys/` and a
+scenario under `docs/qa/scenarios/`. Mint a stable, content-addressed scenario for a new promise.
+Fold duplicate coverage into the canonical scenario and record overlaps there. Include one adjacent
+canary journey when the feature has a user-visible surface. Keep each internal criterion's explicit
+reason in the disposition handoff.
 
 Use the schema and status vocabulary from `QA-SCENARIOS.md`; keep field definitions in that file.
 Describe the expected observable in user language and preserve scenario ids once published.
 
-**Done when:** every user-visible acceptance criterion maps to one canonical scenario and journey,
-or the handoff names the criterion and explains why no user promise changed.
+**Done when:** every changed acceptance criterion has a disposition: one canonical
+`docs/qa/journeys/` + `docs/qa/scenarios/` mapping for a user-visible promise, or a handoff entry
+that names the criterion and explains why no user promise changed.
 
 ### 4. Flag the cycle
 
-Create a scenario with `qa_status: untested` when the promise is new. Reset an affected existing
-scenario to `untested` when the diff changes its promise. Link open bugs and preserve the latest
-report path and evidence according to the schema. Update journey maps when the route through the
-product changed.
+Create a scenario under `docs/qa/scenarios/` with `qa_status: untested` when the promise is new.
+Reset an affected existing scenario to `untested` when the diff changes its promise. Link open bugs
+and preserve the latest report path and evidence according to the schema. Update journey maps under
+`docs/qa/journeys/` when the route through the product changed.
 
 **Done when:** every affected scenario is new or reset to `untested`, and its journey, bug links,
 and report references are internally consistent.
 
 ### 5. Write session charters
 
-Create or update one charter per meaningful persona × journey × tour × time-box for this cycle.
-Point each charter at its scenario and journey, state the public entry point, and define the
-observable that proves success. Include the adjacent canary and prioritize changed or risky paths.
+Create or update one charter under `docs/qa/charters/` per meaningful persona × journey × tour ×
+time-box for this cycle. Point each charter at its scenario and journey, state the public entry
+point, and define the observable that proves success. Include the adjacent canary and prioritize
+changed or risky paths.
 
 **Done when:** every affected scenario is covered by a dated, bounded charter with a persona,
 journey, entry point, tour, time-box, and expected observable.
 
 ### 6. Hand off for execution
 
-Summarize the scenario ids, charters, profile path, adapter candidates, and any missing prerequisite
-for the next fresh Verifier. State that execution must use `qa-execute`, the project's existing
-public interface, and the profile's declared adapter. End this skill before launching the product or
+Summarize the criterion disposition ledger, the `docs/qa/journeys/`, `docs/qa/scenarios/`, and
+`docs/qa/charters/` outputs, profile path, adapter candidates, and any missing prerequisite for the
+next fresh Verifier. State that execution must use `qa-execute`, the project's existing public
+interface, and the profile's declared adapter. End this skill before launching the product or
 changing product code.
 
-**Done when:** the handoff lists every affected scenario and charter, names the next Verifier
-session, and contains no live execution result or product fix.
+**Done when:** the handoff lists every changed criterion with its disposition, every affected
+scenario and charter output, names the next Verifier session, and contains no live execution result
+or product fix.
