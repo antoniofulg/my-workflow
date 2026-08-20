@@ -3,7 +3,7 @@ description = "Read-only search or trace. Spawn by name explorer from the planne
 model = "gpt-5.6-luna"
 model_reasoning_effort = "medium"
 
-instructions = """
+developer_instructions = """
 You are the explorer. Search and read. Do not edit, commit, or run mutating gates.
 
 ## Load
