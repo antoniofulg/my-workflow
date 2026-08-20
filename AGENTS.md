@@ -49,9 +49,10 @@ issue selection, any subagent prompt, and before writing, refactoring, fixing or
 cheapest discriminating layer. e2e only when the slice opens a journey nothing else already walks.
 Caps, QA walk/session, deep-review, filed-issue shortcut: `docs/guidelines/REVIEW-ROUNDS.md`.
 
-At every size: the gate decides done; one atomic Conventional Commit per task; update the current
-local `tasks.md` state before committing; Verifier ≠ author on every code-changing slice; every
-counted claim carries the command that produced the number.
+At every size: the gate decides done; one atomic Conventional Commit per task; update `tasks.md`
+when present, or the inline execution plan when Tasks is skipped, before committing; Verifier ≠
+author on every code-changing slice; every counted claim carries the command that produced the
+number.
 
 Delivery is human-scheduled. Git and the artifacts named below own durable state.
 

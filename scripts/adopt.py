@@ -9,6 +9,12 @@ from pathlib import Path
 
 STENCIL = "<!-- product-stencil:"
 
+WORKFLOW_GITIGNORE_ENTRIES = (
+    ".deep-review/*",
+    "!.deep-review/learnings.md",
+    ".specs/features/",
+)
+
 COPY_PATHS = [
     "docs/guidelines",
     "docs/workflow",
@@ -108,6 +114,22 @@ def copy_agents(src: Path, dest: Path) -> None:
         copy_missing(origin, target)
 
 
+def merge_gitignore(dest: Path) -> None:
+    target = dest / ".gitignore"
+    existing = target.read_text(encoding="utf-8") if target.exists() else ""
+    lines = existing.splitlines()
+    managed = [line for line in lines if line in WORKFLOW_GITIGNORE_ENTRIES]
+    if managed == list(WORKFLOW_GITIGNORE_ENTRIES):
+        return
+
+    kept = [line for line in lines if line not in WORKFLOW_GITIGNORE_ENTRIES]
+    merged = "\n".join(kept).rstrip()
+    if merged:
+        merged += "\n"
+    merged += "\n".join(WORKFLOW_GITIGNORE_ENTRIES) + "\n"
+    target.write_text(merged, encoding="utf-8")
+
+
 def link_claude_skills(dest: Path) -> None:
     claude_skills = dest / ".claude" / "skills"
     claude_skills.mkdir(parents=True, exist_ok=True)
@@ -137,6 +159,7 @@ def main(argv: list[str]) -> None:
             continue
         copy_tree(origin, dest / rel)
     copy_agents(src, dest)
+    merge_gitignore(dest)
     write_claude(dest)
     link_claude_skills(dest)
     print(f"adopted workflow into {dest}")

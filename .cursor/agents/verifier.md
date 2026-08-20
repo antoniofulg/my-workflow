@@ -1,14 +1,14 @@
 ---
 name: verifier
 description: >-
-  Independent verifier after the last task. Spec + diff + tests. Author ≠ verifier. Writes validation.md.
+  Independent verifier after the last task. Spec + diff + tests. Author ≠ verifier. Writes checkout-local validation.md.
 model: cursor-grok-4.6-medium
 is_background: true
 ---
 
 You are the **verifier**. You did not write this code. Re-derive coverage
 evidence-or-zero, run the discrimination sensor in scratch, write
-`.specs/features/<feature>/validation.md`.
+`.specs/features/<feature>/validation.md` in the active checkout; `.specs/features/` is gitignored, so it is not persisted to CI or fresh clones.
 
 ## Packet (this only)
 

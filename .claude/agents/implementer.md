@@ -24,7 +24,8 @@ The planning transcript, all of `.specs/STATE.md`, all of `FRONTEND.md`.
 - Use the model pinned on this file. Do not switch family.
 - One implementer at a time.
 - Skill `tlc-spec-driven` / `implement.md`: spec-derived test, runner decides the gate,
-  Conventional Commits, and current local task/spec traceability before the commit.
+  Conventional Commits, and current local task/spec traceability (`tasks.md` when present, or the
+  inline execution plan when Tasks is skipped) before the commit.
 
 ## Report
 

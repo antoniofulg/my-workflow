@@ -216,12 +216,15 @@ After the gate check passes:
 
 ### 7. Status + Atomic Commit
 
-After the gate is green, close the task record **before** creating the commit. The current local
-`tasks.md` is the resume source; feature planning files under `.specs/features/` stay ignored and
-are not commit contents. Never leave the local task state open after a successful task commit - a
+After the gate is green, close the task record **before** creating the commit. When `tasks.md` is
+present, it is the resume source; when Tasks was skipped, the inline execution plan is the local
+state to update and verify. Feature planning files under `.specs/features/` stay ignored and are
+not commit contents. Never leave the local task state open after a successful task commit - a
 crash between those steps is how resume redoes finished work.
 
-1. Mark the task complete in `tasks.md`. Update requirement traceability in `spec.md` if requirement IDs are used.
+1. If `tasks.md` is present, mark the task complete in `tasks.md`. If Tasks was skipped, mark the
+   current inline execution-plan step complete and record its gate result. Update requirement
+   traceability in `spec.md` if requirement IDs are used.
 2. Create **one** atomic commit that includes the implementation and its tests; verify the local
    status/traceability updates before committing.
 
@@ -338,7 +341,9 @@ Dispatch a fresh sub-agent following the **Verifier** role described in [sub-age
 
 If the Verifier returns FAIL, the orchestrator routes the ranked gaps back to an implementer as fix tasks, then re-dispatches the Verifier - bounded to **3 fix→re-verify iterations** before escalating to the user.
 
-If you are unsure whether more tasks remain, check `tasks.md`: if every task is marked complete, dispatch the Verifier now.
+If you are unsure whether more tasks remain, check `tasks.md` when present; when Tasks was skipped,
+confirm every inline execution-plan step is complete. If all work is complete, dispatch the Verifier
+now.
 
 ---
 
@@ -416,7 +421,8 @@ If you are unsure whether more tasks remain, check `tasks.md`: if every task is 
 - **One task at a time** - Focus prevents errors
 - **Tools matter** - Wrong MCP = wrong approach
 - **Reuses save tokens** - Copy patterns, don't reinvent
-- **Status then commit** - Mark the local `tasks.md` complete before the atomic commit
+- **Status then commit** - Mark `tasks.md` complete when present, or the inline execution-plan
+  step when Tasks is skipped, before the atomic commit
 - **Stay surgical** - Touch only what's necessary
 - **Commit per task** - Clean git history enables bisect and rollback
 - **Never "while I'm here"** - Scope creep during implementation is the #1 quality killer

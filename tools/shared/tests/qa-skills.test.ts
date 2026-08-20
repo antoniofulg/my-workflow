@@ -35,6 +35,7 @@ describe("QA workflow artifact policy", () => {
     expect(gitignore).toContain(".deep-review/*");
     expect(gitignore).toContain("!.deep-review/learnings.md");
     expect(isIgnored(".deep-review/findings.md")).toBe(true);
+    expect(isIgnored(".deep-review/qa-skills-t1/agents/cohort-c01.json")).toBe(true);
     expect(isIgnored(".deep-review/learnings.md")).toBe(false);
   });
 
@@ -57,14 +58,29 @@ describe("QA workflow artifact policy", () => {
       readRepositoryFile(".codex/agents/implementer.toml"),
     ];
 
-    expect(agents).toMatch(/current\s+local `tasks\.md` state before committing/);
-    expect(loop).toContain("current local task state first");
-    expect(specDriven).toMatch(/current local `tasks\.md`/);
-    expect(implementer).toMatch(/current local\s+`tasks\.md`/);
+    expect(agents).toMatch(
+      /update `tasks\.md`\s+when present, or the inline execution plan when Tasks is skipped, before committing/,
+    );
+    expect(loop).toMatch(
+      /update `tasks\.md` when present, or the inline execution plan when Tasks is skipped, first/,
+    );
+    expect(specDriven).toContain("When `tasks.md` is present, mark the task complete there");
+    expect(specDriven).toContain(
+      "when Tasks is skipped, update and verify the inline execution plan before committing",
+    );
+    expect(implementer).toContain("close the task record **before** creating the commit");
+    expect(implementer).toContain("If `tasks.md` is present, mark the task complete in `tasks.md`.");
+    expect(implementer).toMatch(
+      /If Tasks was skipped, mark the\s+current inline execution-plan step complete/,
+    );
+    expect(implementer.indexOf("close the task record **before** creating the commit")).toBeLessThan(
+      implementer.indexOf("Create **one** atomic commit"),
+    );
     expect(implementer).not.toContain("include those status/traceability updates");
     expect(implementer).not.toContain("plus the `tasks.md` / `spec.md` status updates");
     for (const packet of providerPackets) {
-      expect(packet).toContain("current local task/spec traceability before the commit");
+      expect(packet).toContain("when present, or the");
+      expect(packet).toContain("inline execution plan when Tasks is skipped");
       expect(packet).not.toContain("traceability in the same commit");
     }
     expect(tracked(".specs/features/qa-skills/tasks.md")).toBe("");
