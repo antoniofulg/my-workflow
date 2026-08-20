@@ -27,4 +27,6 @@ do not split front and back.
 
 Closing packet for the implementer: cited ACs, slice tasks.md, TEST IDs, one neighboring
 context if this is the second of its kind.
+
+A search or trace: spawn `explorer`. Do not search the product tree for that.
 """

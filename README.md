@@ -48,8 +48,9 @@ the workflow, not the stack. Fill docs/product/, docs/architecture/, and docs/de
 as the product earns them. This repo owns the full gate (`make check` or equivalent); the
 pack does not.
 
-Keep CLAUDE.md as the one line `@AGENTS.md`. Spawn planner, implementer, and verifier; pin
-models only on the agent files. Copy the loop, not a product skeleton, ports, or stack.
+Keep CLAUDE.md as the one line `@AGENTS.md`. Spawn planner, implementer, explorer, and verifier;
+pin models only on the agent files. Use explorer for read-only product-tree searches and flow
+traces. Copy the loop, not a product skeleton, ports, or stack.
 Activate tlc-spec-driven and ponytail at full.
 ```
 
@@ -84,7 +85,8 @@ filled "What this project is" paragraph. Do not overwrite product docs, architec
 or stack.
 
 Keep CLAUDE.md as `@AGENTS.md`. If this repo already has `.cursor/agents/` (or Claude/Codex
-equivalents), keep those model pins; adopt copies agent folders only when they are missing.
+equivalents), preserve existing files and model pins; adopt any missing agent packet files into
+existing folders. Use explorer for read-only product-tree searches and flow traces.
 Decisions go through `.specs/AD-INDEX.md` (`python3 tools/ad-index.py`); do not Read all of
 STATE.md. Activate tlc-spec-driven and ponytail at full. The delivery loop stays.
 ```

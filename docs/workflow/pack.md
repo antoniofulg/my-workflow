@@ -13,9 +13,10 @@ Three families, nothing else:
 Canonical copies: `.agents/skills/`. Claude: symlinks in `.claude/skills/`. Cursor / Codex /
 OpenCode consume `.agents`. Do not add `.cursor/skills`.
 
-Planner / implementer / verifier are three windows. Packet text lives on the agent files; spawn
-models live there too. Same `name` in `.cursor/agents/`, `.claude/agents/`, `.codex/agents/`. Real
-files, no symlinks. `CLAUDE.md` is `@AGENTS.md`.
+Planner / implementer / explorer / verifier are four windows. Packet text lives on the agent files;
+spawn models live there too. Same `name` in `.cursor/agents/`, `.claude/agents/`, `.codex/agents/`.
+Real files, no symlinks. `CLAUDE.md` is `@AGENTS.md`. Explorer is read-only and handles product-tree
+searches and flow traces for the parent agent.
 
 `autonomous` merge still needs: full gate 0 on the final tree, no Blocker/Major left, `main` not
 moved underneath, flagged scenarios terminal (`untested` blocks; `blocked-verify` does not).
