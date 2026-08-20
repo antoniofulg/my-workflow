@@ -20,8 +20,9 @@ Promote before the pull request, per [ARTIFACT-LIFECYCLE.md](../guidelines/ARTIF
 - Must outlive it as an invariant → the architecture docs
 - Must outlive it as an agent rule → `docs/guidelines/`
 
-Planning artifacts (`spec.md`, `design.md`, `tasks.md`, workflow memory) stay on the branch. After
-the code exists they are a second description of the same thing, and two descriptions drift.
+Planning artifacts (`spec.md`, `design.md`, `tasks.md`, workflow memory) stay in the active checkout
+as ignored local state. After the code exists they are a second description of the same thing, and
+two descriptions drift.
 
 ## Halt vs decide
 

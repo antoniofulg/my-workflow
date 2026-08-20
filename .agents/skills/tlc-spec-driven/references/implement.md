@@ -214,12 +214,16 @@ After the gate check passes:
 
    Add the two mapping tables and a one-line adequacy verdict to the Execution Template's Post-Gate section.
 
-### 7. Status + Atomic Commit (same commit)
+### 7. Status + Atomic Commit
 
-After the gate is green, close the task record **before** creating the commit, then commit code and status together. Never leave `tasks.md` still open after a successful task commit - a crash between those steps is how resume redoes finished work.
+After the gate is green, close the task record **before** creating the commit. The current local
+`tasks.md` is the resume source; feature planning files under `.specs/features/` stay ignored and
+are not commit contents. Never leave the local task state open after a successful task commit - a
+crash between those steps is how resume redoes finished work.
 
 1. Mark the task complete in `tasks.md`. Update requirement traceability in `spec.md` if requirement IDs are used.
-2. Create **one** atomic commit that includes the implementation, its tests, and those status/traceability updates.
+2. Create **one** atomic commit that includes the implementation and its tests; verify the local
+   status/traceability updates before committing.
 
 Each task gets its own commit immediately after verification. Never batch multiple tasks into one commit.
 
@@ -286,7 +290,7 @@ for reuse across multiple endpoints.
 
 - One task = one commit
 - Description references what was DONE, not what was planned
-- Include only files listed in the task - plus the `tasks.md` / `spec.md` status updates for this task
+- Include only files listed in the task; keep ignored planning state out of the commit
 - Never sneak in "while I'm here" changes
 - If tests are part of the task, include them in the same commit
 
@@ -412,7 +416,7 @@ If you are unsure whether more tasks remain, check `tasks.md`: if every task is 
 - **One task at a time** - Focus prevents errors
 - **Tools matter** - Wrong MCP = wrong approach
 - **Reuses save tokens** - Copy patterns, don't reinvent
-- **Status then commit, same commit** - Mark `tasks.md` complete before the atomic commit and include that update in it
+- **Status then commit** - Mark the local `tasks.md` complete before the atomic commit
 - **Stay surgical** - Touch only what's necessary
 - **Commit per task** - Clean git history enables bisect and rollback
 - **Never "while I'm here"** - Scope creep during implementation is the #1 quality killer

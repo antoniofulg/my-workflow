@@ -34,8 +34,8 @@ re-verified from scratch because nothing remembered the last verdict.
 
 ## Rules
 
-1. **Planning artifacts stay out of the durable record.** They live on the branch and are not
-   maintained after the merge. Git history holds them if anyone ever needs to look.
+1. **Planning artifacts stay out of the durable record.** They live in the active checkout as
+   ignored local state and are not maintained after the merge.
 2. **Promote before the pull request.** Anything from a planning artifact that must outlive the
    feature moves to its real home first:
    - A project decision → `.specs/STATE.md` as `AD-NNN`

@@ -49,9 +49,9 @@ issue selection, any subagent prompt, and before writing, refactoring, fixing or
 cheapest discriminating layer. e2e only when the slice opens a journey nothing else already walks.
 Caps, QA walk/session, deep-review, filed-issue shortcut: `docs/guidelines/REVIEW-ROUNDS.md`.
 
-At every size: the gate decides done; one atomic Conventional Commit per task (`tasks.md` in that
-commit); Verifier ≠ author on every code-changing slice; every counted claim carries the command
-that produced the number.
+At every size: the gate decides done; one atomic Conventional Commit per task; update the current
+local `tasks.md` state before committing; Verifier ≠ author on every code-changing slice; every
+counted claim carries the command that produced the number.
 
 Delivery is human-scheduled. Git and the artifacts named below own durable state.
 
@@ -79,7 +79,7 @@ Delivery is human-scheduled. Git and the artifacts named below own durable state
 | Recording or verifying the bundle | `docs/guidelines/KNOWLEDGE-WIKI.md` |
 | Editing this file or a guideline | `docs/guidelines/CONTEXT-BUDGET.md` |
 | Why a past choice (`AD-NNN`) | `.specs/AD-INDEX.md`; body `rg -A 20 '^### AD-NNN' .specs/STATE.md` |
-| Resume | `rg -A 20 '^## Handoff' .specs/STATE.md`, then git + `tasks.md` |
+| Resume | `rg -A 20 '^## Handoff' .specs/STATE.md`, then git + the current local `tasks.md` state |
 
 Docs and formatting do not trigger `SECURITY.md`.
 

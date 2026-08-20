@@ -19,7 +19,7 @@ last column.
 | 2 | **Slice** | One observable behaviour plus the tests that prove it | — | `AGENTS.md` |
 | 3 | **Implement** | The cheapest code that makes the slice true | — | `ponytail` |
 | 4 | **Scoped gate** | Prove *this* diff, not the whole product | Escalate if the selector cannot scope it | [GATES.md](../guidelines/GATES.md) |
-| 5 | **Atomic commit** | One Conventional Commit; mark the task done in the same commit | — | `AGENTS.md` |
+| 5 | **Atomic commit** | One Conventional Commit; update the current local task state first | — | `AGENTS.md` |
 | 6 | **Verifier** | Do the tests prove the acceptance criteria? Mutants must die | Filed-issue path; last slice (QA session) | [REVIEW-ROUNDS.md](../guidelines/REVIEW-ROUNDS.md) |
 | 7 | **QA walk** | Persona through this slice’s scenarios | No user-visible surface | [QA-SCENARIOS.md](../guidelines/QA-SCENARIOS.md) |
 | 8 | **Deep-review** | Correct, safe, maintainable — blocking findings only | Last slice | [REVIEW-ROUNDS.md](../guidelines/REVIEW-ROUNDS.md) |
