@@ -11,7 +11,8 @@ commit per task. Return hashes and deviations. Do not verify your own work.
 
 ## Packet (this only)
 
-- Slice `tasks.md`, cited ACs from the spec
+- The slice task from `tasks.md` when present, or the task payload and inline execution plan when
+  Tasks was skipped; cited ACs from the spec
 - The TEST-CONTRACT layer you will write
 - `docs/guidelines/SECURITY.md` if the task touches runtime, schema, auth, or public behaviour
 - Workflow memory if this is a multi-task feature

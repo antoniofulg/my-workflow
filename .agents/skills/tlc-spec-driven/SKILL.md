@@ -43,7 +43,7 @@ Plan and implement features with precision. Granular tasks. Clear dependencies. 
 
 A non-zero exit means STOP and fix before proceeding. Skip a script only when no code-execution tool is available; then perform the same checks by reading the artifact.
 
-**Before Execute:** read [implement.md](references/implement.md) completely and run `<skill-dir>/scripts/validate_tasks.py`; if a formal `tasks.md` packs into more than one task-budgeted batch (> ~8 tasks), present the sub-agent offer first (see Sub-Agent Delegation).
+**Before Execute:** read [implement.md](references/implement.md) completely. When a formal `tasks.md` exists, run `<skill-dir>/scripts/validate_tasks.py` against it; if it packs into more than one task-budgeted batch (> ~8 tasks), present the sub-agent offer first (see Sub-Agent Delegation). When Tasks was skipped, verify the inline execution plan instead: every step must name one deliverable, a gate command, and one atomic commit.
 
 ## Auto-Sizing: The Core Principle
 
@@ -93,7 +93,7 @@ A non-zero exit means STOP and fix before proceeding. Skip a script only when no
 **Resume work:**
 
 1. Read `.specs/STATE.md` (Handoff + Decisions).
-2. Reconcile Handoff against git (`branch`, `status --porcelain`, recent commits) and `tasks.md` - evidence wins over a stale snapshot. Full procedure: [memory.md](references/memory.md).
+2. Reconcile Handoff against git (`branch`, `status --porcelain`, recent commits) and, when present, `tasks.md`; when Tasks was skipped, reconcile the inline execution plan instead. Evidence wins over a stale snapshot. Full procedure: [memory.md](references/memory.md).
 3. Propose the reconciled next step before writing code.
 
 ## Context Loading Strategy

@@ -80,7 +80,7 @@ Delivery is human-scheduled. Git and the artifacts named below own durable state
 | Recording or verifying the bundle | `docs/guidelines/KNOWLEDGE-WIKI.md` |
 | Editing this file or a guideline | `docs/guidelines/CONTEXT-BUDGET.md` |
 | Why a past choice (`AD-NNN`) | `.specs/AD-INDEX.md`; body `rg -A 20 '^### AD-NNN' .specs/STATE.md` |
-| Resume | `rg -A 20 '^## Handoff' .specs/STATE.md`, then git + the current local `tasks.md` state |
+| Resume | `rg -A 20 '^## Handoff' .specs/STATE.md`, then reconcile Handoff + git and consult the current local `tasks.md` state when present, or the inline execution plan when Tasks was skipped |
 
 Docs and formatting do not trigger `SECURITY.md`.
 

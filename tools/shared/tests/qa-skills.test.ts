@@ -52,10 +52,17 @@ describe("QA workflow artifact policy", () => {
     const loop = readRepositoryFile("docs/workflow/loop.md");
     const specDriven = readRepositoryFile(".agents/skills/tlc-spec-driven/SKILL.md");
     const implementer = readRepositoryFile(".agents/skills/tlc-spec-driven/references/implement.md");
+    const validator = readRepositoryFile(".agents/skills/tlc-spec-driven/references/validate.md");
+    const memory = readRepositoryFile(".agents/skills/tlc-spec-driven/references/memory.md");
     const providerPackets = [
       readRepositoryFile(".cursor/agents/implementer.md"),
       readRepositoryFile(".claude/agents/implementer.md"),
       readRepositoryFile(".codex/agents/implementer.toml"),
+    ];
+    const plannerPackets = [
+      readRepositoryFile(".cursor/agents/planner.md"),
+      readRepositoryFile(".claude/agents/planner.md"),
+      readRepositoryFile(".codex/agents/planner.toml"),
     ];
 
     expect(agents).toMatch(
@@ -68,6 +75,15 @@ describe("QA workflow artifact policy", () => {
     expect(specDriven).toContain(
       "when Tasks is skipped, update and verify the inline execution plan before committing",
     );
+    expect(specDriven).toContain(
+      "When a formal `tasks.md` exists, run `<skill-dir>/scripts/validate_tasks.py` against it",
+    );
+    expect(specDriven).toContain(
+      "When Tasks was skipped, verify the inline execution plan instead",
+    );
+    expect(agents).toContain("reconcile Handoff + git");
+    expect(memory).toMatch(/when Tasks\s+was skipped,\s+the inline execution-plan completion/);
+    expect(validator).toContain("When Tasks was skipped, run the gate command recorded in the inline execution plan");
     expect(implementer).toContain("close the task record **before** creating the commit");
     expect(implementer).toContain("If `tasks.md` is present, mark the task complete in `tasks.md`.");
     expect(implementer).toMatch(
@@ -79,9 +95,16 @@ describe("QA workflow artifact policy", () => {
     expect(implementer).not.toContain("include those status/traceability updates");
     expect(implementer).not.toContain("plus the `tasks.md` / `spec.md` status updates");
     for (const packet of providerPackets) {
-      expect(packet).toContain("when present, or the");
+      expect(packet).toMatch(
+        /tasks\.md`? when present,? or the task payload and inline execution plan/,
+      );
       expect(packet).toContain("inline execution plan when Tasks is skipped");
       expect(packet).not.toContain("traceability in the same commit");
+    }
+    for (const packet of plannerPackets) {
+      expect(packet).toMatch(
+        /tasks\.md`? when present or the\s+task payload and inline execution plan when Tasks is skipped/,
+      );
     }
     expect(tracked(".specs/features/qa-skills/tasks.md")).toBe("");
   });

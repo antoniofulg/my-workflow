@@ -22,7 +22,8 @@ This is where code gets written. Every task follows the same cycle: plan → imp
 
 **Batch worker context:** When this task is executed as part of a phase-batch sub-agent, the worker
 receives the task definitions for every phase in its batch, coding principles, the generated Test
-Coverage Matrix and Gate Check Commands from tasks.md, and relevant spec/design context. A batch is
+Coverage Matrix and Gate Check Commands from `tasks.md` when present, and relevant spec/design
+context. A batch is
 one or more consecutive whole phases packed to ~7 tasks. The worker executes ALL tasks in its
 assigned batch in order - finishing every task in one phase before starting the next phase in the
 batch - and each task follows every step below (implement → gate → atomic commit) before moving to
@@ -76,7 +77,8 @@ Success: [how to verify]
 
 ### 4. Write Tests (derived from spec, not from implementation)
 
-If the task includes tests (per the Tests field and **Test Coverage Matrix** in tasks.md):
+If the task includes tests (per the Tests field and **Test Coverage Matrix** in `tasks.md` when
+present, or the inline execution plan when Tasks was skipped):
 
 1. Write the test file(s) covering the task's acceptance criteria.
 2. Tests MUST be derived from the task's "Done when" criteria and `spec.md` ACs - **not** from the implementation. Each test encodes what the spec requires; never write tests by reading the code and asserting what it currently does.
@@ -112,13 +114,17 @@ Follow [coding-principles.md](coding-principles.md):
 
 ### 5. Gate Check (VERIFY)
 
-Run the gate check command from the task definition. This is MANDATORY - not "if applicable."
+Run the gate check command from the task definition or inline execution plan. This is MANDATORY -
+not "if applicable."
 
-1. Look up the command for the task's Gate level (quick/full/build) in the **Gate Check Commands** section of tasks.md, then run it
+1. When `tasks.md` is present, look up the command for the task's Gate level (quick/full/build) in
+   its **Gate Check Commands** section. When Tasks was skipped, run the `verify` command recorded
+   for the current step in the inline execution plan.
 2. Non-zero exit code = STOP. Fix the failure. Re-run. Do not proceed until it passes.
 3. Confirm the test count matches expectations (no tests were silently deleted or skipped)
 
-**Tiered gates (from the Gate Check Commands section of tasks.md):**
+**Tiered gates (from the Gate Check Commands section of `tasks.md` when present, or the inline
+execution plan when Tasks was skipped):**
 
 | Task includes                    | Gate level | What runs                |
 | -------------------------------- | ---------- | ------------------------ |
@@ -191,7 +197,10 @@ After the gate check passes:
 
    Any test that maps to nothing → remove it. A test with no requirement is scope creep - it proves nothing about the feature and expands scope beyond the spec. Do not write speculative "what if" tests, do not test framework or library behavior, and do not duplicate an assertion that is already covered at another layer for the same scenario.
 
-   **Check D - Guideline conformance.** If project quality/testing guidelines were found in step 0 of tasks.md step 1.5, verify this task's tests conform to them (naming conventions, file locations, coverage thresholds, etc.). Note the guideline file followed.
+   **Check D - Guideline conformance.** If project quality/testing guidelines were found in step 0
+   of `tasks.md` step 1.5, or in the inline plan's setup notes when Tasks was skipped, verify this
+   task's tests conform to them (naming conventions, file locations, coverage thresholds, etc.).
+   Note the guideline file followed.
 
    **Bound:** Tests prove the work; they do not expand it. Thoroughness is scoped to the feature + spec. Repo depth is a floor (never less thorough than existing tests for the same layer); the spec is the ceiling. Do not invent requirements or tests that have no spec anchor.
 
@@ -352,10 +361,10 @@ now.
 ```markdown
 ## Implementing T[X]: [Task Title]
 
-**Reading**: task definition from tasks.md
-**Dependencies**: [All done? ✅ | Blocked by: TY]
+**Reading**: task definition from `tasks.md` when present, otherwise the current inline execution-plan step
+**Dependencies**: [All done? ✅ | Blocked by: TY, or next inline step]
 **Tests**: [unit/e2e/integration/none]
-**Gate**: [quick/full/build]
+**Gate**: [quick/full/build, or inline-plan verify command]
 
 ### Pre-Implementation (MANDATORY)
 
