@@ -26,8 +26,11 @@ flag/reset rules. Read [`references/session-protocol.md`](references/session-pro
 before the first charter.
 
 Use real public interfaces and the project's existing browser, API, CLI, mobile, or manual adapter.
-Report the exact adapter, path, evidence, and limitation. Keep raw evidence in the repository's
-disposable evidence path and keep reports, scenario status, and bug records durable.
+When no runner is adopted, choose the closest reachable public interface or a manual adapter and
+record the limitation. Mark only an unreachable leg `untested`; missing tooling alone is a
+limitation, not an unreachable product surface. Report the exact adapter, path, evidence, and
+limitation. Keep raw evidence in the repository's disposable evidence path and keep reports, scenario
+status, and bug records durable.
 
 QA execution validates the product; it does not write product code, install a framework, invent a
 command, or replace the automated gate.
@@ -38,8 +41,10 @@ command, or replace the automated gate.
 
 Read the profile, plan handoff, affected scenarios, open bugs, and charters. Confirm the recorded
 automated gate is green and the product is reachable through a production-parity path. Resolve the
-adapter and prerequisite gaps before the first walk. A missing runner remains an `untested` gap; a
-leg that only a human can complete may be `blocked-verify` with the exact reason.
+adapter and prerequisite gaps before the first walk. If a runner is missing, use the closest
+reachable public interface or manual adapter and record the limitation. A leg is `untested` only
+when its product surface is unreachable; a leg that only a human can complete may be
+`blocked-verify` with the exact reason.
 
 **Done when:** every charter has a reachable entry point or a named limitation, the gate result is
 recorded, and the selected adapter is supported by the profile.
@@ -47,6 +52,7 @@ recorded, and the selected adapter is supported by the profile.
 ### 2. Select the adapter
 
 Choose the closest existing adapter for each public surface: browser, API, CLI, mobile, or manual.
+Prefer a reachable manual walk when no automated runner exists.
 Follow the profile's setup, authentication, fixture, seed, cleanup, and residue checks. Preserve the
 project's runner and commands as declared by its manifest or CI. Read
 [`references/session-protocol.md`](references/session-protocol.md) in full for the execution and

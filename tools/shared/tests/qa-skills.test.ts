@@ -28,16 +28,20 @@ function tracked(relativePath: string): string {
   }).trim();
 }
 
-function skillMetadata(relativePath: string): { name: string; description: string } {
-  const source = readRepositoryFile(relativePath);
-  const name = source.match(/^name:\s*(.+)$/m)?.[1]?.trim();
-  const description = source.match(/^description:\s*(.+)$/m)?.[1]?.trim();
+function parseSkillMetadata(source: string, relativePath: string): { name: string; description: string } {
+  const frontmatter = source.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/)?.[1];
+  const name = frontmatter?.match(/^name:\s*(.+)$/m)?.[1]?.trim();
+  const description = frontmatter?.match(/^description:\s*(.+)$/m)?.[1]?.trim();
 
   if (!name || !description) {
-    throw new Error(`Missing skill metadata in ${relativePath}`);
+    throw new Error(`Missing valid initial frontmatter in ${relativePath}`);
   }
 
   return { name, description };
+}
+
+function skillMetadata(relativePath: string): { name: string; description: string } {
+  return parseSkillMetadata(readRepositoryFile(relativePath), relativePath);
 }
 
 describe("QA workflow artifact policy", () => {
@@ -131,9 +135,9 @@ describe("canonical QA skills", () => {
   const qaExecutePath = ".agents/skills/qa-execute/SKILL.md";
 
   it("IT-001 exposes model-invoked skills with matching names", () => {
-    for (const [relativePath, expectedName] of [
-      [qaPlanPath, "qa-plan"],
-      [qaExecutePath, "qa-execute"],
+    for (const [relativePath, expectedName, inspirationUrl] of [
+      [qaPlanPath, "qa-plan", "https://github.com/pedronauck/skills/tree/main/skills/mine/qa-report"],
+      [qaExecutePath, "qa-execute", "https://github.com/pedronauck/skills/tree/main/skills/mine/qa-execution"],
     ] as const) {
       const source = readRepositoryFile(relativePath);
       const metadata = skillMetadata(relativePath);
@@ -141,6 +145,9 @@ describe("canonical QA skills", () => {
       expect(metadata.name).toBe(expectedName);
       expect(source).toContain("metadata:");
       expect(source).toContain("author: Antonio Fulgêncio");
+      expect(source).toContain("## Provenance");
+      expect(source).toContain("Pedro Nauck");
+      expect(source).toContain(inspirationUrl);
       expect(source).not.toContain("disable-model-invocation");
       expect(source).toContain("Use when");
       expect(source).toContain("Don't use for");
@@ -152,16 +159,29 @@ describe("canonical QA skills", () => {
     const qaExecute = readRepositoryFile(qaExecutePath);
 
     expect(qaPlan).toContain("journeys, scenarios, and charters");
+    expect(qaPlan).toContain("Leave live walks, evidence capture, defect remediation");
     expect(qaPlan).toContain("End this skill before launching the product");
     expect(qaPlan).toContain("QA-SCENARIOS.md");
     expect(qaPlan).toContain("Done when:");
+    expect(qaPlan).not.toContain("Create `docs/qa/reports/");
 
     expect(qaExecute).toContain("QA Plan handoff");
     expect(qaExecute).toContain("browser, API, CLI, mobile, or manual");
-    expect(qaExecute).toContain("reports, scenario status, and bug records");
+    expect(qaExecute).toContain("closest reachable public interface or a manual adapter");
+    expect(qaExecute).toContain("Mark only an unreachable leg `untested`");
+    expect(qaExecute).toContain("does not write product code, install a framework, invent a");
+    expect(qaExecute).toContain("command, or replace the automated gate");
+    expect(qaExecute).toContain("Report the exact adapter, path, evidence, and");
+    expect(qaExecute).toContain("limitation. Keep raw evidence in the repository's disposable evidence");
+    expect(qaExecute).toMatch(/and keep reports,\s+scenario\s+status, and bug records durable/);
     expect(qaExecute).toContain("fresh Verifier");
+    expect(qaExecute).toContain("hand the defect to an Implementer");
+    expect(qaExecute).toContain("close this Verifier session before remediation");
+    expect(qaExecute).toContain("After a fix, start a fresh Verifier");
+    expect(qaExecute).toContain("resume from the affected journey");
     expect(qaExecute).toContain("Done when:");
     expect(qaExecute).not.toContain("Create or update one charter");
+    expect(qaExecute).not.toContain("Mint a stable, content-addressed scenario");
   });
 
   it("IT-008 keeps both descriptions within the authoring contract", () => {
@@ -174,5 +194,9 @@ describe("canonical QA skills", () => {
       expect(description).toMatch(/\bUse when\b/);
       expect(description).toMatch(/\bDon't use for\b/);
     }
+
+    expect(() => parseSkillMetadata("name: qa-plan\ndescription: misplaced", "fixture")).toThrow(
+      "Missing valid initial frontmatter",
+    );
   });
 });
