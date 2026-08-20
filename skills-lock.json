@@ -11,6 +11,12 @@
       "sourceType": "local",
       "skillPath": ".agents/skills/autonomous/SKILL.md"
     },
+    "deep-review": {
+      "source": "pedronauck/skills",
+      "sourceType": "github",
+      "skillPath": "skills/mine/deep-review/SKILL.md",
+      "computedHash": "f87524f4e50f1311ebd14a8590bfffac2866a8e333fd4813e12aa2f5803bfe75"
+    },
     "ponytail": {
       "source": "dietrichgebert/ponytail",
       "sourceType": "github",
