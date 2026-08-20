@@ -59,14 +59,23 @@ describe("deep-review installation", { timeout: 30_000 }, () => {
 
     const packageManifest = readJson(join(repositoryRoot, "package.json")) as {
       version?: string;
+      devDependencies?: Record<string, string>;
     };
     const packageLock = readJson(join(repositoryRoot, "package-lock.json")) as {
       version?: string;
-      packages?: Record<string, { version?: string }>;
+      packages?: Record<string, { version?: string; devDependencies?: Record<string, string> }>;
     };
     expect(packageManifest.version).toBe("0.2.2");
     expect(packageLock.version).toBe("0.2.2");
     expect(packageLock.packages?.[""]?.version).toBe("0.2.2");
+    expect(packageManifest.devDependencies?.skills).toBe("1.5.23");
+    expect(packageLock.packages?.[""]?.devDependencies?.skills).toBe("1.5.23");
+    expect(packageLock.packages?.["node_modules/skills"]?.version).toBe("1.5.23");
+    expect(
+      (readJson(join(repositoryRoot, "node_modules", "skills", "package.json")) as {
+        version?: string;
+      }).version,
+    ).toBe("1.5.23");
 
     const discovered = JSON.parse(
       execFileSync(join(repositoryRoot, "node_modules", ".bin", "skills"), ["list", "--json"], {
