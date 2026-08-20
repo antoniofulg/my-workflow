@@ -44,6 +44,10 @@ function skillMetadata(relativePath: string): { name: string; description: strin
   return parseSkillMetadata(readRepositoryFile(relativePath), relativePath);
 }
 
+function normalizePacket(source: string): string {
+  return source.replaceAll("`", "").replace(/\s+/g, " ").trim();
+}
+
 const verifierPacketPaths = [
   ".cursor/agents/verifier.md",
   ".claude/agents/verifier.md",
@@ -215,17 +219,28 @@ describe("canonical QA skills", () => {
   it("IT-003 dispatches all QA phases through each existing Verifier", () => {
     for (const relativePath of verifierPacketPaths) {
       const source = readRepositoryFile(relativePath);
+      const normalized = normalizePacket(source);
+      const routing = normalized.slice(normalized.indexOf("## Routing"), normalized.indexOf("## Result"));
 
-      expect(source).toMatch(/phase.*technical.*qa-plan.*qa-execute/s);
-      expect(source).toContain("Run exactly one phase per packet");
-      expect(source).toContain("invoke the canonical `qa-plan` skill");
-      expect(source).toContain("invoke the canonical `qa-execute` skill");
+      expect(normalized.match(/phase: exactly one of [^.]+\./)?.[0]).toBe(
+        "phase: exactly one of technical, qa-plan, or qa-execute.",
+      );
+      expect(routing).toContain("Run exactly one phase per packet");
+      expect(routing).toContain("For technical, check each AC against file:line assertions");
+      expect(routing).toContain("For qa-plan, invoke the canonical qa-plan skill");
+      expect(routing).toContain("For qa-execute, invoke the canonical qa-execute skill");
+      expect(routing).not.toContain("For qa-plan, invoke the canonical qa-execute skill");
+      expect(routing).not.toContain("For qa-execute, invoke the canonical qa-plan skill");
       expect(source).toContain("fresh Verifier session");
       expect(source).toContain("separate fresh Verifier");
       expect(source).toContain("purely internal refactor");
       expect(source).toMatch(/UI.*API.*CLI.*mobile.*adoption.*docs-as-interface/s);
       expect(source).not.toMatch(/separate QA reviewer/i);
     }
+
+    expect(readRepositoryFile("docs/workflow/reviews.md")).toContain(
+      "Deep-review is a separate stage, not a Verifier phase.",
+    );
   });
 
   it("IT-004 keeps QA scenario fields and statuses in one authoritative guideline", () => {
@@ -247,7 +262,13 @@ describe("canonical QA skills", () => {
     expect(reviewGuideline.split(/\r?\n/).length).toBeLessThanOrEqual(160);
 
     for (const relativePath of verifierPacketPaths) {
-      expect(readRepositoryFile(relativePath)).toContain("QA-SCENARIOS.md");
+      const packet = readRepositoryFile(relativePath);
+
+      expect(packet).toContain("QA-SCENARIOS.md");
+      expect(packet).not.toMatch(
+        /(?:^|\n)\s*(?:id|area|title|persona|journey|expected|entry_points|qa_status|bug_ids|fix_status|retest_status|fix_commits|evidence|last_report|overlaps):/m,
+      );
+      expect(packet).not.toMatch(/(?:Field rules|Status enums|qa_status:\s*(?:untested|pass|fail))/i);
     }
   });
 

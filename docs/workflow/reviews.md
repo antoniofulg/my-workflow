@@ -10,8 +10,8 @@ nit changes the diff; the next round finds new nits. The loop is unbounded by co
 
 ## One Verifier role, several phases
 
-The existing provider `verifier` runs these phases in order inside each public slice. None repeats the
-others.
+The existing provider `verifier` runs the three listed phases in order inside each public slice.
+Deep-review is a separate stage, not a Verifier phase. None of these stages repeats the others.
 
 | Reviewer | Question only it can answer | Cap |
 | --- | --- | --- |

@@ -47,8 +47,8 @@ The single exception: when a deep-review fix changes user-visible behaviour, re-
 
 ## The last slice
 
-A feature's final slice is the **QA session**: charters, tours, the lens pass, paper-cut hunting, the
-governed fix loop and the dated report. It needs the whole feature and cannot run on part of one.
+A feature's final slice is the **QA session**. It needs the whole feature and cannot run on part of
+one. The `qa-plan` and `qa-execute` skills own its operational procedure.
 
 It writes no product code, so it gets no technical Verifier or deep-review. It still receives distinct
 fresh packets, `qa-plan` and `qa-execute`. Per-slice QA answers *"does this behaviour work?"*; the
