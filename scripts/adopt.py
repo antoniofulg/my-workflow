@@ -32,8 +32,14 @@ COPY_PATHS = [
     ".agents/skills/ponytail-gain",
     ".agents/skills/ponytail-help",
     ".agents/skills/ponytail-review",
+    ".agents/skills/qa-plan",
+    ".agents/skills/qa-execute",
     ".agents/skills/autonomous",
 ]
+
+# The profile is a template. A consuming project's existing profile is product-owned and must
+# survive re-adoption.
+COPY_MISSING_PATHS = ["docs/qa/README.md"]
 
 AGENT_PATHS = [
     ".cursor/agents",
@@ -158,6 +164,11 @@ def main(argv: list[str]) -> None:
         if not origin.exists():
             continue
         copy_tree(origin, dest / rel)
+    for rel in COPY_MISSING_PATHS:
+        origin = src / rel
+        if not origin.exists():
+            continue
+        copy_missing(origin, dest / rel)
     copy_agents(src, dest)
     merge_gitignore(dest)
     write_claude(dest)

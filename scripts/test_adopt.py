@@ -28,7 +28,12 @@ def test_fresh_and_refuse() -> None:
         assert claude.read_text(encoding="utf-8") == "@AGENTS.md\n"
         assert (tmp / "docs/guidelines/GATES.md").is_file()
         assert (tmp / "tools/ad-index.py").is_file()
+        assert (tmp / ".agents/skills/qa-plan/SKILL.md").is_file()
+        assert (tmp / ".agents/skills/qa-execute/SKILL.md").is_file()
+        assert (tmp / "docs/qa/README.md").is_file()
         assert (tmp / ".claude/skills/autonomous").is_symlink()
+        assert (tmp / ".claude/skills/qa-plan").is_symlink()
+        assert (tmp / ".claude/skills/qa-execute").is_symlink()
         assert (tmp / ".cursor/agents/planner.md").is_file()
         ignored = (tmp / ".gitignore").read_text(encoding="utf-8")
         for entry in (".deep-review/*", "!.deep-review/learnings.md", ".specs/features/"):
@@ -68,6 +73,10 @@ def test_agent_pins_survive_readopt() -> None:
             ROOT / ".cursor" / "agents" / "explorer.md"
         ).read_text(encoding="utf-8")
         assert (tmp / "CLAUDE.md").read_text(encoding="utf-8") == "@AGENTS.md\n"
+        profile = tmp / "docs/qa/README.md"
+        profile.write_text("consumer-owned profile\n", encoding="utf-8")
+        run(tmp)
+        assert profile.read_text(encoding="utf-8") == "consumer-owned profile\n"
     finally:
         shutil.rmtree(tmp)
 

@@ -298,3 +298,92 @@ describe("canonical QA skills", () => {
     }
   });
 });
+
+describe("adoption and public setup", () => {
+  it("IT-005 publishes provenance for TLC, Deep Review, and QA inspirations", () => {
+    const readme = readRepositoryFile("README.md");
+
+    expect(readme).toContain("Antonio Fulgêncio");
+    expect(readme).toContain("Tech Leads Club");
+    expect(readme).toContain(
+      "https://github.com/tech-leads-club/agent-skills/tree/main/skills/tlc-spec-driven",
+    );
+    expect(readme).toContain("https://github.com/tech-leads-club/agent-skills/tree/main/skills");
+    expect(readme).toContain("Pedro Nauck");
+    expect(readme).toContain("https://github.com/pedronauck/skills/tree/main/skills/mine/deep-review");
+    expect(readme).toContain("https://github.com/pedronauck/skills/tree/main/skills/mine/qa-report");
+    expect(readme).toContain("https://github.com/pedronauck/skills/tree/main/skills/mine/qa-execution");
+  });
+
+  it("IT-006 keeps the public README product-neutral", () => {
+    const readme = readRepositoryFile("README.md");
+
+    expect(readme).toContain("stack-agnostic");
+    expect(readme).not.toMatch(/Creatista|antclips|hono|drizzle|tanstack|shadcn|better-auth|graphile/);
+  });
+
+  it("IT-010 makes adoption reviewable and routes QA by observability", () => {
+    const readme = readRepositoryFile("README.md");
+    const adopt = readRepositoryFile("scripts/adopt.py");
+
+    expect(readme).toContain("git status --short");
+    expect(readme).toContain("read-only");
+    expect(readme).toContain("package and build");
+    expect(readme).toContain("manifests");
+    expect(readme).toContain("CI jobs");
+    expect(readme).toContain("managed paths");
+    expect(readme).toContain("complete diff");
+    expect(readme).toContain("declared full gate");
+    expect(readme).toContain("qa-plan");
+    expect(readme).toContain("qa-execute");
+    expect(readme).toContain("purely internal refactor");
+    expect(readme).toContain("no user-visible change");
+    expect(adopt).toContain('".agents/skills/qa-plan"');
+    expect(adopt).toContain('".agents/skills/qa-execute"');
+    expect(adopt).toContain('COPY_MISSING_PATHS = ["docs/qa/README.md"]');
+  });
+
+  it("IT-011 keeps stack-specific QA capabilities in the operational profile", () => {
+    const profile = readRepositoryFile("docs/qa/README.md");
+
+    for (const heading of [
+      "## Public interfaces and area codes",
+      "## Runner and adapter",
+      "## Build, start, and health",
+      "## Authentication and test data",
+      "## Evidence and limitations",
+    ]) {
+      expect(profile).toContain(heading);
+    }
+    expect(profile).toContain("manifests or CI");
+    expect(profile.toLowerCase()).toContain("fixtures or seed");
+    expect(profile.toLowerCase()).toContain("cleanup");
+    expect(profile.toLowerCase()).toContain("residue");
+    expect(profile.toLowerCase()).toContain("raw evidence");
+    expect(profile).toContain("does not install a framework or invent commands");
+  });
+
+  it("IT-012 leaves adapter choice with the consuming project", () => {
+    const profile = readRepositoryFile("docs/qa/README.md");
+    const qaExecute = readRepositoryFile(".agents/skills/qa-execute/SKILL.md");
+
+    for (const adapter of ["browser", "API", "CLI", "mobile", "manual"]) {
+      expect(profile.toLowerCase()).toContain(adapter.toLowerCase());
+      expect(qaExecute.toLowerCase()).toContain(adapter.toLowerCase());
+    }
+    expect(qaExecute).toContain("existing browser, API, CLI, mobile, or manual adapter");
+    expect(qaExecute).toContain("does not write product code, install a framework, invent a");
+  });
+
+  it("IT-017 reports release version 0.3.0 consistently", () => {
+    const manifest = JSON.parse(readRepositoryFile("package.json")) as { version?: string };
+    const lockfile = JSON.parse(readRepositoryFile("package-lock.json")) as {
+      version?: string;
+      packages?: { ""?: { version?: string } };
+    };
+
+    expect(manifest.version).toBe("0.3.0");
+    expect(lockfile.version).toBe("0.3.0");
+    expect(lockfile.packages?.[""]?.version).toBe("0.3.0");
+  });
+});
