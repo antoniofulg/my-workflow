@@ -104,11 +104,6 @@ happens.
 Close each issue in the commit that fixes it (`Closes #NN`), and leave open any you could not finish
 with a comment saying why.
 
-**Dispatch every subagent on Opus at medium reasoning effort.** Medium is the tier this workflow was
-tuned against: the guidelines carry the judgment, so a subagent is applying a written rule rather
-than inventing one. Raise it for a subagent doing genuinely open design work, and say why in
-`decisions.md`.
-
 **Done when:** for a feature, **every slice closed its own review** — verifier run, deep-review run,
 and any scenario it flagged walked — and the final slice's QA session is complete; for a batch, every
 selected issue is fixed and closed or explicitly left open with a reason.
