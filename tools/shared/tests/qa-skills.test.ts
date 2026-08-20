@@ -28,6 +28,18 @@ function tracked(relativePath: string): string {
   }).trim();
 }
 
+function skillMetadata(relativePath: string): { name: string; description: string } {
+  const source = readRepositoryFile(relativePath);
+  const name = source.match(/^name:\s*(.+)$/m)?.[1]?.trim();
+  const description = source.match(/^description:\s*(.+)$/m)?.[1]?.trim();
+
+  if (!name || !description) {
+    throw new Error(`Missing skill metadata in ${relativePath}`);
+  }
+
+  return { name, description };
+}
+
 describe("QA workflow artifact policy", () => {
   it("IT-007 ignores generated Deep Review output but keeps learnings eligible", () => {
     const gitignore = readRepositoryFile(".gitignore");
@@ -111,5 +123,56 @@ describe("QA workflow artifact policy", () => {
 
   it("IT-016 leaves no disposable feature artifacts tracked", () => {
     expect(tracked(".specs/features")).toBe("");
+  });
+});
+
+describe("canonical QA skills", () => {
+  const qaPlanPath = ".agents/skills/qa-plan/SKILL.md";
+  const qaExecutePath = ".agents/skills/qa-execute/SKILL.md";
+
+  it("IT-001 exposes model-invoked skills with matching names", () => {
+    for (const [relativePath, expectedName] of [
+      [qaPlanPath, "qa-plan"],
+      [qaExecutePath, "qa-execute"],
+    ] as const) {
+      const source = readRepositoryFile(relativePath);
+      const metadata = skillMetadata(relativePath);
+
+      expect(metadata.name).toBe(expectedName);
+      expect(source).toContain("metadata:");
+      expect(source).toContain("author: Antonio Fulgêncio");
+      expect(source).not.toContain("disable-model-invocation");
+      expect(source).toContain("Use when");
+      expect(source).toContain("Don't use for");
+    }
+  });
+
+  it("IT-002 keeps planning separate from live execution", () => {
+    const qaPlan = readRepositoryFile(qaPlanPath);
+    const qaExecute = readRepositoryFile(qaExecutePath);
+
+    expect(qaPlan).toContain("journeys, scenarios, and charters");
+    expect(qaPlan).toContain("End this skill before launching the product");
+    expect(qaPlan).toContain("QA-SCENARIOS.md");
+    expect(qaPlan).toContain("Done when:");
+
+    expect(qaExecute).toContain("QA Plan handoff");
+    expect(qaExecute).toContain("browser, API, CLI, mobile, or manual");
+    expect(qaExecute).toContain("reports, scenario status, and bug records");
+    expect(qaExecute).toContain("fresh Verifier");
+    expect(qaExecute).toContain("Done when:");
+    expect(qaExecute).not.toContain("Create or update one charter");
+  });
+
+  it("IT-008 keeps both descriptions within the authoring contract", () => {
+    for (const relativePath of [qaPlanPath, qaExecutePath]) {
+      const { name, description } = skillMetadata(relativePath);
+
+      expect(name).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+      expect(name.length).toBeLessThanOrEqual(64);
+      expect(description.length).toBeLessThan(1024);
+      expect(description).toMatch(/\bUse when\b/);
+      expect(description).toMatch(/\bDon't use for\b/);
+    }
   });
 });

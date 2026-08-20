@@ -1,0 +1,105 @@
+---
+name: qa-execute
+description: Execute planned real-user QA through a project's existing public interfaces and record evidence, statuses, and defects. Use when a Verifier walks a current QA plan for a user-visible change. Don't use for planning scenarios, writing product fixes, or installing a test framework.
+metadata:
+  author: Antonio Fulgêncio
+---
+
+# QA Execute
+
+Walk the current QA plan through the consuming project's public surfaces. Select the adapter already
+declared by the project, capture evidence, write durable results, and return product defects to an
+Implementer for a fresh Verifier cycle.
+
+## Provenance
+
+Author: Antonio Fulgêncio.
+
+This is an original project-owned adaptation for this workflow, inspired by Pedro Nauck's
+[`qa-execution` skill](https://github.com/pedronauck/skills/tree/main/skills/mine/qa-execution).
+
+## Inputs and boundaries
+
+Read `docs/qa/README.md`, the QA Plan handoff, the in-scope scenarios and charters, open bugs, and
+`docs/guidelines/QA-SCENARIOS.md` in full. The guideline owns scenario fields, ids, statuses, and
+flag/reset rules. Read [`references/session-protocol.md`](references/session-protocol.md) in full
+before the first charter.
+
+Use real public interfaces and the project's existing browser, API, CLI, mobile, or manual adapter.
+Report the exact adapter, path, evidence, and limitation. Keep raw evidence in the repository's
+disposable evidence path and keep reports, scenario status, and bug records durable.
+
+QA execution validates the product; it does not write product code, install a framework, invent a
+command, or replace the automated gate.
+
+## Procedure
+
+### 1. Preflight the cycle
+
+Read the profile, plan handoff, affected scenarios, open bugs, and charters. Confirm the recorded
+automated gate is green and the product is reachable through a production-parity path. Resolve the
+adapter and prerequisite gaps before the first walk. A missing runner remains an `untested` gap; a
+leg that only a human can complete may be `blocked-verify` with the exact reason.
+
+**Done when:** every charter has a reachable entry point or a named limitation, the gate result is
+recorded, and the selected adapter is supported by the profile.
+
+### 2. Select the adapter
+
+Choose the closest existing adapter for each public surface: browser, API, CLI, mobile, or manual.
+Follow the profile's setup, authentication, fixture, seed, cleanup, and residue checks. Preserve the
+project's runner and commands as declared by its manifest or CI. Read
+[`references/session-protocol.md`](references/session-protocol.md) in full for the execution and
+evidence contract.
+
+**Done when:** the session log names one adapter and exact execution path for every walkable surface,
+with setup and cleanup prerequisites resolved or recorded as limitations.
+
+### 3. Open the report
+
+Create `docs/qa/reports/<YYYY-MM-DD>-<scope>.md` before the first charter, or resume the current
+report when one exists for this cycle. Add every charter and scenario to the matrix with a pending
+verdict. Include the adapter, environment, gate command/result, and evidence destination.
+
+**Done when:** one dated report contains every in-scope charter and scenario, and no walk has started
+with a missing matrix row.
+
+### 4. Walk in persona
+
+Adopt the charter's persona, enter through its public entry point, and walk the journey to its true
+end state. Confirm the expected observable through an independent read path and after a reload. Capture
+evidence at each checkpoint and divergence, then update the report and scenario status immediately.
+
+**Done when:** every charter has a recorded verdict, independent confirmation, evidence path, and
+debrief, or an explicit limitation with the status prescribed by `QA-SCENARIOS.md`.
+
+### 5. Probe the changed surface
+
+Run the charter's tour and choose 5–10 relevant edge probes. Re-walk the two largest changed
+journeys with the comprehension, recovery, trust, speed, accessibility, and language lenses when
+the cycle has enough surface to justify them. Record clean attempts as results and keep evidence
+paths beside their report rows.
+
+**Done when:** the selected tour, every chosen edge, and every applicable lens have a recorded
+result, evidence path, or named limitation.
+
+### 6. Record findings and govern fixes
+
+Deduplicate against `docs/qa/bugs/` and linked scenario bug ids. File a new bug only for a new
+symptom; append re-found or regressed observations to the existing record and link affected
+scenarios. When a product defect is confirmed, read
+[`references/fix-loop.md`](references/fix-loop.md) in full, hand the defect to an Implementer, and
+close this Verifier session before remediation.
+
+**Done when:** every finding has a deduplicated bug record, affected scenario links, severity and
+evidence, and every product fix is explicitly assigned to an Implementer rather than changed here.
+
+### 7. Close or resume the cycle
+
+After a fix, start a fresh Verifier, re-run the technical gate, and resume from the affected journey
+plus its adjacent canary. Keep the original report history and update statuses, retest fields, bug
+links, and evidence. At close, replace every pending row with a terminal result or an allowed
+`untested`/`blocked-verify` explanation, rerun the full gate, and record its exact command and result.
+
+**Done when:** no report row remains pending, every fixed bug has a passing retest or an explicit
+decision, every scenario status matches its evidence, and the final gate result is recorded.
