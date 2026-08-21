@@ -184,6 +184,22 @@ class TokenBudgetTests(unittest.TestCase):
             with self.assertRaises(TokenBudgetError):
                 read_ledger(state)
 
+    def test_usage_exact_shape_rejects_content_fields_from_valid_ledger(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            db = root / "codex.sqlite"
+            state = root / "ledger.json"
+            create_db(db)
+            start_ledger(state, db, PREFIX, jobs=1)
+            valid = json.loads(state.read_text(encoding="utf-8"))
+            self.assertEqual(valid["checkpoints"], [])
+            for field in ("prompt", "response", "source"):
+                malformed = json.loads(json.dumps(valid))
+                malformed["usage"][field] = "secret"
+                state.write_text(json.dumps(malformed), encoding="utf-8")
+                with self.subTest(field=field), self.assertRaises(TokenBudgetError):
+                    read_ledger(state)
+
     def test_agent_prefix_boundary_excludes_siblings(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
