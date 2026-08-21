@@ -241,7 +241,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--slices", dest="slice_count", type=int, required=True)
     parser.add_argument("--native-provider", required=True)
     parser.add_argument("--profile")
-    parser.add_argument("--override", action="append", default=[])
+    parser.add_argument("--override", dest="overrides", action="append", default=[])
     parser.add_argument("--refresh", action="store_true")
     return parser
 

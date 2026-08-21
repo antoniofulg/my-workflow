@@ -9,7 +9,8 @@ Resolve the feature workflow once, then let the orchestrator dispatch the frozen
 
 ## First resolution
 
-Run the bundled resolver from the consuming project root:
+Run the bundled `mutating` resolver from the consuming project root. It writes the feature-local
+`workflow.json` snapshot atomically:
 
 ```bash
 python3 .agents/skills/workflow-config/scripts/workflow_config.py \
@@ -47,3 +48,14 @@ separate; use the `agent_file` selected by the resolver without merging definiti
 falling back to another provider.
 
 Done when: every dispatched role has an available provider and its existing agent file.
+
+## Failure recovery
+
+Read the resolver's stderr and correct the named input before retrying:
+
+- Parse or validation failure: fix `.my-workflow.toml` or the CLI argument and rerun.
+- Provider failure: make the named provider and role agent available; use no fallback.
+- Snapshot write failure: restore write access to the feature state directory and rerun; atomic
+  replacement preserves the prior valid snapshot.
+
+Done when: the resolver exits 0 and the snapshot contains the requested effective route.

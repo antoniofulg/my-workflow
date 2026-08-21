@@ -47,6 +47,59 @@ def test_defaults_and_native_routing() -> None:
         shutil.rmtree(root)
 
 
+def test_cli_adapter_resolves_and_reports_invalid_input() -> None:
+    root = make_repo()
+    try:
+        resolver = ROOT / ".agents/skills/workflow-config/scripts/workflow_config.py"
+        command = [
+            sys.executable,
+            str(resolver),
+            "--root",
+            str(root),
+            "--feature",
+            "cli",
+            "--slices",
+            "2",
+            "--native-provider",
+            "codex",
+            "--override",
+            "verifier=claude",
+        ]
+        result = subprocess.run(command, text=True, capture_output=True, check=False)
+        assert result.returncode == 0
+        assert result.stderr == ""
+        payload = json.loads(result.stdout)
+        assert payload["feature"] == "cli"
+        assert payload["deep_review"] == {"cadence": "grouped.3", "groups": [[1, 2]]}
+        assert payload["roles"]["verifier"]["provider"] == "claude"
+        assert (root / ".specs/features/cli/workflow.json").is_file()
+
+        invalid = subprocess.run(
+            [
+                sys.executable,
+                str(resolver),
+                "--root",
+                str(root),
+                "--feature",
+                "cli-invalid",
+                "--slices",
+                "0",
+                "--native-provider",
+                "codex",
+            ],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert invalid.returncode == 1
+        assert invalid.stdout == ""
+        assert "workflow config: slice count must be at least 1" in invalid.stderr
+    finally:
+        import shutil
+
+        shutil.rmtree(root)
+
+
 def test_cadence_modes_and_balancing() -> None:
     expected = {
         "slice": [[1], [2], [3], [4]],
@@ -236,4 +289,4 @@ if __name__ == "__main__":
     for name, function in sorted(globals().items()):
         if name.startswith("test_"):
             function()
-    print("6 passed, 0 failed")
+    print("7 passed, 0 failed")
