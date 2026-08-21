@@ -19,7 +19,15 @@ python3 <skill-dir>/scripts/run_jobs.py --out <out> [--jobs-file <out>/<stage>-j
   --command "compozy exec <runtime flags from the map> --format json --timeout 30m --prompt-file {prompt}"
 ```
 
-For Codex, append `--metered --token-db "$CODEX_HOME/state_5.sqlite"` to enforce the default 15,000,000-token round budget. The runner checkpoints after each valid job and stops before the next one at the cap. A budget exit 3 leaves the ledger `budget_exhausted` and preserves the round; source-drift exit 3 is the separate condition that requires a fresh manifest. Hosts without compatible telemetry omit those flags; the runner records an `unmetered` fallback and still executes jobs sequentially. The runner owns the sequential schedule (the legacy `--workers` value is accepted but reduced to one), per-attempt event/err logs under `<out>/runs/`, output validation with one built-in retry, provider-block detection, the source-freeze check, and resume (valid outputs are never re-run). Each job's output file is the agent's only product; the JSONL/stderr logs are operational evidence — never parse them as review output.
+The runner always preserves the runtime's requested `--workers` fan-out. A provider adapter may append
+`--metrics --metrics-db <source> --metrics-reviewer-prefix <configured-path>` to collect cumulative
+snapshots. The Codex adapter's source is `$CODEX_HOME/state_5.sqlite`; it must also pass an explicit
+reviewer path, for example `--metrics-reviewer-prefix "$DEEP_REVIEW_REVIEWER_PREFIX"`. Claude and
+Cursor omit those flags until stable adapters exist, and the runner records `unavailable` without
+inventing totals. Metrics checkpoints are observational and never assign overlapping global deltas
+to individual jobs. The runner owns retries, output validation, provider-block detection, the
+source-freeze check, and resume (valid outputs are never re-run). Each job's output file is the
+agent's only product; JSONL/stderr logs are operational evidence — never parse them as review output.
 
 ## Failure handling
 

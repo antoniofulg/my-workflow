@@ -57,43 +57,19 @@ Sweeps are **opt-in and rare** — default to none. Each sweep is one extra agen
 
 The jobs contract makes engines interchangeable — pick one per run, record it in walkthrough.md's Review details (`Mode: workflow | agent-fallback | subagent:<runtime>`), and always close the loop with `run_jobs.py --validate-only`. Validation rejects missing coverage rows, unaccounted rules, wrong-lane results, and silent suppressions.
 
-**Named native dispatch (default when host supports it).** Dispatch each pending job to the custom
-`deep-reviewer` agent. Use the host's real selector:
+**Named native dispatch (default when host supports it).** Dispatch pending jobs in parallel to the
+custom `deep-reviewer` agent. Use the host's real selector:
 
 - Claude Code Task: `subagent_type: "deep-reviewer"`.
 - Cursor `cursor/task`: `subagentType: { custom: "deep-reviewer" }`.
-- Codex native Agent/spawn: custom agent name/type `deep-reviewer`, resolved from
-  `.codex/agents/deep-reviewer.toml`.
+- Native Agent/spawn: custom agent name/type `deep-reviewer`, resolved from the host's local agent
+  configuration.
 
-For native Codex dispatch, the host must meter the dispatch around exactly one job at a time. Run
-the preflight command below; dispatch one named job only when it exits `0`:
-
-```sh
-python3 .agents/skills/deep-review/scripts/run_jobs.py \
-  --native-action preflight --metered --out <out> --jobs-file <out>/jobs.json \
-  --token-db <codex-state.sqlite> --token-ledger <out>/runs/token-ledger.json \
-  --budget 15000000 --no-freeze-check
-```
-
-After that native job writes its normal output, checkpoint it with the exact label. Exit `3` means
-the output and ledger are preserved and the host must not dispatch the next native job; exit `2`
-means fail closed without exposing telemetry. Repeat preflight/checkpoint for the next job only
-after checkpoint exit `0`, then finalize once all jobs are valid:
-
-```sh
-python3 .agents/skills/deep-review/scripts/run_jobs.py \
-  --native-action checkpoint --native-job <label> --metered --out <out> --jobs-file <out>/jobs.json \
-  --token-db <codex-state.sqlite> --token-ledger <out>/runs/token-ledger.json \
-  --budget 15000000 --no-freeze-check
-python3 .agents/skills/deep-review/scripts/run_jobs.py \
-  --native-action finalize --metered --out <out> --jobs-file <out>/jobs.json \
-  --token-db <codex-state.sqlite> --token-ledger <out>/runs/token-ledger.json \
-  --budget 15000000 --no-freeze-check
-```
-
-This native seam is the Codex metering path; `--command` remains the external-runtime path and
-does not claim to meter host-native dispatch. Record `Mode: native` in walkthrough.md, then run the
-validate-only gate.
+Metrics are optional provider-neutral hooks. An adapter may call `start_metrics`,
+`checkpoint_metrics`, and `finalize_metrics` around its normal dispatch; hooks record cumulative
+snapshots only and never choose jobs, serialize workers, or change exits. Record `Mode: native` in
+walkthrough.md, then run the validate-only gate. Provider-specific telemetry setup belongs in the
+runtime adapter guidance, not in this orchestration contract.
 
 **Workflow fallback (when named native dispatch is unavailable).** One generic script executes any
 stage's pending jobs — pass the pending list from the validate-only status file as `args.jobs`.

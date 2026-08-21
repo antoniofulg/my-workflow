@@ -28,9 +28,10 @@ Steps 1–4 drive an idempotent artifact pipeline under `<out>`: every stage gat
 | `--full` | Ignore prior state; review the whole diff again | incremental when state exists |
 | `--out <dir>` | Artifact directory | `.deep-review/<target>/` |
 | `--no-workflow` | Skip the Workflow tool; use Agent fan-out | Named native `deep-reviewer` when the host supports it; role-free Workflow fallback |
-| `--metered` | Enforce the compatible Codex token ledger | 15,000,000 tokens per round; fail closed when telemetry or ledger state is invalid |
-| `--token-db <path>` | Codex state SQLite source | `$CODEX_HOME/state_5.sqlite` when `--metered` is present |
-| `--token-ledger <path>` | Content-safe checkpoint ledger | `<out>/runs/token-ledger.json` |
+| `--metrics` | Observe compatible provider usage when an adapter is configured | unavailable without a compatible adapter |
+| `--metrics-db <path>` | Provider telemetry source supplied by an adapter | none |
+| `--metrics-ledger <path>` | Content-safe observational metrics path | `<out>/runs/review-metrics.json` |
+| `--metrics-reviewer-prefix <path>` | Explicit provider reviewer path for the adapter | none |
 
 ## Repo config — `.deep-review.yaml`
 
@@ -55,7 +56,7 @@ The manifest builder resolves `path_filters` into manifest.json; the knowledge s
 - Publishing needs `--publish` or the user's explicit go-ahead in this session; otherwise the review stays local.
 - Every review ends with a **SHIP / FIX_BEFORE_SHIP / REWORK** verdict derived by render_review.py and stated only after that script exits 0.
 - `FIX_BEFORE_SHIP` is actionable, not a prompt for approval: in an approved loop, apply the remediation rule in `docs/guidelines/REVIEW-ROUNDS.md` automatically. After round 2, fix its blockers, run the scoped gate, and never start round 3.
-- A Codex run with `--metered` snapshots reviewer telemetry, checkpoints after each valid job, and stops before the next job at the 15,000,000-token default. Claude, Cursor, and hosts without compatible telemetry record an `unmetered` fallback and keep the review sequential without claiming a cap.
+- Optional metrics snapshot provider totals and cumulative checkpoints without changing dispatch, worker concurrency, retries, outputs, or exits. Hosts without a compatible adapter record `unavailable` and continue the review normally.
 - External `--subagent` runtimes spend `compozy exec` credit.
 
 ## Procedure
@@ -103,7 +104,7 @@ Execute `<out>/jobs.json` with the mutating runner and engine contract loaded in
 python3 <skill-dir>/scripts/run_jobs.py --out <out> --validate-only
 ```
 
-*Done when:* run_jobs.py `--validate-only` exits 0 — every defect, polish, and sweep output matches the schema and completely accounts for assigned hunks and rules. Execute the materialized jobs with `--metered --token-db <Codex state>` for Codex; omit it for other hosts, whose ledger records `unmetered` fallback.
+*Done when:* run_jobs.py `--validate-only` exits 0 — every defect, polish, and sweep output matches the schema and completely accounts for assigned hunks and rules. Execute materialized jobs with the provider's normal fan-out; add optional metrics adapter flags only when compatible telemetry is configured.
 
 **Step 4: Merge + report**
 
@@ -145,8 +146,8 @@ With prior state (or fingerprints recovered from the PR thread), Step 1 scopes t
 - Empty selection after the funnel → report "nothing reviewable" with the manifest counts; write no findings.
 - A linter lane unavailable → proceed and state in review.md that overlap suppression did not run for that lane.
 - A bootstrap gate failing (build_manifest.py, build_knowledge.py, build_jobs.py, merge_findings.py) → stop and surface stderr. Missing knowledge accounting or incomplete defect/polish coverage is a review failure, not a warning.
-- run_jobs.py exit 2 (blocked) → a provider limit or invalid metering state stopped the run; provider blocks write `<out>/run-blocker.json`, while invalid telemetry/ledger state fails closed without exposing internals.
-- run_jobs.py exit 3 with token ledger status `budget_exhausted` → preserve completed outputs and the current round; do not rebuild or restart to bypass the cap. Exit 3 without that status, or a render_review freeze failure, means source drift: restart from Step 1 so the round increments and prior artifacts are archived.
+- run_jobs.py exit 2 (blocked) → a provider block stopped the run and wrote `<out>/run-blocker.json`; metrics state is observational and never changes this exit path.
+- run_jobs.py exit 3 → source drift: restart from Step 1 so the round increments and prior artifacts are archived.
 - More than 75 publishable results → use the Step 5 batching contract.
 
 ## Bundled implementation

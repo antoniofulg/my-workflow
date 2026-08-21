@@ -1,48 +1,35 @@
 #!/usr/bin/env python3
 """Deep-review job runner/validator (mutating helper; writes only under --out).
 
-One resumable engine for every job kind (defect cohort, polish, sweep). Two modes:
+  --validate-only            Report each job as VALID / PENDING / INVALID.
+  --command '<template>'     Execute pending jobs with bounded workers, retries,
+                             output validation, and provider-block detection.
 
-  --validate-only            Report each job as VALID / PENDING / INVALID and
-                             refresh the status file. This is how Workflow- and
-                             Agent-driven rounds resume: dispatch only what is
-                             not VALID, then re-run this mode until exit 0.
-  --command '<template>'     Execute pending jobs via a subprocess per job
-                             ({prompt} required; {output} and {label} optional
-                             placeholders), bounded workers, output validation,
-                             retries, and provider-block detection.
-
-Valid outputs are always preserved — re-running never repeats finished work.
-The source freeze is checked before and after execution (--no-freeze-check to
-skip). Exit codes: 0 all jobs valid, 1 failures/pending remain, 2 blocked by a
-provider limit or invalid metering state, 3 either source drift or a metered
-budget stop. A budget stop persists `budget_exhausted` in the token ledger and
-preserves the round; it is not a source-drift restart signal.
+Valid outputs are preserved and resumed. Optional metrics observe the run without
+changing dispatch, concurrency, retries, or exit behavior. Exit codes are 0 for
+valid outputs, 1 for failures/pending outputs, 2 for provider blocks, and 3 for
+source drift.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import shlex
 import subprocess
 import sys
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-sys.dont_write_bytecode = True  # keep the tracked skill tree free of __pycache__
+sys.dont_write_bytecode = True
 
-from _common import check_freeze, load_jobs, read_json, repo_root, validate_job_output, write_json
-from token_budget import (
-    DEFAULT_BUDGET_TOKENS,
-    TokenBudgetError,
-    checkpoint_ledger,
-    finalize_ledger,
-    read_ledger,
-    start_ledger,
-    validate_ledger_telemetry,
-    write_unmetered_fallback,
+from _common import check_freeze, load_jobs, repo_root, validate_job_output, write_json
+from token_metrics import (
+    checkpoint_metrics,
+    finalize_metrics,
+    start_metrics,
+    write_unavailable_metrics,
 )
 
 PRINT_LOCK = threading.Lock()
@@ -65,15 +52,13 @@ def job_state(repo: Path, out: Path, job: dict) -> tuple[str, str]:
     return "valid", ""
 
 
-def render_command(template: str, job: dict, repo: Path) -> list[str]:
-    tokens = shlex.split(template)
-    substituted = [
+def render_command(template: str, job: dict) -> list[str]:
+    return [
         token.replace("{prompt}", job["prompt"])
         .replace("{output}", job["output"])
         .replace("{label}", job["label"])
-        for token in tokens
+        for token in shlex.split(template)
     ]
-    return substituted
 
 
 def run_one(repo: Path, out: Path, job: dict, args) -> dict:
@@ -95,13 +80,10 @@ def run_one(repo: Path, out: Path, job: dict, args) -> dict:
             output.unlink()
         stdout_path = runs_dir / f"{label}.attempt-{attempt}.events.jsonl"
         stderr_path = runs_dir / f"{label}.attempt-{attempt}.err"
-        command = render_command(args.command, job, repo)
-        with stdout_path.open("w", encoding="utf-8") as out_file, stderr_path.open(
-            "w", encoding="utf-8"
-        ) as err_file:
+        with stdout_path.open("w", encoding="utf-8") as out_file, stderr_path.open("w", encoding="utf-8") as err_file:
             try:
                 completed = subprocess.run(
-                    command, cwd=repo, stdout=out_file, stderr=err_file,
+                    render_command(args.command, job), cwd=repo, stdout=out_file, stderr=err_file,
                     check=False, timeout=args.timeout_min * 60,
                 )
                 exit_code = completed.returncode
@@ -110,18 +92,14 @@ def run_one(repo: Path, out: Path, job: dict, args) -> dict:
                 last_error = f"runner timeout after {args.timeout_min}m"
                 say(f"RETRY {label} attempt={attempt} reason={last_error}")
                 continue
-        streams = (
-            stdout_path.read_text(encoding="utf-8", errors="replace")
-            + stderr_path.read_text(encoding="utf-8", errors="replace")
-        )
+        streams = stdout_path.read_text(encoding="utf-8", errors="replace") + stderr_path.read_text(encoding="utf-8", errors="replace")
         blocked_on = next((pattern for pattern in args.block_on if pattern in streams), None)
         if blocked_on:
             STOP_EVENT.set()
             STOP_REASON.setdefault("reason", blocked_on)
             STOP_REASON.setdefault("label", label)
             say(f"BLOCKED {label} pattern={blocked_on}")
-            return {"label": label, "status": "blocked", "attempt": attempt,
-                    "exit_code": exit_code, "error": blocked_on}
+            return {"label": label, "status": "blocked", "attempt": attempt, "exit_code": exit_code, "error": blocked_on}
         if exit_code != 0:
             last_error = f"command exit {exit_code}"
         else:
@@ -131,8 +109,7 @@ def run_one(repo: Path, out: Path, job: dict, args) -> dict:
                 return {"label": label, "status": "pass", "attempt": attempt, "exit_code": 0}
             last_error = reason or "output invalid"
         say(f"RETRY {label} attempt={attempt} reason={last_error}")
-    return {"label": label, "status": "fail", "attempt": args.attempts,
-            "exit_code": exit_code, "error": last_error}
+    return {"label": label, "status": "fail", "attempt": args.attempts, "exit_code": exit_code, "error": last_error}
 
 
 def stage_report(repo: Path, out: Path, jobs: list[dict]) -> tuple[int, list[dict]]:
@@ -144,172 +121,44 @@ def stage_report(repo: Path, out: Path, jobs: list[dict]) -> tuple[int, list[dic
     return len(jobs) - len(pending), pending
 
 
-def token_ledger_path(args, out: Path) -> Path:
-    return Path(args.token_ledger).resolve() if args.token_ledger else out / "runs" / "token-ledger.json"
+def metrics_path(args, out: Path) -> Path:
+    return Path(args.metrics_ledger).resolve() if args.metrics_ledger else out / "runs" / "review-metrics.json"
 
 
-def token_metering(args, out: Path, jobs: list[dict]) -> tuple[str, Path | None, dict | None]:
-    """Start strict metering when requested; otherwise record an honest fallback."""
-    ledger_path = token_ledger_path(args, out)
-    strict = args.metered or args.token_db is not None or args.token_ledger is not None
-    if not strict:
-        write_unmetered_fallback(ledger_path)
-        return "unmetered", None, None
-    try:
-        ledger = start_ledger(
-            ledger_path,
-            args.token_db or default_token_db(),
-            args.reviewer_prefix,
-            args.budget_tokens,
-            repository=str(repo_root()),
-            round=args.round,
-            base=args.base,
-            head=args.head,
-            selected_files=args.selected_files or len(jobs),
-            carried_files=args.carried_files,
-            jobs=len(jobs),
-            model=args.model,
-            reasoning=args.reasoning,
-        )
-    except TokenBudgetError as error:
-        raise error
-    return "metered", ledger_path, ledger
-
-
-def default_token_db() -> str:
-    codex_home = Path(os.environ.get("CODEX_HOME", Path.home() / ".codex"))
-    return str(codex_home / "state_5.sqlite")
-
-
-def run_metered_jobs(repo: Path, out: Path, jobs: list[dict], args, ledger_path: Path, ledger: dict, scope_jobs: list[dict]) -> tuple[list[dict], bool, str | None]:
-    """Run exactly one job, checkpoint it, then decide whether another may start."""
-    results: list[dict] = []
-    budget_exhausted = ledger["status"] == "budget_exhausted"
-    error: str | None = None
-    checkpointed = {row["job"] for row in ledger["checkpoints"]}
-    if budget_exhausted:
-        return results, True, None
-    if ledger["status"] == "complete":
-        if all(job_state(repo, out, job)[0] == "valid" for job in jobs):
-            return results, False, None
-        return results, False, "ledger unavailable"
-    for job in jobs:
-        try:
-            ledger = validate_ledger_telemetry(ledger_path)
-        except TokenBudgetError as failure:
-            error = str(failure)
-            break
-        if ledger["status"] == "budget_exhausted":
-            budget_exhausted = True
-            break
-        result = run_one(repo, out, job, args)
-        results.append(result)
-        if result["status"] != "pass":
-            if result["status"] == "blocked":
-                break
-            continue
-        if job["label"] not in checkpointed:
-            try:
-                ledger = checkpoint_ledger(ledger_path, job["label"])
-            except TokenBudgetError as failure:
-                error = str(failure)
-                break
-            checkpointed.add(job["label"])
-            result["token_usage"] = ledger["usage"]["total_tokens"]
-        if ledger["status"] == "budget_exhausted":
-            budget_exhausted = True
-            break
-    if error is None and not budget_exhausted and not any(item["status"] == "fail" for item in results):
-        _, pending = stage_report(repo, out, scope_jobs)
-        if pending:
-            return results, False, None
-        try:
-            ledger = finalize_ledger(ledger_path)
-            budget_exhausted = ledger["status"] == "budget_exhausted"
-        except TokenBudgetError as failure:
-            error = str(failure)
-    return results, budget_exhausted, error
-
-
-def run_native_action(repo: Path, out: Path, jobs: list[dict], args, scope_jobs: list[dict]) -> int:
-    """Meter one host-native Codex job at a time through the same ledger."""
-    try:
-        if args.native_action == "preflight":
-            _, ledger_path, ledger = token_metering(args, out, jobs)
-            if ledger_path is None or ledger is None:
-                raise TokenBudgetError("ledger")
-            if ledger["status"] == "running":
-                ledger = validate_ledger_telemetry(ledger_path)
-            if ledger["status"] == "budget_exhausted":
-                say("METERED native preflight: budget exhausted; dispatch none")
-                return 3
-            checkpointed = {row["job"] for row in ledger["checkpoints"]}
-            for job in scope_jobs:
-                if job["label"] in checkpointed or job_state(repo, out, job)[0] != "valid":
-                    continue
-                ledger = checkpoint_ledger(ledger_path, job["label"])
-                checkpointed.add(job["label"])
-                if ledger["status"] == "budget_exhausted":
-                    say("METERED native preflight: reconciled output crossed budget")
-                    return 3
-            if ledger["status"] == "complete":
-                _, pending = stage_report(repo, out, scope_jobs)
-                if pending:
-                    raise TokenBudgetError("ledger")
-            say("METERED native preflight: dispatch one job")
-            return 0
-        ledger_path = token_ledger_path(args, out)
-        ledger = read_ledger(ledger_path)
-        if args.native_action == "checkpoint":
-            job = next((candidate for candidate in jobs if candidate["label"] == args.native_job), None)
-            if job is None or job_state(repo, out, job)[0] != "valid":
-                raise TokenBudgetError("ledger")
-            if ledger["status"] == "budget_exhausted":
-                return 3
-            ledger = checkpoint_ledger(ledger_path, args.native_job)
-            say(f"METERED native checkpoint {args.native_job}: {ledger['status']}")
-            return 3 if ledger["status"] == "budget_exhausted" else 0
-        if ledger["status"] == "budget_exhausted":
-            return 3
-        if ledger["status"] == "complete":
-            _, pending = stage_report(repo, out, scope_jobs)
-            if pending:
-                raise TokenBudgetError("ledger")
-            return 0
-        _, pending = stage_report(repo, out, jobs)
-        if pending:
-            raise TokenBudgetError("ledger")
-        ledger = finalize_ledger(ledger_path)
-        say(f"METERED native finalize: {ledger['status']}")
-        return 3 if ledger["status"] == "budget_exhausted" else 0
-    except TokenBudgetError as error:
-        say(f"METERED native unavailable: {error}")
-        write_json(out / "runs" / "token-budget-status.json", {"status": "blocked", "metering": "metered", "error": str(error)})
-        return 2
+def start_observation(args, out: Path, scope_jobs: list[dict]) -> tuple[str, Path, dict]:
+    path = metrics_path(args, out)
+    configured = bool(args.metrics or args.metrics_db or args.metrics_ledger or args.metrics_reviewer_prefix)
+    if not configured:
+        write_unavailable_metrics(path)
+        return "unavailable", path, {"status": "unavailable"}
+    metrics = start_metrics(
+        path,
+        args.metrics_db,
+        args.metrics_reviewer_prefix,
+        repository=str(repo_root()), round=args.round, base=args.base, head=args.head,
+        selected_files=args.selected_files or len(scope_jobs), carried_files=args.carried_files,
+        jobs=len(scope_jobs), model=args.model, reasoning=args.reasoning,
+    )
+    return metrics["status"], path, metrics
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--out", required=True)
     parser.add_argument("--jobs-file", help="default: <out>/jobs.json")
     parser.add_argument("--only", nargs="*", help="exact job labels to consider")
     parser.add_argument("--validate-only", action="store_true")
     parser.add_argument("--command", help="subprocess template; {prompt} required, {output}/{label} optional")
-    parser.add_argument("--native-action", choices=("preflight", "checkpoint", "finalize"), help="meter one host-native Codex job")
-    parser.add_argument("--native-job", help="job label for --native-action checkpoint")
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--attempts", type=int, default=2)
     parser.add_argument("--timeout-min", type=int, default=35)
-    parser.add_argument("--block-on", action="append", default=None,
-                        help="abort-the-run substring (repeatable); default: usageLimitExceeded")
+    parser.add_argument("--block-on", action="append", default=None, help="provider-block substring (repeatable)")
     parser.add_argument("--status-file", help="default: <out>/runs/<jobs-stem>-status.json")
     parser.add_argument("--no-freeze-check", action="store_true")
-    parser.add_argument("--metered", action="store_true", help="require compatible Codex telemetry and enforce the token budget")
-    parser.add_argument("--token-db", help="Codex state SQLite path")
-    parser.add_argument("--token-ledger", "--ledger", help="content-safe token ledger path")
-    parser.add_argument("--reviewer-prefix", default="/reviewer/deep-review")
-    parser.add_argument("--budget-tokens", "--token-budget", "--budget", dest="budget_tokens", type=int, default=DEFAULT_BUDGET_TOKENS)
+    parser.add_argument("--metrics", action="store_true", help="observe compatible provider token metrics")
+    parser.add_argument("--metrics-db", help="provider telemetry database supplied by an adapter")
+    parser.add_argument("--metrics-ledger", help="content-safe observational metrics path")
+    parser.add_argument("--metrics-reviewer-prefix", help="explicit provider reviewer path for telemetry")
     parser.add_argument("--round", type=int, default=0)
     parser.add_argument("--base", default="unknown")
     parser.add_argument("--head", default="unknown")
@@ -318,15 +167,8 @@ def main() -> int:
     parser.add_argument("--model", default="unknown")
     parser.add_argument("--reasoning", default="unknown")
     args = parser.parse_args()
-    action_count = sum((bool(args.validate_only), bool(args.command), bool(args.native_action)))
-    if action_count != 1:
-        parser.error("pass exactly one of --validate-only, --command, or --native-action")
-    if args.native_action == "checkpoint" and not args.native_job:
-        parser.error("--native-action checkpoint requires --native-job")
-    if args.native_action != "checkpoint" and args.native_job:
-        parser.error("--native-job is valid only with --native-action checkpoint")
-    if args.native_action and not args.metered:
-        parser.error("--native-action requires --metered")
+    if bool(args.validate_only) == bool(args.command):
+        parser.error("pass exactly one of --validate-only or --command")
     if not 1 <= args.workers <= 6:
         parser.error("--workers must be between 1 and 6")
     if not 1 <= args.attempts <= 3:
@@ -353,17 +195,13 @@ def main() -> int:
     else:
         jobs = scope_jobs
 
-    status_path = (
-        Path(args.status_file).resolve() if args.status_file
-        else out / "runs" / f"{jobs_path.stem}-status.json"
-    )
-
+    status_path = Path(args.status_file).resolve() if args.status_file else out / "runs" / f"{jobs_path.stem}-status.json"
     if args.validate_only:
         rows = []
         for job in jobs:
             state, reason = job_state(repo, out, job)
             row = {"label": job["label"], "status": state, "reason": reason or None}
-            if state != "valid":  # pending rows carry the dispatch contract for the engines
+            if state != "valid":
                 row["prompt"], row["output"] = job["prompt"], job["output"]
             rows.append(row)
             say(f"{state.upper()} {job['label']}" + (f" — {reason}" if reason else ""))
@@ -372,7 +210,6 @@ def main() -> int:
         say(f"SUMMARY valid={len(rows) - len(pending)} pending={len(pending)} of {len(rows)}")
         return 0 if not pending else 1
 
-    drift: list[str] = []
     if not args.no_freeze_check:
         try:
             drift = check_freeze(repo, out, "before run")
@@ -384,54 +221,31 @@ def main() -> int:
             return 3
 
     (out / "runs").mkdir(parents=True, exist_ok=True)
-    if args.native_action:
-        return run_native_action(repo, out, jobs, args, scope_jobs)
-    try:
-        metering, ledger_path, ledger = token_metering(args, out, scope_jobs)
-    except TokenBudgetError as error:
-        say(f"METERED unavailable: {error}")
-        write_json(out / "runs" / "token-budget-status.json", {"status": "blocked", "metering": "metered", "error": str(error)})
-        return 2
-
-    budget_exhausted = False
-    token_error: str | None = None
-    if metering == "metered":
-        args.workers = 1
-        say("METERED sequential workers=1")
-        results, budget_exhausted, token_error = run_metered_jobs(repo, out, jobs, args, ledger_path, ledger, scope_jobs)
-    else:
-        args.workers = 1
-        say("UNMETERED sequential workers=1")
-        results = [run_one(repo, out, job, args) for job in jobs]
-        for result in results:
+    metrics_status, metrics_file, _ = start_observation(args, out, scope_jobs)
+    results: list[dict] = []
+    with ThreadPoolExecutor(max_workers=args.workers) as executor:
+        futures = {executor.submit(run_one, repo, out, job, args): job for job in jobs}
+        for future in as_completed(futures):
+            result = future.result()
+            results.append(result)
             if result["status"] == "fail":
                 say(f"FAIL {result['label']}: {result['error']}")
+            if metrics_status == "running":
+                completed = sum(item["status"] == "pass" for item in results)
+                metrics = checkpoint_metrics(metrics_file, completed)
+                metrics_status = metrics["status"]
+    results.sort(key=lambda item: str(item["label"]))
 
     valid_count, pending = stage_report(repo, out, jobs)
     failed = [item for item in results if item["status"] == "fail"]
     blocked = [item for item in results if item["status"] == "blocked"]
+    if metrics_status == "running" and not failed and not pending:
+        metrics_status = finalize_metrics(metrics_file)["status"]
     write_json(status_path, {
-        "mode": "run", "metering": metering,
-        "token_ledger": str(ledger_path) if ledger_path else None,
-        "jobs": results,
-        "summary": {"pass": len(results) - len(failed) - len(blocked),
-                    "fail": len(failed), "blocked": len(blocked),
-                    "stage_valid": valid_count, "stage_total": len(jobs)},
+        "mode": "run", "metrics": metrics_status, "metrics_ledger": str(metrics_file), "jobs": results,
+        "summary": {"pass": len(results) - len(failed) - len(blocked), "fail": len(failed), "blocked": len(blocked), "stage_valid": valid_count, "stage_total": len(jobs)},
     })
-    if token_error:
-        write_json(out / "runs" / "token-budget-status.json", {"status": "blocked", "metering": "metered", "error": token_error})
-    if blocked:
-        write_json(out / "run-blocker.json", {
-            "status": "blocked",
-            "pattern": STOP_REASON.get("reason"),
-            "first_label": STOP_REASON.get("label"),
-            "jobs_file": str(jobs_path),
-            "valid_outputs": valid_count,
-            "total_jobs": len(jobs),
-            "pending": [row["label"] for row in pending],
-        })
-    say(f"SUMMARY pass={len(results) - len(failed) - len(blocked)} fail={len(failed)} "
-        f"blocked={len(blocked)}; stage {valid_count}/{len(jobs)} outputs valid")
+    say(f"SUMMARY pass={len(results) - len(failed) - len(blocked)} fail={len(failed)} blocked={len(blocked)}; stage {valid_count}/{len(jobs)} outputs valid")
 
     if not args.no_freeze_check:
         try:
@@ -442,14 +256,8 @@ def main() -> int:
         if drift:
             sys.stderr.write(drift[0] + "\n")
             return 3
-    if token_error:
-        say(f"METERED blocked: {token_error}")
-        return 2
-    if budget_exhausted:
-        say("METERED budget exhausted; remaining jobs were not started")
-        return 3
     if blocked:
-        say(f"resume: rerun this command after the limit clears — see {out / 'run-blocker.json'}")
+        say(f"resume: rerun this command after the provider block clears — see {out / 'run-blocker.json'}")
         return 2
     return 1 if failed or pending else 0
 
