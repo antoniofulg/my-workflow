@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parents[1] / ".agents/skills/deep-review/scripts"
@@ -24,6 +25,7 @@ from token_metrics import (  # noqa: E402
     read_telemetry,
     start_metrics,
 )
+import token_metrics  # noqa: E402
 
 PREFIX = "/reviewer/deep-review"
 REPO = Path.cwd()
@@ -204,6 +206,41 @@ class TokenMetricsTests(unittest.TestCase):
                 with self.subTest(field=field), self.assertRaises(TokenMetricsError):
                     read_metrics(ledger)
 
+    def test_drm05_ledger_replace_is_atomic_and_failure_safe(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            db, ledger = root / "codex.sqlite", root / "metrics.json"
+            create_db(db)
+            start_metrics(ledger, db, PREFIX, repository="repo", selected_files=1, jobs=1)
+            before = ledger.read_bytes()
+            update_db(db, 10)
+            replaced: list[tuple[Path, Path]] = []
+            original_replace = token_metrics.os.replace
+
+            def observe_replace(source: str | os.PathLike[str], target: str | os.PathLike[str]) -> None:
+                source_path, target_path = Path(source), Path(target)
+                self.assertNotEqual(source_path, target_path)
+                self.assertEqual(target_path, ledger)
+                self.assertEqual(stat.S_IMODE(source_path.stat().st_mode), 0o600)
+                replaced.append((source_path, target_path))
+                original_replace(source, target)
+
+            with patch.object(token_metrics.os, "replace", observe_replace):
+                checkpoint_metrics(ledger, 1)
+            self.assertEqual(len(replaced), 1)
+            self.assertNotEqual(ledger.read_bytes(), before)
+
+            stable = ledger.read_bytes()
+
+            def fail_replace(source: str | os.PathLike[str], target: str | os.PathLike[str]) -> None:
+                raise OSError("simulated replace failure")
+
+            update_db(db, 20)
+            with patch.object(token_metrics.os, "replace", fail_replace), self.assertRaises(OSError):
+                checkpoint_metrics(ledger, 2)
+            self.assertEqual(ledger.read_bytes(), stable)
+            self.assertEqual(list(root.glob(f".{ledger.name}.*.tmp")), [])
+
     def test_drm06_shared_docs_are_provider_neutral(self) -> None:
         skill = (REPO / ".agents/skills/deep-review/SKILL.md").read_text(encoding="utf-8")
         orchestration = (REPO / ".agents/skills/deep-review/references/orchestration.md").read_text(encoding="utf-8")
@@ -220,6 +257,14 @@ class TokenMetricsTests(unittest.TestCase):
         self.assertIn("Graft", orchestration)
         self.assertIn("fallback", orchestration.lower())
         self.assertNotIn("parallel(", orchestration)
+        native = orchestration.split("**Named native dispatch", 1)[1].split("Metrics are optional", 1)[0].lower()
+        self.assertIn("one at a time", native)
+        self.assertNotRegex(native, r"parallel|concurr|fan[- ]out|promise\.all")
+        graft = " ".join(orchestration.split("When the pinned Graft CLI", 1)[1].split("**Workflow fallback", 1)[0].lower().split())
+        self.assertIn("optional", graft)
+        self.assertIn("plain repository inspection", graft)
+        self.assertIn("does not block review", graft)
+        self.assertNotRegex(graft, r"\bmandatory\b|\brequired\b")
         manifest = json.loads((REPO / "package.json").read_text(encoding="utf-8"))
         self.assertEqual(manifest["devDependencies"]["@nanonets/graft"], "0.10.1")
         self.assertEqual(manifest["scripts"]["review:graft:build"], "graft build")

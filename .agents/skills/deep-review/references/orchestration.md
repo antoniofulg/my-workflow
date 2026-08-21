@@ -73,8 +73,8 @@ run the validate-only gate. Provider-specific telemetry setup belongs in the run
 guidance, not in this orchestration contract.
 
 When the pinned Graft CLI is available, use `graft build`, repository-map lookup, blast-radius
-tracing, and symbol lookup to focus each prompt before dispatch. Graft is an inspection aid: a
-missing binary, stale map, or failed command falls back to ordinary repository inspection and does
+tracing, and symbol lookup to focus each prompt before dispatch. Graft is optional inspection aid:
+a missing binary, stale map, or failed command falls back to plain repository inspection and does
 not block review.
 
 **Workflow fallback (when named native dispatch is unavailable).** One generic script executes any
