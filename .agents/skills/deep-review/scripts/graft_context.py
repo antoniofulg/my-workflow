@@ -3,16 +3,31 @@
 from __future__ import annotations
 
 import json
-import shutil
 import subprocess
 from pathlib import Path
+
+GRAFT_VERSION = "0.10.1"
 
 
 def graft_binary(repo: Path) -> str | None:
     local = repo / "node_modules" / ".bin" / "graft"
-    if local.is_file():
-        return str(local)
-    return shutil.which("graft")
+    package = repo / "node_modules" / "@nanonets" / "graft" / "package.json"
+    if not local.is_file() or not package.is_file():
+        return None
+    try:
+        manifest = json.loads(package.read_text(encoding="utf-8"))
+        resolved_binary = local.resolve(strict=True)
+        resolved_package = package.parent.resolve(strict=True)
+    except (OSError, json.JSONDecodeError):
+        return None
+    if manifest.get("version") != GRAFT_VERSION:
+        return None
+    try:
+        resolved_binary.relative_to(repo.resolve() / "node_modules")
+        resolved_package.relative_to(repo.resolve() / "node_modules")
+    except ValueError:
+        return None
+    return str(local)
 
 
 def _run(binary: str, repo: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
@@ -38,12 +53,12 @@ def _fallback(path: Path, reason: str, dot_paths: list[str]) -> dict[str, str]:
     return {"status": "fallback", "path": str(path)}
 
 
-def prepare_graft_context(repo: Path, out: Path, selected_paths: list[str], binary: str | None = None) -> dict[str, str]:
+def prepare_graft_context(repo: Path, out: Path, selected_paths: list[str]) -> dict[str, str]:
     """Build and query Graft without making review dependent on it."""
     context_path = out / "graft-context.md"
     dot_paths = [path for path in selected_paths if path.startswith(".") or path.startswith("graft/")]
     visible_paths = [path for path in selected_paths if path not in dot_paths]
-    binary = binary or graft_binary(repo)
+    binary = graft_binary(repo)
     if binary is None:
         return _fallback(context_path, "pinned Graft CLI is unavailable", dot_paths)
     try:

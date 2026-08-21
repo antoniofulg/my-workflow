@@ -143,6 +143,17 @@ def delta_usage(baseline: dict[str, dict[str, int | None]], snapshot: dict[str, 
     return result
 
 
+def _total_usage(snapshot: dict[str, dict[str, int | None]]) -> dict[str, int | None]:
+    """Aggregate provider totals without retaining any provider content."""
+    rows = list(snapshot.values())
+    result: dict[str, int | None] = {
+        "total_tokens": sum(int(row["total_tokens"]) for row in rows),
+    }
+    for field in USAGE_FIELDS:
+        result[field] = None if any(row[field] is None for row in rows) else sum(int(row[field]) for row in rows)
+    return result
+
+
 def _write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{os.getpid()}.{secrets.token_hex(4)}.tmp")
@@ -207,7 +218,7 @@ def _valid_metrics(value: object) -> bool:
             and _valid_scope(value["scope"])
             and isinstance(value["reason"], str)
         )
-    expected = {"schema_version", "kind", "started_at", "finalized_at", "runtime_db", "scope", "baseline_by_thread", "reviewer_thread_count", "checkpoints", "usage", "status"}
+    expected = {"schema_version", "kind", "started_at", "finalized_at", "runtime_db", "scope", "baseline_by_thread", "reviewer_thread_count", "checkpoints", "usage", "final_snapshot_by_thread", "final_usage", "status"}
     if set(value) != expected or value["schema_version"] != 1 or value["kind"] != "review_token_metrics" or not _timestamp(value["started_at"]):
         return False
     if value["finalized_at"] is not None and not _timestamp(value["finalized_at"]):
@@ -215,6 +226,23 @@ def _valid_metrics(value: object) -> bool:
     scope = value["scope"]
     if not _valid_scope(scope):
         return False
+    if value["status"] == "running":
+        final_valid = value["final_snapshot_by_thread"] is None and value["final_usage"] is None
+    else:
+        final_snapshot = value["final_snapshot_by_thread"]
+        final_valid = (
+            isinstance(final_snapshot, dict)
+            and all(_usage(row) for row in final_snapshot.values())
+            and _usage(value["final_usage"])
+        )
+        if final_valid:
+            try:
+                final_valid = (
+                    delta_usage(value["baseline_by_thread"], final_snapshot) == value["usage"]
+                    and _total_usage(final_snapshot) == value["final_usage"]
+                )
+            except (KeyError, TypeError, TokenMetricsError):
+                final_valid = False
     return (
         isinstance(value["runtime_db"], str)
         and isinstance(value["baseline_by_thread"], dict)
@@ -225,6 +253,7 @@ def _valid_metrics(value: object) -> bool:
         and _usage(value["usage"])
         and value["status"] in {"running", "complete"}
         and (value["status"] == "running" or value["finalized_at"] is not None)
+        and final_valid
     )
 
 
@@ -270,6 +299,8 @@ def start_metrics(path: str | Path, db_path: str | Path | None, reviewer_prefix:
         "reviewer_thread_count": len(snapshot),
         "checkpoints": [],
         "usage": _empty_usage(),
+        "final_snapshot_by_thread": None,
+        "final_usage": None,
         "status": "running",
     }
     _write_json(state_path, metrics)
@@ -318,7 +349,18 @@ def finalize_metrics(path: str | Path) -> dict:
     measured = _measure(state_path, metrics)
     if measured["status"] == "unavailable":
         return measured
-    finalized = {**measured, "finalized_at": _now(), "status": "complete"}
+    try:
+        final_snapshot = read_telemetry(measured["runtime_db"], measured["scope"]["reviewer_prefix"])
+        final_usage = _total_usage(final_snapshot)
+    except TokenMetricsError:
+        return _unavailable(state_path, "runtime telemetry unavailable", measured["scope"], measured["runtime_db"])
+    finalized = {
+        **measured,
+        "finalized_at": _now(),
+        "final_snapshot_by_thread": final_snapshot,
+        "final_usage": final_usage,
+        "status": "complete",
+    }
     _write_json(state_path, finalized)
     return finalized
 

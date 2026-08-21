@@ -30,6 +30,7 @@ import token_metrics  # noqa: E402
 import run_jobs  # noqa: E402
 import build_jobs  # noqa: E402
 from graft_context import graft_binary, prepare_graft_context  # noqa: E402
+import graft_context  # noqa: E402
 
 PREFIX = "/reviewer/deep-review"
 REPO = Path.cwd()
@@ -128,8 +129,25 @@ class TokenMetricsTests(unittest.TestCase):
             finished = finalize_metrics(ledger)
             self.assertEqual(finished["status"], "complete")
             self.assertEqual(finished["usage"]["total_tokens"], 80)
+            self.assertEqual(finished["final_snapshot_by_thread"]["thread-1"]["total_tokens"], 180)
+            self.assertEqual(finished["final_usage"]["total_tokens"], 180)
+            self.assertEqual(
+                finished["final_usage"]["total_tokens"] - started["baseline_by_thread"]["thread-1"]["total_tokens"],
+                finished["usage"]["total_tokens"],
+            )
             self.assertEqual(start_metrics(ledger, db, PREFIX, repository="repo", selected_files=1, jobs=1)["status"], "complete")
             self.assertEqual(started["baseline_by_thread"]["thread-1"]["total_tokens"], 100)
+            mutations = (
+                ("alter-final-usage", lambda value: value["final_usage"].update({"total_tokens": 181})),
+                ("alter-final-snapshot", lambda value: value["final_snapshot_by_thread"]["thread-1"].update({"total_tokens": 181})),
+                ("drop-final-usage", lambda value: value.pop("final_usage")),
+            )
+            for name, mutate in mutations:
+                malformed = json.loads(json.dumps(finished))
+                mutate(malformed)
+                ledger.write_text(json.dumps(malformed), encoding="utf-8")
+                with self.subTest(name=name), self.assertRaises(TokenMetricsError):
+                    read_metrics(ledger)
 
     def test_drm02_runner_serializes_reviewers_and_metrics_checkpoints(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -239,15 +257,16 @@ class TokenMetricsTests(unittest.TestCase):
     def test_drm04_configured_retries_run_serially(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
-            out, jobs = REPO / ".deep-review/metrics-retries", root / "jobs.json"
-            calls, state_dir = root / "calls", root / "attempts"
+            db, out, jobs = root / "codex.sqlite", REPO / ".deep-review/metrics-retries", root / "jobs.json"
+            calls, state_dir, ledger = root / "calls", root / "attempts", root / "metrics.json"
             active, overlap = root / "active", root / "overlap"
+            create_db(db)
             write_jobs(jobs, ".deep-review/metrics-retries")
             helper = root / "job.py"
             retry_helper_script(helper)
             try:
                 result = subprocess.run(
-                    runner(out, jobs, helper, calls, extra=["--attempts", "2"], helper_suffix=[state_dir, active, overlap]),
+                    runner(out, jobs, helper, calls, db=db, ledger=ledger, extra=["--attempts", "2"], helper_suffix=[state_dir, active, overlap]),
                     cwd=REPO, capture_output=True, text=True,
                 )
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -255,6 +274,9 @@ class TokenMetricsTests(unittest.TestCase):
                 self.assertEqual(calls.read_text(encoding="utf-8").splitlines(), ["job-1:1", "job-1:2", "job-2:1", "job-2:2"])
                 status = json.loads((out / "runs/jobs-status.json").read_text(encoding="utf-8"))
                 self.assertEqual([row["attempt"] for row in status["jobs"]], [2, 2])
+                metrics = read_metrics(ledger)
+                self.assertEqual(metrics["status"], "complete")
+                self.assertEqual(metrics["usage"]["total_tokens"], 0)
             finally:
                 shutil.rmtree(out, ignore_errors=True)
 
@@ -452,11 +474,49 @@ class TokenMetricsTests(unittest.TestCase):
             failing = out / "failing-graft"
             failing.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
             failing.chmod(0o700)
-            failed_context = prepare_graft_context(REPO, out / "failed", ["tools/test_deep_review_token_metrics.py"], str(failing))
+            with patch.object(graft_context, "graft_binary", return_value=str(failing)):
+                failed_context = prepare_graft_context(REPO, out / "failed", ["tools/test_deep_review_token_metrics.py"])
             self.assertEqual(failed_context["status"], "fallback")
             self.assertIn("plain repository inspection", (out / "failed/graft-context.md").read_text(encoding="utf-8"))
 
-    def test_drm01_native_hooks_are_cumulative_with_serial_dispatch(self) -> None:
+    def test_drm06_graft_never_uses_global_path_binary(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            fake_repo, fake_bin, marker = root / "repo", root / "bin", root / "invoked"
+            fake_repo.mkdir()
+            fake_bin.mkdir()
+            attacker = fake_bin / "graft"
+            attacker.write_text(f"#!/bin/sh\ntouch {marker}\n", encoding="utf-8")
+            attacker.chmod(0o700)
+            with patch.dict(os.environ, {"PATH": str(fake_bin)}):
+                self.assertIsNone(graft_binary(fake_repo))
+                context = prepare_graft_context(fake_repo, root / "out", ["src/app.py"])
+            self.assertEqual(context["status"], "fallback")
+            self.assertFalse(marker.exists())
+
+    def test_drm06_graft_later_failures_are_nonblocking(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            for name, failure, expected in (("map", "map", "Graft map failed"), ("symbols", "ask", "symbol lookup failed"), ("callers", "callers", "blast-radius lookup failed")):
+                script = root / f"graft-{name}.py"
+                log = root / f"{name}.log"
+                script.write_text(
+                    "#!/usr/bin/env python3\n"
+                    "import json, pathlib, sys\n"
+                    f"pathlib.Path({str(log)!r}).open('a').write(sys.argv[1] + '\\n')\n"
+                    f"if sys.argv[1] == {failure!r}: sys.exit(1)\n"
+                    "if sys.argv[1] == 'ask': print(json.dumps({'hits': [{'kind': 'symbol', 'title': 'main · function'}]}))\n"
+                    "else: print('{}')\n",
+                    encoding="utf-8",
+                )
+                script.chmod(0o700)
+                with patch.object(graft_context, "graft_binary", return_value=str(script)):
+                    context = prepare_graft_context(REPO, root / name, ["tools/test_deep_review_token_metrics.py"])
+                self.assertIn(context["status"], {"fallback", "ready-with-fallback"})
+                self.assertIn(expected, (root / name / "graft-context.md").read_text(encoding="utf-8"))
+                self.assertIn("build", log.read_text(encoding="utf-8"))
+
+    def test_drm01_metrics_hooks_are_cumulative_with_serial_dispatch(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
             db, ledger = root / "codex.sqlite", root / "metrics.json"
@@ -511,20 +571,24 @@ class TokenMetricsTests(unittest.TestCase):
             finally:
                 shutil.rmtree(out, ignore_errors=True)
 
-    def test_provider_block_still_writes_blocker_and_exits_two(self) -> None:
+    def test_provider_block_with_metrics_still_writes_blocker_and_exits_two(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
-            out, jobs, calls = REPO / ".deep-review/provider-block-test", root / "jobs.json", root / "calls"
+            db, out, jobs = root / "codex.sqlite", REPO / ".deep-review/provider-block-test", root / "jobs.json"
+            calls, ledger = root / "calls", root / "metrics.json"
+            create_db(db)
             write_jobs(jobs, ".deep-review/provider-block-test", count=1)
             helper = root / "blocked.py"
             helper.write_text("print('usageLimitExceeded')\n", encoding="utf-8")
             shutil.rmtree(out, ignore_errors=True)
             try:
-                result = subprocess.run(runner(out, jobs, helper, calls), cwd=REPO, capture_output=True, text=True)
+                result = subprocess.run(runner(out, jobs, helper, calls, db=db, ledger=ledger), cwd=REPO, capture_output=True, text=True)
                 self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
                 blocker = json.loads((out / "run-blocker.json").read_text(encoding="utf-8"))
                 self.assertEqual(blocker["status"], "blocked")
                 self.assertEqual(blocker["pattern"], "usageLimitExceeded")
+                metrics = read_metrics(ledger)
+                self.assertEqual(metrics["status"], "running")
             finally:
                 shutil.rmtree(out, ignore_errors=True)
 
