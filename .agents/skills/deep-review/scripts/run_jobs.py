@@ -181,7 +181,7 @@ def default_token_db() -> str:
     return str(codex_home / "state_5.sqlite")
 
 
-def run_metered_jobs(repo: Path, out: Path, jobs: list[dict], args, ledger_path: Path, ledger: dict) -> tuple[list[dict], bool, str | None]:
+def run_metered_jobs(repo: Path, out: Path, jobs: list[dict], args, ledger_path: Path, ledger: dict, scope_jobs: list[dict]) -> tuple[list[dict], bool, str | None]:
     """Run exactly one job, checkpoint it, then decide whether another may start."""
     results: list[dict] = []
     budget_exhausted = ledger["status"] == "budget_exhausted"
@@ -220,6 +220,9 @@ def run_metered_jobs(repo: Path, out: Path, jobs: list[dict], args, ledger_path:
             budget_exhausted = True
             break
     if error is None and not budget_exhausted and not any(item["status"] == "fail" for item in results):
+        _, pending = stage_report(repo, out, scope_jobs)
+        if pending:
+            return results, False, None
         try:
             ledger = finalize_ledger(ledger_path)
             budget_exhausted = ledger["status"] == "budget_exhausted"
@@ -228,7 +231,7 @@ def run_metered_jobs(repo: Path, out: Path, jobs: list[dict], args, ledger_path:
     return results, budget_exhausted, error
 
 
-def run_native_action(repo: Path, out: Path, jobs: list[dict], args) -> int:
+def run_native_action(repo: Path, out: Path, jobs: list[dict], args, scope_jobs: list[dict]) -> int:
     """Meter one host-native Codex job at a time through the same ledger."""
     try:
         if args.native_action == "preflight":
@@ -240,8 +243,17 @@ def run_native_action(repo: Path, out: Path, jobs: list[dict], args) -> int:
             if ledger["status"] == "budget_exhausted":
                 say("METERED native preflight: budget exhausted; dispatch none")
                 return 3
+            checkpointed = {row["job"] for row in ledger["checkpoints"]}
+            for job in scope_jobs:
+                if job["label"] in checkpointed or job_state(repo, out, job)[0] != "valid":
+                    continue
+                ledger = checkpoint_ledger(ledger_path, job["label"])
+                checkpointed.add(job["label"])
+                if ledger["status"] == "budget_exhausted":
+                    say("METERED native preflight: reconciled output crossed budget")
+                    return 3
             if ledger["status"] == "complete":
-                _, pending = stage_report(repo, out, jobs)
+                _, pending = stage_report(repo, out, scope_jobs)
                 if pending:
                     raise TokenBudgetError("ledger")
             say("METERED native preflight: dispatch one job")
@@ -260,7 +272,7 @@ def run_native_action(repo: Path, out: Path, jobs: list[dict], args) -> int:
         if ledger["status"] == "budget_exhausted":
             return 3
         if ledger["status"] == "complete":
-            _, pending = stage_report(repo, out, jobs)
+            _, pending = stage_report(repo, out, scope_jobs)
             if pending:
                 raise TokenBudgetError("ledger")
             return 0
@@ -329,15 +341,17 @@ def main() -> int:
     out = Path(args.out).resolve()
     jobs_path = Path(args.jobs_file).resolve() if args.jobs_file else out / "jobs.json"
     try:
-        jobs = load_jobs(jobs_path)
+        scope_jobs = load_jobs(jobs_path)
     except RuntimeError as error:
         sys.stderr.write(f"{error}\n")
         return 1
     if args.only:
-        unknown = set(args.only) - {job["label"] for job in jobs}
+        unknown = set(args.only) - {job["label"] for job in scope_jobs}
         if unknown:
             parser.error(f"unknown jobs: {sorted(unknown)}")
-        jobs = [job for job in jobs if job["label"] in args.only]
+        jobs = [job for job in scope_jobs if job["label"] in args.only]
+    else:
+        jobs = scope_jobs
 
     status_path = (
         Path(args.status_file).resolve() if args.status_file
@@ -371,9 +385,9 @@ def main() -> int:
 
     (out / "runs").mkdir(parents=True, exist_ok=True)
     if args.native_action:
-        return run_native_action(repo, out, jobs, args)
+        return run_native_action(repo, out, jobs, args, scope_jobs)
     try:
-        metering, ledger_path, ledger = token_metering(args, out, jobs)
+        metering, ledger_path, ledger = token_metering(args, out, scope_jobs)
     except TokenBudgetError as error:
         say(f"METERED unavailable: {error}")
         write_json(out / "runs" / "token-budget-status.json", {"status": "blocked", "metering": "metered", "error": str(error)})
@@ -384,7 +398,7 @@ def main() -> int:
     if metering == "metered":
         args.workers = 1
         say("METERED sequential workers=1")
-        results, budget_exhausted, token_error = run_metered_jobs(repo, out, jobs, args, ledger_path, ledger)
+        results, budget_exhausted, token_error = run_metered_jobs(repo, out, jobs, args, ledger_path, ledger, scope_jobs)
     else:
         args.workers = 1
         say("UNMETERED sequential workers=1")

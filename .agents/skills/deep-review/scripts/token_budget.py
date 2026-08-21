@@ -134,6 +134,8 @@ def _detail_delta(current: int | None, baseline: int | None) -> int | None:
 
 
 def delta_usage(baseline: dict[str, dict[str, int | None]], snapshot: dict[str, dict[str, int | None]]) -> dict[str, int | None]:
+    if not set(baseline).issubset(snapshot):
+        raise TokenBudgetError("telemetry")
     rows: list[dict[str, int | None]] = []
     for thread_id, current in snapshot.items():
         previous = baseline.get(thread_id, _empty_usage())
