@@ -21,7 +21,8 @@ def make_repo() -> Path:
         agents = root / f".{provider}" / "agents"
         agents.mkdir(parents=True)
         for role in workflow_config.ROLES:
-            (agents / f"{role}.{extension}").write_text(f"{role}\n", encoding="utf-8")
+            agent_name = workflow_config.AGENT_NAMES.get(role, role)
+            (agents / f"{agent_name}.{extension}").write_text(f"{role}\n", encoding="utf-8")
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
     subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
     subprocess.run(["git", "config", "user.name", "Test"], cwd=root, check=True)

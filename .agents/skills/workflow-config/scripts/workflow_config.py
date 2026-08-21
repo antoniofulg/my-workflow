@@ -21,6 +21,7 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.11 is the supported r
 
 ROLES = ("implementer", "verifier", "explorer", "deep_reviewer")
 PROVIDERS = ("claude", "codex", "cursor")
+AGENT_NAMES = {"deep_reviewer": "deep-reviewer"}
 CADENCE_DEFAULT = "grouped.3"
 CADENCE_RE = re.compile(r"^grouped\.(\d+)$")
 SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
@@ -139,13 +140,14 @@ def _git_head(root: Path) -> str:
 
 
 def _agent_file(root: Path, provider: str, role: str) -> str:
+    agent_name = AGENT_NAMES.get(role, role)
     extensions = ("toml", "md") if provider == "codex" else ("md", "toml")
     for extension in extensions:
-        relative = Path(f".{provider}") / "agents" / f"{role}.{extension}"
+        relative = Path(f".{provider}") / "agents" / f"{agent_name}.{extension}"
         if (root / relative).is_file():
             return relative.as_posix()
     expected = ", ".join(
-        (Path(f".{provider}") / "agents" / f"{role}.{extension}").as_posix()
+        (Path(f".{provider}") / "agents" / f"{agent_name}.{extension}").as_posix()
         for extension in extensions
     )
     raise _error(f"missing agent file for provider {provider!r}, role {role!r}; expected {expected}")
