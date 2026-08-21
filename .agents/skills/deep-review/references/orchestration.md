@@ -57,7 +57,19 @@ Sweeps are **opt-in and rare** — default to none. Each sweep is one extra agen
 
 The jobs contract makes engines interchangeable — pick one per run, record it in walkthrough.md's Review details (`Mode: workflow | agent-fallback | subagent:<runtime>`), and always close the loop with `run_jobs.py --validate-only`. Validation rejects missing coverage rows, unaccounted rules, wrong-lane results, and silent suppressions.
 
-**Workflow (default).** One generic script executes any stage's pending jobs — pass the pending list from the validate-only status file as `args.jobs`:
+**Named native dispatch (default when host supports it).** Dispatch each pending job to the custom
+`deep-reviewer` agent. Use the host's real selector:
+
+- Claude Code Task: `subagent_type: "deep-reviewer"`.
+- Cursor `cursor/task`: `subagentType: { custom: "deep-reviewer" }`.
+- Codex native Agent/spawn: custom agent name/type `deep-reviewer`, resolved from
+  `.codex/agents/deep-reviewer.toml`.
+
+Record `Mode: native` in walkthrough.md, then run the validate-only gate.
+
+**Workflow fallback (when named native dispatch is unavailable).** One generic script executes any
+stage's pending jobs — pass the pending list from the validate-only status file as `args.jobs`.
+This path intentionally stays role-free; it does not assume a named-agent parameter.
 
 ```js
 export const meta = {
@@ -77,7 +89,10 @@ return { dispatched: args.jobs.length, returned: acks.filter(Boolean).length }
 
 After the workflow returns, run the validate-only gate; re-invoke with the still-pending jobs (interrupted runs can also resume via `resumeFromRunId`). Two re-dispatches without progress → inspect a failing output by hand before continuing.
 
-**Agent fallback (`--no-workflow` or no Workflow tool).** Same contract through the Agent tool: dispatch each pending job's prompt file to a subagent ("Read `<prompt>` and follow it exactly…"), at most 6 concurrent, then the validate-only gate.
+**Agent fallback (`--no-workflow` or no Workflow tool).** Same contract through the Agent tool: use
+the named native selectors above when available. If the host has no named-agent path, use the
+generic prompt-only subagent dispatch ("Read `<prompt>` and follow it exactly…") at most 6
+concurrent; do not add an unsupported role argument. Then run the validate-only gate.
 
 **External runtimes (`--subagent` ≠ `native`).** `run_jobs.py --command` drives `compozy exec` per subagent-runtimes.md — the runner owns concurrency, retries, output validation, provider-block detection, and the freeze check.
 

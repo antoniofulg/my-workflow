@@ -277,21 +277,34 @@ describe("canonical QA skills", () => {
       "active, already-approved review loop",
       "fix blocking findings",
       "without new human approval",
-      "through the applicable cap",
+      "through the applicable review cap",
       "scoped gate",
       "after each correction",
-      "continue the loop",
+      "final deep-review round (round 2)",
+      "corrected automatically in the same loop",
+      "do not start round 3",
       "escalate only",
-      "blockers remain at the cap",
+      "post-fix gate fails",
+      "blocker remains reproducible",
       "remote actions retain separate approval requirements",
     ]) {
       expect(approvedLoopRule).toContain(anchor);
     }
-    expect(approvedLoopRule.indexOf("scoped gate")).toBeLessThan(
-      approvedLoopRule.indexOf("continue the loop"),
+    expect(approvedLoopRule.indexOf("without new human approval")).toBeLessThan(
+      approvedLoopRule.indexOf("corrected automatically in the same loop"),
     );
-    expect(approvedLoopRule.indexOf("continue the loop")).toBeLessThan(
+    expect(approvedLoopRule.indexOf("scoped gate after each correction")).toBeLessThan(
+      approvedLoopRule.indexOf("corrected automatically in the same loop"),
+    );
+    expect(approvedLoopRule.indexOf("corrected automatically in the same loop")).toBeLessThan(
+      approvedLoopRule.indexOf("do not start round 3"),
+    );
+    expect(approvedLoopRule.indexOf("do not start round 3")).toBeLessThan(
       approvedLoopRule.indexOf("escalate only"),
+    );
+    expect(approvedLoopRule).not.toMatch(/ask(?: the human)? whether to fix/i);
+    expect(readRepositoryFile(".agents/skills/deep-review/SKILL.md")).toContain(
+      "FIX_BEFORE_SHIP` is actionable, not a prompt for approval",
     );
 
     for (const relativePath of verifierPacketPaths) {
@@ -323,6 +336,115 @@ describe("canonical QA skills", () => {
       expect(source).toMatch(/never install.*invent/s);
       expect(source).toContain("checkout-local");
     }
+  });
+});
+
+describe("agent configuration", () => {
+  it("IT-018 keeps the three harness matrices and dedicated Deep Review agents aligned", () => {
+    const frontmatterValue = (source: string, key: string): string =>
+      source.match(new RegExp(`^${key}:\\s*(.+)$`, "m"))?.[1]?.trim() ?? "";
+    const tomlValue = (source: string, key: string): string =>
+      source.match(new RegExp(`^${key}\\s*=\\s*"([^"]+)"$`, "m"))?.[1] ?? "";
+    const value = (source: string, format: "frontmatter" | "toml", key: string): string =>
+      format === "toml" ? tomlValue(source, key) : frontmatterValue(source, key);
+
+    const matrix = [
+      [".claude/agents/planner.md", "planner", "opus", "high", "frontmatter"],
+      [".claude/agents/implementer.md", "implementer", "opus", "medium", "frontmatter"],
+      [".claude/agents/verifier.md", "verifier", "opus", "medium", "frontmatter"],
+      [".claude/agents/explorer.md", "explorer", "sonnet", "medium", "frontmatter"],
+      [".cursor/agents/planner.md", "planner", "cursor-grok-4.6[effort=high]", "", "frontmatter"],
+      [".cursor/agents/implementer.md", "implementer", "gpt-5.6-luna[effort=high]", "", "frontmatter"],
+      [".cursor/agents/verifier.md", "verifier", "cursor-grok-4.6[effort=medium]", "", "frontmatter"],
+      [".cursor/agents/explorer.md", "explorer", "gpt-5.6-luna[effort=medium]", "", "frontmatter"],
+      [".codex/agents/planner.toml", "planner", "gpt-5.6-sol", "high", "toml"],
+      [".codex/agents/implementer.toml", "implementer", "gpt-5.6-luna", "high", "toml"],
+      [".codex/agents/verifier.toml", "verifier", "gpt-5.6-sol", "medium", "toml"],
+      [".codex/agents/explorer.toml", "explorer", "gpt-5.6-luna", "medium", "toml"],
+    ] as const;
+
+    for (const [relativePath, expectedName, expectedModel, expectedEffort, format] of matrix) {
+      const source = readRepositoryFile(relativePath);
+
+      expect(value(source, format, "name")).toBe(expectedName);
+      expect(value(source, format, "model")).toBe(expectedModel);
+      if (format === "toml") {
+        expect(value(source, format, "model_reasoning_effort")).toBe(expectedEffort);
+      } else if (expectedEffort) {
+        expect(value(source, format, "effort")).toBe(expectedEffort);
+      }
+    }
+
+    const deepReviewers = [
+      [".claude/agents/deep-reviewer.md", "sonnet", "high", "frontmatter"],
+      [".cursor/agents/deep-reviewer.md", "gpt-5.6-luna[effort=high]", "", "frontmatter"],
+      [".codex/agents/deep-reviewer.toml", "gpt-5.6-luna", "high", "toml"],
+    ] as const;
+
+    for (const [relativePath, expectedModel, expectedEffort, format] of deepReviewers) {
+      const source = readRepositoryFile(relativePath);
+
+      expect(value(source, format, "name")).toBe("deep-reviewer");
+      expect(value(source, format, "model")).toBe(expectedModel);
+      if (format === "toml") {
+        expect(value(source, format, "model_reasoning_effort")).toBe(expectedEffort);
+      } else if (expectedEffort) {
+        expect(value(source, format, "effort")).toBe(expectedEffort);
+      }
+      expect(source).toContain("Do not edit source, tests, or configuration.");
+      expect(source).toMatch(/one materialized Deep Review job/i);
+      expect(source).toMatch(/one output artifact/i);
+      expect(source).toMatch(/findings through .*schema/i);
+    }
+
+    expect(readRepositoryFile(".claude/agents/deep-reviewer.md")).toMatch(
+      /^tools:\s*Read, Grep, Glob, Bash$/m,
+    );
+    const cursorDeepReviewer = readRepositoryFile(".cursor/agents/deep-reviewer.md");
+    expect(cursorDeepReviewer).not.toMatch(/^readonly:\s*true$/m);
+
+    const runtime = readRepositoryFile(".agents/skills/deep-review/references/subagent-runtimes.md");
+    const orchestration = readRepositoryFile(".agents/skills/deep-review/references/orchestration.md");
+    const deepReviewSkill = readRepositoryFile(".agents/skills/deep-review/SKILL.md");
+
+    expect(deepReviewSkill).toMatch(
+      /\| `--no-workflow` \|.*Named native `deep-reviewer` when the host supports it; role-free Workflow fallback/,
+    );
+    expect(deepReviewSkill).not.toContain("Workflow when available");
+    expect(deepReviewSkill.indexOf("Named native `deep-reviewer`")).toBeLessThan(
+      deepReviewSkill.indexOf("role-free Workflow fallback"),
+    );
+    expect(deepReviewSkill).toContain("Named native `deep-reviewer`");
+    expect(orchestration).toContain("**Named native dispatch (default when host supports it).**");
+    expect(orchestration).toContain("**Workflow fallback (when named native dispatch is unavailable).**");
+
+    const codexRuntime = runtime.match(/^\|\s*`codex`\s*\|([^\n]+)$/m)?.[1] ?? "";
+    expect(codexRuntime).toContain("gpt-5.6-luna");
+    expect(codexRuntime).toContain("--reasoning-effort high");
+    expect(codexRuntime).not.toContain("gpt-5.6-sol");
+    expect(codexRuntime).not.toContain("xhigh");
+
+    const native = orchestration.slice(
+      orchestration.indexOf("**Named native dispatch"),
+      orchestration.indexOf("**Workflow fallback"),
+    );
+    const workflow = orchestration.slice(
+      orchestration.indexOf("**Workflow fallback"),
+      orchestration.indexOf("**Agent fallback"),
+    );
+    const fallback = orchestration.slice(orchestration.indexOf("**Agent fallback"));
+
+    expect(native).toMatch(/default when host supports it/i);
+    expect(native).toContain('subagent_type: "deep-reviewer"');
+    expect(native).toContain('subagentType: { custom: "deep-reviewer" }');
+    expect(native).toMatch(/custom agent name\/type `deep-reviewer`/i);
+    expect(workflow).toMatch(/fallback/i);
+    expect(workflow).toMatch(/agent\(/);
+    expect(workflow).toMatch(/role-free/i);
+    expect(workflow).not.toMatch(/\(default\)/i);
+    expect(fallback).toMatch(/named native selectors/i);
+    expect(fallback).toMatch(/generic prompt-only subagent dispatch/i);
+    expect(fallback).toMatch(/unsupported role\s+argument/i);
   });
 });
 
@@ -405,15 +527,15 @@ describe("adoption and public setup", () => {
     expect(qaExecute).toContain("does not write product code, install a framework, invent a");
   });
 
-  it("IT-017 reports release version 0.3.1 consistently", () => {
+  it("IT-017 reports release version 0.3.2 consistently", () => {
     const manifest = JSON.parse(readRepositoryFile("package.json")) as { version?: string };
     const lockfile = JSON.parse(readRepositoryFile("package-lock.json")) as {
       version?: string;
       packages?: { ""?: { version?: string } };
     };
 
-    expect(manifest.version).toBe("0.3.1");
-    expect(lockfile.version).toBe("0.3.1");
-    expect(lockfile.packages?.[""]?.version).toBe("0.3.1");
+    expect(manifest.version).toBe("0.3.2");
+    expect(lockfile.version).toBe("0.3.2");
+    expect(lockfile.packages?.[""]?.version).toBe("0.3.2");
   });
 });

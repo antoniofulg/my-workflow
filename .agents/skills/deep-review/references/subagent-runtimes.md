@@ -8,7 +8,7 @@ How Step 3 review agents (defect cohorts, polish cohorts, sweeps) execute. `nati
 | --- | --- |
 | `claude-opus` | `compozy exec --ide claude --model opus --reasoning-effort max` |
 | `grok` | `compozy exec --ide cursor-agent --model 'grok-4.5[effort=high,fast=true]'` — effort/fast ride inside the model value (no reasoning flag); requesting `grok-4.5` resolves to the same advertised variant |
-| `codex` | `compozy exec --ide codex --model gpt-5.6-sol --reasoning-effort xhigh` |
+| `codex` | `compozy exec --ide codex --model gpt-5.6-luna --reasoning-effort high` |
 
 ## Invocation shape (per stage)
 

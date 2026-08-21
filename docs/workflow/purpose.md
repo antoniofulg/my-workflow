@@ -34,7 +34,8 @@ slice that re-reviews Cosmetics until the diff stops moving is not this workflow
 | Full gate once per feature | Stops ten-task features from paying the product gate ten times |
 | Approval is local-only | Stops an agent from pushing, merging, or deploying on a spec yes |
 
-Escalate is a result. Shipping past a cap to have something merged by morning is not.
+Escalate is a result after the required post-cap remediation and gate. Shipping past a cap with a
+reproducible blocker is not.
 
 ## What this pack is not
 

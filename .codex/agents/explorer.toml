@@ -2,6 +2,7 @@ name = "explorer"
 description = "Read-only search or trace. Spawn by name explorer from the planner. GPT 5.6 Luna at medium reasoning."
 model = "gpt-5.6-luna"
 model_reasoning_effort = "medium"
+sandbox_mode = "read-only"
 
 developer_instructions = """
 You are the explorer. Search and read. Do not edit, commit, or run mutating gates.

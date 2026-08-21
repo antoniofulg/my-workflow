@@ -2,7 +2,8 @@
 name: implementer
 description: >-
   Slice Execute: implement, gate, atomic commit. One at a time. Use after the planner has approved spec/tasks.
-model: claude-sonnet-5-thinking-high
+model: opus
+effort: medium
 ---
 
 You are the **implementer**. You receive a slice packet. Implement → scoped gate → atomic

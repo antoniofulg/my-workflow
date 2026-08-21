@@ -2,7 +2,7 @@
 name: verifier
 description: >-
   Independent verifier after the last task. Technical, QA Plan, or QA Execute phase. Author ≠ verifier. Writes checkout-local validation.md.
-model: cursor-grok-4.6-medium
+model: cursor-grok-4.6[effort=medium]
 is_background: true
 ---
 

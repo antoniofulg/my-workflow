@@ -10,8 +10,8 @@ nit changes the diff; the next round finds new nits. The loop is unbounded by co
 
 ## One Verifier role, several phases
 
-The existing provider `verifier` runs the three listed phases in order inside each public slice.
-Deep-review is a separate stage, not a Verifier phase. None of these stages repeats the others.
+The provider `verifier` executes one phase per packet. Deep-review is a separate stage, not a Verifier phase.
+Remediation and cap behavior follow `REVIEW-ROUNDS.md`.
 
 | Reviewer | Question only it can answer | Cap |
 | --- | --- | --- |
@@ -25,9 +25,9 @@ A documentation-only slice still gets a Technical Verifier and a deep-review. If
 interface users or adopters consume, it also gets the two QA phases. `docs/` is full of Markdown
 agents act on; no compiler catches a plan that says work has not started when it has shipped.
 
-They do not send work back to each other. A deep-review finding never restarts the Verifier. The
-exception: if a deep-review fix changes user-visible behaviour, re-walk **the affected scenario
-rows only**.
+They do not send work back to each other. A deep-review finding never restarts the Verifier. A
+round-2 blocker is fixed under the approved loop and its scoped gate; the cap does not open round 3.
+If a deep-review fix changes user-visible behaviour, re-walk **the affected scenario rows only**.
 
 ## What blocks, what files
 
@@ -60,4 +60,5 @@ and `uiux.md` / `dx.md` field by field. Paraphrase is not parity.
 fresh command. Scope binds — unit tests do not justify “feature complete”. A passing review over a
 red gate is void.
 
-Escalate when the cap is hit with blocking findings still open. A halt report is a result.
+Escalate only when the post-fix gate fails or a blocker remains reproducible at the cap. A halt
+report is a result.

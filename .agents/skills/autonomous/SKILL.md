@@ -159,7 +159,7 @@ needs to see.
 Stop, write up what exists, and merge nothing:
 
 - A decision from step 2 would change what gets built
-- The round caps in `docs/guidelines/REVIEW-ROUNDS.md` are reached with blocking findings open
+- The post-cap remediation or gate in `docs/guidelines/REVIEW-ROUNDS.md` leaves a blocker open
 - The work turns out to need a capability that does not exist yet
 - The full gate cannot be made to run
 

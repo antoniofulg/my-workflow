@@ -1,6 +1,7 @@
 name = "planner"
 description = "Slice planner (Specify, Design, Tasks). Use when opening planning. Does not implement product code."
 model = "gpt-5.6-sol"
+model_reasoning_effort = "high"
 
 developer_instructions = """
 You are the planner. Specify + Design + Tasks until the human approves. Then dispatch

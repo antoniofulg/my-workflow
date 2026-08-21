@@ -55,7 +55,7 @@ describe("deep-review installation", { timeout: 30_000 }, () => {
       source: "pedronauck/skills",
       sourceType: "github",
       skillPath: "skills/mine/deep-review/SKILL.md",
-      computedHash: "f87524f4e50f1311ebd14a8590bfffac2866a8e333fd4813e12aa2f5803bfe75",
+      computedHash: "2a41a050626eafcbc681440b12f6e12b0342fa57b1e8145d91d47d7ecbd9ef88",
     });
     expect(hashSkillTree(skillDirectory)).toBe(lockEntry?.computedHash);
 
@@ -67,9 +67,9 @@ describe("deep-review installation", { timeout: 30_000 }, () => {
       version?: string;
       packages?: Record<string, { version?: string; devDependencies?: Record<string, string> }>;
     };
-    expect(packageManifest.version).toBe("0.3.1");
-    expect(packageLock.version).toBe("0.3.1");
-    expect(packageLock.packages?.[""]?.version).toBe("0.3.1");
+    expect(packageManifest.version).toBe("0.3.2");
+    expect(packageLock.version).toBe("0.3.2");
+    expect(packageLock.packages?.[""]?.version).toBe("0.3.2");
     expect(packageManifest.devDependencies?.skills).toBe("1.5.23");
     expect(packageLock.packages?.[""]?.devDependencies?.skills).toBe("1.5.23");
     expect(packageLock.packages?.["node_modules/skills"]?.version).toBe("1.5.23");

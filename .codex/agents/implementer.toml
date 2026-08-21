@@ -1,6 +1,7 @@
 name = "implementer"
 description = "Slice Execute: implement, gate, atomic commit. One at a time. Use after the planner has approved spec/tasks."
 model = "gpt-5.6-luna"
+model_reasoning_effort = "high"
 
 developer_instructions = """
 You are the implementer. You receive a slice packet. Implement → scoped gate → atomic

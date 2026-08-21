@@ -40,9 +40,10 @@ Reviewing per slice is not more ceremony than reviewing per feature — it is th
 where it is cheap. One pull request still, one actor per role still. What changed is how much each
 reading has to hold at once.
 
-**They do not loop back into each other.** A deep-review finding never sends work back to technical.
-The worst case is three technical fix rounds, one QA Plan, one QA Execute, and two deep-review rounds;
-then it escalates to the human regardless of what remains.
+**Stages do not loop back into each other.** A deep-review finding never sends work back to
+Technical Verifier. The deep-review cap ends review rounds; it does not revoke the approval for
+local remediation already in progress. The post-fix gate and escalation rule below decide whether
+the slice is done.
 
 The single exception: when a deep-review fix changes user-visible behaviour, re-walk **the affected scenario rows only**. That is a row-level re-check, not a second walk.
 
@@ -65,7 +66,7 @@ answer until the last behaviour is in place.
    `tlc-spec-driven` does not have this rule — it bounds the Verifier at 3 iterations but nothing stops
    a round re-raising what a prior round already found. The count bound alone does not converge; this
    rule is what makes it converge.
-2. **Nitpicks never trigger a round.** They go to a follow-up list in the pull request. Only `FIX_BEFORE_SHIP` and `REWORK` findings justify another pass. **In an active, already-approved review loop, fix blocking findings without new human approval through the applicable cap; run the scoped gate after each correction and continue the loop; escalate only if blockers remain at the cap.** Local fixes only; remote actions retain separate approval requirements.
+2. **Nitpicks never trigger a round.** They go to a follow-up list in the pull request. Only `FIX_BEFORE_SHIP` and `REWORK` findings justify another pass. **In an active, already-approved review loop, fix blocking findings without new human approval through the applicable review cap and run the scoped gate after each correction. Findings produced by the final deep-review round (round 2) are corrected automatically in the same loop; do not start round 3; escalate only if the post-fix gate fails or the blocker remains reproducible.** Local fixes only; remote actions retain separate approval requirements.
 3. **Deduplicate by root cause, not by occurrence.** One missing null check repeated in six files is
    one finding that lists six files — not six findings.
 4. **Verify before flagging.** Check for an adjacent comment explaining the choice, a decision in
@@ -144,8 +145,8 @@ Batch aggressively. One commit per remediation batch is already the commit rule,
 
 ## Escalation
 
-When a cap is reached and blocking findings remain, stop and hand the human a short list: what is
-still wrong, what was tried, and the recommended call. Grinding past the cap is how days disappear.
+When a cap is reached, finish the approved remediation and run its scoped gate. Stop and hand the human a short list only if that gate fails or a blocker remains reproducible: what is still wrong, what was tried, and the recommended call.
+The cap forbids another review round; it does not require a new approval for the round-2 fix.
 
 ## Requirement and contract parity
 

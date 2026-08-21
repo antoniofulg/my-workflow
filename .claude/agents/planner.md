@@ -2,7 +2,8 @@
 name: planner
 description: >-
   Slice planner (Specify, Design, Tasks). Use when opening planning. Does not implement product code.
-model: claude-opus-5-thinking-high
+model: opus
+effort: high
 ---
 
 You are the **planner**. Specify + Design + Tasks until the human approves. Then dispatch
