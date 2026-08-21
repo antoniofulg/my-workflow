@@ -387,7 +387,8 @@ describe("agent configuration", () => {
     expect(readRepositoryFile(".claude/agents/deep-reviewer.md")).toMatch(
       /^tools:\s*Read, Grep, Glob, Bash$/m,
     );
-    expect(readRepositoryFile(".cursor/agents/deep-reviewer.md")).toMatch(/^readonly:\s*true$/m);
+    const cursorDeepReviewer = readRepositoryFile(".cursor/agents/deep-reviewer.md");
+    expect(cursorDeepReviewer).not.toMatch(/^readonly:\s*true$/m);
 
     const runtime = readRepositoryFile(".agents/skills/deep-review/references/subagent-runtimes.md");
     const orchestration = readRepositoryFile(".agents/skills/deep-review/references/orchestration.md");
@@ -398,15 +399,25 @@ describe("agent configuration", () => {
     expect(codexRuntime).not.toContain("gpt-5.6-sol");
     expect(codexRuntime).not.toContain("xhigh");
 
+    const native = orchestration.slice(
+      orchestration.indexOf("**Named native dispatch"),
+      orchestration.indexOf("**Workflow fallback"),
+    );
     const workflow = orchestration.slice(
-      orchestration.indexOf("**Workflow (default).**"),
+      orchestration.indexOf("**Workflow fallback"),
       orchestration.indexOf("**Agent fallback"),
     );
     const fallback = orchestration.slice(orchestration.indexOf("**Agent fallback"));
 
-    expect(workflow).toContain("deep-reviewer");
-    expect(workflow).toMatch(/no portable named-agent parameter/i);
-    expect(fallback).toContain("deep-reviewer");
+    expect(native).toMatch(/default when host supports it/i);
+    expect(native).toContain('subagent_type: "deep-reviewer"');
+    expect(native).toContain('subagentType: { custom: "deep-reviewer" }');
+    expect(native).toMatch(/custom agent name\/type `deep-reviewer`/i);
+    expect(workflow).toMatch(/fallback/i);
+    expect(workflow).toMatch(/agent\(/);
+    expect(workflow).toMatch(/role-free/i);
+    expect(workflow).not.toMatch(/\(default\)/i);
+    expect(fallback).toMatch(/named native selectors/i);
     expect(fallback).toMatch(/generic prompt-only subagent dispatch/i);
     expect(fallback).toMatch(/unsupported role\s+argument/i);
   });

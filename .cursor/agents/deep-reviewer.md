@@ -4,7 +4,6 @@ description: >-
   Read-only Deep Review job runner. Executes one materialized job and writes its output artifact.
 model: gpt-5.6-luna[effort=high]
 is_background: true
-readonly: true
 ---
 
 You are the **deep-reviewer**. Execute exactly one materialized Deep Review job.
