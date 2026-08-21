@@ -1,6 +1,6 @@
 # Deep-review prompt templates
 
-The single source of truth for every prompt the fan-out dispatches. `build_jobs.py` renders these blocks — edit wording here, nowhere else. Consistency is enforced twice at render time: the build fails if a template lost a mandatory `{{placeholder}}`, and fails again if any placeholder survives unfilled in a rendered prompt.
+The single source of truth for every prompt the serialized review dispatches. `build_jobs.py` renders these blocks — edit wording here, nowhere else. Consistency is enforced twice at render time: the build fails if a template lost a mandatory `{{placeholder}}`, and fails again if any placeholder survives unfilled in a rendered prompt.
 
 Placeholders are `{{snake_case}}` tokens. Mandatory sets live in `build_jobs.py` (`REVIEWER_PLACEHOLDERS`, `SWEEP_PLACEHOLDERS`).
 

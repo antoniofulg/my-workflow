@@ -10,10 +10,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import threading
-import time
 import unittest
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parents[1] / ".agents/skills/deep-review/scripts"
@@ -113,7 +110,7 @@ class TokenMetricsTests(unittest.TestCase):
             self.assertEqual(start_metrics(ledger, db, PREFIX, repository="repo", selected_files=1, jobs=1)["status"], "complete")
             self.assertEqual(started["baseline_by_thread"]["thread-1"]["total_tokens"], 100)
 
-    def test_drm02_metrics_preserve_overlapping_workers(self) -> None:
+    def test_drm02_runner_serializes_reviewers_and_metrics_checkpoints(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
             db, out, jobs = root / "codex.sqlite", REPO / ".deep-review/metrics-concurrency", root / "jobs.json"
@@ -125,7 +122,7 @@ class TokenMetricsTests(unittest.TestCase):
             try:
                 result = subprocess.run(runner(out, jobs, helper, calls, db=db, ledger=ledger, helper_suffix=[active, overlap]), cwd=REPO, capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-                self.assertTrue(overlap.exists())
+                self.assertFalse(overlap.exists())
                 self.assertEqual(sorted(calls.read_text(encoding="utf-8").splitlines()), ["job-1", "job-2"])
                 metrics = read_metrics(ledger)
                 self.assertEqual(metrics["status"], "complete")
@@ -220,38 +217,37 @@ class TokenMetricsTests(unittest.TestCase):
             for marker in ("budget", "cap", "stop before", "skip", "prevent", "enforce"):
                 self.assertNotIn(marker, line)
         self.assertNotIn("Codex", orchestration)
+        self.assertIn("Graft", orchestration)
+        self.assertIn("fallback", orchestration.lower())
+        self.assertNotIn("parallel(", orchestration)
+        manifest = json.loads((REPO / "package.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["devDependencies"]["@nanonets/graft"], "0.10.1")
+        self.assertEqual(manifest["scripts"]["review:graft:build"], "graft build")
+        self.assertEqual(manifest["scripts"]["review:graft:version"], "graft --version")
 
-    def test_drm01_native_hooks_are_cumulative_without_serializing_dispatch(self) -> None:
+    def test_drm01_native_hooks_are_cumulative_with_serial_dispatch(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
             db, ledger = root / "codex.sqlite", root / "metrics.json"
             create_db(db)
             start_metrics(ledger, db, PREFIX, repository="repo", selected_files=2, jobs=2)
-            barrier = threading.Barrier(2)
-            lock = threading.Lock()
             active = 0
             overlap = False
             completed = 0
 
             def native_job() -> None:
                 nonlocal active, overlap, completed
-                barrier.wait()
-                with lock:
-                    active += 1
-                    overlap = overlap or active > 1
-                time.sleep(0.05)
-                with lock:
-                    active -= 1
-                    completed += 1
-                    update_db(db, completed * 10)
+                active += 1
+                overlap = overlap or active > 1
+                completed += 1
+                update_db(db, completed * 10)
+                active -= 1
 
-            with ThreadPoolExecutor(max_workers=2) as pool:
-                futures = [pool.submit(native_job) for _ in range(2)]
-                for index, future in enumerate(as_completed(futures), 1):
-                    future.result()
-                    checkpoint_metrics(ledger, index)
+            for index in range(1, 3):
+                native_job()
+                checkpoint_metrics(ledger, index)
             finished = finalize_metrics(ledger)
-            self.assertTrue(overlap)
+            self.assertFalse(overlap)
             self.assertEqual([row["completed_jobs"] for row in finished["checkpoints"]], [1, 2])
             self.assertEqual(finished["usage"]["total_tokens"], 20)
             self.assertEqual(finished["status"], "complete")
