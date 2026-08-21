@@ -20,7 +20,11 @@ def run(dest: Path) -> None:
 def test_fresh_and_refuse() -> None:
     tmp = Path(tempfile.mkdtemp())
     try:
+        config = tmp / ".my-workflow.toml"
+        sentinel = "# consumer-owned\n[deep_review]\ncadence = 'feature'\n"
+        config.write_text(sentinel, encoding="utf-8")
         run(tmp)
+        assert config.read_text(encoding="utf-8") == sentinel
         agents = (tmp / "AGENTS.md").read_text(encoding="utf-8")
         assert STENCIL in agents
         claude = tmp / "CLAUDE.md"
@@ -30,6 +34,7 @@ def test_fresh_and_refuse() -> None:
         assert (tmp / "tools/ad-index.py").is_file()
         assert (tmp / ".agents/skills/qa-plan/SKILL.md").is_file()
         assert (tmp / ".agents/skills/qa-execute/SKILL.md").is_file()
+        assert (tmp / ".agents/skills/workflow-config/SKILL.md").is_file()
         assert (tmp / "docs/qa/README.md").is_file()
         assert (tmp / ".claude/skills/autonomous").is_symlink()
         assert (tmp / ".claude/skills/qa-plan").is_symlink()
