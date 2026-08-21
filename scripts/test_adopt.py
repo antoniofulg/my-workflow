@@ -34,7 +34,13 @@ def test_fresh_and_refuse() -> None:
         assert (tmp / "tools/ad-index.py").is_file()
         assert (tmp / ".agents/skills/qa-plan/SKILL.md").is_file()
         assert (tmp / ".agents/skills/qa-execute/SKILL.md").is_file()
-        assert (tmp / ".agents/skills/workflow-config/SKILL.md").is_file()
+        workflow_skill = tmp / ".agents/skills/workflow-config/SKILL.md"
+        workflow_resolver = tmp / ".agents/skills/workflow-config/scripts/workflow_config.py"
+        assert workflow_skill.is_file()
+        assert workflow_resolver.is_file()
+        assert workflow_resolver.read_bytes() == (
+            ROOT / ".agents/skills/workflow-config/scripts/workflow_config.py"
+        ).read_bytes()
         assert (tmp / "docs/qa/README.md").is_file()
         assert (tmp / ".claude/skills/autonomous").is_symlink()
         assert (tmp / ".claude/skills/qa-plan").is_symlink()

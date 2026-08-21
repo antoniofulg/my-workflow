@@ -55,7 +55,9 @@ def test_cadence_modes_and_balancing() -> None:
     }
     for cadence, groups in expected.items():
         assert workflow_config.balanced_groups(4, cadence) == groups
+    assert workflow_config.balanced_groups(6, "grouped.2") == [[1, 2], [3, 4], [5, 6]]
     assert workflow_config.balanced_groups(7, "grouped.3") == [[1, 2, 3], [4, 5], [6, 7]]
+    assert workflow_config.balanced_groups(8, "grouped.4") == [[1, 2, 3, 4], [5, 6, 7, 8]]
 
 
 def test_invalid_cadence_and_count() -> None:
