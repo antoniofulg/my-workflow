@@ -1,7 +1,7 @@
 # J-adopt-workflow
 
-**Persona:** Workflow adopter  
-**Goal:** Adopt the workflow without losing consumer-owned repository state.  
+**Persona:** Workflow adopter
+**Goal:** Adopt the workflow without losing consumer-owned repository state.
 **Entry point:** `README.md` → **Adopt the workflow** → `scripts/adopt.py`
 
 ## Flow

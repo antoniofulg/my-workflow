@@ -1,7 +1,7 @@
 # J-review-workflow-release
 
-**Persona:** Repository reader  
-**Goal:** Understand the workflow's provenance, neutral scope, and published capability version.  
+**Persona:** Repository reader
+**Goal:** Understand the workflow's provenance, neutral scope, and published capability version.
 **Entry point:** `README.md`
 
 ## Flow
