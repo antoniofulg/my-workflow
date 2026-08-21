@@ -378,7 +378,7 @@ describe("agent configuration", () => {
       } else if (expectedEffort) {
         expect(value(source, format, "effort")).toBe(expectedEffort);
       }
-      expect(source).toMatch(/read-only/i);
+      expect(source).toContain("Do not edit source, tests, or configuration.");
       expect(source).toMatch(/one materialized Deep Review job/i);
       expect(source).toMatch(/one output artifact/i);
       expect(source).toMatch(/findings through .*schema/i);
