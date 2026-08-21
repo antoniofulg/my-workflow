@@ -165,7 +165,8 @@ class TokenBudgetTests(unittest.TestCase):
             db = root / "codex.sqlite"
             state = root / "ledger.json"
             create_db(db)
-            start_ledger(state, db, PREFIX, budget=100, jobs=1)
+            start_ledger(state, db, PREFIX, budget=100, selected_files=1, jobs=1)
+            self.assertEqual(read_ledger(state)["scope"]["selected_files"], 1)
             connection = sqlite3.connect(db)
             connection.execute("delete from threads where id = 'thread-1'")
             connection.commit()
