@@ -334,6 +334,9 @@ describe("adoption and public setup", () => {
     expect(readme).toContain("managed paths");
     expect(readme).toContain("complete diff");
     expect(readme).toContain("declared full gate");
+    expect(readme).toContain("If `docs/qa/README.md` is absent, create it");
+    expect(readme).toContain("If it exists, merge only newly discovered facts");
+    expect(readme).toContain("never overwrite existing content");
     expect(readme).toContain("qa-plan");
     expect(readme).toContain("qa-execute");
     expect(readme).toContain("purely internal refactor");

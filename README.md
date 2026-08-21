@@ -68,9 +68,11 @@ existing project, let the adoption script refuse a filled product paragraph and 
 loop by hand. Preserve existing agent packets and model pins; add only missing packets.
 
 Run `python3 /path/to/my-workflow/scripts/adopt.py /path/to/target-project` only after that review.
-Then fill `docs/qa/README.md` with the discovered interfaces, existing runner or manual adapter,
-start and health authority, authentication, fixtures, cleanup, and limitations. Keep command facts
-in the target's executable manifests or CI and link to them from the profile.
+If `docs/qa/README.md` is absent, create it. If it exists, merge only newly discovered facts into
+the existing profile; never overwrite existing content. Record the discovered interfaces, existing
+runner or manual adapter, start and health authority, authentication, fixtures, cleanup, and
+limitations. Keep command facts in the target's executable manifests or CI and link to them from
+the profile.
 
 Review the complete diff, managed-path overwrites, and the target's declared full gate. Record the
 exact gate command and result. If the change exposes a user-visible UI, API, CLI, mobile, public
