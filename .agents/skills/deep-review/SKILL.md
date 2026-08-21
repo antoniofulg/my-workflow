@@ -27,7 +27,7 @@ Steps 1–4 drive an idempotent artifact pipeline under `<out>`: every stage gat
 | `--publish` | Post walkthrough + review to the PR | off — local report only |
 | `--full` | Ignore prior state; review the whole diff again | incremental when state exists |
 | `--out <dir>` | Artifact directory | `.deep-review/<target>/` |
-| `--no-workflow` | Skip the Workflow tool; use Agent fan-out | Workflow when available |
+| `--no-workflow` | Skip the Workflow tool; use Agent fan-out | Named native `deep-reviewer` when the host supports it; role-free Workflow fallback |
 
 ## Repo config — `.deep-review.yaml`
 

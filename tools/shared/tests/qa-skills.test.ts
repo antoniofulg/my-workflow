@@ -405,6 +405,18 @@ describe("agent configuration", () => {
 
     const runtime = readRepositoryFile(".agents/skills/deep-review/references/subagent-runtimes.md");
     const orchestration = readRepositoryFile(".agents/skills/deep-review/references/orchestration.md");
+    const deepReviewSkill = readRepositoryFile(".agents/skills/deep-review/SKILL.md");
+
+    expect(deepReviewSkill).toMatch(
+      /\| `--no-workflow` \|.*Named native `deep-reviewer` when the host supports it; role-free Workflow fallback/,
+    );
+    expect(deepReviewSkill).not.toContain("Workflow when available");
+    expect(deepReviewSkill.indexOf("Named native `deep-reviewer`")).toBeLessThan(
+      deepReviewSkill.indexOf("role-free Workflow fallback"),
+    );
+    expect(deepReviewSkill).toContain("Named native `deep-reviewer`");
+    expect(orchestration).toContain("**Named native dispatch (default when host supports it).**");
+    expect(orchestration).toContain("**Workflow fallback (when named native dispatch is unavailable).**");
 
     const codexRuntime = runtime.match(/^\|\s*`codex`\s*\|([^\n]+)$/m)?.[1] ?? "";
     expect(codexRuntime).toContain("gpt-5.6-luna");
