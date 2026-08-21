@@ -112,6 +112,8 @@ describe("QA workflow artifact policy", () => {
     expect(validator).toContain("When Tasks was skipped, run the gate command recorded in the inline execution plan");
     expect(implementer).toContain("close the task record **before** creating the commit");
     expect(implementer).toContain("If `tasks.md` is present, mark the task complete in `tasks.md`.");
+    expect(implementer).toContain("unrelated bug outside an active, approved review loop");
+    expect(implementer).toContain("Findings inside that loop follow `REVIEW-ROUNDS.md`");
     expect(implementer).toMatch(
       /If Tasks was skipped, mark the\s+current inline execution-plan step complete/,
     );
@@ -269,6 +271,29 @@ describe("canonical QA skills", () => {
     expect(reviewGuideline).toContain("QA-SCENARIOS.md");
     expect(reviewGuideline.trimEnd().split(/\r?\n/).length).toBeLessThanOrEqual(160);
 
+    const approvedLoopRule =
+      normalizePacket(reviewGuideline).match(/2\. \*\*Nitpicks never trigger a round\.\*.*?(?=3\. \*\*)/)?.[0] ?? "";
+    for (const anchor of [
+      "active, already-approved review loop",
+      "fix blocking findings",
+      "without new human approval",
+      "through the applicable cap",
+      "scoped gate",
+      "after each correction",
+      "continue the loop",
+      "escalate only",
+      "blockers remain at the cap",
+      "remote actions retain separate approval requirements",
+    ]) {
+      expect(approvedLoopRule).toContain(anchor);
+    }
+    expect(approvedLoopRule.indexOf("scoped gate")).toBeLessThan(
+      approvedLoopRule.indexOf("continue the loop"),
+    );
+    expect(approvedLoopRule.indexOf("continue the loop")).toBeLessThan(
+      approvedLoopRule.indexOf("escalate only"),
+    );
+
     for (const relativePath of verifierPacketPaths) {
       const packet = readRepositoryFile(relativePath);
 
@@ -380,15 +405,15 @@ describe("adoption and public setup", () => {
     expect(qaExecute).toContain("does not write product code, install a framework, invent a");
   });
 
-  it("IT-017 reports release version 0.3.0 consistently", () => {
+  it("IT-017 reports release version 0.3.1 consistently", () => {
     const manifest = JSON.parse(readRepositoryFile("package.json")) as { version?: string };
     const lockfile = JSON.parse(readRepositoryFile("package-lock.json")) as {
       version?: string;
       packages?: { ""?: { version?: string } };
     };
 
-    expect(manifest.version).toBe("0.3.0");
-    expect(lockfile.version).toBe("0.3.0");
-    expect(lockfile.packages?.[""]?.version).toBe("0.3.0");
+    expect(manifest.version).toBe("0.3.1");
+    expect(lockfile.version).toBe("0.3.1");
+    expect(lockfile.packages?.[""]?.version).toBe("0.3.1");
   });
 });

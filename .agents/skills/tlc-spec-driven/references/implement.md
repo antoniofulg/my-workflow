@@ -321,7 +321,8 @@ This is a plain git hook, not tied to any editor or assistant. Skip it if the pr
 
 During implementation, you will notice things that could be improved, refactored, or added. **Do not act on them.** Instead:
 
-- If it's a bug: surface it to the user (or capture it as a separate task)
+- If you discover an unrelated bug outside an active, approved review loop: surface it to the user
+  (or capture it as a separate task). Findings inside that loop follow `REVIEW-ROUNDS.md`.
 - If it's an improvement: add it to the feature's `context.md` under "Deferred Ideas" (or surface it to the user if there is no `context.md`)
 - If it's related to the current task: only include it if it's in the "Done when" criteria
 
