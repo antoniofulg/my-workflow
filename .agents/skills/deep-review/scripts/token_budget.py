@@ -36,11 +36,13 @@ def _safe_count(value: object) -> int | None:
 
 
 def _usage(value: object) -> bool:
-    if not isinstance(value, dict):
-        return False
-    if _safe_count(value.get("total_tokens")) is None:
-        return False
-    return all(value.get(field) is None or _safe_count(value.get(field)) is not None for field in USAGE_FIELDS)
+    expected = {"total_tokens", *USAGE_FIELDS}
+    return (
+        isinstance(value, dict)
+        and set(value) == expected
+        and _safe_count(value["total_tokens"]) is not None
+        and all(value[field] is None or _safe_count(value[field]) is not None for field in USAGE_FIELDS)
+    )
 
 
 def _timestamp(value: object) -> bool:
@@ -96,12 +98,13 @@ def read_telemetry(db_path: str | Path, reviewer_prefix: str) -> dict[str, dict[
         required = {"id", "rollout_path", "tokens_used", "agent_path"}
         if not required.issubset(columns):
             raise TokenBudgetError("telemetry")
+        prefix = reviewer_prefix.rstrip("/")
         rows = db.execute("SELECT id, rollout_path, tokens_used, agent_path FROM threads")
         result: dict[str, dict[str, int | None]] = {}
         for thread_id, rollout_path, tokens_used, agent_path in rows:
             if not isinstance(thread_id, str):
                 raise TokenBudgetError("telemetry")
-            if not isinstance(agent_path, str) or not agent_path.startswith(reviewer_prefix):
+            if not isinstance(agent_path, str) or not (agent_path == prefix or agent_path.startswith(prefix + "/")):
                 continue
             total = _safe_count(tokens_used)
             if total is None:

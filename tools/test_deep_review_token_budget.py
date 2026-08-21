@@ -20,6 +20,7 @@ from token_budget import (  # noqa: E402
     checkpoint_ledger,
     delta_usage,
     read_ledger,
+    read_telemetry,
     start_ledger,
     validate_ledger_telemetry,
     write_unmetered_fallback,
@@ -177,6 +178,27 @@ class TokenBudgetTests(unittest.TestCase):
             state.write_text(json.dumps(malformed), encoding="utf-8")
             with self.assertRaises(TokenBudgetError):
                 read_ledger(state)
+            malformed = json.loads(before)
+            malformed["usage"]["prompt"] = "secret"
+            state.write_text(json.dumps(malformed), encoding="utf-8")
+            with self.assertRaises(TokenBudgetError):
+                read_ledger(state)
+
+    def test_agent_prefix_boundary_excludes_siblings(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            db = root / "codex.sqlite"
+            create_db(db, 10, PREFIX + "-sibling")
+            connection = sqlite3.connect(db)
+            connection.execute(
+                "insert into threads values (?, ?, ?, ?, ?)",
+                ("thread-child", "", 20, PREFIX + "/child", "secret prompt"),
+            )
+            connection.commit()
+            connection.close()
+            snapshot = read_telemetry(db, PREFIX)
+            self.assertEqual(snapshot["thread-child"]["total_tokens"], 20)
+            self.assertNotIn("thread-1", snapshot)
 
     def test_fallback_is_explicitly_unmetered_and_content_safe(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -266,6 +288,76 @@ class TokenBudgetTests(unittest.TestCase):
                 shutil.rmtree(out, ignore_errors=True)
                 shutil.rmtree(Path.cwd() / ".deep-review/token-budget-fallback-test", ignore_errors=True)
                 shutil.rmtree(Path.cwd() / ".deep-review/token-budget-invalid-test", ignore_errors=True)
+
+    def test_completed_metered_runner_is_idempotent(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            db = root / "codex.sqlite"
+            create_db(db)
+            out = Path.cwd() / ".deep-review" / "token-budget-idempotent-test"
+            jobs = root / "jobs.json"
+            ledger = root / "ledger.json"
+            helper = root / "job.py"
+            calls = root / "calls.txt"
+            helper.write_text(
+                "import json, sqlite3, sys\n"
+                "prompt, output, db, calls = sys.argv[1:]\n"
+                "with open(calls, 'a', encoding='utf-8') as stream: stream.write('called\\n')\n"
+                "json.dump({'defects': [], 'advisories': [], 'suppressions': [], 'coverage': {'hunks': [], 'rules': []}}, open(output, 'w', encoding='utf-8'))\n"
+                "conn = sqlite3.connect(db); conn.execute('update threads set tokens_used = 10'); conn.commit(); conn.close()\n",
+                encoding="utf-8",
+            )
+            jobs.write_text(json.dumps({"jobs": [{
+                "label": "job-1", "kind": "sweep", "lane": "tests", "prompt": str(root / "prompt"),
+                "output": ".deep-review/token-budget-idempotent-test/job-1.json", "required_hunks": [], "rule_ids": [],
+            }]}), encoding="utf-8")
+            try:
+                command = [
+                    sys.executable, str(SCRIPTS / "run_jobs.py"), "--out", str(out), "--jobs-file", str(jobs),
+                    "--command", f"{sys.executable} {helper} {{prompt}} {{output}} {db} {calls}", "--metered",
+                    "--token-db", str(db), "--token-ledger", str(ledger), "--budget", "100", "--no-freeze-check",
+                ]
+                first = subprocess.run(command, cwd=Path.cwd(), capture_output=True, text=True)
+                self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+                self.assertEqual(json.loads(ledger.read_text(encoding="utf-8"))["status"], "complete")
+                second = subprocess.run(command, cwd=Path.cwd(), capture_output=True, text=True)
+                self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+                self.assertEqual(calls.read_text(encoding="utf-8").splitlines(), ["called"])
+                self.assertEqual(json.loads(ledger.read_text(encoding="utf-8"))["status"], "complete")
+            finally:
+                shutil.rmtree(out, ignore_errors=True)
+
+    def test_native_codex_seam_stops_next_dispatch_after_cap(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            db = root / "codex.sqlite"
+            create_db(db)
+            out = Path.cwd() / ".deep-review" / "token-budget-native-test"
+            jobs = root / "jobs.json"
+            ledger = root / "ledger.json"
+            jobs.write_text(json.dumps({"jobs": [
+                {"label": "native-1", "kind": "sweep", "lane": "tests", "prompt": str(root / "p1"), "output": ".deep-review/token-budget-native-test/native-1.json", "required_hunks": [], "rule_ids": []},
+                {"label": "native-2", "kind": "sweep", "lane": "tests", "prompt": str(root / "p2"), "output": ".deep-review/token-budget-native-test/native-2.json", "required_hunks": [], "rule_ids": []},
+            ]}), encoding="utf-8")
+            base = [
+                sys.executable, str(SCRIPTS / "run_jobs.py"), "--out", str(out), "--jobs-file", str(jobs),
+                "--metered", "--token-db", str(db), "--token-ledger", str(ledger), "--budget", "100", "--no-freeze-check",
+            ]
+            try:
+                preflight = subprocess.run([*base, "--native-action", "preflight"], cwd=Path.cwd(), capture_output=True, text=True)
+                self.assertEqual(preflight.returncode, 0, preflight.stdout + preflight.stderr)
+                first_output = Path.cwd() / ".deep-review/token-budget-native-test/native-1.json"
+                first_output.parent.mkdir(parents=True, exist_ok=True)
+                first_output.write_text(json.dumps({"defects": [], "advisories": [], "suppressions": [], "coverage": {"hunks": [], "rules": []}}), encoding="utf-8")
+                update_db(db, 100)
+                checkpoint = subprocess.run([*base, "--native-action", "checkpoint", "--native-job", "native-1"], cwd=Path.cwd(), capture_output=True, text=True)
+                self.assertEqual(checkpoint.returncode, 3, checkpoint.stdout + checkpoint.stderr)
+                next_preflight = subprocess.run([*base, "--native-action", "preflight"], cwd=Path.cwd(), capture_output=True, text=True)
+                self.assertEqual(next_preflight.returncode, 3, next_preflight.stdout + next_preflight.stderr)
+                self.assertFalse((Path.cwd() / ".deep-review/token-budget-native-test/native-2.json").exists())
+                self.assertEqual(json.loads(ledger.read_text(encoding="utf-8"))["status"], "budget_exhausted")
+            finally:
+                shutil.rmtree(out, ignore_errors=True)
 
 
 if __name__ == "__main__":

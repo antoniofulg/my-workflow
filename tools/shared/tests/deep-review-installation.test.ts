@@ -55,7 +55,7 @@ describe("deep-review installation", { timeout: 30_000 }, () => {
       source: "pedronauck/skills",
       sourceType: "github",
       skillPath: "skills/mine/deep-review/SKILL.md",
-      computedHash: "5981099e02f0622a45a038a6ec73ceb90bfd19337d77bf4a8dbbe40a69379a08",
+      computedHash: "d3468f3467781bf28448472524b690794eeae774eb3cf4777332407e621d77ac",
     });
     expect(hashSkillTree(skillDirectory)).toBe(lockEntry?.computedHash);
 

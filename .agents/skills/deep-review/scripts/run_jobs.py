@@ -39,6 +39,7 @@ from token_budget import (
     TokenBudgetError,
     checkpoint_ledger,
     finalize_ledger,
+    read_ledger,
     start_ledger,
     validate_ledger_telemetry,
     write_unmetered_fallback,
@@ -188,6 +189,10 @@ def run_metered_jobs(repo: Path, out: Path, jobs: list[dict], args, ledger_path:
     checkpointed = {row["job"] for row in ledger["checkpoints"]}
     if budget_exhausted:
         return results, True, None
+    if ledger["status"] == "complete":
+        if all(job_state(repo, out, job)[0] == "valid" for job in jobs):
+            return results, False, None
+        return results, False, "ledger unavailable"
     for job in jobs:
         try:
             ledger = validate_ledger_telemetry(ledger_path)
@@ -223,6 +228,54 @@ def run_metered_jobs(repo: Path, out: Path, jobs: list[dict], args, ledger_path:
     return results, budget_exhausted, error
 
 
+def run_native_action(repo: Path, out: Path, jobs: list[dict], args) -> int:
+    """Meter one host-native Codex job at a time through the same ledger."""
+    try:
+        if args.native_action == "preflight":
+            _, ledger_path, ledger = token_metering(args, out, jobs)
+            if ledger_path is None or ledger is None:
+                raise TokenBudgetError("ledger")
+            if ledger["status"] == "running":
+                ledger = validate_ledger_telemetry(ledger_path)
+            if ledger["status"] == "budget_exhausted":
+                say("METERED native preflight: budget exhausted; dispatch none")
+                return 3
+            if ledger["status"] == "complete":
+                _, pending = stage_report(repo, out, jobs)
+                if pending:
+                    raise TokenBudgetError("ledger")
+            say("METERED native preflight: dispatch one job")
+            return 0
+        ledger_path = token_ledger_path(args, out)
+        ledger = read_ledger(ledger_path)
+        if args.native_action == "checkpoint":
+            job = next((candidate for candidate in jobs if candidate["label"] == args.native_job), None)
+            if job is None or job_state(repo, out, job)[0] != "valid":
+                raise TokenBudgetError("ledger")
+            if ledger["status"] == "budget_exhausted":
+                return 3
+            ledger = checkpoint_ledger(ledger_path, args.native_job)
+            say(f"METERED native checkpoint {args.native_job}: {ledger['status']}")
+            return 3 if ledger["status"] == "budget_exhausted" else 0
+        if ledger["status"] == "budget_exhausted":
+            return 3
+        if ledger["status"] == "complete":
+            _, pending = stage_report(repo, out, jobs)
+            if pending:
+                raise TokenBudgetError("ledger")
+            return 0
+        _, pending = stage_report(repo, out, jobs)
+        if pending:
+            raise TokenBudgetError("ledger")
+        ledger = finalize_ledger(ledger_path)
+        say(f"METERED native finalize: {ledger['status']}")
+        return 3 if ledger["status"] == "budget_exhausted" else 0
+    except TokenBudgetError as error:
+        say(f"METERED native unavailable: {error}")
+        write_json(out / "runs" / "token-budget-status.json", {"status": "blocked", "metering": "metered", "error": str(error)})
+        return 2
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -231,6 +284,8 @@ def main() -> int:
     parser.add_argument("--only", nargs="*", help="exact job labels to consider")
     parser.add_argument("--validate-only", action="store_true")
     parser.add_argument("--command", help="subprocess template; {prompt} required, {output}/{label} optional")
+    parser.add_argument("--native-action", choices=("preflight", "checkpoint", "finalize"), help="meter one host-native Codex job")
+    parser.add_argument("--native-job", help="job label for --native-action checkpoint")
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--attempts", type=int, default=2)
     parser.add_argument("--timeout-min", type=int, default=35)
@@ -251,8 +306,15 @@ def main() -> int:
     parser.add_argument("--model", default="unknown")
     parser.add_argument("--reasoning", default="unknown")
     args = parser.parse_args()
-    if bool(args.validate_only) == bool(args.command):
-        parser.error("pass exactly one of --validate-only or --command")
+    action_count = sum((bool(args.validate_only), bool(args.command), bool(args.native_action)))
+    if action_count != 1:
+        parser.error("pass exactly one of --validate-only, --command, or --native-action")
+    if args.native_action == "checkpoint" and not args.native_job:
+        parser.error("--native-action checkpoint requires --native-job")
+    if args.native_action != "checkpoint" and args.native_job:
+        parser.error("--native-job is valid only with --native-action checkpoint")
+    if args.native_action and not args.metered:
+        parser.error("--native-action requires --metered")
     if not 1 <= args.workers <= 6:
         parser.error("--workers must be between 1 and 6")
     if not 1 <= args.attempts <= 3:
@@ -308,6 +370,8 @@ def main() -> int:
             return 3
 
     (out / "runs").mkdir(parents=True, exist_ok=True)
+    if args.native_action:
+        return run_native_action(repo, out, jobs, args)
     try:
         metering, ledger_path, ledger = token_metering(args, out, jobs)
     except TokenBudgetError as error:
