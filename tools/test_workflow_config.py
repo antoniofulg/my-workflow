@@ -100,6 +100,75 @@ def test_cli_adapter_resolves_and_reports_invalid_input() -> None:
         shutil.rmtree(root)
 
 
+def test_cli_loads_configured_cadence_into_snapshot_and_json() -> None:
+    root = make_repo()
+    try:
+        resolver = ROOT / ".agents/skills/workflow-config/scripts/workflow_config.py"
+        cases = (
+            ("slice", 4, [[1], [2], [3], [4]]),
+            ("feature", 4, [[1, 2, 3, 4]]),
+            ("grouped.2", 6, [[1, 2], [3, 4], [5, 6]]),
+            ("grouped.4", 8, [[1, 2, 3, 4], [5, 6, 7, 8]]),
+        )
+        for index, (cadence, slice_count, groups) in enumerate(cases):
+            (root / ".my-workflow.toml").write_text(
+                f"[deep_review]\ncadence = '{cadence}'\n", encoding="utf-8"
+            )
+            feature = f"configured-{index}"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(resolver),
+                    "--root",
+                    str(root),
+                    "--feature",
+                    feature,
+                    "--slices",
+                    str(slice_count),
+                    "--native-provider",
+                    "codex",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            assert result.returncode == 0
+            expected = {"cadence": cadence, "groups": groups}
+            assert json.loads(result.stdout)["deep_review"] == expected
+            snapshot = json.loads(
+                (root / f".specs/features/{feature}/workflow.json").read_text(encoding="utf-8")
+            )
+            assert snapshot["deep_review"] == expected
+
+        (root / ".my-workflow.toml").write_text(
+            "[deep_review]\ncadence = 'grouped.0'\n", encoding="utf-8"
+        )
+        invalid = subprocess.run(
+            [
+                sys.executable,
+                str(resolver),
+                "--root",
+                str(root),
+                "--feature",
+                "configured-invalid",
+                "--slices",
+                "4",
+                "--native-provider",
+                "codex",
+            ],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert invalid.returncode == 1
+        assert invalid.stdout == ""
+        assert "workflow config: grouped.N requires N to be at least 1" in invalid.stderr
+    finally:
+        import shutil
+
+        shutil.rmtree(root)
+
+
 def test_cadence_modes_and_balancing() -> None:
     expected = {
         "slice": [[1], [2], [3], [4]],
@@ -289,4 +358,4 @@ if __name__ == "__main__":
     for name, function in sorted(globals().items()):
         if name.startswith("test_"):
             function()
-    print("7 passed, 0 failed")
+    print("8 passed, 0 failed")
