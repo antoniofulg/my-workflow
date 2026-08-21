@@ -157,7 +157,9 @@ describe("canonical QA skills", () => {
       expect(source).toContain("author: Antonio Fulgêncio");
       expect(source).toContain("## Provenance");
       expect(source).toContain("Pedro Nauck");
+      expect(source).toContain("original project-owned adaptation");
       expect(source).toContain(inspirationUrl);
+      expect(source).not.toMatch(/\b(?:copied verbatim|literal copy|copied literally)\b/i);
       expect(source).not.toContain("disable-model-invocation");
       expect(source).toContain("Use when");
       expect(source).toContain("Don't use for");
