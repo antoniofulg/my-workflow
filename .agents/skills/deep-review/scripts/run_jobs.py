@@ -22,16 +22,25 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shlex
 import subprocess
 import sys
 import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 sys.dont_write_bytecode = True  # keep the tracked skill tree free of __pycache__
 
 from _common import check_freeze, load_jobs, read_json, repo_root, validate_job_output, write_json
+from token_budget import (
+    DEFAULT_BUDGET_TOKENS,
+    TokenBudgetError,
+    checkpoint_ledger,
+    finalize_ledger,
+    start_ledger,
+    validate_ledger_telemetry,
+    write_unmetered_fallback,
+)
 
 PRINT_LOCK = threading.Lock()
 STOP_EVENT = threading.Event()
@@ -132,6 +141,86 @@ def stage_report(repo: Path, out: Path, jobs: list[dict]) -> tuple[int, list[dic
     return len(jobs) - len(pending), pending
 
 
+def token_ledger_path(args, out: Path) -> Path:
+    return Path(args.token_ledger).resolve() if args.token_ledger else out / "runs" / "token-ledger.json"
+
+
+def token_metering(args, out: Path, jobs: list[dict]) -> tuple[str, Path | None, dict | None]:
+    """Start strict metering when requested; otherwise record an honest fallback."""
+    ledger_path = token_ledger_path(args, out)
+    strict = args.metered or args.token_db is not None or args.token_ledger is not None
+    if not strict:
+        write_unmetered_fallback(ledger_path)
+        return "unmetered", None, None
+    try:
+        ledger = start_ledger(
+            ledger_path,
+            args.token_db or default_token_db(),
+            args.reviewer_prefix,
+            args.budget_tokens,
+            repository=str(repo_root()),
+            round=args.round,
+            base=args.base,
+            head=args.head,
+            selected_files=args.selected_files or len(jobs),
+            carried_files=args.carried_files,
+            jobs=len(jobs),
+            model=args.model,
+            reasoning=args.reasoning,
+        )
+    except TokenBudgetError as error:
+        raise error
+    return "metered", ledger_path, ledger
+
+
+def default_token_db() -> str:
+    codex_home = Path(os.environ.get("CODEX_HOME", Path.home() / ".codex"))
+    return str(codex_home / "state_5.sqlite")
+
+
+def run_metered_jobs(repo: Path, out: Path, jobs: list[dict], args, ledger_path: Path, ledger: dict) -> tuple[list[dict], bool, str | None]:
+    """Run exactly one job, checkpoint it, then decide whether another may start."""
+    results: list[dict] = []
+    budget_exhausted = ledger["status"] == "budget_exhausted"
+    error: str | None = None
+    checkpointed = {row["job"] for row in ledger["checkpoints"]}
+    if budget_exhausted:
+        return results, True, None
+    for job in jobs:
+        try:
+            ledger = validate_ledger_telemetry(ledger_path)
+        except TokenBudgetError as failure:
+            error = str(failure)
+            break
+        if ledger["status"] == "budget_exhausted":
+            budget_exhausted = True
+            break
+        result = run_one(repo, out, job, args)
+        results.append(result)
+        if result["status"] != "pass":
+            if result["status"] == "blocked":
+                break
+            continue
+        if job["label"] not in checkpointed:
+            try:
+                ledger = checkpoint_ledger(ledger_path, job["label"])
+            except TokenBudgetError as failure:
+                error = str(failure)
+                break
+            checkpointed.add(job["label"])
+            result["token_usage"] = ledger["usage"]["total_tokens"]
+        if ledger["status"] == "budget_exhausted":
+            budget_exhausted = True
+            break
+    if error is None and not budget_exhausted and not any(item["status"] == "fail" for item in results):
+        try:
+            ledger = finalize_ledger(ledger_path)
+            budget_exhausted = ledger["status"] == "budget_exhausted"
+        except TokenBudgetError as failure:
+            error = str(failure)
+    return results, budget_exhausted, error
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -147,6 +236,18 @@ def main() -> int:
                         help="abort-the-run substring (repeatable); default: usageLimitExceeded")
     parser.add_argument("--status-file", help="default: <out>/runs/<jobs-stem>-status.json")
     parser.add_argument("--no-freeze-check", action="store_true")
+    parser.add_argument("--metered", action="store_true", help="require compatible Codex telemetry and enforce the token budget")
+    parser.add_argument("--token-db", help="Codex state SQLite path")
+    parser.add_argument("--token-ledger", "--ledger", help="content-safe token ledger path")
+    parser.add_argument("--reviewer-prefix", default="/reviewer/deep-review")
+    parser.add_argument("--budget-tokens", "--token-budget", "--budget", dest="budget_tokens", type=int, default=DEFAULT_BUDGET_TOKENS)
+    parser.add_argument("--round", type=int, default=0)
+    parser.add_argument("--base", default="unknown")
+    parser.add_argument("--head", default="unknown")
+    parser.add_argument("--selected-files", type=int)
+    parser.add_argument("--carried-files", type=int, default=0)
+    parser.add_argument("--model", default="unknown")
+    parser.add_argument("--reasoning", default="unknown")
     args = parser.parse_args()
     if bool(args.validate_only) == bool(args.command):
         parser.error("pass exactly one of --validate-only or --command")
@@ -157,6 +258,8 @@ def main() -> int:
     if args.command and "{prompt}" not in args.command:
         parser.error("--command must contain the {prompt} placeholder")
     args.block_on = args.block_on or ["usageLimitExceeded"]
+    STOP_EVENT.clear()
+    STOP_REASON.clear()
 
     repo = repo_root()
     out = Path(args.out).resolve()
@@ -203,25 +306,40 @@ def main() -> int:
             return 3
 
     (out / "runs").mkdir(parents=True, exist_ok=True)
-    results: list[dict] = []
-    with ThreadPoolExecutor(max_workers=args.workers) as executor:
-        futures = {executor.submit(run_one, repo, out, job, args): job for job in jobs}
-        for future in as_completed(futures):
-            result = future.result()
-            results.append(result)
+    try:
+        metering, ledger_path, ledger = token_metering(args, out, jobs)
+    except TokenBudgetError as error:
+        say(f"METERED unavailable: {error}")
+        write_json(out / "runs" / "token-budget-status.json", {"status": "blocked", "metering": "metered", "error": str(error)})
+        return 2
+
+    budget_exhausted = False
+    token_error: str | None = None
+    if metering == "metered":
+        args.workers = 1
+        say("METERED sequential workers=1")
+        results, budget_exhausted, token_error = run_metered_jobs(repo, out, jobs, args, ledger_path, ledger)
+    else:
+        args.workers = 1
+        say("UNMETERED sequential workers=1")
+        results = [run_one(repo, out, job, args) for job in jobs]
+        for result in results:
             if result["status"] == "fail":
                 say(f"FAIL {result['label']}: {result['error']}")
-    results.sort(key=lambda item: str(item["label"]))
 
     valid_count, pending = stage_report(repo, out, jobs)
     failed = [item for item in results if item["status"] == "fail"]
     blocked = [item for item in results if item["status"] == "blocked"]
     write_json(status_path, {
-        "mode": "run", "jobs": results,
+        "mode": "run", "metering": metering,
+        "token_ledger": str(ledger_path) if ledger_path else None,
+        "jobs": results,
         "summary": {"pass": len(results) - len(failed) - len(blocked),
                     "fail": len(failed), "blocked": len(blocked),
                     "stage_valid": valid_count, "stage_total": len(jobs)},
     })
+    if token_error:
+        write_json(out / "runs" / "token-budget-status.json", {"status": "blocked", "metering": "metered", "error": token_error})
     if blocked:
         write_json(out / "run-blocker.json", {
             "status": "blocked",
@@ -244,6 +362,12 @@ def main() -> int:
         if drift:
             sys.stderr.write(drift[0] + "\n")
             return 3
+    if token_error:
+        say(f"METERED blocked: {token_error}")
+        return 2
+    if budget_exhausted:
+        say("METERED budget exhausted; remaining jobs were not started")
+        return 3
     if blocked:
         say(f"resume: rerun this command after the limit clears — see {out / 'run-blocker.json'}")
         return 2

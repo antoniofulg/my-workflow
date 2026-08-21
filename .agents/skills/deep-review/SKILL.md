@@ -28,6 +28,9 @@ Steps 1–4 drive an idempotent artifact pipeline under `<out>`: every stage gat
 | `--full` | Ignore prior state; review the whole diff again | incremental when state exists |
 | `--out <dir>` | Artifact directory | `.deep-review/<target>/` |
 | `--no-workflow` | Skip the Workflow tool; use Agent fan-out | Named native `deep-reviewer` when the host supports it; role-free Workflow fallback |
+| `--metered` | Enforce the compatible Codex token ledger | 15,000,000 tokens per round; fail closed when telemetry or ledger state is invalid |
+| `--token-db <path>` | Codex state SQLite source | `$CODEX_HOME/state_5.sqlite` when `--metered` is present |
+| `--token-ledger <path>` | Content-safe checkpoint ledger | `<out>/runs/token-ledger.json` |
 
 ## Repo config — `.deep-review.yaml`
 
@@ -52,6 +55,7 @@ The manifest builder resolves `path_filters` into manifest.json; the knowledge s
 - Publishing needs `--publish` or the user's explicit go-ahead in this session; otherwise the review stays local.
 - Every review ends with a **SHIP / FIX_BEFORE_SHIP / REWORK** verdict derived by render_review.py and stated only after that script exits 0.
 - `FIX_BEFORE_SHIP` is actionable, not a prompt for approval: in an approved loop, apply the remediation rule in `docs/guidelines/REVIEW-ROUNDS.md` automatically. After round 2, fix its blockers, run the scoped gate, and never start round 3.
+- A Codex run with `--metered` snapshots reviewer telemetry, checkpoints after each valid job, and stops before the next job at the 15,000,000-token default. Claude, Cursor, and hosts without compatible telemetry record an `unmetered` fallback and keep the review sequential without claiming a cap.
 - External `--subagent` runtimes spend `compozy exec` credit.
 
 ## Procedure
@@ -99,7 +103,7 @@ Execute `<out>/jobs.json` with the mutating runner and engine contract loaded in
 python3 <skill-dir>/scripts/run_jobs.py --out <out> --validate-only
 ```
 
-*Done when:* run_jobs.py `--validate-only` exits 0 — every defect, polish, and sweep output matches the schema and completely accounts for assigned hunks and rules.
+*Done when:* run_jobs.py `--validate-only` exits 0 — every defect, polish, and sweep output matches the schema and completely accounts for assigned hunks and rules. Execute the materialized jobs with `--metered --token-db <Codex state>` for Codex; omit it for other hosts, whose ledger records `unmetered` fallback.
 
 **Step 4: Merge + report**
 
