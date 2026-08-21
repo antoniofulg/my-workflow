@@ -26,6 +26,7 @@ from token_metrics import (  # noqa: E402
     start_metrics,
 )
 import token_metrics  # noqa: E402
+import run_jobs  # noqa: E402
 
 PREFIX = "/reviewer/deep-review"
 REPO = Path.cwd()
@@ -72,6 +73,7 @@ def helper_script(path: Path, *, overlap: bool = False) -> None:
             "except FileNotFoundError: pass\n",
             encoding="utf-8",
         )
+
     else:
         path.write_text(
             "import json, sys\n"
@@ -82,6 +84,25 @@ def helper_script(path: Path, *, overlap: bool = False) -> None:
         )
 
 
+def retry_helper_script(path: Path) -> None:
+    path.write_text(
+        "import json, os, pathlib, sys, time\n"
+        "prompt, output, label, calls, state_dir, active, overlap = sys.argv[1:]\n"
+        "state = pathlib.Path(state_dir) / label\n"
+        "attempt = int(state.read_text()) + 1 if state.exists() else 1\n"
+        "state.parent.mkdir(parents=True, exist_ok=True)\n"
+        "state.write_text(str(attempt))\n"
+        "if os.path.exists(active): open(overlap, 'w', encoding='utf-8').close()\n"
+        "open(active, 'w', encoding='utf-8').close()\n"
+        "with open(calls, 'a', encoding='utf-8') as stream: stream.write(f'{label}:{attempt}\\n')\n"
+        "time.sleep(0.05)\n"
+        "if attempt == 1:\n"
+        "    os.unlink(active)\n"
+        "    raise SystemExit(1)\n"
+        "json.dump({'defects': [], 'advisories': [], 'suppressions': [], 'coverage': {'hunks': [], 'rules': []}}, open(output, 'w', encoding='utf-8'))\n"
+        "os.unlink(active)\n",
+        encoding="utf-8",
+    )
 def runner(out: Path, jobs: Path, helper: Path, calls: Path, *, db: Path | None = None, ledger: Path | None = None, workers: int = 2, extra: list[str] | None = None, helper_suffix: list[Path] | None = None) -> list[str]:
     command = [sys.executable, str(SCRIPTS / "run_jobs.py"), "--out", str(out), "--jobs-file", str(jobs), "--workers", str(workers), "--no-freeze-check"]
     if helper:
@@ -169,6 +190,74 @@ class TokenMetricsTests(unittest.TestCase):
                     self.assertEqual(status, "unavailable")
                 else:
                     self.assertEqual(read_metrics(ledger)["status"], "unavailable")
+                shutil.rmtree(out, ignore_errors=True)
+
+    def test_drm03_checkpoint_observation_failure_is_nonblocking(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            db, out, jobs = root / "codex.sqlite", REPO / ".deep-review/metrics-checkpoint-failure", root / "jobs.json"
+            calls, ledger = root / "calls", root / "jobs.json.metrics.json"
+            create_db(db)
+            write_jobs(jobs, ".deep-review/metrics-checkpoint-failure")
+            helper = root / "job.py"
+            helper_script(helper)
+            command = runner(out, jobs, helper, calls, db=db, ledger=ledger, workers=1)
+            old_argv = sys.argv
+            try:
+                sys.argv = [command[1], *command[2:]]
+                with patch.object(run_jobs, "checkpoint_metrics", side_effect=OSError("checkpoint unavailable")):
+                    result = run_jobs.main()
+                self.assertEqual(result, 0)
+                self.assertEqual(calls.read_text(encoding="utf-8").splitlines(), ["job-1", "job-2"])
+                status = json.loads((out / "runs/jobs-status.json").read_text(encoding="utf-8"))
+                self.assertEqual(status["metrics"], "unavailable")
+            finally:
+                sys.argv = old_argv
+                shutil.rmtree(out, ignore_errors=True)
+
+    def test_drm03_finalize_observation_failure_is_nonblocking(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            db, out, jobs = root / "codex.sqlite", REPO / ".deep-review/metrics-finalize-failure", root / "jobs.json"
+            calls, ledger = root / "calls", root / "metrics.json"
+            create_db(db)
+            write_jobs(jobs, ".deep-review/metrics-finalize-failure")
+            helper = root / "job.py"
+            helper_script(helper)
+            command = runner(out, jobs, helper, calls, db=db, ledger=ledger, workers=1)
+            old_argv = sys.argv
+            try:
+                sys.argv = [command[1], *command[2:]]
+                with patch.object(run_jobs, "finalize_metrics", side_effect=OSError("finalize unavailable")):
+                    result = run_jobs.main()
+                self.assertEqual(result, 0)
+                self.assertEqual(calls.read_text(encoding="utf-8").splitlines(), ["job-1", "job-2"])
+                status = json.loads((out / "runs/jobs-status.json").read_text(encoding="utf-8"))
+                self.assertEqual(status["metrics"], "unavailable")
+            finally:
+                sys.argv = old_argv
+                shutil.rmtree(out, ignore_errors=True)
+
+    def test_drm04_configured_retries_run_serially(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            out, jobs = REPO / ".deep-review/metrics-retries", root / "jobs.json"
+            calls, state_dir = root / "calls", root / "attempts"
+            active, overlap = root / "active", root / "overlap"
+            write_jobs(jobs, ".deep-review/metrics-retries")
+            helper = root / "job.py"
+            retry_helper_script(helper)
+            try:
+                result = subprocess.run(
+                    runner(out, jobs, helper, calls, workers=2, extra=["--attempts", "2"], helper_suffix=[state_dir, active, overlap]),
+                    cwd=REPO, capture_output=True, text=True,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertFalse(overlap.exists())
+                self.assertEqual(calls.read_text(encoding="utf-8").splitlines(), ["job-1:1", "job-1:2", "job-2:1", "job-2:2"])
+                status = json.loads((out / "runs/jobs-status.json").read_text(encoding="utf-8"))
+                self.assertEqual([row["attempt"] for row in status["jobs"]], [2, 2])
+            finally:
                 shutil.rmtree(out, ignore_errors=True)
 
     def test_drm04_completed_metrics_are_idempotent_and_outputs_resume(self) -> None:
