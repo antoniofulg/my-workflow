@@ -19,7 +19,7 @@ python3 <skill-dir>/scripts/run_jobs.py --out <out> [--jobs-file <out>/<stage>-j
   --command "compozy exec <runtime flags from the map> --format json --timeout 30m --prompt-file {prompt}"
 ```
 
-The runner accepts legacy `--workers` values but executes reviewer jobs serially. A provider adapter may append
+The runner executes reviewer jobs serially. A provider adapter may append
 `--metrics --metrics-db <source> --metrics-reviewer-prefix <configured-path>` to collect cumulative
 snapshots. The Codex adapter's source is `$CODEX_HOME/state_5.sqlite`; it must also pass an explicit
 reviewer path, for example `--metrics-reviewer-prefix "$DEEP_REVIEW_REVIEWER_PREFIX"`. Claude and

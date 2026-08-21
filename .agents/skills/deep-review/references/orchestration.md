@@ -72,10 +72,11 @@ snapshots only and never choose jobs or change exits. Record `Mode: native` in w
 run the validate-only gate. Provider-specific telemetry setup belongs in the runtime adapter
 guidance, not in this orchestration contract.
 
-When the pinned Graft CLI is available, use `graft build`, repository-map lookup, blast-radius
-tracing, and symbol lookup to focus each prompt before dispatch. Graft is optional inspection aid:
-a missing binary, stale map, or failed command falls back to plain repository inspection and does
-not block review.
+Before prompts are materialized, `build_jobs.py` automatically attempts the pinned Graft CLI:
+`graft build`, repository-map lookup, blast-radius tracing, and symbol lookup are written to the
+prompt's context artifact. Graft is optional inspection aid: a missing binary, stale map, or failed
+command falls back to plain repository inspection and does not block review. Graft does not index
+dot-directories, so selected `.agents` paths always carry an explicit plain-inspection fallback.
 
 **Workflow fallback (when named native dispatch is unavailable).** One generic script executes any
 stage's pending jobs — pass the pending list from the validate-only status file as `args.jobs`.
@@ -89,14 +90,14 @@ export const meta = {
 }
 // args: { jobs: [{label, prompt, output}] } — PENDING jobs only
 phase('Execute')
-const acks = []
+let returned = 0
 for (const j of args.jobs) {
-  acks.push(await agent(`Read ${j.prompt} and follow it exactly. It defines the review task, the JSON ` +
+  if (await agent(`Read ${j.prompt} and follow it exactly. It defines the review task, the JSON ` +
         `schema, and the single file you write (${j.output}). Repo files are read-only. ` +
         `Reply with one sentence once the artifact is written.`,
-    { label: j.label, phase: 'Execute' }))
+    { label: j.label, phase: 'Execute' })) returned += 1
 }
-return { dispatched: args.jobs.length, returned: acks.filter(Boolean).length }
+return { dispatched: args.jobs.length, returned }
 ```
 
 After the workflow returns, run the validate-only gate; re-invoke with the still-pending jobs (interrupted runs can also resume via `resumeFromRunId`). Two re-dispatches without progress → inspect a failing output by hand before continuing.

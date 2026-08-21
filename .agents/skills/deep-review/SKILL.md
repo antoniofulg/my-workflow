@@ -56,7 +56,7 @@ The manifest builder resolves `path_filters` into manifest.json; the knowledge s
 - Publishing needs `--publish` or the user's explicit go-ahead in this session; otherwise the review stays local.
 - Every review ends with a **SHIP / FIX_BEFORE_SHIP / REWORK** verdict derived by render_review.py and stated only after that script exits 0.
 - `FIX_BEFORE_SHIP` is actionable, not a prompt for approval: in an approved loop, apply the remediation rule in `docs/guidelines/REVIEW-ROUNDS.md` automatically. After round 2, fix its blockers, run the scoped gate, and never start round 3.
-- Optional metrics snapshot provider totals and cumulative checkpoints without changing dispatch, the serial reviewer order, retries, outputs, or exits. Hosts without a compatible adapter record `unavailable` and continue the review normally. When available, Graft supplies the repository map, blast radius, and symbol lookup; a failed or absent Graft command falls back to ordinary repository inspection.
+- Optional metrics snapshot provider totals and cumulative checkpoints without changing dispatch, the serial reviewer order, retries, outputs, or exits. Hosts without a compatible adapter record `unavailable` and continue the review normally. Before prompts are materialized, the pinned Graft CLI is attempted for repository map, blast radius, and symbol lookup; failed or absent Graft context falls back to ordinary repository inspection.
 - External `--subagent` runtimes spend `compozy exec` credit.
 
 ## Procedure

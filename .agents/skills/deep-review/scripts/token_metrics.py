@@ -184,23 +184,36 @@ def _unavailable(path: Path, reason: str, scope: dict | None = None, db_path: st
     return payload
 
 
+def _valid_scope(scope: object) -> bool:
+    required = {"repository", "round", "base", "head", "selected_files", "carried_files", "jobs", "model", "reasoning_effort", "reviewer_prefix"}
+    if not isinstance(scope, dict) or set(scope) != required or not isinstance(scope["reviewer_prefix"], str):
+        return False
+    if not all(isinstance(scope[key], str) and bool(scope[key]) for key in ("repository", "base", "head", "model", "reasoning_effort")):
+        return False
+    return all(isinstance(scope[key], int) and scope[key] >= 0 for key in ("round", "selected_files", "carried_files", "jobs"))
+
+
 def _valid_metrics(value: object) -> bool:
     if not isinstance(value, dict):
         return False
     if value.get("status") == "unavailable":
-        return set(value) == {"schema_version", "kind", "started_at", "finalized_at", "runtime_db", "scope", "status", "reason"} and value["kind"] == "review_token_metrics" and _timestamp(value["started_at"]) and _timestamp(value["finalized_at"]) and isinstance(value["reason"], str)
+        return (
+            set(value) == {"schema_version", "kind", "started_at", "finalized_at", "runtime_db", "scope", "status", "reason"}
+            and value["schema_version"] == 1
+            and value["kind"] == "review_token_metrics"
+            and _timestamp(value["started_at"])
+            and _timestamp(value["finalized_at"])
+            and isinstance(value["runtime_db"], str)
+            and _valid_scope(value["scope"])
+            and isinstance(value["reason"], str)
+        )
     expected = {"schema_version", "kind", "started_at", "finalized_at", "runtime_db", "scope", "baseline_by_thread", "reviewer_thread_count", "checkpoints", "usage", "status"}
     if set(value) != expected or value["schema_version"] != 1 or value["kind"] != "review_token_metrics" or not _timestamp(value["started_at"]):
         return False
     if value["finalized_at"] is not None and not _timestamp(value["finalized_at"]):
         return False
     scope = value["scope"]
-    required_scope = {"repository", "round", "base", "head", "selected_files", "carried_files", "jobs", "model", "reasoning_effort", "reviewer_prefix"}
-    if not isinstance(scope, dict) or set(scope) != required_scope or not isinstance(scope["reviewer_prefix"], str):
-        return False
-    if not all(isinstance(scope[key], str) and bool(scope[key]) for key in ("repository", "base", "head", "model", "reasoning_effort")):
-        return False
-    if not all(isinstance(scope[key], int) and scope[key] >= 0 for key in ("round", "selected_files", "carried_files", "jobs")):
+    if not _valid_scope(scope):
         return False
     return (
         isinstance(value["runtime_db"], str)

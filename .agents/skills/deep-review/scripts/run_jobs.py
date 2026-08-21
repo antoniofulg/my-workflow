@@ -176,8 +176,6 @@ def main() -> int:
     parser.add_argument("--only", nargs="*", help="exact job labels to consider")
     parser.add_argument("--validate-only", action="store_true")
     parser.add_argument("--command", help="subprocess template; {prompt} required, {output}/{label} optional")
-    parser.add_argument("--workers", type=int, default=1,
-                        help="accepted for compatibility; reviewer jobs always run serially")
     parser.add_argument("--attempts", type=int, default=2)
     parser.add_argument("--timeout-min", type=int, default=35)
     parser.add_argument("--block-on", action="append", default=None, help="provider-block substring (repeatable)")
@@ -197,8 +195,6 @@ def main() -> int:
     args = parser.parse_args()
     if bool(args.validate_only) == bool(args.command):
         parser.error("pass exactly one of --validate-only or --command")
-    if args.workers < 1:
-        parser.error("--workers must be at least 1")
     if not 1 <= args.attempts <= 3:
         parser.error("--attempts must be between 1 and 3")
     if args.command and "{prompt}" not in args.command:
@@ -251,22 +247,20 @@ def main() -> int:
     (out / "runs").mkdir(parents=True, exist_ok=True)
     metrics_status, metrics_file, _ = start_observation(args, out, scope_jobs)
     results: list[dict] = []
-    # Reviewer threads are deliberately serialized.  ``--workers`` remains an
-    # accepted no-op so old invocations do not silently widen the review.
+    # Reviewer jobs are deliberately serialized.
     for job in jobs:
         result = run_one(repo, out, job, args)
         results.append(result)
         if result["status"] == "fail":
             say(f"FAIL {result['label']}: {result['error']}")
         if metrics_status == "running":
-            completed = sum(item["status"] == "pass" for item in results)
+            completed = sum(job_state(repo, out, scope_job)[0] == "valid" for scope_job in scope_jobs)
             metrics_status = checkpoint_observation(metrics_file, completed)
-    results.sort(key=lambda item: str(item["label"]))
-
     valid_count, pending = stage_report(repo, out, jobs)
+    _, scope_pending = stage_report(repo, out, scope_jobs)
     failed = [item for item in results if item["status"] == "fail"]
     blocked = [item for item in results if item["status"] == "blocked"]
-    if metrics_status == "running" and not failed and not pending:
+    if metrics_status == "running" and not failed and not scope_pending:
         metrics_status = finalize_observation(metrics_file)
     if blocked:
         try:

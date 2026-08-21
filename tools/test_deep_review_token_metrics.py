@@ -24,9 +24,12 @@ from token_metrics import (  # noqa: E402
     read_metrics,
     read_telemetry,
     start_metrics,
+    write_unavailable_metrics,
 )
 import token_metrics  # noqa: E402
 import run_jobs  # noqa: E402
+import build_jobs  # noqa: E402
+from graft_context import graft_binary, prepare_graft_context  # noqa: E402
 
 PREFIX = "/reviewer/deep-review"
 REPO = Path.cwd()
@@ -45,11 +48,6 @@ def update_db(path: Path, total: int) -> None:
     db.execute("update threads set tokens_used = ?", (total,))
     db.commit()
     db.close()
-
-
-def valid_output(path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"defects": [], "advisories": [], "suppressions": [], "coverage": {"hunks": [], "rules": []}}), encoding="utf-8")
 
 
 def write_jobs(path: Path, output_dir: str, count: int = 2) -> None:
@@ -103,8 +101,8 @@ def retry_helper_script(path: Path) -> None:
         "os.unlink(active)\n",
         encoding="utf-8",
     )
-def runner(out: Path, jobs: Path, helper: Path, calls: Path, *, db: Path | None = None, ledger: Path | None = None, workers: int = 2, extra: list[str] | None = None, helper_suffix: list[Path] | None = None) -> list[str]:
-    command = [sys.executable, str(SCRIPTS / "run_jobs.py"), "--out", str(out), "--jobs-file", str(jobs), "--workers", str(workers), "--no-freeze-check"]
+def runner(out: Path, jobs: Path, helper: Path, calls: Path, *, db: Path | None = None, ledger: Path | None = None, extra: list[str] | None = None, helper_suffix: list[Path] | None = None) -> list[str]:
+    command = [sys.executable, str(SCRIPTS / "run_jobs.py"), "--out", str(out), "--jobs-file", str(jobs), "--no-freeze-check"]
     if helper:
         suffix = " ".join(str(value) for value in (helper_suffix or []))
         command += ["--command", f"{sys.executable} {helper} {{prompt}} {{output}} {{label}} {calls} {suffix}".strip()]
@@ -146,7 +144,7 @@ class TokenMetricsTests(unittest.TestCase):
                 result = subprocess.run(runner(out, jobs, helper, calls, db=db, ledger=ledger, helper_suffix=[active, overlap]), cwd=REPO, capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertFalse(overlap.exists())
-                self.assertEqual(sorted(calls.read_text(encoding="utf-8").splitlines()), ["job-1", "job-2"])
+                self.assertEqual(calls.read_text(encoding="utf-8").splitlines(), ["job-1", "job-2"])
                 metrics = read_metrics(ledger)
                 self.assertEqual(metrics["status"], "complete")
                 self.assertEqual([row["completed_jobs"] for row in metrics["checkpoints"]], [1, 2])
@@ -201,7 +199,7 @@ class TokenMetricsTests(unittest.TestCase):
             write_jobs(jobs, ".deep-review/metrics-checkpoint-failure")
             helper = root / "job.py"
             helper_script(helper)
-            command = runner(out, jobs, helper, calls, db=db, ledger=ledger, workers=1)
+            command = runner(out, jobs, helper, calls, db=db, ledger=ledger)
             old_argv = sys.argv
             try:
                 sys.argv = [command[1], *command[2:]]
@@ -224,7 +222,7 @@ class TokenMetricsTests(unittest.TestCase):
             write_jobs(jobs, ".deep-review/metrics-finalize-failure")
             helper = root / "job.py"
             helper_script(helper)
-            command = runner(out, jobs, helper, calls, db=db, ledger=ledger, workers=1)
+            command = runner(out, jobs, helper, calls, db=db, ledger=ledger)
             old_argv = sys.argv
             try:
                 sys.argv = [command[1], *command[2:]]
@@ -249,7 +247,7 @@ class TokenMetricsTests(unittest.TestCase):
             retry_helper_script(helper)
             try:
                 result = subprocess.run(
-                    runner(out, jobs, helper, calls, workers=2, extra=["--attempts", "2"], helper_suffix=[state_dir, active, overlap]),
+                    runner(out, jobs, helper, calls, extra=["--attempts", "2"], helper_suffix=[state_dir, active, overlap]),
                     cwd=REPO, capture_output=True, text=True,
                 )
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -270,13 +268,48 @@ class TokenMetricsTests(unittest.TestCase):
             helper = root / "job.py"
             helper_script(helper)
             try:
-                command = runner(out, jobs, helper, calls, db=db, ledger=ledger, workers=1)
+                command = runner(out, jobs, helper, calls, db=db, ledger=ledger)
                 first = subprocess.run(command, cwd=REPO, capture_output=True, text=True)
                 second = subprocess.run(command, cwd=REPO, capture_output=True, text=True)
                 self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
                 self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
                 self.assertEqual(calls.read_text(encoding="utf-8").splitlines(), ["job-1"])
                 self.assertEqual(read_metrics(ledger)["status"], "complete")
+            finally:
+                shutil.rmtree(out, ignore_errors=True)
+
+    def test_drm04_selective_resume_finalizes_full_scope_metrics(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            db, out, jobs = root / "codex.sqlite", REPO / ".deep-review/metrics-selective-resume", root / "jobs.json"
+            calls, ledger = root / "calls", root / "metrics.json"
+            create_db(db)
+            write_jobs(jobs, ".deep-review/metrics-selective-resume")
+            helper = root / "job.py"
+            helper_script(helper)
+            try:
+                start_metrics(ledger, db, PREFIX, repository=str(REPO), selected_files=2, jobs=2)
+                update_db(db, 10)
+                first = subprocess.run(
+                    runner(out, jobs, helper, calls, db=db, ledger=ledger, extra=["--only", "job-1"]),
+                    cwd=REPO, capture_output=True, text=True,
+                )
+                self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+                partial = read_metrics(ledger)
+                self.assertEqual(partial["status"], "running")
+                self.assertEqual([row["completed_jobs"] for row in partial["checkpoints"]], [1])
+
+                update_db(db, 30)
+                second = subprocess.run(
+                    runner(out, jobs, helper, calls, db=db, ledger=ledger, extra=["--only", "job-2"]),
+                    cwd=REPO, capture_output=True, text=True,
+                )
+                self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+                finished = read_metrics(ledger)
+                self.assertEqual(finished["status"], "complete")
+                self.assertEqual(finished["usage"]["total_tokens"], 30)
+                self.assertEqual([row["completed_jobs"] for row in finished["checkpoints"]], [1, 2])
+                self.assertEqual(calls.read_text(encoding="utf-8").splitlines(), ["job-1", "job-2"])
             finally:
                 shutil.rmtree(out, ignore_errors=True)
 
@@ -330,6 +363,24 @@ class TokenMetricsTests(unittest.TestCase):
             self.assertEqual(ledger.read_bytes(), stable)
             self.assertEqual(list(root.glob(f".{ledger.name}.*.tmp")), [])
 
+    def test_drm05_unavailable_ledger_keeps_exact_content_safe_shape(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root, ledger = Path(raw), Path(raw) / "metrics.json"
+            write_unavailable_metrics(ledger)
+            valid = json.loads(ledger.read_text(encoding="utf-8"))
+            mutations = {
+                "scope-extra": lambda value: value["scope"].update({"prompt": "secret"}),
+                "schema-version": lambda value: value.update({"schema_version": 2}),
+                "runtime-db-shape": lambda value: value.update({"runtime_db": {"source": "secret"}}),
+                "top-level-extra": lambda value: value.update({"response": "secret"}),
+            }
+            for name, mutate in mutations.items():
+                malformed = json.loads(json.dumps(valid))
+                mutate(malformed)
+                ledger.write_text(json.dumps(malformed), encoding="utf-8")
+                with self.subTest(name=name), self.assertRaises(TokenMetricsError):
+                    read_metrics(ledger)
+
     def test_drm06_shared_docs_are_provider_neutral(self) -> None:
         skill = (REPO / ".agents/skills/deep-review/SKILL.md").read_text(encoding="utf-8")
         orchestration = (REPO / ".agents/skills/deep-review/references/orchestration.md").read_text(encoding="utf-8")
@@ -349,7 +400,7 @@ class TokenMetricsTests(unittest.TestCase):
         native = orchestration.split("**Named native dispatch", 1)[1].split("Metrics are optional", 1)[0].lower()
         self.assertIn("one at a time", native)
         self.assertNotRegex(native, r"parallel|concurr|fan[- ]out|promise\.all")
-        graft = " ".join(orchestration.split("When the pinned Graft CLI", 1)[1].split("**Workflow fallback", 1)[0].lower().split())
+        graft = " ".join(orchestration.split("Before prompts are materialized", 1)[1].split("**Workflow fallback", 1)[0].lower().split())
         self.assertIn("optional", graft)
         self.assertIn("plain repository inspection", graft)
         self.assertIn("does not block review", graft)
@@ -358,6 +409,52 @@ class TokenMetricsTests(unittest.TestCase):
         self.assertEqual(manifest["devDependencies"]["@nanonets/graft"], "0.10.1")
         self.assertEqual(manifest["scripts"]["review:graft:build"], "graft build")
         self.assertEqual(manifest["scripts"]["review:graft:version"], "graft --version")
+
+    def test_drm06_build_jobs_wires_graft_context_and_dot_fallback(self) -> None:
+        (REPO / ".deep-review").mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=REPO / ".deep-review") as raw:
+            out = Path(raw)
+            manifest = {
+                "target": "fixture",
+                "base": "base",
+                "diff_command": "git diff base..HEAD -- <file>",
+                "files": [{
+                    "path": "tools/test_deep_review_token_metrics.py", "status": "M",
+                    "adds": 1, "dels": 0, "disposition": "selected",
+                    "hunks": [{"start": 1, "lines": 1, "side": "new"}],
+                }],
+            }
+            (out / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            (out / "knowledge.json").write_text(json.dumps({"selected_paths": [manifest["files"][0]["path"]], "sources": []}), encoding="utf-8")
+            (out / "rules.json").write_text(json.dumps({"sources": [], "rules": []}), encoding="utf-8")
+            (out / "context-pack.md").write_text("# Context\n", encoding="utf-8")
+            (out / "plan.json").write_text(json.dumps({
+                "cohorts": [{"id": "c01", "name": "fixture", "risk": "normal", "files": [manifest["files"][0]["path"]]}],
+                "sweeps": [],
+            }), encoding="utf-8")
+            old_argv = sys.argv
+            try:
+                sys.argv = ["build_jobs.py", "--out", str(out)]
+                self.assertEqual(build_jobs.main(), 0)
+            finally:
+                sys.argv = old_argv
+            prompt = (out / "prompts/cohort-c01.md").read_text(encoding="utf-8")
+            self.assertIn("GRAFT CONTEXT", prompt)
+            graft_path = out / "graft-context.md"
+            self.assertIn("graft-context.md", prompt)
+            if graft_binary(REPO):
+                self.assertIn("Repository map", graft_path.read_text(encoding="utf-8"))
+
+            dot_context = prepare_graft_context(REPO, out / "dot", [".agents/skills/deep-review/SKILL.md"])
+            self.assertEqual(dot_context["status"], "ready-with-fallback" if graft_binary(REPO) else "fallback")
+            self.assertIn("plain repository inspection", (out / "dot/graft-context.md").read_text(encoding="utf-8"))
+
+            failing = out / "failing-graft"
+            failing.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+            failing.chmod(0o700)
+            failed_context = prepare_graft_context(REPO, out / "failed", ["tools/test_deep_review_token_metrics.py"], str(failing))
+            self.assertEqual(failed_context["status"], "fallback")
+            self.assertIn("plain repository inspection", (out / "failed/graft-context.md").read_text(encoding="utf-8"))
 
     def test_drm01_native_hooks_are_cumulative_with_serial_dispatch(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -406,7 +503,7 @@ class TokenMetricsTests(unittest.TestCase):
             helper = root / "job.py"
             helper_script(helper)
             try:
-                result = subprocess.run(runner(out, jobs, helper, calls, workers=1), cwd=REPO, capture_output=True, text=True)
+                result = subprocess.run(runner(out, jobs, helper, calls), cwd=REPO, capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 artifact = json.loads((out / "runs/review-metrics.json").read_text(encoding="utf-8"))
                 self.assertEqual(artifact["status"], "unavailable")
@@ -423,7 +520,7 @@ class TokenMetricsTests(unittest.TestCase):
             helper.write_text("print('usageLimitExceeded')\n", encoding="utf-8")
             shutil.rmtree(out, ignore_errors=True)
             try:
-                result = subprocess.run(runner(out, jobs, helper, calls, workers=1), cwd=REPO, capture_output=True, text=True)
+                result = subprocess.run(runner(out, jobs, helper, calls), cwd=REPO, capture_output=True, text=True)
                 self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
                 blocker = json.loads((out / "run-blocker.json").read_text(encoding="utf-8"))
                 self.assertEqual(blocker["status"], "blocked")
