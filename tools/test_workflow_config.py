@@ -55,6 +55,43 @@ def test_cadence_modes_and_balancing() -> None:
     }
     for cadence, groups in expected.items():
         assert workflow_config.balanced_groups(4, cadence) == groups
+
+    matrix = {
+        "slice": {
+            1: [[1]],
+            2: [[1], [2]],
+            3: [[1], [2], [3]],
+            4: [[1], [2], [3], [4]],
+            5: [[1], [2], [3], [4], [5]],
+            6: [[1], [2], [3], [4], [5], [6]],
+            7: [[1], [2], [3], [4], [5], [6], [7]],
+            8: [[1], [2], [3], [4], [5], [6], [7], [8]],
+        },
+        "feature": {
+            1: [[1]],
+            2: [[1, 2]],
+            3: [[1, 2, 3]],
+            4: [[1, 2, 3, 4]],
+            5: [[1, 2, 3, 4, 5]],
+            6: [[1, 2, 3, 4, 5, 6]],
+            7: [[1, 2, 3, 4, 5, 6, 7]],
+            8: [[1, 2, 3, 4, 5, 6, 7, 8]],
+        },
+        "grouped.3": {
+            1: [[1]],
+            2: [[1, 2]],
+            3: [[1, 2, 3]],
+            4: [[1, 2], [3, 4]],
+            5: [[1, 2, 3], [4, 5]],
+            6: [[1, 2, 3], [4, 5, 6]],
+            7: [[1, 2, 3], [4, 5], [6, 7]],
+            8: [[1, 2, 3], [4, 5, 6], [7, 8]],
+        },
+    }
+    for cadence, cases in matrix.items():
+        for slice_count, groups in cases.items():
+            assert workflow_config.balanced_groups(slice_count, cadence) == groups
+
     assert workflow_config.balanced_groups(6, "grouped.2") == [[1, 2], [3, 4], [5, 6]]
     assert workflow_config.balanced_groups(7, "grouped.3") == [[1, 2, 3], [4, 5], [6, 7]]
     assert workflow_config.balanced_groups(8, "grouped.4") == [[1, 2, 3, 4], [5, 6, 7, 8]]
