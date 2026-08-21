@@ -6,13 +6,13 @@ persona: Workflow adopter
 journey: J-adopt-workflow
 expected: Git ignores generated Deep Review and feature-planning trees while durable learnings, decisions, and consumer ignore rules remain eligible for review.
 entry_points: .gitignore; scripts/adopt.py; .specs/AD-INDEX.md; .deep-review/learnings.md
-qa_status: untested
+qa_status: pass
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence:
-last_report:
+evidence: docs/qa/evidence/2026-08-20-workflow-0.3.0/session.md
+last_report: docs/qa/reports/2026-08-20-workflow-0.3.0.md
 overlaps:
 ---
 
