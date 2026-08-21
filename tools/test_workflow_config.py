@@ -133,6 +133,42 @@ def test_snapshot_is_stable_and_atomic_failure_preserves_previous() -> None:
         first = workflow_config.resolve(root=root, feature="snapshot", slice_count=2, native_provider="codex")
         path = root / ".specs/features/snapshot/workflow.json"
         original = path.read_text(encoding="utf-8")
+
+        expected_head = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=root, text=True
+        ).strip()
+        on_disk = json.loads(original)
+        assert set(on_disk) == {
+            "version",
+            "feature",
+            "git_head",
+            "profile",
+            "overrides",
+            "deep_review",
+            "roles",
+        }
+        assert on_disk["version"] == 1
+        assert on_disk["feature"] == "snapshot"
+        assert on_disk["git_head"] == expected_head
+        assert on_disk["profile"] is None
+        assert on_disk["overrides"] == {}
+        assert on_disk["deep_review"] == {
+            "cadence": "grouped.3",
+            "groups": [[1, 2]],
+        }
+        expected_agents = {
+            "implementer": ".codex/agents/implementer.toml",
+            "verifier": ".codex/agents/verifier.toml",
+            "explorer": ".codex/agents/explorer.toml",
+            "deep_reviewer": ".codex/agents/deep-reviewer.toml",
+        }
+        assert set(on_disk["roles"]) == set(expected_agents)
+        for role, agent_file in expected_agents.items():
+            assert on_disk["roles"][role] == {
+                "provider": "codex",
+                "agent_file": agent_file,
+            }
+
         second = workflow_config.resolve(root=root, feature="snapshot", slice_count=8, native_provider="cursor")
         assert second == first
         assert json.loads(path.read_text(encoding="utf-8")) == first
