@@ -405,15 +405,15 @@ describe("adoption and public setup", () => {
     expect(qaExecute).toContain("does not write product code, install a framework, invent a");
   });
 
-  it("IT-017 reports release version 0.3.0 consistently", () => {
+  it("IT-017 reports release version 0.3.1 consistently", () => {
     const manifest = JSON.parse(readRepositoryFile("package.json")) as { version?: string };
     const lockfile = JSON.parse(readRepositoryFile("package-lock.json")) as {
       version?: string;
       packages?: { ""?: { version?: string } };
     };
 
-    expect(manifest.version).toBe("0.3.0");
-    expect(lockfile.version).toBe("0.3.0");
-    expect(lockfile.packages?.[""]?.version).toBe("0.3.0");
+    expect(manifest.version).toBe("0.3.1");
+    expect(lockfile.version).toBe("0.3.1");
+    expect(lockfile.packages?.[""]?.version).toBe("0.3.1");
   });
 });
