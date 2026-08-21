@@ -45,8 +45,7 @@ Technical Verifier. The deep-review cap ends review rounds; it does not revoke t
 local remediation already in progress. The post-fix gate and escalation rule below decide whether
 the slice is done.
 
-When a deep-review or QA remediation changes code, review only `reviewed_head..HEAD` and re-walk
-affected scenario rows. The final pending group completes before the QA session.
+Before final QA, complete the final pending implementation deep-review group. For QA code remediation, review only `reviewed_head..HEAD`, then re-walk affected scenario rows.
 
 ## The feature closing step
 

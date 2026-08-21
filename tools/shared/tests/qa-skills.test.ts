@@ -353,7 +353,18 @@ describe("configurable review policy", () => {
     }
     expect(reviewRounds).toContain("deep-review** (resolved implementation groups)");
     expect(reviewRounds).not.toContain("deep-review** (every slice)");
-    expect(reviewRounds).toContain("reviewed_head..HEAD");
+    const finalGroupInstruction =
+      "Before final QA, complete the final pending implementation deep-review group.";
+    const qaHeading = "## The feature closing step";
+    const remediationInstruction =
+      "For QA code remediation, review only `reviewed_head..HEAD`, then re-walk affected scenario rows.";
+    expect(reviewRounds).toContain(finalGroupInstruction);
+    expect(reviewRounds.indexOf(finalGroupInstruction)).toBeLessThan(reviewRounds.indexOf(qaHeading));
+    expect(reviewRounds).toContain(remediationInstruction);
+    const deltaIndex = reviewRounds.indexOf("review only `reviewed_head..HEAD`");
+    const rerunIndex = reviewRounds.indexOf("then re-walk affected scenario rows");
+    expect(deltaIndex).toBeGreaterThan(-1);
+    expect(deltaIndex).toBeLessThan(rerunIndex);
     expect(autonomous).toContain("every resolved");
     expect(loop).toContain("deep-review follows resolved");
     expect(tour).toContain("deep-review groups from workflow config");
