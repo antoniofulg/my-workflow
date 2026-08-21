@@ -45,9 +45,10 @@ product tree in the parent chat. Models live only on the agent files. Cursor als
 Use the `tlc-spec-driven` skill. It auto-sizes. Activate `ponytail` at `full` before specify, design,
 issue selection, any subagent prompt, and before writing, refactoring, fixing or reviewing code.
 
-**Tasks are atomic vertical slices:** one observable behaviour plus the tests that prove it, at the
-cheapest discriminating layer. e2e only when the slice opens a journey nothing else already walks.
-Caps, QA walk/session, deep-review, filed-issue shortcut: `docs/guidelines/REVIEW-ROUNDS.md`.
+**Public hierarchy is `Feature -> Vertical Slice -> Task`.** A vertical slice is one observable
+end-to-end behaviour; its tasks are the smallest implementation units plus their tests. e2e only
+when the slice opens a journey nothing else already walks. Resolve review cadence before dispatch
+with `.agents/skills/workflow-config/SKILL.md`. Caps and QA rules: `docs/guidelines/REVIEW-ROUNDS.md`.
 
 At every size: the gate decides done; one atomic Conventional Commit per task; update `tasks.md`
 when present, or the inline execution plan when Tasks is skipped, before committing; Verifier ≠
@@ -72,6 +73,7 @@ Delivery is human-scheduled. Git and the artifacts named below own durable state
 | Diff changes user-visible behaviour | `docs/guidelines/QA-SCENARIOS.md` |
 | QA pass at the end of a feature | `docs/guidelines/QA-EXECUTION.md` |
 | Reviewing, or acting on findings | `docs/guidelines/REVIEW-ROUNDS.md` |
+| Resolving feature workflow | `.agents/skills/workflow-config/SKILL.md` |
 | About to claim done, or to commit | `docs/guidelines/VERIFICATION-EVIDENCE.md` |
 | Choosing which gate to run | `docs/guidelines/GATES.md` |
 | Branch or worktree | `docs/guidelines/BRANCHING.md` |

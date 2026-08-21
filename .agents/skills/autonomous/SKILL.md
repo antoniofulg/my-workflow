@@ -84,15 +84,17 @@ an implementation is found months later.
 
 ## 3. Do the work
 
-**A feature:** follow `AGENTS.md`. Three rules an unattended run gets wrong:
+**A feature:** follow `AGENTS.md`'s `Feature -> Vertical Slice -> Task` hierarchy and resolve the
+feature workflow with `.agents/skills/workflow-config` before dispatch. Three rules an
+unattended run gets wrong:
 
-- **A slice closes fully before the next one opens** — implement, scoped gate, commit, Verifier,
-  deep-review, and a QA walk when it put something in front of a user. Carrying an unreviewed slice
-  forward is how a review ends up reading four behaviours at once, which is the size that produces
-  twenty rounds.
+- **Every implementation slice closes its technical review before the next opens** — implement,
+  scoped gate, commit, Verifier, and a QA walk when it puts something in front of a user. Deep-review
+  runs at the resolved review groups, before final QA, so a feature can balance reading cost without
+  changing the slice contract.
 - **One pull request for the feature**, with the slices as atomic commits inside it.
-- **The last slice is the QA session** and writes no product code, so it takes no Verifier and no
-  deep-review.
+- **The feature-closing step is the QA session** and writes no product code, so it takes no Verifier
+  and no deep-review.
 
 **An issue batch:** `implement → scoped gate → one commit per batch`. No spec, no verifier, no
 deep-review round. Three things still fire, because they are about the change rather than the review:
@@ -104,8 +106,8 @@ happens.
 Close each issue in the commit that fixes it (`Closes #NN`), and leave open any you could not finish
 with a comment saying why.
 
-**Done when:** for a feature, **every slice closed its own review** — verifier run, deep-review run,
-and any scenario it flagged walked — and the final slice's QA session is complete; for a batch, every
+**Done when:** for a feature, every implementation slice has its Verifier result, every resolved
+deep-review group is complete, any flagged scenario is walked, and the final QA session is complete; for a batch, every
 selected issue is fixed and closed or explicitly left open with a reason.
 
 ## 4. Merge

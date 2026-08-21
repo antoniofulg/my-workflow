@@ -339,6 +339,27 @@ describe("canonical QA skills", () => {
   });
 });
 
+describe("configurable review policy", () => {
+  it("uses the canonical hierarchy and resolved deep-review groups", () => {
+    const agents = readRepositoryFile("AGENTS.md");
+    const reviewRounds = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
+    const autonomous = readRepositoryFile(".agents/skills/autonomous/SKILL.md");
+    const loop = readRepositoryFile("docs/workflow/loop.md");
+    const tour = readRepositoryFile("docs/workflow/README.md");
+
+    for (const source of [agents, reviewRounds, autonomous, loop, tour]) {
+      expect(source).toContain("Feature -> Vertical Slice -> Task");
+      expect(source).toContain("workflow-config");
+    }
+    expect(reviewRounds).toContain("deep-review** (resolved implementation groups)");
+    expect(reviewRounds).not.toContain("deep-review** (every slice)");
+    expect(reviewRounds).toContain("reviewed_head..HEAD");
+    expect(autonomous).toContain("every resolved");
+    expect(loop).toContain("deep-review follows resolved");
+    expect(tour).toContain("deep-review groups from workflow config");
+  });
+});
+
 describe("agent configuration", () => {
   it("IT-018 keeps the three harness matrices and dedicated Deep Review agents aligned", () => {
     const frontmatterValue = (source: string, key: string): string =>

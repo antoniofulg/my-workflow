@@ -47,3 +47,21 @@ Idle.
 - **Scope**: `.gitignore`, `AGENTS.md`, TLC workflow guidance, artifact lifecycle and commit evidence.
 - **Date**: 2026-08-20
 - **Status**: active
+
+### AD-004
+
+- **Decision**: Workflow routing is consumer-configurable in `.my-workflow.toml`. The public
+  hierarchy is `Feature -> Vertical Slice -> Task`; deep-review accepts `slice`, `feature`, or
+  balanced `grouped.N`, defaults to `grouped.3`, and freezes its effective route in the feature
+  snapshot before dispatch. Technical Verifier remains per code-changing slice; QA closes the
+  feature after the final review group.
+- **Reason**: Deep-review per slice repeatedly rereads shared context and wastes tokens. A single
+  canonical resolver makes cadence and mixed-provider routing explicit without duplicating provider
+  definitions or moving project gates and QA policy into workflow config.
+- **Trade-off**: A project can choose less frequent deep-review and must inspect the frozen snapshot
+  when resuming. Provider availability is an explicit orchestrator concern; the resolver never falls
+  back silently.
+- **Scope**: `.my-workflow.toml`, `.agents/skills/workflow-config/`, `AGENTS.md`, review guidance,
+  workflow docs, and adoption.
+- **Date**: 2026-08-21
+- **Status**: active
