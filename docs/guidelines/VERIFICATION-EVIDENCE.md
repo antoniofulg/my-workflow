@@ -96,7 +96,7 @@ what is blocking and the exact condition for resuming, then hand it to the human
 
 - Requirements contradict each other and no precedence rule resolves it
 - A gate would only pass by weakening, skipping or deleting a test
-- Blocking findings remain after the round caps in `docs/guidelines/REVIEW-ROUNDS.md`
+- Blocking findings remain after the required post-cap remediation and gate in `docs/guidelines/REVIEW-ROUNDS.md`
 - **Credentials, tokens or secrets appear** anywhere they should not — in a diff, a log, a fixture,
   a test artifact
 - The action needed exceeds the authority the prompt gave: a push, a merge, a deploy, a production

@@ -51,6 +51,7 @@ The manifest builder resolves `path_filters` into manifest.json; the knowledge s
 - Cite rubric rules verbatim with their source path; severity comes from the taxonomy, never inflated.
 - Publishing needs `--publish` or the user's explicit go-ahead in this session; otherwise the review stays local.
 - Every review ends with a **SHIP / FIX_BEFORE_SHIP / REWORK** verdict derived by render_review.py and stated only after that script exits 0.
+- `FIX_BEFORE_SHIP` is actionable, not a prompt for approval: in an approved loop, apply the remediation rule in `docs/guidelines/REVIEW-ROUNDS.md` automatically. After round 2, fix its blockers, run the scoped gate, and never start round 3.
 - External `--subagent` runtimes spend `compozy exec` credit.
 
 ## Procedure

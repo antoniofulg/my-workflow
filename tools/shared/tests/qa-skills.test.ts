@@ -277,21 +277,34 @@ describe("canonical QA skills", () => {
       "active, already-approved review loop",
       "fix blocking findings",
       "without new human approval",
-      "through the applicable cap",
+      "through the applicable review cap",
       "scoped gate",
       "after each correction",
-      "continue the loop",
+      "final deep-review round (round 2)",
+      "corrected automatically in the same loop",
+      "do not start round 3",
       "escalate only",
-      "blockers remain at the cap",
+      "post-fix gate fails",
+      "blocker remains reproducible",
       "remote actions retain separate approval requirements",
     ]) {
       expect(approvedLoopRule).toContain(anchor);
     }
-    expect(approvedLoopRule.indexOf("scoped gate")).toBeLessThan(
-      approvedLoopRule.indexOf("continue the loop"),
+    expect(approvedLoopRule.indexOf("without new human approval")).toBeLessThan(
+      approvedLoopRule.indexOf("corrected automatically in the same loop"),
     );
-    expect(approvedLoopRule.indexOf("continue the loop")).toBeLessThan(
+    expect(approvedLoopRule.indexOf("scoped gate after each correction")).toBeLessThan(
+      approvedLoopRule.indexOf("corrected automatically in the same loop"),
+    );
+    expect(approvedLoopRule.indexOf("corrected automatically in the same loop")).toBeLessThan(
+      approvedLoopRule.indexOf("do not start round 3"),
+    );
+    expect(approvedLoopRule.indexOf("do not start round 3")).toBeLessThan(
       approvedLoopRule.indexOf("escalate only"),
+    );
+    expect(approvedLoopRule).not.toMatch(/ask(?: the human)? whether to fix/i);
+    expect(readRepositoryFile(".agents/skills/deep-review/SKILL.md")).toContain(
+      "FIX_BEFORE_SHIP` is actionable, not a prompt for approval",
     );
 
     for (const relativePath of verifierPacketPaths) {
