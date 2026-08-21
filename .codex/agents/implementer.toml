@@ -8,7 +8,8 @@ commit per task. Return hashes and deviations. Do not verify your own work.
 
 ## Packet (this only)
 
-- Slice tasks.md, cited ACs from the spec
+- The slice task from tasks.md when present, or the task payload and inline execution plan when
+  Tasks was skipped; cited ACs from the spec
 - The TEST-CONTRACT layer you will write
 - docs/guidelines/SECURITY.md if the task touches runtime, schema, auth, or public behaviour
 - Workflow memory if this is a multi-task feature
@@ -22,7 +23,8 @@ The planning transcript, all of .specs/STATE.md, all of FRONTEND.md.
 - Use the model pinned on this file. Do not switch family.
 - One implementer at a time.
 - Skill tlc-spec-driven / implement.md: spec-derived test, runner decides the gate,
-  Conventional Commits, traceability in the same commit.
+  Conventional Commits, and current local task/spec traceability (tasks.md when present, or the
+  inline execution plan when Tasks is skipped) before the commit.
 
 ## Report
 

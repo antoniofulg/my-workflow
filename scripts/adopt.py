@@ -9,6 +9,12 @@ from pathlib import Path
 
 STENCIL = "<!-- product-stencil:"
 
+WORKFLOW_GITIGNORE_ENTRIES = (
+    ".deep-review/*",
+    "!.deep-review/learnings.md",
+    ".specs/features/",
+)
+
 COPY_PATHS = [
     "docs/guidelines",
     "docs/workflow",
@@ -26,8 +32,14 @@ COPY_PATHS = [
     ".agents/skills/ponytail-gain",
     ".agents/skills/ponytail-help",
     ".agents/skills/ponytail-review",
+    ".agents/skills/qa-plan",
+    ".agents/skills/qa-execute",
     ".agents/skills/autonomous",
 ]
+
+# The profile is a template. A consuming project's existing profile is product-owned and must
+# survive re-adoption.
+COPY_MISSING_PATHS = ["docs/qa/README.md"]
 
 AGENT_PATHS = [
     ".cursor/agents",
@@ -108,6 +120,22 @@ def copy_agents(src: Path, dest: Path) -> None:
         copy_missing(origin, target)
 
 
+def merge_gitignore(dest: Path) -> None:
+    target = dest / ".gitignore"
+    existing = target.read_text(encoding="utf-8") if target.exists() else ""
+    lines = existing.splitlines()
+    managed = [line for line in lines if line in WORKFLOW_GITIGNORE_ENTRIES]
+    if managed == list(WORKFLOW_GITIGNORE_ENTRIES):
+        return
+
+    kept = [line for line in lines if line not in WORKFLOW_GITIGNORE_ENTRIES]
+    merged = "\n".join(kept).rstrip()
+    if merged:
+        merged += "\n"
+    merged += "\n".join(WORKFLOW_GITIGNORE_ENTRIES) + "\n"
+    target.write_text(merged, encoding="utf-8")
+
+
 def link_claude_skills(dest: Path) -> None:
     claude_skills = dest / ".claude" / "skills"
     claude_skills.mkdir(parents=True, exist_ok=True)
@@ -136,7 +164,13 @@ def main(argv: list[str]) -> None:
         if not origin.exists():
             continue
         copy_tree(origin, dest / rel)
+    for rel in COPY_MISSING_PATHS:
+        origin = src / rel
+        if not origin.exists():
+            continue
+        copy_missing(origin, dest / rel)
     copy_agents(src, dest)
+    merge_gitignore(dest)
     write_claude(dest)
     link_claude_skills(dest)
     print(f"adopted workflow into {dest}")

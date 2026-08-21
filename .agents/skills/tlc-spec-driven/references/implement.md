@@ -22,7 +22,8 @@ This is where code gets written. Every task follows the same cycle: plan → imp
 
 **Batch worker context:** When this task is executed as part of a phase-batch sub-agent, the worker
 receives the task definitions for every phase in its batch, coding principles, the generated Test
-Coverage Matrix and Gate Check Commands from tasks.md, and relevant spec/design context. A batch is
+Coverage Matrix and Gate Check Commands from `tasks.md` when present, and relevant spec/design
+context. A batch is
 one or more consecutive whole phases packed to ~7 tasks. The worker executes ALL tasks in its
 assigned batch in order - finishing every task in one phase before starting the next phase in the
 batch - and each task follows every step below (implement → gate → atomic commit) before moving to
@@ -76,7 +77,8 @@ Success: [how to verify]
 
 ### 4. Write Tests (derived from spec, not from implementation)
 
-If the task includes tests (per the Tests field and **Test Coverage Matrix** in tasks.md):
+If the task includes tests (per the Tests field and **Test Coverage Matrix** in `tasks.md` when
+present, or the inline execution plan when Tasks was skipped):
 
 1. Write the test file(s) covering the task's acceptance criteria.
 2. Tests MUST be derived from the task's "Done when" criteria and `spec.md` ACs - **not** from the implementation. Each test encodes what the spec requires; never write tests by reading the code and asserting what it currently does.
@@ -112,13 +114,17 @@ Follow [coding-principles.md](coding-principles.md):
 
 ### 5. Gate Check (VERIFY)
 
-Run the gate check command from the task definition. This is MANDATORY - not "if applicable."
+Run the gate check command from the task definition or inline execution plan. This is MANDATORY -
+not "if applicable."
 
-1. Look up the command for the task's Gate level (quick/full/build) in the **Gate Check Commands** section of tasks.md, then run it
+1. When `tasks.md` is present, look up the command for the task's Gate level (quick/full/build) in
+   its **Gate Check Commands** section. When Tasks was skipped, run the `verify` command recorded
+   for the current step in the inline execution plan.
 2. Non-zero exit code = STOP. Fix the failure. Re-run. Do not proceed until it passes.
 3. Confirm the test count matches expectations (no tests were silently deleted or skipped)
 
-**Tiered gates (from the Gate Check Commands section of tasks.md):**
+**Tiered gates (from the Gate Check Commands section of `tasks.md` when present, or the inline
+execution plan when Tasks was skipped):**
 
 | Task includes                    | Gate level | What runs                |
 | -------------------------------- | ---------- | ------------------------ |
@@ -191,7 +197,10 @@ After the gate check passes:
 
    Any test that maps to nothing → remove it. A test with no requirement is scope creep - it proves nothing about the feature and expands scope beyond the spec. Do not write speculative "what if" tests, do not test framework or library behavior, and do not duplicate an assertion that is already covered at another layer for the same scenario.
 
-   **Check D - Guideline conformance.** If project quality/testing guidelines were found in step 0 of tasks.md step 1.5, verify this task's tests conform to them (naming conventions, file locations, coverage thresholds, etc.). Note the guideline file followed.
+   **Check D - Guideline conformance.** If project quality/testing guidelines were found in step 0
+   of `tasks.md` step 1.5, or in the inline plan's setup notes when Tasks was skipped, verify this
+   task's tests conform to them (naming conventions, file locations, coverage thresholds, etc.).
+   Note the guideline file followed.
 
    **Bound:** Tests prove the work; they do not expand it. Thoroughness is scoped to the feature + spec. Repo depth is a floor (never less thorough than existing tests for the same layer); the spec is the ceiling. Do not invent requirements or tests that have no spec anchor.
 
@@ -214,12 +223,19 @@ After the gate check passes:
 
    Add the two mapping tables and a one-line adequacy verdict to the Execution Template's Post-Gate section.
 
-### 7. Status + Atomic Commit (same commit)
+### 7. Status + Atomic Commit
 
-After the gate is green, close the task record **before** creating the commit, then commit code and status together. Never leave `tasks.md` still open after a successful task commit - a crash between those steps is how resume redoes finished work.
+After the gate is green, close the task record **before** creating the commit. When `tasks.md` is
+present, it is the resume source; when Tasks was skipped, the inline execution plan is the local
+state to update and verify. Feature planning files under `.specs/features/` stay ignored and are
+not commit contents. Never leave the local task state open after a successful task commit - a
+crash between those steps is how resume redoes finished work.
 
-1. Mark the task complete in `tasks.md`. Update requirement traceability in `spec.md` if requirement IDs are used.
-2. Create **one** atomic commit that includes the implementation, its tests, and those status/traceability updates.
+1. If `tasks.md` is present, mark the task complete in `tasks.md`. If Tasks was skipped, mark the
+   current inline execution-plan step complete and record its gate result. Update requirement
+   traceability in `spec.md` if requirement IDs are used.
+2. Create **one** atomic commit that includes the implementation and its tests; verify the local
+   status/traceability updates before committing.
 
 Each task gets its own commit immediately after verification. Never batch multiple tasks into one commit.
 
@@ -286,7 +302,7 @@ for reuse across multiple endpoints.
 
 - One task = one commit
 - Description references what was DONE, not what was planned
-- Include only files listed in the task - plus the `tasks.md` / `spec.md` status updates for this task
+- Include only files listed in the task; keep ignored planning state out of the commit
 - Never sneak in "while I'm here" changes
 - If tests are part of the task, include them in the same commit
 
@@ -334,7 +350,9 @@ Dispatch a fresh sub-agent following the **Verifier** role described in [sub-age
 
 If the Verifier returns FAIL, the orchestrator routes the ranked gaps back to an implementer as fix tasks, then re-dispatches the Verifier - bounded to **3 fix→re-verify iterations** before escalating to the user.
 
-If you are unsure whether more tasks remain, check `tasks.md`: if every task is marked complete, dispatch the Verifier now.
+If you are unsure whether more tasks remain, check `tasks.md` when present; when Tasks was skipped,
+confirm every inline execution-plan step is complete. If all work is complete, dispatch the Verifier
+now.
 
 ---
 
@@ -343,10 +361,10 @@ If you are unsure whether more tasks remain, check `tasks.md`: if every task is 
 ```markdown
 ## Implementing T[X]: [Task Title]
 
-**Reading**: task definition from tasks.md
-**Dependencies**: [All done? ✅ | Blocked by: TY]
+**Reading**: task definition from `tasks.md` when present, otherwise the current inline execution-plan step
+**Dependencies**: [All done? ✅ | Blocked by: TY, or next inline step]
 **Tests**: [unit/e2e/integration/none]
-**Gate**: [quick/full/build]
+**Gate**: [quick/full/build, or inline-plan verify command]
 
 ### Pre-Implementation (MANDATORY)
 
@@ -412,7 +430,8 @@ If you are unsure whether more tasks remain, check `tasks.md`: if every task is 
 - **One task at a time** - Focus prevents errors
 - **Tools matter** - Wrong MCP = wrong approach
 - **Reuses save tokens** - Copy patterns, don't reinvent
-- **Status then commit, same commit** - Mark `tasks.md` complete before the atomic commit and include that update in it
+- **Status then commit** - Mark `tasks.md` complete when present, or the inline execution-plan
+  step when Tasks is skipped, before the atomic commit
 - **Stay surgical** - Touch only what's necessary
 - **Commit per task** - Clean git history enables bisect and rollback
 - **Never "while I'm here"** - Scope creep during implementation is the #1 quality killer

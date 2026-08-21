@@ -2,9 +2,8 @@
 
 **Read when:** reviewing code, or acting on review findings.
 
-**Why this exists:** Remediating every nitpick in the same iteration is unbounded by construction:
-each fix changes the diff, the next round finds new nits. A loop measured at 30 rounds on one
-feature is not thoroughness. Caps, monotonic findings, and filed issues are how review ends.
+**Why this exists:** Remediating every nitpick in one iteration is unbounded: each fix changes the
+diff and the next round finds new nits. Caps, monotonic findings, and filed issues make review end.
 
 ## Why loops run away
 
@@ -12,20 +11,23 @@ The failure has one cause, and it is a rule that sounds responsible:
 
 > *remediate every confirmed finding **and every nitpick** in this same iteration*
 
-Every nitpick fixed changes the diff. The next round reviews the changed diff and finds new nitpicks.
-The loop is unbounded by construction, not by bad luck.
+Every nitpick changes the diff, so the next round finds new nitpicks. The loop is unbounded by construction, not by bad luck.
 
-## The three reviewers, and what each is for
+## The review stages, and what each is for
 
 | Stage | Asks | Cap |
 | --- | --- | --- |
-| **Verifier** (every slice that changes code) | Do the tests actually prove the acceptance criteria? | ≤3 fix rounds, then escalate to the human |
-| **QA walk** (slices with a user-visible surface) | Does this behaviour work for a real user? | The slice's own scenarios |
+| **Technical Verifier** (every slice that changes code) | Do the tests actually prove the acceptance criteria? | ≤3 fix rounds, then escalate to the human |
+| **QA Plan** (public slices) | Which public promises need a walk? | One fresh Verifier session |
+| **QA Execute** (public slices) | Does this behaviour work through the declared adapter? | One fresh Verifier session |
 | **deep-review** (every slice) | Is the code correct, safe and maintainable? | ≤2 rounds, blocking findings only |
-| **QA session** (the last slice) | Does the finished feature work for a real user? | One session, per `QA-EXECUTION.md` |
+| **QA session** (the last slice) | Does the finished feature work for a real user? | One `qa-plan` and one `qa-execute` session |
 
-They run in that order, **within each slice**. Each answers a question the others cannot, so none is
-redundant — but none repeats the others' work either.
+The provider `verifier` executes exactly one phase per packet: `technical`, `qa-plan`, or
+`qa-execute`. The orchestrator dispatches a technical packet, then fresh QA Plan and QA Execute
+packets for a public slice. Deep-review is a separate orchestrator stage, not a Verifier phase;
+internal-only changes skip the QA packets. All QA stages read `docs/guidelines/QA-SCENARIOS.md`; it owns
+fields and statuses. Each stage answers a question the others cannot, so none is redundant.
 
 ## Why the slice, and not the feature
 
@@ -38,21 +40,21 @@ Reviewing per slice is not more ceremony than reviewing per feature — it is th
 where it is cheap. One pull request still, one actor per role still. What changed is how much each
 reading has to hold at once.
 
-**They do not loop back into each other.** A deep-review finding never sends the work back to the
-Verifier. The worst case for one slice is **six passes** — three Verifier rounds, one QA walk, two
-deep-review rounds — and then it escalates to the human regardless of what remains.
+**They do not loop back into each other.** A deep-review finding never sends work back to technical.
+The worst case is three technical fix rounds, one QA Plan, one QA Execute, and two deep-review rounds;
+then it escalates to the human regardless of what remains.
 
-The single exception: when a deep-review fix changes user-visible behaviour, re-walk **the affected
-scenario rows only**. That is a row-level re-check, not a second walk.
+The single exception: when a deep-review fix changes user-visible behaviour, re-walk **the affected scenario rows only**. That is a row-level re-check, not a second walk.
 
 ## The last slice
 
-A feature's final slice is the **QA session**: charters, tours, the lens pass, paper-cut hunting, the
-governed fix loop and the dated report. It needs the whole feature and cannot run on part of one.
+A feature's final slice is the **QA session**. It needs the whole feature and cannot run on part of
+one. The `qa-plan` and `qa-execute` skills own its operational procedure.
 
-It writes no product code, so it gets no Verifier and no deep-review. The per-slice walks answered
-*"does this behaviour work?"*; the session answers *"does the finished thing feel right?"* — and that
-question has no meaningful answer until the last behaviour is in place.
+It writes no product code, so it gets no technical Verifier or deep-review. It still receives distinct
+fresh packets, `qa-plan` and `qa-execute`. Per-slice QA answers *"does this behaviour work?"*; the
+final session answers *"does the finished thing feel right?"* — and that question has no meaningful
+answer until the last behaviour is in place.
 
 ## Hard rules
 

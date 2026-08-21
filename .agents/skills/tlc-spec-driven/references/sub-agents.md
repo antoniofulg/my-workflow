@@ -40,9 +40,9 @@ The user must explicitly accept. If they decline (or if the feature fits one bat
 **Execution model - one worker per task-budgeted batch, sequential:**
 
 ```
-Phases 1+2 (7 tasks)  ------→ Batch Worker 1 ------→ compact summary ------→ orchestrator updates tasks.md
-Phases 3+4 (6 tasks)  ------→ Batch Worker 2 ------→ compact summary ------→ orchestrator updates tasks.md
-Phase 5    (7 tasks)  ------→ Batch Worker 3 ------→ compact summary ------→ orchestrator updates tasks.md
+Phases 1+2 (7 tasks)  ------→ Batch Worker 1 ------→ compact summary ------→ orchestrator updates local task state
+Phases 3+4 (6 tasks)  ------→ Batch Worker 2 ------→ compact summary ------→ orchestrator updates local task state
+Phase 5    (7 tasks)  ------→ Batch Worker 3 ------→ compact summary ------→ orchestrator updates local task state
 ...
 ```
 
@@ -75,7 +75,7 @@ No raw logs, no full test output - only the above fields keep the main context c
 1. Count total tasks and pack phases into task-budgeted batches (~7 tasks each) - if that yields more than one batch, offer batch sub-agents and wait for the user to accept
 2. Dispatch the next batch to a worker (or execute inline if not using sub-agents)
 3. Receive the compact summary
-4. Update `tasks.md` with results
+4. Update `tasks.md` with results when present; otherwise update the inline execution plan
 5. If all tasks in the summary show complete: dispatch the next batch
 6. If a task failed: the worker has already stopped; decide fix/escalate before dispatching the next batch
 
@@ -101,7 +101,7 @@ No raw logs, no full test output - only the above fields keep the main context c
 1. **Spec-anchored coverage check** - re-derives coverage evidence-or-zero: every AC traced to `file:line` + assertion expression. For each covered criterion, confirms the test's asserted value matches the **spec-defined expected outcome** (not just that an assertion exists). Where the spec does not define a precise outcome, flags a **spec-precision gap** rather than passing silently.
 2. **Discrimination sensor** - injects a small behavior-level fault (flip a condition, change a return value, off-by-one, remove a required side effect) in an **isolated scratch** (temporary `git worktree` or temp file copies - never `git stash`), runs the relevant tests there, confirms they FAIL (kill the mutant), discards the scratch, and verifies the real worktree's `git status --porcelain` matches the pre-sensor baseline. Tiered by risk: lightweight (1-3 mutations) for standard features; expanded (≥5 mutations or full mutation tooling) for P0/critical paths. Surviving mutants become fix tasks.
 3. Applies the **payload/conjunction rule**: checks payload fields are asserted on value/state, not just that the call occurred.
-4. **Writes the persisted report** to `.specs/features/[feature]/validation.md` - PASS/FAIL, per-AC evidence (`file:line` + assertion + spec outcome), sensor result (killed/survived per mutation), gate exit results, diff/commit range.
+4. **Writes the checkout-local report** to `.specs/features/[feature]/validation.md` - PASS/FAIL, per-AC evidence (`file:line` + assertion + spec outcome), sensor result (killed/survived per mutation), gate exit results, diff/commit range. Because `.specs/features/` is gitignored, this report is not persisted to CI, reviewers, or fresh clones; promote durable evidence to its documented home when needed.
 5. **Returns a compact verdict in chat** to the orchestrator.
 6. Does **NOT** write, modify, or fix any code or tests - the real working tree is never mutated (sensor mutations run in scratch state only).
 
@@ -112,7 +112,7 @@ No raw logs, no full test output - only the above fields keep the main context c
 **Spec-anchored check**: [N/N ACs matched spec outcome | M spec-precision gaps flagged]
 **Gate**: [X passed, 0 failed]
 **Sensor**: [N mutations injected, N killed, N survived]
-**Report**: `.specs/features/[feature]/validation.md`
+**Report**: `.specs/features/[feature]/validation.md` (checkout-local; not persisted to CI or fresh clones)
 
 **Ranked gaps** (if FAIL):
 1. [Gap description] - [AC or criterion] - [file:line or "no evidence"]

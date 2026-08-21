@@ -25,8 +25,9 @@ implement.md, all of .specs/STATE.md, all of FRONTEND.md, the Execute transcript
 spec.md (and design.md / tasks.md when auto-size asks). A vertical slice, one implementer —
 do not split front and back.
 
-Closing packet for the implementer: cited ACs, slice tasks.md, TEST IDs, one neighboring
-context if this is the second of its kind.
+Closing packet for the implementer: cited ACs, the slice task from tasks.md when present or the
+task payload and inline execution plan when Tasks is skipped, TEST IDs, one neighboring context if
+this is the second of its kind.
 
 A search or trace: spawn `explorer`. Do not search the product tree for that.
 """

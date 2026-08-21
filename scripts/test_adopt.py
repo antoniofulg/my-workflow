@@ -28,8 +28,16 @@ def test_fresh_and_refuse() -> None:
         assert claude.read_text(encoding="utf-8") == "@AGENTS.md\n"
         assert (tmp / "docs/guidelines/GATES.md").is_file()
         assert (tmp / "tools/ad-index.py").is_file()
+        assert (tmp / ".agents/skills/qa-plan/SKILL.md").is_file()
+        assert (tmp / ".agents/skills/qa-execute/SKILL.md").is_file()
+        assert (tmp / "docs/qa/README.md").is_file()
         assert (tmp / ".claude/skills/autonomous").is_symlink()
+        assert (tmp / ".claude/skills/qa-plan").is_symlink()
+        assert (tmp / ".claude/skills/qa-execute").is_symlink()
         assert (tmp / ".cursor/agents/planner.md").is_file()
+        ignored = (tmp / ".gitignore").read_text(encoding="utf-8")
+        for entry in (".deep-review/*", "!.deep-review/learnings.md", ".specs/features/"):
+            assert ignored.splitlines().count(entry) == 1
         for path in (
             ".cursor/agents/explorer.md",
             ".claude/agents/explorer.md",
@@ -65,6 +73,41 @@ def test_agent_pins_survive_readopt() -> None:
             ROOT / ".cursor" / "agents" / "explorer.md"
         ).read_text(encoding="utf-8")
         assert (tmp / "CLAUDE.md").read_text(encoding="utf-8") == "@AGENTS.md\n"
+        profile = tmp / "docs/qa/README.md"
+        profile.write_text("consumer-owned profile\n", encoding="utf-8")
+        run(tmp)
+        assert profile.read_text(encoding="utf-8") == "consumer-owned profile\n"
+    finally:
+        shutil.rmtree(tmp)
+
+
+def test_gitignore_rules_merge_without_overwrite() -> None:
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        (tmp / ".gitignore").write_text("consumer-cache/\n", encoding="utf-8")
+        run(tmp)
+        ignored = (tmp / ".gitignore").read_text(encoding="utf-8")
+        assert "consumer-cache/\n" in ignored
+        for entry in (".deep-review/*", "!.deep-review/learnings.md", ".specs/features/"):
+            assert ignored.splitlines().count(entry) == 1
+
+        (tmp / ".gitignore").write_text(
+            "consumer-cache/\n"
+            "!.deep-review/learnings.md\n"
+            ".deep-review/*\n"
+            ".specs/features/\n"
+            "consumer-output/\n",
+            encoding="utf-8",
+        )
+        run(tmp)
+        ignored = (tmp / ".gitignore").read_text(encoding="utf-8")
+        assert "consumer-cache/\n" in ignored
+        assert "consumer-output/\n" in ignored
+        assert ignored.splitlines()[-3:] == [
+            ".deep-review/*",
+            "!.deep-review/learnings.md",
+            ".specs/features/",
+        ]
     finally:
         shutil.rmtree(tmp)
 
@@ -72,4 +115,5 @@ def test_agent_pins_survive_readopt() -> None:
 if __name__ == "__main__":
     test_fresh_and_refuse()
     test_agent_pins_survive_readopt()
+    test_gitignore_rules_merge_without_overwrite()
     print("ok")

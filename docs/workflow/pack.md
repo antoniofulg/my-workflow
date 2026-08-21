@@ -2,11 +2,13 @@
 
 ## Skills
 
-Three families, nothing else:
+The workflow ships five local capabilities:
 
 | Skill | Role |
 | --- | --- |
 | `tlc-spec-driven` | Planner. Specify, Design, Tasks, Execute. Auto-sizes. |
+| `qa-plan` | Maps changed user-visible promises to durable QA journeys and charters. |
+| `qa-execute` | Walks those journeys through the consuming project's existing adapter. |
 | `ponytail` (`full`) | Shortest code that works. Stdlib before a dependency. |
 | `autonomous` | Unattended run: classify feature vs filed issue, settle or halt, merge only when the full gate, blocking findings, and scenarios allow it. |
 
@@ -35,9 +37,10 @@ Empty on purpose. Machinery only: operating schema, `raw/` README, stub indexes,
 ## Adopt
 
 `python3 scripts/adopt.py <target>` copies the loop into another repo and refuses to overwrite a
-non-stencil **What this project is** paragraph. It writes `@AGENTS.md` as `CLAUDE.md`. Agent folders
-copy missing packet files into existing folders without overwriting local files or model pins; a
-fresh destination gets all packets.
+non-stencil **What this project is** paragraph. It writes `@AGENTS.md` as `CLAUDE.md`, copies the
+two project-owned QA skills, and creates `docs/qa/README.md` only when the target has no profile.
+Agent folders copy missing packet files into existing folders without overwriting local files or
+model pins; a fresh destination gets all packets.
 
 The consuming project owns product docs, architecture, design, stack, and `make check`.
 

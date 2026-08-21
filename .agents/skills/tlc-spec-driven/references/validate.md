@@ -11,7 +11,7 @@
    - Scopes coverage to the feature's **git diff surface** (not the full repository)
    - Re-derives coverage independently using **evidence-or-zero**: every AC must be traced to a `file:line` + assertion expression; a criterion with no `file:line` citation counts as NOT covered
    - Runs the **spec-anchored outcome check** and the **discrimination sensor** (both described below)
-   - Writes `.specs/features/[feature]/validation.md` with the full evidence report
+   - Writes `.specs/features/[feature]/validation.md` with the full evidence report for the active checkout. Because `.specs/features/` is gitignored, it is not persisted to CI, reviewers, or fresh clones; promote durable evidence to its documented home when needed.
    - Returns a compact verdict + ranked gap list to the orchestrator in chat
    - Gaps become **fix tasks** routed back to an implementer; re-verification follows with a maximum of **3 fix→re-verify iterations** before escalating to the user
 
@@ -23,12 +23,15 @@
 
 ## Process
 
-### 1. Check Completed Tasks
+### 1. Check Completed Work
 
-Go through tasks.md:
+When `tasks.md` is present, go through its task records:
 
 - [ ] All tasks marked done?
 - [ ] Any blocked or partial?
+
+When Tasks was skipped, go through the inline execution plan instead and confirm every step is
+marked complete with its gate result.
 
 ### 2. Spec-Anchored Acceptance Criteria Check
 
@@ -59,9 +62,11 @@ From spec.md edge cases:
 
 ### 4. Run Build-Level Gate Check (MANDATORY)
 
-Run the Build-level gate check from the **Gate Check Commands** section in tasks.md. This is NOT optional.
+Run the Build-level gate check from the **Gate Check Commands** section in `tasks.md` when present.
+When Tasks was skipped, run the gate command recorded in the inline execution plan. This is NOT
+optional.
 
-1. Run: `[Build gate command from the Gate Check Commands section in tasks.md]`
+1. Run: `[Build gate command from tasks.md, or the inline execution plan's verify command]`
 2. Non-zero exit code = STOP. Do not proceed to Code Quality Check.
 3. Record results:
    - Total test count: [N]
@@ -91,7 +96,9 @@ The sensor provides the empirical guarantee that the tests can actually detect r
    - Change a return value (return a wrong status code, wrong field, zero instead of a computed value)
    - Off-by-one (shift a loop bound, change a slice index)
    - Remove a required side effect (delete a method call that the spec requires)
-4. **Run the tests** that cover the mutated code (against the scratch). Use the Quick or Full gate command from tasks.md.
+4. **Run the tests** that cover the mutated code (against the scratch). Use the Quick or Full gate
+   command from `tasks.md` when present, or the inline execution plan's verify command when Tasks
+   was skipped.
 5. **Confirm the mutant is killed** (tests FAIL). Discard the scratch (remove worktree or delete temp copies).
 6. **Verify isolation.** Re-run `git status --porcelain` on the real worktree and confirm it matches the baseline from step 2. If it differs, STOP - restore the real tree before continuing, and treat the sensor run as invalid.
 7. **If a mutant survives** (tests still pass after the fault), the tests are not discriminating for that behavior - add a fix task to strengthen the assertion.
@@ -178,7 +185,7 @@ Fix tasks follow the same format as regular tasks and can be executed with the i
 
 After all checks complete, the Verifier MUST:
 
-1. **Write the persisted report** to `.specs/features/[feature]/validation.md` (see template below). This file is the evidence artifact - it survives the session and can be referenced by CI, reviewers, or future agents.
+1. **Write the checkout-local report** to `.specs/features/[feature]/validation.md` (see template below). This is the active checkout's evidence artifact; `.specs/features/` is gitignored, so the report is not available to CI, reviewers, or fresh clones unless its durable evidence is promoted to the documented home.
 2. **Return a compact summary in chat** to the orchestrator (see Compact Chat Summary section below). The orchestrator surfaces it to the user and routes any ranked gaps to fix tasks.
 
 **Deterministic backing (run it, do not eyeball it).** After writing the report, run `python3 <skill-dir>/scripts/validate_state.py <feature>`. It confirms the report is real - present, verdict filled to PASS, and backed by at least one `file:line` evidence citation - so a missing, hollow, placeholder, or FAIL report cannot slip through as done. A non-zero exit means the feature is NOT done: repair the report or route the FAIL gaps to fix tasks, then re-run. This is the closing gate of Execute and runs automatically, the same way the lessons layer runs at distillation; it is never a manual step. If no code-execution tool is available, confirm the same by reading `validation.md`.
@@ -199,7 +206,7 @@ The Verifier returns this block to the orchestrator after completing all checks:
 **Spec-anchored check**: [N/N ACs matched spec outcome | M spec-precision gaps flagged]
 **Gate**: [X passed, 0 failed]
 **Sensor**: [N mutations injected, N killed, N survived]
-**Report**: `.specs/features/[feature]/validation.md`
+**Report**: `.specs/features/[feature]/validation.md` (checkout-local; not persisted to CI or fresh clones)
 
 **Ranked gaps** (if FAIL):
 1. [Gap description] - [AC or criterion] - [file:line or "no evidence"]
@@ -289,7 +296,7 @@ The Verifier returns this block to the orchestrator after completing all checks:
 
 ## Gate Check
 
-- **Gate command**: [Build gate command from the Gate Check Commands section in tasks.md]
+- **Gate command**: [Build gate command from `tasks.md` when present, or the inline execution plan's verify command]
 - **Result**: [X] passed, [Y] failed, [Z] skipped
 - **Test count before feature**: [N]
 - **Test count after feature**: [M]
@@ -351,5 +358,5 @@ Update spec.md requirement statuses:
 - **Infer severity** - Never ask the user "how bad is this?"
 - **Max 3 diagnostic iterations** - Prevents infinite investigation loops
 - **Update traceability** - Every verified requirement updates spec.md status
-- **Always write the report file** - `.specs/features/[feature]/validation.md` is the persisted evidence artifact
+- **Always write the report file** - `.specs/features/[feature]/validation.md` is the active checkout's evidence artifact; promote anything durable before the pull request
 - **Distill after writing** - turn grounded failures into lessons via `scripts/lessons.py` ([lessons.md](lessons.md)); clean PASS → no lesson

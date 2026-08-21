@@ -9,3 +9,6 @@ __pycache__/
 !.env.example
 docs/qa/evidence/
 docs/qa/state.csv
+.deep-review/*
+!.deep-review/learnings.md
+.specs/features/
