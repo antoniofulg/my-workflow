@@ -146,7 +146,7 @@ With prior state (or fingerprints recovered from the PR thread), Step 1 scopes t
 - Empty selection after the funnel → report "nothing reviewable" with the manifest counts; write no findings.
 - A linter lane unavailable → proceed and state in review.md that overlap suppression did not run for that lane.
 - A bootstrap gate failing (build_manifest.py, build_knowledge.py, build_jobs.py, merge_findings.py) → stop and surface stderr. Missing knowledge accounting or incomplete defect/polish coverage is a review failure, not a warning.
-- run_jobs.py exit 2 (blocked) → a provider block stopped the run and wrote `<out>/run-blocker.json`; metrics state is observational and never changes this exit path.
+- run_jobs.py exit 2 (blocked) → a provider block ends the run and writes `<out>/run-blocker.json`; metrics state is observational and never changes this exit path.
 - run_jobs.py exit 3 → source drift: restart from Step 1 so the round increments and prior artifacts are archived.
 - More than 75 publishable results → use the Step 5 batching contract.
 

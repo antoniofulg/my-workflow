@@ -125,21 +125,49 @@ def metrics_path(args, out: Path) -> Path:
     return Path(args.metrics_ledger).resolve() if args.metrics_ledger else out / "runs" / "review-metrics.json"
 
 
+def mark_metrics_unavailable(path: Path, reason: str) -> None:
+    try:
+        write_unavailable_metrics(path, reason)
+    except Exception:
+        pass
+
+
 def start_observation(args, out: Path, scope_jobs: list[dict]) -> tuple[str, Path, dict]:
-    path = metrics_path(args, out)
-    configured = bool(args.metrics or args.metrics_db or args.metrics_ledger or args.metrics_reviewer_prefix)
-    if not configured:
-        write_unavailable_metrics(path)
-        return "unavailable", path, {"status": "unavailable"}
-    metrics = start_metrics(
-        path,
-        args.metrics_db,
-        args.metrics_reviewer_prefix,
-        repository=str(repo_root()), round=args.round, base=args.base, head=args.head,
-        selected_files=args.selected_files or len(scope_jobs), carried_files=args.carried_files,
-        jobs=len(scope_jobs), model=args.model, reasoning=args.reasoning,
-    )
-    return metrics["status"], path, metrics
+    try:
+        path = metrics_path(args, out)
+        configured = bool(args.metrics or args.metrics_db or args.metrics_ledger or args.metrics_reviewer_prefix)
+        if not configured:
+            mark_metrics_unavailable(path, "compatible telemetry unavailable")
+            return "unavailable", path, {"status": "unavailable"}
+        metrics = start_metrics(
+            path,
+            args.metrics_db,
+            args.metrics_reviewer_prefix,
+            repository=str(repo_root()), round=args.round, base=args.base, head=args.head,
+            selected_files=args.selected_files or len(scope_jobs), carried_files=args.carried_files,
+            jobs=len(scope_jobs), model=args.model, reasoning=args.reasoning,
+        )
+        return metrics["status"], path, metrics
+    except Exception:
+        fallback = out / "runs" / "review-metrics.json"
+        mark_metrics_unavailable(fallback, "metrics unavailable")
+        return "unavailable", fallback, {"status": "unavailable"}
+
+
+def checkpoint_observation(path: Path, completed_jobs: int) -> str:
+    try:
+        return checkpoint_metrics(path, completed_jobs)["status"]
+    except Exception:
+        mark_metrics_unavailable(path, "metrics unavailable")
+        return "unavailable"
+
+
+def finalize_observation(path: Path) -> str:
+    try:
+        return finalize_metrics(path)["status"]
+    except Exception:
+        mark_metrics_unavailable(path, "metrics unavailable")
+        return "unavailable"
 
 
 def main() -> int:
@@ -232,15 +260,24 @@ def main() -> int:
                 say(f"FAIL {result['label']}: {result['error']}")
             if metrics_status == "running":
                 completed = sum(item["status"] == "pass" for item in results)
-                metrics = checkpoint_metrics(metrics_file, completed)
-                metrics_status = metrics["status"]
+                metrics_status = checkpoint_observation(metrics_file, completed)
     results.sort(key=lambda item: str(item["label"]))
 
     valid_count, pending = stage_report(repo, out, jobs)
     failed = [item for item in results if item["status"] == "fail"]
     blocked = [item for item in results if item["status"] == "blocked"]
     if metrics_status == "running" and not failed and not pending:
-        metrics_status = finalize_metrics(metrics_file)["status"]
+        metrics_status = finalize_observation(metrics_file)
+    if blocked:
+        try:
+            write_json(out / "run-blocker.json", {
+                "status": "blocked", "pattern": STOP_REASON.get("reason"),
+                "first_label": STOP_REASON.get("label"), "jobs_file": str(jobs_path),
+                "valid_outputs": valid_count, "total_jobs": len(jobs),
+                "pending": [row["label"] for row in pending],
+            })
+        except Exception:
+            pass
     write_json(status_path, {
         "mode": "run", "metrics": metrics_status, "metrics_ledger": str(metrics_file), "jobs": results,
         "summary": {"pass": len(results) - len(failed) - len(blocked), "fail": len(failed), "blocked": len(blocked), "stage_valid": valid_count, "stage_total": len(jobs)},

@@ -10,7 +10,10 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import unittest
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parents[1] / ".agents/skills/deep-review/scripts"
@@ -132,7 +135,7 @@ class TokenMetricsTests(unittest.TestCase):
                 shutil.rmtree(out, ignore_errors=True)
 
     def test_drm03_invalid_missing_and_regressing_metrics_do_not_change_review_exit(self) -> None:
-        scenarios = ("invalid", "missing", "regressing", "deleted")
+        scenarios = ("invalid", "missing", "regressing", "deleted", "ledger-invalid")
         for scenario in scenarios:
             with self.subTest(scenario=scenario), tempfile.TemporaryDirectory() as raw:
                 root = Path(raw)
@@ -156,11 +159,17 @@ class TokenMetricsTests(unittest.TestCase):
                     connection.execute("delete from threads where id = 'thread-1'")
                     connection.commit()
                     connection.close()
+                if scenario == "ledger-invalid":
+                    ledger.mkdir()
                 shutil.rmtree(out, ignore_errors=True)
                 result = subprocess.run(runner(out, jobs, helper, calls, db=None if scenario == "missing" else db, ledger=ledger), cwd=REPO, capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertEqual(sorted(calls.read_text(encoding="utf-8").splitlines()), ["job-1", "job-2"])
-                self.assertEqual(read_metrics(ledger)["status"], "unavailable")
+                if scenario == "ledger-invalid":
+                    status = json.loads((out / "runs/jobs-status.json").read_text(encoding="utf-8"))["metrics"]
+                    self.assertEqual(status, "unavailable")
+                else:
+                    self.assertEqual(read_metrics(ledger)["status"], "unavailable")
                 shutil.rmtree(out, ignore_errors=True)
 
     def test_drm04_completed_metrics_are_idempotent_and_outputs_resume(self) -> None:
@@ -199,11 +208,53 @@ class TokenMetricsTests(unittest.TestCase):
                     read_metrics(ledger)
 
     def test_drm06_shared_docs_are_provider_neutral(self) -> None:
-        shared = (REPO / ".agents/skills/deep-review/SKILL.md").read_text(encoding="utf-8") + (REPO / ".agents/skills/deep-review/references/orchestration.md").read_text(encoding="utf-8")
-        forbidden = ("15" + "_000_000", "budget" + "_exhausted", "--token-" + "budget", "Codex-only")
-        for marker in forbidden:
-            self.assertNotIn(marker, shared)
-        self.assertNotIn("Codex", (REPO / ".agents/skills/deep-review/references/orchestration.md").read_text(encoding="utf-8"))
+        skill = (REPO / ".agents/skills/deep-review/SKILL.md").read_text(encoding="utf-8")
+        orchestration = (REPO / ".agents/skills/deep-review/references/orchestration.md").read_text(encoding="utf-8")
+        policy_lines = [line.lower() for line in (skill + orchestration).splitlines() if "metric" in line.lower() or "token" in line.lower()]
+        for line in policy_lines:
+            for marker in ("budget", "cap", "stop", "skip", "prevent", "limit", "enforce"):
+                self.assertNotIn(marker, line)
+        runtime = (REPO / ".agents/skills/deep-review/references/subagent-runtimes.md").read_text(encoding="utf-8").lower()
+        runtime_metric_lines = [line for line in runtime.splitlines() if "metric" in line or "token" in line]
+        for line in runtime_metric_lines:
+            for marker in ("budget", "cap", "stop before", "skip", "prevent", "enforce"):
+                self.assertNotIn(marker, line)
+        self.assertNotIn("Codex", orchestration)
+
+    def test_drm01_native_hooks_are_cumulative_without_serializing_dispatch(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            db, ledger = root / "codex.sqlite", root / "metrics.json"
+            create_db(db)
+            start_metrics(ledger, db, PREFIX, repository="repo", selected_files=2, jobs=2)
+            barrier = threading.Barrier(2)
+            lock = threading.Lock()
+            active = 0
+            overlap = False
+            completed = 0
+
+            def native_job() -> None:
+                nonlocal active, overlap, completed
+                barrier.wait()
+                with lock:
+                    active += 1
+                    overlap = overlap or active > 1
+                time.sleep(0.05)
+                with lock:
+                    active -= 1
+                    completed += 1
+                    update_db(db, completed * 10)
+
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                futures = [pool.submit(native_job) for _ in range(2)]
+                for index, future in enumerate(as_completed(futures), 1):
+                    future.result()
+                    checkpoint_metrics(ledger, index)
+            finished = finalize_metrics(ledger)
+            self.assertTrue(overlap)
+            self.assertEqual([row["completed_jobs"] for row in finished["checkpoints"]], [1, 2])
+            self.assertEqual(finished["usage"]["total_tokens"], 20)
+            self.assertEqual(finished["status"], "complete")
 
     def test_drm07_explicit_reviewer_path_and_boundary(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -230,6 +281,23 @@ class TokenMetricsTests(unittest.TestCase):
                 artifact = json.loads((out / "runs/review-metrics.json").read_text(encoding="utf-8"))
                 self.assertEqual(artifact["status"], "unavailable")
                 self.assertNotIn("total_tokens", artifact)
+            finally:
+                shutil.rmtree(out, ignore_errors=True)
+
+    def test_provider_block_still_writes_blocker_and_exits_two(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            out, jobs, calls = REPO / ".deep-review/provider-block-test", root / "jobs.json", root / "calls"
+            write_jobs(jobs, ".deep-review/provider-block-test", count=1)
+            helper = root / "blocked.py"
+            helper.write_text("print('usageLimitExceeded')\n", encoding="utf-8")
+            shutil.rmtree(out, ignore_errors=True)
+            try:
+                result = subprocess.run(runner(out, jobs, helper, calls, workers=1), cwd=REPO, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                blocker = json.loads((out / "run-blocker.json").read_text(encoding="utf-8"))
+                self.assertEqual(blocker["status"], "blocked")
+                self.assertEqual(blocker["pattern"], "usageLimitExceeded")
             finally:
                 shutil.rmtree(out, ignore_errors=True)
 
