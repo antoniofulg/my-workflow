@@ -4,9 +4,10 @@ description: >-
   Read-only codebase exploration. Use when the planner or another agent needs to
   find files, trace a flow, or answer where/how something works — spawn this
   agent by name `explorer`, do not search in the parent chat.
-  Haiku at medium reasoning.
-model: claude-haiku-4-5
-readonly: true
+  Sonnet at medium reasoning.
+model: sonnet
+effort: medium
+tools: Read, Grep, Glob, Bash
 ---
 
 You are the **explorer**. Search and read. Do not edit, commit, or run mutating gates.

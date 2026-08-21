@@ -326,6 +326,92 @@ describe("canonical QA skills", () => {
   });
 });
 
+describe("agent configuration", () => {
+  it("IT-018 keeps the three harness matrices and dedicated Deep Review agents aligned", () => {
+    const frontmatterValue = (source: string, key: string): string =>
+      source.match(new RegExp(`^${key}:\\s*(.+)$`, "m"))?.[1]?.trim() ?? "";
+    const tomlValue = (source: string, key: string): string =>
+      source.match(new RegExp(`^${key}\\s*=\\s*"([^"]+)"$`, "m"))?.[1] ?? "";
+    const value = (source: string, format: "frontmatter" | "toml", key: string): string =>
+      format === "toml" ? tomlValue(source, key) : frontmatterValue(source, key);
+
+    const matrix = [
+      [".claude/agents/planner.md", "planner", "opus", "high", "frontmatter"],
+      [".claude/agents/implementer.md", "implementer", "opus", "medium", "frontmatter"],
+      [".claude/agents/verifier.md", "verifier", "opus", "medium", "frontmatter"],
+      [".claude/agents/explorer.md", "explorer", "sonnet", "medium", "frontmatter"],
+      [".cursor/agents/planner.md", "planner", "cursor-grok-4.6[effort=high]", "", "frontmatter"],
+      [".cursor/agents/implementer.md", "implementer", "gpt-5.6-luna[effort=high]", "", "frontmatter"],
+      [".cursor/agents/verifier.md", "verifier", "cursor-grok-4.6[effort=medium]", "", "frontmatter"],
+      [".cursor/agents/explorer.md", "explorer", "gpt-5.6-luna[effort=medium]", "", "frontmatter"],
+      [".codex/agents/planner.toml", "planner", "gpt-5.6-sol", "high", "toml"],
+      [".codex/agents/implementer.toml", "implementer", "gpt-5.6-luna", "high", "toml"],
+      [".codex/agents/verifier.toml", "verifier", "gpt-5.6-sol", "medium", "toml"],
+      [".codex/agents/explorer.toml", "explorer", "gpt-5.6-luna", "medium", "toml"],
+    ] as const;
+
+    for (const [relativePath, expectedName, expectedModel, expectedEffort, format] of matrix) {
+      const source = readRepositoryFile(relativePath);
+
+      expect(value(source, format, "name")).toBe(expectedName);
+      expect(value(source, format, "model")).toBe(expectedModel);
+      if (format === "toml") {
+        expect(value(source, format, "model_reasoning_effort")).toBe(expectedEffort);
+      } else if (expectedEffort) {
+        expect(value(source, format, "effort")).toBe(expectedEffort);
+      }
+    }
+
+    const deepReviewers = [
+      [".claude/agents/deep-reviewer.md", "sonnet", "high", "frontmatter"],
+      [".cursor/agents/deep-reviewer.md", "gpt-5.6-luna[effort=high]", "", "frontmatter"],
+      [".codex/agents/deep-reviewer.toml", "gpt-5.6-luna", "high", "toml"],
+    ] as const;
+
+    for (const [relativePath, expectedModel, expectedEffort, format] of deepReviewers) {
+      const source = readRepositoryFile(relativePath);
+
+      expect(value(source, format, "name")).toBe("deep-reviewer");
+      expect(value(source, format, "model")).toBe(expectedModel);
+      if (format === "toml") {
+        expect(value(source, format, "model_reasoning_effort")).toBe(expectedEffort);
+      } else if (expectedEffort) {
+        expect(value(source, format, "effort")).toBe(expectedEffort);
+      }
+      expect(source).toMatch(/read-only/i);
+      expect(source).toMatch(/one materialized Deep Review job/i);
+      expect(source).toMatch(/one output artifact/i);
+      expect(source).toMatch(/findings through .*schema/i);
+    }
+
+    expect(readRepositoryFile(".claude/agents/deep-reviewer.md")).toMatch(
+      /^tools:\s*Read, Grep, Glob, Bash$/m,
+    );
+    expect(readRepositoryFile(".cursor/agents/deep-reviewer.md")).toMatch(/^readonly:\s*true$/m);
+
+    const runtime = readRepositoryFile(".agents/skills/deep-review/references/subagent-runtimes.md");
+    const orchestration = readRepositoryFile(".agents/skills/deep-review/references/orchestration.md");
+
+    const codexRuntime = runtime.match(/^\|\s*`codex`\s*\|([^\n]+)$/m)?.[1] ?? "";
+    expect(codexRuntime).toContain("gpt-5.6-luna");
+    expect(codexRuntime).toContain("--reasoning-effort high");
+    expect(codexRuntime).not.toContain("gpt-5.6-sol");
+    expect(codexRuntime).not.toContain("xhigh");
+
+    const workflow = orchestration.slice(
+      orchestration.indexOf("**Workflow (default).**"),
+      orchestration.indexOf("**Agent fallback"),
+    );
+    const fallback = orchestration.slice(orchestration.indexOf("**Agent fallback"));
+
+    expect(workflow).toContain("deep-reviewer");
+    expect(workflow).toMatch(/no portable named-agent parameter/i);
+    expect(fallback).toContain("deep-reviewer");
+    expect(fallback).toMatch(/generic prompt-only subagent dispatch/i);
+    expect(fallback).toMatch(/unsupported role\s+argument/i);
+  });
+});
+
 describe("adoption and public setup", () => {
   it("IT-005 publishes provenance for TLC, Deep Review, and QA inspirations", () => {
     const readme = readRepositoryFile("README.md");

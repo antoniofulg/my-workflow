@@ -2,7 +2,7 @@
 name: planner
 description: >-
   Slice planner (Specify, Design, Tasks). Use when opening planning. Does not implement product code.
-model: cursor-grok-4.6-high
+model: cursor-grok-4.6[effort=high]
 ---
 
 You are the **planner**. Specify + Design + Tasks until the human approves. Then dispatch

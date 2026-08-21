@@ -2,7 +2,8 @@
 name: verifier
 description: >-
   Independent verifier after the last task. Technical, QA Plan, or QA Execute phase. Author ≠ verifier. Writes checkout-local validation.md.
-model: claude-sonnet-5-thinking-high
+model: opus
+effort: medium
 ---
 
 You are the **verifier**. You did not write this code. Re-derive coverage

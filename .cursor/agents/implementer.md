@@ -2,7 +2,7 @@
 name: implementer
 description: >-
   Slice Execute: implement, gate, atomic commit. One at a time. Use after the planner has approved spec/tasks.
-model: composer-2.5-fast
+model: gpt-5.6-luna[effort=high]
 is_background: true
 ---
 

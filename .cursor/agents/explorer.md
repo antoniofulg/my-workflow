@@ -5,7 +5,7 @@ description: >-
   find files, trace a flow, or answer where/how something works — spawn this
   agent by name `explorer`, do not search in the parent chat.
   GPT 5.6 Luna at medium reasoning.
-model: gpt-5.6-luna
+model: gpt-5.6-luna[effort=medium]
 readonly: true
 ---
 

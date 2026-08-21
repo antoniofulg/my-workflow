@@ -59,6 +59,10 @@ The jobs contract makes engines interchangeable — pick one per run, record it 
 
 **Workflow (default).** One generic script executes any stage's pending jobs — pass the pending list from the validate-only status file as `args.jobs`:
 
+The generic Workflow `agent` call below has no portable named-agent parameter. Native hosts that
+support named agents should route these jobs to the custom `deep-reviewer` agent; keep the call
+role-free so the generic Workflow path remains compatible.
+
 ```js
 export const meta = {
   name: 'deep-review-jobs',
@@ -77,7 +81,11 @@ return { dispatched: args.jobs.length, returned: acks.filter(Boolean).length }
 
 After the workflow returns, run the validate-only gate; re-invoke with the still-pending jobs (interrupted runs can also resume via `resumeFromRunId`). Two re-dispatches without progress → inspect a failing output by hand before continuing.
 
-**Agent fallback (`--no-workflow` or no Workflow tool).** Same contract through the Agent tool: dispatch each pending job's prompt file to a subagent ("Read `<prompt>` and follow it exactly…"), at most 6 concurrent, then the validate-only gate.
+**Agent fallback (`--no-workflow` or no Workflow tool).** Same contract through the Agent tool:
+dispatch each pending job to the named custom `deep-reviewer` agent when named-agent dispatch is
+available. If the host has no named-agent path, use the generic prompt-only subagent dispatch
+("Read `<prompt>` and follow it exactly…") at most 6 concurrent; do not add an unsupported role
+argument. Then run the validate-only gate.
 
 **External runtimes (`--subagent` ≠ `native`).** `run_jobs.py --command` drives `compozy exec` per subagent-runtimes.md — the runner owns concurrency, retries, output validation, provider-block detection, and the freeze check.
 
