@@ -15,7 +15,9 @@ One resumable engine for every job kind (defect cohort, polish, sweep). Two mode
 Valid outputs are always preserved — re-running never repeats finished work.
 The source freeze is checked before and after execution (--no-freeze-check to
 skip). Exit codes: 0 all jobs valid, 1 failures/pending remain, 2 blocked by a
-provider limit (see <out>/run-blocker.json), 3 source drifted during the run.
+provider limit or invalid metering state, 3 either source drift or a metered
+budget stop. A budget stop persists `budget_exhausted` in the token ledger and
+preserves the round; it is not a source-drift restart signal.
 """
 
 from __future__ import annotations

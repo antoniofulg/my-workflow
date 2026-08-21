@@ -145,8 +145,8 @@ With prior state (or fingerprints recovered from the PR thread), Step 1 scopes t
 - Empty selection after the funnel → report "nothing reviewable" with the manifest counts; write no findings.
 - A linter lane unavailable → proceed and state in review.md that overlap suppression did not run for that lane.
 - A bootstrap gate failing (build_manifest.py, build_knowledge.py, build_jobs.py, merge_findings.py) → stop and surface stderr. Missing knowledge accounting or incomplete defect/polish coverage is a review failure, not a warning.
-- run_jobs.py exit 2 (blocked) → a provider limit interrupted the fan-out; valid outputs are preserved and `<out>/run-blocker.json` lists the pending jobs — resume by re-running the same command once the limit clears. Providers that signal limits differently need extra `--block-on` patterns.
-- run_jobs.py exit 3 or a render_review freeze failure → the checkout drifted mid-round; findings would anchor to stale lines. Restart from Step 1 — the round increments and prior artifacts are archived.
+- run_jobs.py exit 2 (blocked) → a provider limit or invalid metering state stopped the run; provider blocks write `<out>/run-blocker.json`, while invalid telemetry/ledger state fails closed without exposing internals.
+- run_jobs.py exit 3 with token ledger status `budget_exhausted` → preserve completed outputs and the current round; do not rebuild or restart to bypass the cap. Exit 3 without that status, or a render_review freeze failure, means source drift: restart from Step 1 so the round increments and prior artifacts are archived.
 - More than 75 publishable results → use the Step 5 batching contract.
 
 ## Bundled implementation

@@ -188,8 +188,7 @@ def start_ledger(path: str | Path, db_path: str | Path, reviewer_prefix: str, bu
                     raise TokenBudgetError("ledger")
         if ledger["status"] != "running":
             return ledger
-        validate_ledger_telemetry(state_path)
-        return ledger
+        return validate_ledger_telemetry(state_path)
     if not isinstance(budget, int) or isinstance(budget, bool) or budget <= 0:
         raise TokenBudgetError("ledger")
     snapshot = read_telemetry(db_path, reviewer_prefix)
@@ -241,11 +240,15 @@ def _valid_ledger(value: object) -> bool:
     if value["status"] in {"running", "complete"} and value["usage"]["total_tokens"] >= value["budget_tokens"]:
         return False
     checkpoints = value["checkpoints"]
-    if checkpoints and checkpoints[-1]["usage"] != value["usage"]:
+    if value["status"] != "budget_exhausted" and checkpoints and checkpoints[-1]["usage"] != value["usage"]:
         return False
     if not all(checkpoints[index]["usage"]["total_tokens"] <= checkpoints[index + 1]["usage"]["total_tokens"] for index in range(len(checkpoints) - 1)):
         return False
-    return all(checkpoint["status"] == ("budget_exhausted" if index == len(checkpoints) - 1 and value["status"] == "budget_exhausted" else "running") for index, checkpoint in enumerate(checkpoints))
+    return all(
+        checkpoint["status"] == "running"
+        or (index == len(checkpoints) - 1 and checkpoint["status"] == "budget_exhausted")
+        for index, checkpoint in enumerate(checkpoints)
+    )
 
 
 def _valid_checkpoint(value: object) -> bool:
@@ -283,7 +286,7 @@ def checkpoint_ledger(path: str | Path, job: str) -> dict:
 
 
 def validate_ledger_telemetry(path: str | Path) -> dict:
-    """Validate persisted state and the current counter before starting work."""
+    """Validate fresh state and persist a cap decision before starting work."""
     ledger = read_ledger(path)
     if ledger["status"] != "running":
         return ledger
@@ -291,6 +294,15 @@ def validate_ledger_telemetry(path: str | Path) -> dict:
     usage = delta_usage(ledger["baseline_by_thread"], snapshot)
     if usage["total_tokens"] < ledger["usage"]["total_tokens"]:
         raise TokenBudgetError("telemetry")
+    if usage["total_tokens"] >= ledger["budget_tokens"]:
+        ledger = {
+            **ledger,
+            "reviewer_thread_count": len(snapshot),
+            "usage": usage,
+            "status": "budget_exhausted",
+        }
+        _write_json(Path(path), ledger)
+        return ledger
     return ledger
 
 
