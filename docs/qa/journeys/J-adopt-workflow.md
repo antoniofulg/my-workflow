@@ -8,8 +8,9 @@
 
 1. Review the target's clean state, managed paths, and existing operational capabilities.
 2. Adopt into a checkout-local disposable target through the documented CLI.
-3. Confirm bundled workflow assets are discoverable, all three external security skills remain
-   absent, and adoption prints their separate authorized installation command.
+3. Confirm bundled workflow assets are discoverable, the copied workflow tour omits the source-only
+   pack guide and its links, all three external security skills remain absent, and adoption prints
+   their separate authorized installation command.
 4. Re-adopt a target with a consumer-owned `.my-workflow.toml`, QA profile, model pin,
    `tools/ad-index.py`, and unrelated ignore entries.
 5. Confirm consumer-owned state survives byte-for-byte and the resulting diff remains reviewable.
