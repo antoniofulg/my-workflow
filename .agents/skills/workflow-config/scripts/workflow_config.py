@@ -25,6 +25,8 @@ AGENT_NAMES = {"deep_reviewer": "deep-reviewer"}
 CADENCE_DEFAULT = "grouped.3"
 CADENCE_RE = re.compile(r"^grouped\.(\d+)$")
 SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
+CONFIG_KEYS = {"version", "deep_review", "profiles"}
+DEEP_REVIEW_KEYS = {"cadence"}
 
 
 class ConfigError(ValueError):
@@ -76,8 +78,9 @@ def _read_config(root: Path) -> dict[str, Any]:
     if not isinstance(config, dict):
         raise _error(".my-workflow.toml must contain a table")
     version = config.get("version", 1)
-    if version != 1:
-        raise _error("version must be 1")
+    if type(version) is not int or version != 1:
+        raise _error("version must be integer 1")
+    _validate_config_schema(config)
     return config
 
 
@@ -87,6 +90,9 @@ def _cadence(config: dict[str, Any]) -> str:
         section = {}
     if not isinstance(section, dict):
         raise _error("deep_review must be a table")
+    unknown = set(section) - DEEP_REVIEW_KEYS
+    if unknown:
+        raise _error(f"deep_review contains unknown key {sorted(unknown)[0]!r}")
     cadence = section.get("cadence", CADENCE_DEFAULT)
     if not isinstance(cadence, str):
         raise _error("deep_review.cadence must be a string")
@@ -116,6 +122,27 @@ def _validate_role_map(values: dict[str, Any], source: str) -> dict[str, str]:
             raise _error(f"{source} role {role!r} has invalid provider {provider!r}")
         result[role] = provider
     return result
+
+
+def _validate_config_schema(config: dict[str, Any]) -> None:
+    unknown = set(config) - CONFIG_KEYS
+    if unknown:
+        raise _error(f"contains unknown top-level key {sorted(unknown)[0]!r}")
+
+    deep_review = config.get("deep_review", {})
+    if not isinstance(deep_review, dict):
+        raise _error("deep_review must be a table")
+    unknown = set(deep_review) - DEEP_REVIEW_KEYS
+    if unknown:
+        raise _error(f"deep_review contains unknown key {sorted(unknown)[0]!r}")
+
+    profiles = config.get("profiles", {})
+    if not isinstance(profiles, dict):
+        raise _error("profiles must be a table")
+    for name, values in profiles.items():
+        if not isinstance(name, str) or not isinstance(values, dict):
+            raise _error(f"profile {name!r} must be a table")
+        _validate_role_map(values, f"profile {name!r}")
 
 
 def _parse_overrides(values: list[str]) -> dict[str, str]:
@@ -157,6 +184,72 @@ def _snapshot_path(root: Path, feature: str) -> Path:
     if not SLUG_RE.fullmatch(feature):
         raise _error("feature must be a lowercase slug")
     return root / ".specs" / "features" / feature / "workflow.json"
+
+
+def _validate_snapshot(root: Path, feature: str, snapshot: Any) -> dict[str, Any]:
+    if not isinstance(snapshot, dict):
+        raise _error("existing snapshot must be a JSON object")
+    required = {
+        "version",
+        "feature",
+        "git_head",
+        "profile",
+        "overrides",
+        "deep_review",
+        "roles",
+    }
+    if set(snapshot) != required:
+        raise _error("existing snapshot has an incomplete schema")
+    if type(snapshot["version"]) is not int or snapshot["version"] != 1:
+        raise _error("existing snapshot version must be integer 1")
+    if snapshot["feature"] != feature or not isinstance(snapshot["feature"], str):
+        raise _error("existing snapshot feature does not match the requested feature")
+    if not isinstance(snapshot["git_head"], str) or not snapshot["git_head"]:
+        raise _error("existing snapshot git_head must be a non-empty string")
+    if snapshot["profile"] is not None and not isinstance(snapshot["profile"], str):
+        raise _error("existing snapshot profile must be a string or null")
+    overrides = snapshot["overrides"]
+    if not isinstance(overrides, dict):
+        raise _error("existing snapshot overrides must be a table")
+    _validate_role_map(overrides, "existing snapshot overrides")
+
+    deep_review = snapshot["deep_review"]
+    if not isinstance(deep_review, dict) or set(deep_review) != {"cadence", "groups"}:
+        raise _error("existing snapshot deep_review has an incomplete schema")
+    cadence = deep_review["cadence"]
+    if not isinstance(cadence, str):
+        raise _error("existing snapshot deep_review.cadence must be a string")
+    groups = deep_review["groups"]
+    if not isinstance(groups, list) or not groups or any(
+        not isinstance(group, list)
+        or not group
+        or any(type(index) is not int or index < 1 for index in group)
+        for group in groups
+    ):
+        raise _error("existing snapshot deep_review.groups must be non-empty integer lists")
+    flattened = [index for group in groups for index in group]
+    if flattened != list(range(1, len(flattened) + 1)):
+        raise _error("existing snapshot deep_review.groups must be consecutive")
+    if balanced_groups(len(flattened), cadence) != groups:
+        raise _error("existing snapshot deep_review.groups do not match cadence")
+
+    roles = snapshot["roles"]
+    if not isinstance(roles, dict) or set(roles) != set(ROLES):
+        raise _error("existing snapshot roles must contain every workflow role")
+    for role in ROLES:
+        route = roles[role]
+        if not isinstance(route, dict) or set(route) != {"provider", "agent_file"}:
+            raise _error(f"existing snapshot role {role!r} has an incomplete schema")
+        provider = route["provider"]
+        if not isinstance(provider, str) or provider not in PROVIDERS:
+            raise _error(f"existing snapshot role {role!r} has an invalid provider")
+        agent_file = route["agent_file"]
+        if not isinstance(agent_file, str) or not agent_file:
+            raise _error(f"existing snapshot role {role!r} agent_file must be a string")
+        expected = _agent_file(root, provider, role)
+        if agent_file != expected:
+            raise _error(f"existing snapshot role {role!r} has an invalid agent_file")
+    return snapshot
 
 
 def _write_snapshot(path: Path, snapshot: dict[str, Any]) -> None:
@@ -204,9 +297,7 @@ def resolve(
                 snapshot = json.load(stream)
         except (OSError, json.JSONDecodeError) as exc:
             raise _error(f"existing snapshot is invalid: {snapshot_path}") from exc
-        if not isinstance(snapshot, dict):
-            raise _error(f"existing snapshot is invalid: {snapshot_path}")
-        return snapshot
+        return _validate_snapshot(root, feature, snapshot)
 
     config = _read_config(root)
     cadence = _cadence(config)

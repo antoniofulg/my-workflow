@@ -169,6 +169,53 @@ def test_cli_loads_configured_cadence_into_snapshot_and_json() -> None:
         shutil.rmtree(root)
 
 
+def test_cli_rejects_invalid_config_schema_without_snapshot() -> None:
+    root = make_repo()
+    try:
+        resolver = ROOT / ".agents/skills/workflow-config/scripts/workflow_config.py"
+        cases = (
+            ("version-bool", "version = true\n", "version must be integer 1"),
+            ("unknown-top-level", "bogus = 1\n", "unknown top-level key 'bogus'"),
+            (
+                "unknown-section",
+                "[deep_review]\ncadence = 'slice'\nextra = true\n",
+                "deep_review contains unknown key 'extra'",
+            ),
+            (
+                "invalid-profile",
+                "[profiles.mixed]\nextra = 'codex'\n",
+                "profile 'mixed' contains invalid role 'extra'",
+            ),
+        )
+        for feature, config, message in cases:
+            (root / ".my-workflow.toml").write_text(config, encoding="utf-8")
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(resolver),
+                    "--root",
+                    str(root),
+                    "--feature",
+                    feature,
+                    "--slices",
+                    "2",
+                    "--native-provider",
+                    "codex",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            assert result.returncode == 1
+            assert result.stdout == ""
+            assert message in result.stderr
+            assert not (root / f".specs/features/{feature}/workflow.json").exists()
+    finally:
+        import shutil
+
+        shutil.rmtree(root)
+
+
 def test_cadence_modes_and_balancing() -> None:
     expected = {
         "slice": [[1], [2], [3], [4]],
@@ -348,6 +395,29 @@ def test_snapshot_is_stable_and_atomic_failure_preserves_previous() -> None:
         finally:
             workflow_config.os.replace = real_replace
         assert path.read_text(encoding="utf-8") == original
+    finally:
+        import shutil
+
+        shutil.rmtree(root)
+
+
+def test_invalid_existing_snapshot_fails_without_mutation() -> None:
+    root = make_repo()
+    try:
+        path = root / ".specs/features/truncated/workflow.json"
+        path.parent.mkdir(parents=True)
+        for contents in ("{}", '{"version": 1}'):
+            path.write_text(contents, encoding="utf-8")
+            before = path.read_bytes()
+            try:
+                workflow_config.resolve(
+                    root=root, feature="truncated", slice_count=2, native_provider="codex"
+                )
+            except workflow_config.ConfigError as exc:
+                assert "existing snapshot" in str(exc)
+            else:
+                raise AssertionError("expected malformed snapshot failure")
+            assert path.read_bytes() == before
     finally:
         import shutil
 

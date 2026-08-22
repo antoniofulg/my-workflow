@@ -369,6 +369,26 @@ describe("configurable review policy", () => {
     expect(loop).toContain("deep-review follows resolved");
     expect(tour).toContain("deep-review groups from workflow config");
   });
+
+  it("bridges workflow resolution and feature-closing QA ordering", () => {
+    const specDriven = readRepositoryFile(".agents/skills/tlc-spec-driven/SKILL.md");
+    const qaScenarios = readRepositoryFile("docs/guidelines/QA-SCENARIOS.md");
+    const newFeatureBridge =
+      "Before dispatching providers for a new feature, resolve `.agents/skills/workflow-config/SKILL.md`";
+    const resumeBridge =
+      "Before dispatching providers for a resumed feature, read its `workflow.json` snapshot";
+    expect(specDriven).toContain(newFeatureBridge);
+    expect(specDriven).toContain(resumeBridge);
+    expect(specDriven.indexOf(newFeatureBridge)).toBeLessThan(specDriven.indexOf("1. Specify"));
+    expect(specDriven.indexOf(resumeBridge)).toBeLessThan(
+      specDriven.indexOf("1. Read `.specs/STATE.md`")
+    );
+
+    const closingQa =
+      "The feature-closing QA session runs after the final implementation deep-review group";
+    expect(qaScenarios).toContain(closingQa);
+    expect(qaScenarios).not.toContain("The feature's last slice runs");
+  });
 });
 
 describe("agent configuration", () => {
