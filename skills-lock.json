@@ -11,6 +11,30 @@
       "sourceType": "local",
       "skillPath": ".agents/skills/autonomous/SKILL.md"
     },
+    "security-best-practices": {
+      "source": "openai/skills",
+      "sourceType": "github",
+      "skillPath": "skills/.curated/security-best-practices/SKILL.md",
+      "cliVersion": "1.5.23",
+      "ref": "49f948faa9258a0c61caceaf225e179651397431",
+      "computedHash": "7bd6c2cc8083d90f5d5489c80887ed5399e167d3e7323c7f294035e1e586b689"
+    },
+    "security-review": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "skillPath": "skills/security-review/SKILL.md",
+      "cliVersion": "1.5.23",
+      "ref": "83561bd7d8a46fcda0581aedabdf8eac7cb196b6",
+      "computedHash": "a0fc25587c016178c9cf6238ac8702695fa761694965192472487f92093db571"
+    },
+    "security-threat-model": {
+      "source": "openai/skills",
+      "sourceType": "github",
+      "skillPath": "skills/.curated/security-threat-model/SKILL.md",
+      "cliVersion": "1.5.23",
+      "ref": "49f948faa9258a0c61caceaf225e179651397431",
+      "computedHash": "a262f878637565892051aa945c88e8748e743896c20925b59c5c2d7d79e061a7"
+    },
     "deep-review": {
       "source": "pedronauck/skills",
       "sourceType": "github",

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import re
+import shlex
 import shutil
 import sys
 from pathlib import Path
@@ -218,6 +219,11 @@ def main(argv: list[str]) -> None:
         write_claude(dest)
     link_claude_skills(dest)
     print(f"adopted workflow into {dest}")
+    installer = src / "scripts" / "install_security_skills.py"
+    command = shlex.join(("python3", str(installer), str(dest), "--yes"))
+    print("Security skills are external dependencies, not bundled skills.")
+    print(f"After explicit authorization, run exactly: {command}")
+    print("Until then, the SECURITY.md security gate remains uncovered.")
 
 
 if __name__ == "__main__":

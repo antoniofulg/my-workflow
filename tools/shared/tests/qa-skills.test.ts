@@ -594,9 +594,10 @@ describe("adoption and public setup", () => {
     expect(readme).toMatch(/the target must be a Git\s+repository with at least one commit/);
     expect(readme).toMatch(/Node\.js and npm are needed only to validate this source pack's\s+gates/);
     expect(readme).toMatch(
-      /`adopt\.py` installs and updates the bundled TLC, Ponytail, and Deep Review\s+skills/,
+      /`adopt\.py` installs and updates only the bundled TLC, Ponytail, Deep Review, QA, workflow-config,\s+and autonomous skills/,
     );
-    expect(readme).toMatch(/No external skill\s+installer is needed/);
+    expect(readme).toContain("The three external security skills are a separate authorized step");
+    expect(readme).toContain("install_security_skills.py");
     expect(readme).not.toContain("@tech-leads-club/agent-skills install");
     expect(readme).not.toContain("skills add dietrichgebert/ponytail");
     expect(readme).not.toContain("Delete any .cursor/skills");

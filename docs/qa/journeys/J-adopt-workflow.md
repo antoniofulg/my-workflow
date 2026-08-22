@@ -8,15 +8,18 @@
 
 1. Review the target's clean state, managed paths, and existing operational capabilities.
 2. Adopt into a checkout-local disposable target through the documented CLI.
-3. Confirm the QA and workflow-configuration skills, existing provider Verifier packets, workflow
-   ignore rules, and initial QA profile are discoverable.
+3. Confirm bundled workflow assets are discoverable, all three external security skills remain
+   absent, and adoption prints their separate authorized installation command.
 4. Re-adopt a target with a consumer-owned `.my-workflow.toml`, QA profile, model pin, and unrelated
    ignore entries.
 5. Confirm consumer-owned state survives byte-for-byte and the resulting diff remains reviewable.
+6. Continue to [`J-enable-external-security-skills`](J-enable-external-security-skills.md) only after
+   explicitly authorizing its networked installer step.
 
 ## Promises
 
 - [`ADP-adopt-workflow-safely`](../scenarios/ADP-adopt-workflow-safely.md)
+- [`ADP-separate-external-security-skills`](../scenarios/ADP-separate-external-security-skills.md)
 - [`QAS-discover-independent-qa-skills`](../scenarios/QAS-discover-independent-qa-skills.md)
 - [`CFG-keep-local-artifacts-out-of-git`](../scenarios/CFG-keep-local-artifacts-out-of-git.md)
 

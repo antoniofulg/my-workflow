@@ -9,7 +9,7 @@ For consuming projects, those authorities are their executable manifests or CI j
 
 | Area | Interface | Entry point | Authority |
 | --- | --- | --- | --- |
-| `ADP` | CLI and generated filesystem | `scripts/adopt.py` with a disposable target | [README adoption contract](../../README.md#adopt-the-workflow), [`scripts/adopt.py`](../../scripts/adopt.py) |
+| `ADP` | Adoption and external-skill CLI plus generated filesystem | `scripts/adopt.py`; `scripts/install_security_skills.py` with a disposable target | [README adoption contract](../../README.md#adopt-the-workflow), [`scripts/adopt.py`](../../scripts/adopt.py), [`scripts/install_security_skills.py`](../../scripts/install_security_skills.py) |
 | `QAS` | Manual agent-file inspection | `.agents/skills/qa-plan/`, `.agents/skills/qa-execute/`, provider Verifier packets | [Skills contract](../../README.md#skills) |
 | `DOC` | Documentation | `README.md` | [`README.md`](../../README.md) |
 | `CFG` | Workflow configuration, generated state, and Git visibility | `.my-workflow.toml`; `.agents/skills/workflow-config/scripts/workflow_config.py`; `.gitignore`; `.specs/` | [README configuration contract](../../README.md#adopt-the-workflow), [`workflow-config` skill](../../.agents/skills/workflow-config/SKILL.md), [artifact lifecycle](../guidelines/ARTIFACT-LIFECYCLE.md) |
@@ -26,8 +26,10 @@ No browser, API, or mobile surface exists in this repository.
 - Exact path used by `qa-execute`: invoke the command documented by the
   [`workflow-config` skill](../../.agents/skills/workflow-config/SKILL.md) inside a checkout-local
   disposable Git repository; invoke [`scripts/adopt.py`](../../scripts/adopt.py) against a separate
-  checkout-local disposable target; then inspect both targets and the repository files named by
-  each charter.
+  checkout-local disposable target; inspect its printed external-skill command before invoking
+  [`scripts/install_security_skills.py`](../../scripts/install_security_skills.py) only when the
+  QA packet explicitly authorizes network access and target writes; then inspect the targets and
+  repository files named by each charter.
 - Installed QA tooling discovered: Vitest is declared in [`package.json`](../../package.json) for
   structural checks; it is not a real-user runner. Python standard-library checks live in
   [`scripts/test_adopt.py`](../../scripts/test_adopt.py).
@@ -62,8 +64,13 @@ The workflow does not install a framework or invent commands when a runner is ab
 - Known limitations or unreachable surfaces: no automated agent-execution harness; skill behavior
   is reachable through the installed contracts and provider packets, while live model behavior
   remains a manual observation. No browser, API, mobile, auth, server, or production health path
-  exists.
-- External dependencies requiring a human: none for the planned CLI/manual journeys.
+  exists. The CLI/manual adapter can observe refusal, success, target bytes, lock metadata, and
+  installed links, but hostile staged-file, process-race, and interrupted-publication controls
+  remain technical-verification surfaces.
+- External dependencies requiring a human: installing the three pinned external security skills is
+  an explicit, networked authorization step printed by [`scripts/adopt.py`](../../scripts/adopt.py);
+  QA must not run it implicitly. The adapter requires Python 3 for adoption and Node/npm for the
+  workflow gates, with network access only when the QA packet authorizes the installer command.
 
 `qa-plan` reads this profile before mapping promises. `qa-execute` uses the CLI/manual adapter,
 records its exact target and evidence, and leaves product fixes to an Implementer.
