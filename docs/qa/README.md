@@ -63,7 +63,10 @@ The workflow does not install a framework or invent commands when a runner is ab
   is reachable through the installed contracts and provider packets, while live model behavior
   remains a manual observation. No browser, API, mobile, auth, server, or production health path
   exists.
-- External dependencies requiring a human: none for the planned CLI/manual journeys.
+- External dependencies requiring a human: installing the three pinned external security skills is
+  an explicit, networked authorization step printed by scripts/adopt.py; QA must not run it
+  implicitly. The adapter requires Python 3 for adoption and Node/npm for the workflow gates, with
+  network access only when the user authorizes scripts/install_security_skills.py <target> --yes.
 
 `qa-plan` reads this profile before mapping promises. `qa-execute` uses the CLI/manual adapter,
 records its exact target and evidence, and leaves product fixes to an Implementer.

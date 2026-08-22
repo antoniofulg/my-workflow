@@ -7,7 +7,6 @@ import argparse
 import hashlib
 import json
 import os
-import re
 import secrets
 import shutil
 import stat
@@ -106,14 +105,17 @@ def tree_hash(directory: Path) -> str:
     return digest.hexdigest()
 
 
-def reject_tree_symlinks(directory: Path) -> None:
-    """Reject every link in an untrusted staged skill without following it."""
+def validate_tree_entries(directory: Path) -> None:
+    """Reject links and special files in an untrusted staged skill."""
 
     for entry in os.scandir(directory):
-        if entry.is_symlink():
+        mode = entry.stat(follow_symlinks=False).st_mode
+        if stat.S_ISLNK(mode):
             raise InstallationError(f"staged skill contains symlink: {entry.path}")
-        if entry.is_dir(follow_symlinks=False):
-            reject_tree_symlinks(Path(entry.path))
+        if stat.S_ISDIR(mode):
+            validate_tree_entries(Path(entry.path))
+        elif not stat.S_ISREG(mode):
+            raise InstallationError(f"staged skill contains non-regular entry: {entry.path}")
 
 
 def plan_lines(locked: list[LockedSkill], target: Path) -> list[str]:
@@ -325,18 +327,63 @@ def rollback_paths(target: Path, affected: list[str], snapshot: Path) -> None:
         restore_path(target, relative, snapshot)
 
 
+def root_skills_object(content: str) -> tuple[int, int]:
+    """Locate the root object's top-level skills member without matching nested keys."""
+
+    decoder = json.JSONDecoder()
+    root_start = 0
+    while root_start < len(content) and content[root_start].isspace():
+        root_start += 1
+    try:
+        root, root_end = decoder.raw_decode(content, root_start)
+    except json.JSONDecodeError as exc:
+        raise InstallationError(f"installed lock has invalid root object: {exc}") from exc
+    if not isinstance(root, dict) or content[root_start] != "{":
+        raise InstallationError("installed lock has no root object")
+
+    cursor = root_start + 1
+    while True:
+        while cursor < root_end and content[cursor].isspace():
+            cursor += 1
+        if cursor >= root_end - 1:
+            break
+        try:
+            key, cursor = decoder.raw_decode(content, cursor)
+        except json.JSONDecodeError as exc:
+            raise InstallationError(f"installed lock has invalid root key: {exc}") from exc
+        while cursor < root_end and content[cursor].isspace():
+            cursor += 1
+        if cursor >= root_end or content[cursor] != ":":
+            raise InstallationError("installed lock has invalid root entry")
+        cursor += 1
+        while cursor < root_end and content[cursor].isspace():
+            cursor += 1
+        value_start = cursor
+        try:
+            value, value_end = decoder.raw_decode(content, value_start)
+        except json.JSONDecodeError as exc:
+            raise InstallationError(f"installed lock has invalid root entry: {exc}") from exc
+        if key == "skills":
+            if not isinstance(value, dict):
+                raise InstallationError("installed lock has no skills object")
+            return value_start, value_end
+        cursor = value_end
+        while cursor < root_end and content[cursor].isspace():
+            cursor += 1
+        if cursor < root_end and content[cursor] == ",":
+            cursor += 1
+        elif cursor < root_end - 1:
+            raise InstallationError("installed lock has invalid root separators")
+    raise InstallationError("installed lock has no skills object")
+
+
 def merge_managed_lock_entries(content: str, locked: list[LockedSkill]) -> str:
     """Replace only managed skill members while retaining unrelated member bytes."""
 
     decoder = json.JSONDecoder()
-    match = re.search(r'"skills"\s*:', content)
-    if not match:
-        raise InstallationError("installed lock has no skills object")
-    object_start = match.end()
-    while object_start < len(content) and content[object_start].isspace():
-        object_start += 1
+    object_start, object_end = root_skills_object(content)
     try:
-        skills, object_end = decoder.raw_decode(content, object_start)
+        skills = decoder.raw_decode(content, object_start)[0]
     except json.JSONDecodeError as exc:
         raise InstallationError(f"installed lock has invalid skills object: {exc}") from exc
     if not isinstance(skills, dict):
@@ -437,10 +484,11 @@ def merge_lock(target: Path, locked: list[LockedSkill]) -> None:
         os.close(target_fd)
 
 
-def cli_command(skill: LockedSkill, cli: str | None) -> list[str]:
-    prefix = [cli] if cli else ["npx", "--yes", f"skills@{CLI_VERSION}"]
+def cli_command(skill: LockedSkill) -> list[str]:
     return [
-        *prefix,
+        "npx",
+        "--yes",
+        f"skills@{CLI_VERSION}",
         "add",
         f"{skill.source}#{skill.ref}",
         "--skill",
@@ -453,12 +501,22 @@ def cli_command(skill: LockedSkill, cli: str | None) -> list[str]:
     ]
 
 
+def child_environment(wrapper_root: Path | None = None) -> dict[str, str]:
+    """Pass execution, locale, temporary-directory, and home settings only."""
+
+    allowed = ("PATH", "HOME", "TMPDIR", "TMP", "TEMP", "LANG", "LC_ALL", "LC_CTYPE")
+    environment = {name: os.environ[name] for name in allowed if name in os.environ}
+    if wrapper_root is not None:
+        environment["PATH"] = f"{wrapper_root}{os.pathsep}{environment.get('PATH', '')}"
+    return environment
+
+
 def pinned_git_environment(wrapper_root: Path) -> dict[str, str]:
     """Make skills@1.5.23's shallow clone accept a pinned commit ref."""
 
     real_git = shutil.which("git")
     if not real_git:
-        return dict(os.environ)
+        return child_environment()
     wrapper = wrapper_root / "git"
     wrapper.write_text(
         "#!/usr/bin/env python3\n"
@@ -490,9 +548,7 @@ def pinned_git_environment(wrapper_root: Path) -> dict[str, str]:
         encoding="utf-8",
     )
     wrapper.chmod(0o755)
-    environment = dict(os.environ)
-    environment["PATH"] = f"{wrapper_root}{os.pathsep}{environment.get('PATH', '')}"
-    return environment
+    return child_environment(wrapper_root)
 
 
 def verify_installation(target: Path, locked: list[LockedSkill]) -> None:
@@ -505,7 +561,7 @@ def verify_installation(target: Path, locked: list[LockedSkill]) -> None:
         claude = target / ".claude" / "skills" / skill.name
         if not installed.is_dir():
             raise InstallationError(f"{skill.name} was not installed in .agents/skills")
-        reject_tree_symlinks(installed)
+        validate_tree_entries(installed)
         if tree_hash(installed) != skill.computed_hash:
             raise InstallationError(f"{skill.name} failed its pinned tree hash")
         if not claude.is_symlink() or claude.resolve() != installed.resolve():
@@ -537,25 +593,28 @@ def publish_installation(staging: Path, target: Path, locked: list[LockedSkill])
         os.close(claude_fd)
 
 
-def perform_installation(target: Path, locked: list[LockedSkill], cli: str | None) -> None:
+def transaction_directory(target: Path, prefix: str) -> Path:
+    """Create transaction storage on target's filesystem for atomic rollback."""
+
+    return Path(tempfile.mkdtemp(prefix=prefix, dir=target))
+
+
+def perform_installation(target: Path, locked: list[LockedSkill]) -> None:
     affected = [
         *(f".agents/skills/{skill.name}" for skill in locked),
         *(f".claude/skills/{skill.name}" for skill in locked),
         "skills-lock.json",
     ]
-    with tempfile.TemporaryDirectory(prefix="my-workflow-security-install-") as raw_snapshot:
-        snapshot = Path(raw_snapshot)
+    snapshot = transaction_directory(target, "my-workflow-security-install-")
+    try:
         for relative in affected:
             snapshot_path(target, relative, snapshot)
         staging = Path(tempfile.mkdtemp(prefix="my-workflow-security-staging-", dir=target.parent))
         try:
-            environment = dict(os.environ)
-            if cli is None:
-                (snapshot / "git-wrapper").mkdir(parents=True, exist_ok=True)
-                environment = pinned_git_environment(snapshot / "git-wrapper")
+            (snapshot / "git-wrapper").mkdir(parents=True, exist_ok=True)
+            environment = pinned_git_environment(snapshot / "git-wrapper")
             for skill in locked:
-                command = cli_command(skill, cli)
-                environment.pop("MY_WORKFLOW_TARGET", None)
+                command = cli_command(skill)
                 result = subprocess.run(command, cwd=staging, check=False, env=environment)
                 if result.returncode != 0:
                     raise InstallationError(f"skills CLI failed for {skill.name}")
@@ -575,9 +634,11 @@ def perform_installation(target: Path, locked: list[LockedSkill], cli: str | Non
             raise
         finally:
             shutil.rmtree(staging, ignore_errors=True)
+    finally:
+        shutil.rmtree(snapshot, ignore_errors=True)
 
 
-def install(pack_root: Path, target: Path, authorized: bool, cli: str | None = None) -> int:
+def install(pack_root: Path, target: Path, authorized: bool) -> int:
     locked = read_locked_skills(pack_root)
     if not authorized:
         print("\n".join(plan_lines(locked, target)))
@@ -594,7 +655,7 @@ def install(pack_root: Path, target: Path, authorized: bool, cli: str | None = N
     try:
         validate_managed_paths(target, managed)
         with TargetLock(target):
-            perform_installation(target, locked, cli)
+            perform_installation(target, locked)
     except (OSError, InstallationError) as exc:
         names = ", ".join(skill.name for skill in locked)
         print(f"Security skills unavailable: {names}", file=sys.stderr)
@@ -614,11 +675,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("target", type=Path)
     parser.add_argument("--yes", action="store_true", help="authorize network access and target writes")
-    parser.add_argument(
-        "--skills-cli",
-        default=os.environ.get("MY_WORKFLOW_SKILLS_CLI"),
-        help=argparse.SUPPRESS,
-    )
     return parser.parse_args(argv)
 
 
@@ -626,7 +682,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
     pack_root = Path(__file__).resolve().parent.parent
     try:
-        return install(pack_root, args.target.resolve(), args.yes, args.skills_cli)
+        return install(pack_root, args.target.resolve(), args.yes)
     except InstallationError as exc:
         print(f"Security skills unavailable: {', '.join(SKILLS)}", file=sys.stderr)
         print(

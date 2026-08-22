@@ -11,8 +11,9 @@ import {
   writeFileSync,
   rmSync,
 } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter as pathDelimiter, dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const repositoryRoot = process.cwd();
@@ -41,12 +42,20 @@ function runInstaller(target: string, args: string[] = [], env: NodeJS.ProcessEn
   return spawnSync(
     "python3",
     [join(repositoryRoot, "scripts/install_security_skills.py"), target, ...args],
-    { cwd: repositoryRoot, encoding: "utf8", env: { ...process.env, ...env } },
+    {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        ...env,
+        PATH: target + (process.platform === "win32" ? ";" : ":") + (process.env.PATH ?? ""),
+      },
+    },
   );
 }
 
 function writeFakeCli(directory: string, content = "fixture\n"): string {
-  const cli = join(directory, "fake-skills-cli.py");
+  const cli = join(directory, "npx");
   writeFileSync(
     cli,
     `#!/usr/bin/env python3
@@ -75,14 +84,42 @@ if os.environ.get("FAKE_SKILLS_SLEEP"):
   return cli;
 }
 
-function writeFailingCli(directory: string): string {
-  const cli = join(directory, "failing-skills-cli.py");
-  writeFileSync(
-    cli,
-    "#!/usr/bin/env python3\nimport sys\nsys.exit(7)\n",
-    { mode: 0o755 },
-  );
-  return cli;
+function writeConfiguredNpx(
+  directory: string,
+  content = "fixture\n",
+  options: {
+    fail?: boolean;
+    fifo?: boolean;
+    symlinkTarget?: string;
+    log?: string;
+    sleep?: number;
+  } = {},
+): string {
+  const npx = join(directory, "npx");
+  const script = [
+    "#!/usr/bin/env python3\n",
+    "import os, pathlib, sys\n",
+    options.fail ? "sys.exit(7)\n" : "",
+    'skill = sys.argv[sys.argv.index("--skill") + 1]\n',
+    "root = pathlib.Path.cwd()\n",
+    'installed = root / ".agents" / "skills" / skill\n',
+    "installed.mkdir(parents=True, exist_ok=True)\n",
+    "(installed / \"SKILL.md\").write_text(" + JSON.stringify(content) + ")\n",
+    options.symlinkTarget
+      ? '(installed / "escape").symlink_to(' + JSON.stringify(options.symlinkTarget) + ")\n"
+      : "",
+    options.fifo ? '(installed / "special").parent.mkdir(parents=True, exist_ok=True)\nos.mkfifo(installed / "special")\n' : "",
+    'claude = root / ".claude" / "skills" / skill\n',
+    'claude.parent.mkdir(parents=True, exist_ok=True)\n',
+    'if claude.exists() or claude.is_symlink(): claude.unlink()\n',
+    'claude.symlink_to(pathlib.Path("../../.agents/skills") / skill)\n',
+    options.log
+      ? 'pathlib.Path(' + JSON.stringify(options.log) + ').open("a").write(" ".join(sys.argv[1:]) + " env=" + os.environ.get("MY_WORKFLOW_TARGET", "<missing>") + " secrets=" + ",".join(name + "=" + str(name in os.environ) for name in ("GITHUB_TOKEN", "GH_TOKEN", "NPM_TOKEN", "AWS_SECRET_ACCESS_KEY")) + "\\n")\n'
+      : "",
+    options.sleep ? "import time\ntime.sleep(" + String(options.sleep) + ")\n" : "",
+  ].join("");
+  writeFileSync(npx, script, { mode: 0o755 });
+  return npx;
 }
 
 function writePack(directory: string, lock: object): string {
@@ -96,11 +133,28 @@ function writePack(directory: string, lock: object): string {
   return pack;
 }
 
-function runPackInstaller(pack: string, target: string, cli: string, extraEnv: NodeJS.ProcessEnv = {}) {
+function runPackInstaller(
+  pack: string,
+  target: string,
+  npxDirectory: string,
+  extraEnv: NodeJS.ProcessEnv = {},
+) {
   return spawnSync(
     "python3",
-    [join(pack, "scripts/install_security_skills.py"), target, "--yes", "--skills-cli", cli],
-    { cwd: repositoryRoot, encoding: "utf8", env: { ...process.env, ...extraEnv } },
+    [join(pack, "scripts/install_security_skills.py"), target, "--yes"],
+    {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        ...extraEnv,
+        PATH:
+          extraEnv.PATH ??
+          dirname(npxDirectory) +
+            (process.platform === "win32" ? ";" : ":") +
+            (process.env.PATH ?? ""),
+      },
+    },
   );
 }
 
@@ -166,20 +220,25 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
 
   it("does not access the network or write the target without authorization", () => {
     const fixture = mkdtempSync(join(tmpdir(), "my-workflow-plan-"));
-    const log = join(fixture, "cli.log");
-    const cli = writeFakeCli(fixture);
     writeFileSync(join(fixture, "consumer.txt"), "keep\n");
     try {
-      const result = runInstaller(fixture, [], {
-        MY_WORKFLOW_SKILLS_CLI: cli,
-        FAKE_SKILLS_LOG: log,
-      });
+      const result = runInstaller(fixture);
       expect(result.status).toBe(2);
       expect(result.stdout).toContain("no network access and no target writes");
       expect(result.stdout).toContain("49f948faa9258a0c61caceaf225e179651397431");
       expect(existsSync(join(fixture, ".agents"))).toBe(false);
-      expect(existsSync(log)).toBe(false);
       expect(readFileSync(join(fixture, "consumer.txt"), "utf8")).toBe("keep\n");
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
+  it("does not expose a replacement CLI override", () => {
+    const fixture = mkdtempSync(join(tmpdir(), "my-workflow-cli-contract-"));
+    try {
+      const result = runInstaller(fixture, ["--skills-cli", "replacement"]);
+      expect(result.status).toBe(2);
+      expect(result.stderr).toContain("unrecognized arguments");
     } finally {
       rmSync(fixture, { recursive: true, force: true });
     }
@@ -208,8 +267,12 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
       };
     }
     writeFileSync(join(fakePack, "skills-lock.json"), JSON.stringify({ version: 1, skills: lockSkills }));
-    const cli = writeFakeCli(fixture, content);
-    const originalLock = { version: 1, skills: { unrelated: { source: "consumer", sourceType: "local" } } };
+    const cli = writeConfiguredNpx(fixture, content, { log });
+    const originalLock = {
+      version: 1,
+      metadata: { skills: { note: "preserve nested bytes" } },
+      skills: { unrelated: { source: "consumer", sourceType: "local" } },
+    };
     const consumerBytes = Buffer.from([0, 1, 2, 255, 10]);
     writeFileSync(join(target, "consumer.bin"), consumerBytes);
     writeFileSync(join(target, "skills-lock.json"), JSON.stringify(originalLock, null, 2) + "\n");
@@ -217,14 +280,18 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
     const originalUnrelatedBytes =
       '"unrelated": {\n      "source": "consumer",\n      "sourceType": "local"\n    }';
     try {
-      const result = spawnSync("python3", [join(fakePack, "scripts/install_security_skills.py"), target, "--yes", "--skills-cli", cli], {
+      const result = spawnSync("python3", [join(fakePack, "scripts/install_security_skills.py"), target, "--yes"], {
         cwd: repositoryRoot,
         encoding: "utf8",
-        env: { ...process.env, FAKE_SKILLS_LOG: log },
+        env: {
+          ...process.env,
+          PATH: fixture + (process.platform === "win32" ? ";" : ":") + (process.env.PATH ?? ""),
+        },
       });
       expect(result.status).toBe(0);
       const installedLock = JSON.parse(readFileSync(join(target, "skills-lock.json"), "utf8"));
       expect(installedLock.skills.unrelated).toEqual(originalLock.skills.unrelated);
+      expect(installedLock.metadata.skills).toEqual(originalLock.metadata.skills);
       expect(readFileSync(join(target, "consumer.bin"))).toEqual(consumerBytes);
       expect(JSON.stringify(installedLock.skills.unrelated)).toBe(
         JSON.stringify(originalLock.skills.unrelated),
@@ -233,6 +300,9 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
         originalUnrelatedBytes,
       );
       expect(originalLockBytes.toString()).toContain(originalUnrelatedBytes);
+      expect(readFileSync(join(target, "skills-lock.json"), "utf8")).toContain(
+        '"metadata": {\n    "skills": {\n      "note": "preserve nested bytes"\n    }\n  }',
+      );
       for (const name of Object.keys(securitySkills)) {
         const installed = join(target, ".agents/skills", name);
         expect(readFileSync(join(installed, "SKILL.md"), "utf8")).toBe(content);
@@ -260,7 +330,7 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
     writeFileSync(join(fixture, "consumer.txt"), "before\n");
     writeFileSync(join(fixture, "skills-lock.json"), JSON.stringify({ version: 1, skills: { unrelated: { source: "consumer" } } }));
     try {
-      const result = runInstaller(fixture, ["--yes", "--skills-cli", cli]);
+      const result = runInstaller(fixture, ["--yes"]);
       expect(result.status).toBe(1);
       expect(result.stderr).toContain("Security skills unavailable");
       expect(result.stderr).toContain("gate remains uncovered");
@@ -282,7 +352,15 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
     const lockBytes = Buffer.from('{"version":1,"skills":{"consumer":{"source":"local"}}}\n');
     writeFileSync(join(target, "skills-lock.json"), lockBytes);
     try {
-      const result = runPackInstaller(pack, target, join(fixture, "missing-cli"));
+      const pathWithoutNpx = [
+        join(fixture, "missing-cli"),
+        ...(process.env.PATH ?? "")
+          .split(pathDelimiter)
+          .filter((directory) => !existsSync(join(directory, "npx"))),
+      ].join(pathDelimiter);
+      const result = runPackInstaller(pack, target, join(fixture, "missing-cli"), {
+        PATH: pathWithoutNpx,
+      });
       expect(result.status).toBe(1);
       expect(result.stderr).toContain("Security skills unavailable");
       expect(result.stderr).toContain("Security gate remains uncovered");
@@ -299,7 +377,7 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
     const target = join(fixture, "target");
     mkdirSync(target);
     const pack = writePack(fixture, validLock());
-    const cli = writeFailingCli(fixture);
+    const cli = writeConfiguredNpx(fixture, "fixture\n", { fail: true });
     const consumerBytes = Buffer.from([9, 2, 6, 5, 3, 5]);
     writeFileSync(join(target, "consumer.bin"), consumerBytes);
     const lockBytes = Buffer.from('{"version":1,"skills":{"consumer":{"source":"local"}}}\n');
@@ -338,13 +416,13 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
   it("rejects a managed symlink before touching its external referent", () => {
     const fixture = mkdtempSync(join(tmpdir(), "my-workflow-symlink-"));
     const external = mkdtempSync(join(tmpdir(), "my-workflow-external-"));
-    const cli = writeFakeCli(fixture);
     const sentinel = join(external, "sentinel.txt");
+    const cli = writeFakeCli(fixture);
     writeFileSync(sentinel, "untouched\n");
     mkdirSync(join(fixture, ".agents"));
     symlinkSync(join(external, "skills"), join(fixture, ".agents", "skills"));
     try {
-      const result = runInstaller(fixture, ["--yes", "--skills-cli", cli]);
+      const result = runInstaller(fixture, ["--yes"]);
       expect(result.status).toBe(1);
       expect(readFileSync(sentinel, "utf8")).toBe("untouched\n");
       expect(lstatSync(join(fixture, ".agents", "skills")).isSymbolicLink()).toBe(true);
@@ -362,7 +440,7 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
     writeFileSync(externalLock, "consumer lock bytes\n");
     symlinkSync(externalLock, join(fixture, "skills-lock.json"));
     try {
-      const result = runInstaller(fixture, ["--yes", "--skills-cli", cli]);
+      const result = runInstaller(fixture, ["--yes"]);
       expect(result.status).toBe(1);
       expect(readFileSync(externalLock, "utf8")).toBe("consumer lock bytes\n");
       expect(lstatSync(join(fixture, "skills-lock.json")).isSymbolicLink()).toBe(true);
@@ -437,19 +515,55 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
     }
   });
 
+  it("creates transaction snapshots on the target filesystem", () => {
+    const fixture = mkdtempSync(join(tmpdir(), "my-workflow-transaction-fs-"));
+    const target = join(fixture, "target");
+    mkdirSync(target);
+    try {
+      const probe = execFileSync(
+        "python3",
+        [
+          "-c",
+          "import importlib.util, os, pathlib, shutil, sys\n"
+            + "spec = importlib.util.spec_from_file_location('installer', sys.argv[2])\n"
+            + "module = importlib.util.module_from_spec(spec)\n"
+            + "sys.modules[spec.name] = module\n"
+            + "spec.loader.exec_module(module)\n"
+            + "target = pathlib.Path(sys.argv[1])\n"
+            + "path = module.transaction_directory(target, 'probe-')\n"
+            + "print(os.stat(target).st_dev == os.stat(path).st_dev)\n"
+            + "shutil.rmtree(path)\n",
+          target,
+          join(repositoryRoot, "scripts/install_security_skills.py"),
+        ],
+        { cwd: repositoryRoot, encoding: "utf8" },
+      );
+      expect(probe.trim()).toBe("True");
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
   it("scrubs the inherited target variable before invoking the external CLI", () => {
     const fixture = mkdtempSync(join(tmpdir(), "my-workflow-env-"));
     const log = join(fixture, "cli.log");
-    const cli = writeFakeCli(fixture);
+    const cli = writeConfiguredNpx(fixture, "fixture\n", { log });
     const pack = writePack(fixture, validLock());
     try {
       const result = runPackInstaller(pack, fixture, cli, {
         MY_WORKFLOW_TARGET: "/outside/target",
-        FAKE_SKILLS_LOG: log,
+        GITHUB_TOKEN: "token",
+        GH_TOKEN: "token",
+        NPM_TOKEN: "token",
+        AWS_SECRET_ACCESS_KEY: "secret",
       });
       expect(result.status).toBe(0);
       expect(readFileSync(log, "utf8")).not.toContain("/outside/target");
       expect(readFileSync(log, "utf8")).toContain("env=<missing>");
+      expect(readFileSync(log, "utf8")).toContain("GITHUB_TOKEN=False");
+      expect(readFileSync(log, "utf8")).toContain("GH_TOKEN=False");
+      expect(readFileSync(log, "utf8")).toContain("NPM_TOKEN=False");
+      expect(readFileSync(log, "utf8")).toContain("AWS_SECRET_ACCESS_KEY=False");
     } finally {
       rmSync(fixture, { recursive: true, force: true });
     }
@@ -523,12 +637,10 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
     mkdirSync(target);
     const externalSentinel = join(external, "sentinel.txt");
     writeFileSync(externalSentinel, "do not touch\n");
-    const cli = writeFakeCli(fixture);
+    const cli = writeConfiguredNpx(fixture, "fixture\n", { symlinkTarget: externalSentinel });
     const pack = writePack(fixture, validLock());
     try {
-      const result = runPackInstaller(pack, target, cli, {
-        FAKE_SKILLS_SYMLINK: externalSentinel,
-      });
+      const result = runPackInstaller(pack, target, cli);
       expect(result.status).toBe(1);
       expect(result.stderr).toContain("symlink");
       expect(existsSync(join(target, ".agents"))).toBe(false);
@@ -539,20 +651,40 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
     }
   });
 
+  it("rejects a special file anywhere in a staged skill before publication", () => {
+    const fixture = mkdtempSync(join(tmpdir(), "my-workflow-staged-special-"));
+    const target = join(fixture, "target");
+    mkdirSync(target);
+    const npx = writeConfiguredNpx(fixture, "fixture\n", { fifo: true });
+    const pack = writePack(fixture, validLock());
+    const consumerBytes = Buffer.from([7, 7, 7]);
+    const lockBytes = Buffer.from('{"version":1,"skills":{"consumer":{"source":"local"}}}\n');
+    writeFileSync(join(target, "consumer.bin"), consumerBytes);
+    writeFileSync(join(target, "skills-lock.json"), lockBytes);
+    try {
+      const result = runPackInstaller(pack, target, npx);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("non-regular");
+      expect(readFileSync(join(target, "consumer.bin"))).toEqual(consumerBytes);
+      expect(readFileSync(join(target, "skills-lock.json"))).toEqual(lockBytes);
+      expect(existsSync(join(target, ".agents"))).toBe(false);
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
   it("rejects an unapproved CLI version in the target lock before invoking the CLI", () => {
     const fixture = mkdtempSync(join(tmpdir(), "my-workflow-lock-cli-version-"));
     const target = join(fixture, "target");
-    const log = join(fixture, "cli.log");
     mkdirSync(target);
     const cli = writeFakeCli(fixture);
     const lock = validLock();
     (lock.skills as Record<string, Record<string, string>>)["security-review"].cliVersion = "1.5.22";
     const pack = writePack(fixture, lock);
     try {
-      const result = runPackInstaller(pack, target, cli, { FAKE_SKILLS_LOG: log });
+      const result = runPackInstaller(pack, target, cli);
       expect(result.status).toBe(1);
       expect(result.stderr).toContain("CLI version");
-      expect(existsSync(log)).toBe(false);
       expect(existsSync(join(target, ".agents"))).toBe(false);
     } finally {
       rmSync(fixture, { recursive: true, force: true });
@@ -578,18 +710,32 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
 
   it("serializes concurrent installers so a completed winner is not rolled back", async () => {
     const fixture = mkdtempSync(join(tmpdir(), "my-workflow-concurrent-"));
-    const cli = writeFakeCli(fixture);
+    const cli = writeConfiguredNpx(fixture, "fixture\n", { sleep: 0.2 });
     const pack = writePack(fixture, validLock());
     const first = spawn(
       "python3",
-      [join(pack, "scripts/install_security_skills.py"), fixture, "--yes", "--skills-cli", cli],
-      { cwd: repositoryRoot, env: { ...process.env, FAKE_SKILLS_SLEEP: "0.2" }, encoding: "utf8" },
+      [join(pack, "scripts/install_security_skills.py"), fixture, "--yes"],
+      {
+        cwd: repositoryRoot,
+        env: {
+          ...process.env,
+          PATH: fixture + (process.platform === "win32" ? ";" : ":") + (process.env.PATH ?? ""),
+        },
+        encoding: "utf8",
+      },
     );
     await new Promise((resolve) => setTimeout(resolve, 60));
     const second = spawnSync(
       "python3",
-      [join(pack, "scripts/install_security_skills.py"), fixture, "--yes", "--skills-cli", cli],
-      { cwd: repositoryRoot, env: process.env, encoding: "utf8" },
+      [join(pack, "scripts/install_security_skills.py"), fixture, "--yes"],
+      {
+        cwd: repositoryRoot,
+        env: {
+          ...process.env,
+          PATH: fixture + (process.platform === "win32" ? ";" : ":") + (process.env.PATH ?? ""),
+        },
+        encoding: "utf8",
+      },
     );
     const firstStatus = await new Promise<number>((resolve) => first.on("close", resolve));
     try {
