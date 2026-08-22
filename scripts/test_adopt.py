@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -47,8 +48,16 @@ def test_fresh_and_refuse() -> None:
         assert (tmp / ".claude/skills/qa-execute").is_symlink()
         assert (tmp / ".cursor/agents/planner.md").is_file()
         ignored = (tmp / ".gitignore").read_text(encoding="utf-8")
-        for entry in (".deep-review/*", "!.deep-review/learnings.md", ".specs/features/"):
+        for entry in (
+            ".deep-review/*",
+            "!.deep-review/learnings.md",
+            ".specs/features/",
+            "graft/",
+        ):
             assert ignored.splitlines().count(entry) == 1
+        search_ignored = (tmp / ".ignore").read_text(encoding="utf-8")
+        for entry in ("!graft/", "graft/.cache/", "graft/.graph/"):
+            assert search_ignored.splitlines().count(entry) == 1
         for path in (
             ".cursor/agents/explorer.md",
             ".claude/agents/explorer.md",
@@ -99,7 +108,12 @@ def test_gitignore_rules_merge_without_overwrite() -> None:
         run(tmp)
         ignored = (tmp / ".gitignore").read_text(encoding="utf-8")
         assert "consumer-cache/\n" in ignored
-        for entry in (".deep-review/*", "!.deep-review/learnings.md", ".specs/features/"):
+        for entry in (
+            ".deep-review/*",
+            "!.deep-review/learnings.md",
+            ".specs/features/",
+            "graft/",
+        ):
             assert ignored.splitlines().count(entry) == 1
 
         (tmp / ".gitignore").write_text(
@@ -114,11 +128,57 @@ def test_gitignore_rules_merge_without_overwrite() -> None:
         ignored = (tmp / ".gitignore").read_text(encoding="utf-8")
         assert "consumer-cache/\n" in ignored
         assert "consumer-output/\n" in ignored
-        assert ignored.splitlines()[-3:] == [
+        assert ignored.splitlines()[-4:] == [
             ".deep-review/*",
             "!.deep-review/learnings.md",
             ".specs/features/",
+            "graft/",
         ]
+    finally:
+        shutil.rmtree(tmp)
+
+
+def test_graft_ignore_contract_and_search_visibility() -> None:
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        (tmp / ".gitignore").write_text("consumer-cache/\n", encoding="utf-8")
+        (tmp / ".ignore").write_text("consumer-search-cache/\n", encoding="utf-8")
+        subprocess.run(["git", "init", "-q", str(tmp)], check=True)
+        run(tmp)
+
+        ignored = (tmp / ".gitignore").read_text(encoding="utf-8")
+        assert "consumer-cache/\n" in ignored
+        assert ignored.splitlines().count("graft/") == 1
+        search_ignored = (tmp / ".ignore").read_text(encoding="utf-8")
+        assert "consumer-search-cache/\n" in search_ignored
+        for entry in ("!graft/", "graft/.cache/", "graft/.graph/"):
+            assert search_ignored.splitlines().count(entry) == 1
+
+        (tmp / "graft/.cache").mkdir(parents=True)
+        (tmp / "graft/.graph").mkdir(parents=True)
+        (tmp / "graft/.cache/index.json").write_text("cache\n", encoding="utf-8")
+        (tmp / "graft/.graph/wiring.json").write_text("graph\n", encoding="utf-8")
+        card = tmp / "graft/cards/adoption.md"
+        card.parent.mkdir(parents=True)
+        card.write_text("generated adoption card\n", encoding="utf-8")
+
+        for path in ("graft/.cache/index.json", "graft/.graph/wiring.json"):
+            result = subprocess.run(
+                ["git", "-C", str(tmp), "check-ignore", "-q", "--", path],
+                check=False,
+            )
+            assert result.returncode == 0, path
+
+        search = subprocess.run(
+            ["rg", "--files", "--hidden", "--no-ignore-parent"],
+            cwd=tmp,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        assert "graft/cards/adoption.md" in search.stdout
+        assert "graft/.cache/index.json" not in search.stdout
+        assert "graft/.graph/wiring.json" not in search.stdout
     finally:
         shutil.rmtree(tmp)
 
@@ -127,4 +187,5 @@ if __name__ == "__main__":
     test_fresh_and_refuse()
     test_agent_pins_survive_readopt()
     test_gitignore_rules_merge_without_overwrite()
+    test_graft_ignore_contract_and_search_visibility()
     print("ok")
