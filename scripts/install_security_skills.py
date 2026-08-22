@@ -18,8 +18,7 @@ from pathlib import Path
 
 CLI_VERSION = "1.5.23"
 LOCK_VERSION = 1
-TRUSTED_BIN_DIRS = ("/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin")
-RUNTIME_BIN_DIRS = ("/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin")
+FIXED_SYSTEM_BIN_DIRS = ("/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin")
 SKILLS = {
     "security-best-practices": (
         "openai/skills",
@@ -491,15 +490,47 @@ def merge_lock(target: Path, locked: list[LockedSkill]) -> None:
         os.close(target_fd)
 
 
-def resolve_trusted_binary(name: str) -> str:
-    for directory in TRUSTED_BIN_DIRS:
+def lexical_path_is_within(path: Path, root: Path) -> bool:
+    try:
+        Path(os.path.abspath(path)).relative_to(Path(os.path.abspath(root)))
+    except ValueError:
+        return False
+    return True
+
+
+def validate_tool_candidate(candidate: Path, untrusted_roots: tuple[Path, ...]) -> tuple[str, tuple[str, ...]]:
+    lexical = Path(os.path.abspath(candidate))
+    if any(lexical_path_is_within(lexical, root) for root in untrusted_roots):
+        raise InstallationError(f"unsafe {candidate.name} executable location")
+    try:
+        resolved = candidate.resolve(strict=True)
+        info = resolved.stat()
+    except OSError as exc:
+        raise InstallationError(f"invalid {candidate.name} executable: {candidate}") from exc
+    if any(path_is_within(resolved, root) for root in untrusted_roots):
+        raise InstallationError(f"unsafe {candidate.name} executable target")
+    if not stat.S_ISREG(info.st_mode) or not os.access(resolved, os.X_OK):
+        raise InstallationError(f"invalid {candidate.name} executable: {candidate}")
+    directories = (str(lexical.parent), str(resolved.parent))
+    return str(resolved), directories
+
+
+def resolve_active_binary(
+    name: str,
+    original_path: str,
+    untrusted_roots: tuple[Path, ...],
+) -> tuple[str, tuple[str, ...]]:
+    """Resolve active caller tooling before child environment scrubbing."""
+
+    for raw_directory in original_path.split(os.pathsep):
+        directory = Path(raw_directory or os.curdir).absolute()
+        candidate = directory / name
+        if candidate.exists() or candidate.is_symlink():
+            return validate_tool_candidate(candidate, untrusted_roots)
+    for directory in FIXED_SYSTEM_BIN_DIRS:
         candidate = Path(directory) / name
-        try:
-            mode = candidate.stat().st_mode
-        except OSError:
-            continue
-        if stat.S_ISREG(mode) and os.access(candidate, os.X_OK):
-            return str(candidate)
+        if candidate.exists() or candidate.is_symlink():
+            return validate_tool_candidate(candidate, untrusted_roots)
     raise InstallationError(f"trusted {name} executable unavailable")
 
 
@@ -520,13 +551,16 @@ def cli_command(skill: LockedSkill, npx: str) -> list[str]:
     ]
 
 
-def child_environment(wrapper_root: Path | None = None) -> dict[str, str]:
+def child_environment(
+    wrapper_root: Path | None = None,
+    tool_directories: tuple[str, ...] = (),
+) -> dict[str, str]:
     """Pass execution, locale, temporary-directory, and home settings only."""
 
     allowed = ("PATH", "HOME", "TMPDIR", "TMP", "TEMP", "LANG", "LC_ALL", "LC_CTYPE")
     environment = {name: os.environ[name] for name in allowed if name in os.environ}
     fixed_path = []
-    for directory in (*TRUSTED_BIN_DIRS, *RUNTIME_BIN_DIRS):
+    for directory in (*tool_directories, *FIXED_SYSTEM_BIN_DIRS):
         if directory not in fixed_path:
             fixed_path.append(directory)
     environment["PATH"] = os.pathsep.join(fixed_path)
@@ -535,10 +569,13 @@ def child_environment(wrapper_root: Path | None = None) -> dict[str, str]:
     return environment
 
 
-def pinned_git_environment(wrapper_root: Path) -> dict[str, str]:
+def pinned_git_environment(
+    wrapper_root: Path,
+    real_git: str,
+    tool_directories: tuple[str, ...],
+) -> dict[str, str]:
     """Make skills@1.5.23's shallow clone accept a pinned commit ref."""
 
-    real_git = resolve_trusted_binary("git")
     wrapper = wrapper_root / "git"
     wrapper.write_text(
         "#!/usr/bin/env python3\n"
@@ -570,7 +607,7 @@ def pinned_git_environment(wrapper_root: Path) -> dict[str, str]:
         encoding="utf-8",
     )
     wrapper.chmod(0o755)
-    return child_environment(wrapper_root)
+    return child_environment(wrapper_root, tool_directories)
 
 
 def verify_installation(target: Path, locked: list[LockedSkill]) -> None:
@@ -621,7 +658,7 @@ def transaction_directory(target: Path, prefix: str) -> Path:
     return Path(tempfile.mkdtemp(prefix=prefix, dir=target))
 
 
-def perform_installation(target: Path, locked: list[LockedSkill]) -> None:
+def perform_installation(target: Path, locked: list[LockedSkill], pack_root: Path) -> None:
     affected = [
         *(f".agents/skills/{skill.name}" for skill in locked),
         *(f".claude/skills/{skill.name}" for skill in locked),
@@ -634,8 +671,15 @@ def perform_installation(target: Path, locked: list[LockedSkill]) -> None:
         staging = Path(tempfile.mkdtemp(prefix="my-workflow-security-staging-", dir=target.parent))
         try:
             (snapshot / "git-wrapper").mkdir(parents=True, exist_ok=True)
-            environment = pinned_git_environment(snapshot / "git-wrapper")
-            npx = resolve_trusted_binary("npx")
+            original_path = os.environ.get("PATH", "")
+            untrusted_roots = (target.resolve(), staging.resolve(), pack_root.resolve())
+            npx, npx_directories = resolve_active_binary("npx", original_path, untrusted_roots)
+            git, git_directories = resolve_active_binary("git", original_path, untrusted_roots)
+            environment = pinned_git_environment(
+                snapshot / "git-wrapper",
+                git,
+                tuple(dict.fromkeys((*npx_directories, *git_directories))),
+            )
             for skill in locked:
                 command = cli_command(skill, npx)
                 result = subprocess.run(command, cwd=staging, check=False, env=environment)
@@ -678,7 +722,7 @@ def install(pack_root: Path, target: Path, authorized: bool) -> int:
     try:
         validate_managed_paths(target, managed)
         with TargetLock(target):
-            perform_installation(target, locked)
+            perform_installation(target, locked, pack_root)
     except (OSError, InstallationError) as exc:
         names = ", ".join(skill.name for skill in locked)
         print(f"Security skills unavailable: {names}", file=sys.stderr)

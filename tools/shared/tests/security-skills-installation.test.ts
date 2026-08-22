@@ -150,16 +150,9 @@ function writeFakeGit(directory: string, marker: string): string {
 function writePack(directory: string, lock: object): string {
   const pack = join(directory, "pack");
   mkdirSync(join(pack, "scripts"), { recursive: true });
-  const installer = readFileSync(join(repositoryRoot, "scripts/install_security_skills.py"), "utf8")
-    .replace(
-      /TRUSTED_BIN_DIRS = \([^\n]+\)/,
-      "TRUSTED_BIN_DIRS = (" +
-        JSON.stringify(directory) +
-        ', "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin")',
-    );
   writeFileSync(
     join(pack, "scripts/install_security_skills.py"),
-    installer,
+    readFileSync(join(repositoryRoot, "scripts/install_security_skills.py")),
   );
   writeFileSync(join(pack, "skills-lock.json"), JSON.stringify(lock));
   return pack;
@@ -295,13 +288,7 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
     mkdirSync(target, { recursive: true });
     writeFileSync(
       join(fakePack, "scripts/install_security_skills.py"),
-      readFileSync(join(repositoryRoot, "scripts/install_security_skills.py"), "utf8")
-        .replace(
-          /TRUSTED_BIN_DIRS = \([^\n]+\)/,
-          "TRUSTED_BIN_DIRS = (" +
-            JSON.stringify(fixture) +
-            ', "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin")',
-        ),
+      readFileSync(join(repositoryRoot, "scripts/install_security_skills.py")),
     );
     const lockSkills: Record<string, Record<string, string>> = {
       unrelated: { source: "consumer/local", sourceType: "local" },
@@ -447,17 +434,19 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
 
   it("recovers a dead target lock and removes it after a successful transaction", () => {
     const fixture = mkdtempSync(join(tmpdir(), "my-workflow-stale-lock-"));
+    const target = join(fixture, "target");
+    mkdirSync(target);
     const cli = writeFakeCli(fixture);
     const pack = writePack(fixture, validLock());
-    mkdirSync(join(fixture, ".my-workflow-security-skills.lock"));
+    mkdirSync(join(target, ".my-workflow-security-skills.lock"));
     writeFileSync(
-      join(fixture, ".my-workflow-security-skills.lock", "owner"),
+      join(target, ".my-workflow-security-skills.lock", "owner"),
       "pid=999999\ntoken=stale\n",
     );
     try {
-      const result = runPackInstaller(pack, fixture, cli);
+      const result = runPackInstaller(pack, target, cli);
       expect(result.status).toBe(0);
-      expect(existsSync(join(fixture, ".my-workflow-security-skills.lock"))).toBe(false);
+      expect(existsSync(join(target, ".my-workflow-security-skills.lock"))).toBe(false);
     } finally {
       rmSync(fixture, { recursive: true, force: true });
     }
@@ -594,13 +583,51 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
     }
   });
 
+  it("rejects an active tool candidate in the staging root", () => {
+    const fixture = mkdtempSync(join(tmpdir(), "my-workflow-staging-tool-"));
+    const target = join(fixture, "target");
+    const staging = join(fixture, "staging");
+    const packRoot = join(fixture, "pack");
+    mkdirSync(target);
+    mkdirSync(staging);
+    mkdirSync(packRoot);
+    writeFileSync(join(staging, "npx"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+    try {
+      const probe = execFileSync(
+        "python3",
+        [
+          "-c",
+          "import importlib.util, pathlib, sys\n"
+            + "spec = importlib.util.spec_from_file_location('installer', sys.argv[4])\n"
+            + "module = importlib.util.module_from_spec(spec)\n"
+            + "sys.modules[spec.name] = module\n"
+            + "spec.loader.exec_module(module)\n"
+            + "try:\n"
+            + "    module.resolve_active_binary('npx', sys.argv[2], tuple(pathlib.Path(x) for x in sys.argv[1:4]))\n"
+            + "except module.InstallationError:\n"
+            + "    print('rejected')\n",
+          target,
+          staging,
+          packRoot,
+          join(repositoryRoot, "scripts/install_security_skills.py"),
+        ],
+        { cwd: repositoryRoot, encoding: "utf8" },
+      );
+      expect(probe.trim()).toBe("rejected");
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
   it("scrubs the inherited target variable before invoking the external CLI", () => {
     const fixture = mkdtempSync(join(tmpdir(), "my-workflow-env-"));
+    const target = join(fixture, "target");
+    mkdirSync(target);
     const log = join(fixture, "cli.log");
     const cli = writeConfiguredNpx(fixture, "fixture\n", { log });
     const pack = writePack(fixture, validLock());
     try {
-      const result = runPackInstaller(pack, fixture, cli, {
+      const result = runPackInstaller(pack, target, cli, {
         MY_WORKFLOW_TARGET: "/outside/target",
         GITHUB_TOKEN: "token",
         GH_TOKEN: "token",
@@ -771,42 +798,122 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
     }
   });
 
-  it("resolves npx and git from trusted paths instead of caller PATH", () => {
+  it("accepts an active mise-style external toolchain and passes exact pinned args", () => {
     const fixture = mkdtempSync(join(tmpdir(), "my-workflow-trusted-tools-"));
     const target = join(fixture, "target");
-    const malicious = join(fixture, "malicious");
+    const toolchain = join(fixture, "toolchain");
+    const shims = join(toolchain, "shims");
+    const versions = join(toolchain, "versions");
     const trustedGitMarker = join(fixture, "trusted-git.log");
-    const maliciousNpxMarker = join(fixture, "malicious-npx.log");
-    const maliciousGitMarker = join(fixture, "malicious-git.log");
     mkdirSync(target);
-    mkdirSync(malicious);
-    writeFileSync(
-      join(malicious, "npx"),
-      "#!/bin/sh\nprintf 'malicious-npx\\n' > " + JSON.stringify(maliciousNpxMarker) + "\nexit 9\n",
-      { mode: 0o755 },
-    );
-    writeFileSync(
-      join(malicious, "git"),
-      "#!/bin/sh\nprintf 'malicious-git\\n' > " + JSON.stringify(maliciousGitMarker) + "\nexit 9\n",
-      { mode: 0o755 },
-    );
+    mkdirSync(shims, { recursive: true });
+    mkdirSync(versions, { recursive: true });
     const log = join(fixture, "trusted-npx.log");
-    const npx = writeConfiguredNpx(fixture, "fixture\n", { log, invokeGit: true });
-    writeFakeGit(fixture, trustedGitMarker);
+    const npxTarget = writeConfiguredNpx(versions, "fixture\n", { log, invokeGit: true });
+    const gitTarget = writeFakeGit(versions, trustedGitMarker);
+    const npx = join(shims, "npx");
+    const git = join(shims, "git");
+    symlinkSync(npxTarget, npx);
+    symlinkSync(gitTarget, git);
     const pack = writePack(fixture, validLock());
     try {
-      const result = runPackInstaller(pack, target, npx, {
-        PATH: malicious + pathDelimiter + (process.env.PATH ?? ""),
-      });
+      const result = runPackInstaller(pack, target, npx);
       expect(result.status).toBe(0);
-      expect(existsSync(maliciousNpxMarker)).toBe(false);
-      expect(existsSync(maliciousGitMarker)).toBe(false);
       expect(readFileSync(trustedGitMarker, "utf8")).toBe("trusted-git\n");
       expect(readFileSync(log, "utf8")).toContain("skills@1.5.23");
     } finally {
       rmSync(fixture, { recursive: true, force: true });
     }
   });
+
+  it.each(["target", "pack-root"])(
+    "rejects an active npx candidate in the untrusted %s root",
+    (location) => {
+      const fixture = mkdtempSync(join(tmpdir(), "my-workflow-untrusted-tool-root-"));
+      const target = join(fixture, "target");
+      mkdirSync(target);
+      const pack = writePack(fixture, validLock());
+      const root = location === "target" ? target : pack;
+      writeFileSync(join(root, "npx"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+      try {
+        const result = runPackInstaller(pack, target, join(fixture, "missing-npx"), {
+          PATH: root + pathDelimiter + (process.env.PATH ?? ""),
+        });
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("unsafe npx executable");
+        expect(existsSync(join(target, ".agents"))).toBe(false);
+      } finally {
+        rmSync(fixture, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it("rejects a git candidate in the target root even with an active external npx", () => {
+    const fixture = mkdtempSync(join(tmpdir(), "my-workflow-untrusted-git-root-"));
+    const target = join(fixture, "target");
+    mkdirSync(target);
+    const npx = writeConfiguredNpx(fixture, "fixture\n");
+    writeFileSync(join(target, "git"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+    const pack = writePack(fixture, validLock());
+    try {
+      const result = runPackInstaller(pack, target, npx, {
+        PATH: target + pathDelimiter + dirname(npx) + pathDelimiter + (process.env.PATH ?? ""),
+      });
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("unsafe git executable");
+      expect(existsSync(join(target, ".agents"))).toBe(false);
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a safe-looking shim resolving into the target root", () => {
+    const fixture = mkdtempSync(join(tmpdir(), "my-workflow-untrusted-shim-"));
+    const target = join(fixture, "target");
+    const shims = join(fixture, "shims");
+    mkdirSync(target);
+    mkdirSync(shims);
+    const targetNpx = join(target, "npx");
+    writeFileSync(targetNpx, "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+    symlinkSync(targetNpx, join(shims, "npx"));
+    const pack = writePack(fixture, validLock());
+    try {
+      const result = runPackInstaller(pack, target, join(fixture, "missing-npx"), {
+        PATH: shims + pathDelimiter + (process.env.PATH ?? ""),
+      });
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("unsafe npx executable target");
+      expect(existsSync(join(target, ".agents"))).toBe(false);
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
+  it.each(["broken", "directory", "non-executable"])(
+    "rejects %s active npx candidates",
+    (kind) => {
+      const fixture = mkdtempSync(join(tmpdir(), "my-workflow-invalid-tool-"));
+      const target = join(fixture, "target");
+      const tools = join(fixture, "tools");
+      mkdirSync(target);
+      mkdirSync(tools);
+      const candidate = join(tools, "npx");
+      if (kind === "broken") symlinkSync(join(tools, "missing"), candidate);
+      if (kind === "directory") mkdirSync(candidate);
+      if (kind === "non-executable") writeFileSync(candidate, "#!/bin/sh\nexit 0\n");
+      const pack = writePack(fixture, validLock());
+      try {
+        const result = runPackInstaller(pack, target, join(fixture, "missing-npx"), {
+          PATH: tools + pathDelimiter + (process.env.PATH ?? ""),
+        });
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("invalid npx executable");
+        expect(existsSync(join(target, ".agents"))).toBe(false);
+      } finally {
+        rmSync(fixture, { recursive: true, force: true });
+      }
+    },
+  );
 
   it("rejects an unapproved CLI version in the target lock before invoking the CLI", () => {
     const fixture = mkdtempSync(join(tmpdir(), "my-workflow-lock-cli-version-"));
@@ -845,11 +952,13 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
 
   it("serializes concurrent installers so a completed winner is not rolled back", async () => {
     const fixture = mkdtempSync(join(tmpdir(), "my-workflow-concurrent-"));
+    const target = join(fixture, "target");
+    mkdirSync(target);
     const cli = writeConfiguredNpx(fixture, "fixture\n", { sleep: 0.2 });
     const pack = writePack(fixture, validLock());
     const first = spawn(
       "python3",
-      [join(pack, "scripts/install_security_skills.py"), fixture, "--yes"],
+      [join(pack, "scripts/install_security_skills.py"), target, "--yes"],
       {
         cwd: repositoryRoot,
         env: {
@@ -862,7 +971,7 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
     await new Promise((resolve) => setTimeout(resolve, 60));
     const second = spawnSync(
       "python3",
-      [join(pack, "scripts/install_security_skills.py"), fixture, "--yes"],
+      [join(pack, "scripts/install_security_skills.py"), target, "--yes"],
       {
         cwd: repositoryRoot,
         env: {
@@ -876,7 +985,7 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
     try {
       expect(second.status).toBe(1);
       expect(firstStatus).toBe(0);
-      expect(existsSync(join(fixture, ".agents/skills/security-best-practices/SKILL.md"))).toBe(true);
+      expect(existsSync(join(target, ".agents/skills/security-best-practices/SKILL.md"))).toBe(true);
     } finally {
       rmSync(fixture, { recursive: true, force: true });
     }
