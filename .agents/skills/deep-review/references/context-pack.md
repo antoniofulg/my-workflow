@@ -1,6 +1,6 @@
 # Context Pack
 
-How to assemble `<out>/context-pack.md` — the shared context every reviewer and sweep receives. **Keep it lean: target ≤ ~10 KB.** Every agent in the fan-out reads it in full, so each extra kilobyte is paid once per agent; reviewers dig into the code themselves (rg, git, file reads), so the pack carries only what they cannot cheaply rediscover — intent, review law, and what the linters already caught.
+How to assemble `<out>/context-pack.md` — the shared context every reviewer and sweep receives. **Keep it lean: target ≤ ~10 KB.** Every serialized reviewer reads it in full, so each extra kilobyte is paid once per job; reviewers dig into the code themselves (rg, git, file reads), so the pack carries only what they cannot cheaply rediscover — intent, review law, and what the linters already caught.
 
 ## 1. Repository knowledge — discover before extracting
 
@@ -43,7 +43,7 @@ Extract only rules that can bind a review result (error handling, testing shape,
 }
 ```
 
-`scope` is the path-instruction glob, the instruction file's directory subtree, the selected skill's routed paths, or the learning's scope. To preserve the fan-out budget, the pack lists applied sources/rule counts plus one aggregate not-applicable count; complete per-source decisions stay in rules.json. `build_jobs.py` injects bound rules into defect cohorts, polish cohorts, and sweeps.
+`scope` is the path-instruction glob, the instruction file's directory subtree, the selected skill's routed paths, or the learning's scope. To keep each serialized job focused, the pack lists applied sources/rule counts plus one aggregate not-applicable count; complete per-source decisions stay in rules.json. `build_jobs.py` injects bound rules into defect cohorts, polish cohorts, and sweeps.
 
 ## 3. Linter lanes — run first, suppress overlaps
 

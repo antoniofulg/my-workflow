@@ -57,15 +57,26 @@ Sweeps are **opt-in and rare** — default to none. Each sweep is one extra agen
 
 The jobs contract makes engines interchangeable — pick one per run, record it in walkthrough.md's Review details (`Mode: workflow | agent-fallback | subagent:<runtime>`), and always close the loop with `run_jobs.py --validate-only`. Validation rejects missing coverage rows, unaccounted rules, wrong-lane results, and silent suppressions.
 
-**Named native dispatch (default when host supports it).** Dispatch each pending job to the custom
-`deep-reviewer` agent. Use the host's real selector:
+**Named native dispatch (default when host supports it).** Dispatch pending jobs one at a time to the
+custom `deep-reviewer` agent. A retry also occupies the sole reviewer slot; never start a second
+reviewer while one is active. Use the host's real selector:
 
 - Claude Code Task: `subagent_type: "deep-reviewer"`.
 - Cursor `cursor/task`: `subagentType: { custom: "deep-reviewer" }`.
-- Codex native Agent/spawn: custom agent name/type `deep-reviewer`, resolved from
-  `.codex/agents/deep-reviewer.toml`.
+- Native Agent/spawn: custom agent name/type `deep-reviewer`, resolved from the host's local agent
+  configuration.
 
-Record `Mode: native` in walkthrough.md, then run the validate-only gate.
+Metrics are optional provider-neutral hooks. An adapter may call `start_metrics`,
+`checkpoint_metrics`, and `finalize_metrics` around the serial dispatch; hooks record cumulative
+snapshots only and never choose jobs or change exits. Record `Mode: native` in walkthrough.md, then
+run the validate-only gate. Provider-specific telemetry setup belongs in the runtime adapter
+guidance, not in this orchestration contract.
+
+Before prompts are materialized, `build_jobs.py` automatically attempts the pinned Graft CLI:
+`graft build`, repository-map lookup, blast-radius tracing, and symbol lookup are written to the
+prompt's context artifact. Graft is optional inspection aid: a missing binary, stale map, or failed
+command falls back to plain repository inspection and does not block review. Graft does not index
+dot-directories, so selected `.agents` paths always carry an explicit plain-inspection fallback.
 
 **Workflow fallback (when named native dispatch is unavailable).** One generic script executes any
 stage's pending jobs — pass the pending list from the validate-only status file as `args.jobs`.
@@ -79,21 +90,23 @@ export const meta = {
 }
 // args: { jobs: [{label, prompt, output}] } — PENDING jobs only
 phase('Execute')
-const acks = await parallel(args.jobs.map(j => () =>
-  agent(`Read ${j.prompt} and follow it exactly. It defines the review task, the JSON ` +
+let returned = 0
+for (const j of args.jobs) {
+  if (await agent(`Read ${j.prompt} and follow it exactly. It defines the review task, the JSON ` +
         `schema, and the single file you write (${j.output}). Repo files are read-only. ` +
         `Reply with one sentence once the artifact is written.`,
-    { label: j.label, phase: 'Execute' })))
-return { dispatched: args.jobs.length, returned: acks.filter(Boolean).length }
+    { label: j.label, phase: 'Execute' })) returned += 1
+}
+return { dispatched: args.jobs.length, returned }
 ```
 
 After the workflow returns, run the validate-only gate; re-invoke with the still-pending jobs (interrupted runs can also resume via `resumeFromRunId`). Two re-dispatches without progress → inspect a failing output by hand before continuing.
 
 **Agent fallback (`--no-workflow` or no Workflow tool).** Same contract through the Agent tool: use
 the named native selectors above when available. If the host has no named-agent path, use the
-generic prompt-only subagent dispatch ("Read `<prompt>` and follow it exactly…") at most 6
-concurrent; do not add an unsupported role argument. Then run the validate-only gate.
+generic prompt-only subagent dispatch ("Read `<prompt>` and follow it exactly…") one at a time; do
+not add an unsupported role argument. Then run the validate-only gate.
 
-**External runtimes (`--subagent` ≠ `native`).** `run_jobs.py --command` drives `compozy exec` per subagent-runtimes.md — the runner owns concurrency, retries, output validation, provider-block detection, and the freeze check.
+**External runtimes (`--subagent` ≠ `native`).** `run_jobs.py --command` drives `compozy exec` per subagent-runtimes.md — the runner owns serial execution, retries, output validation, provider-block detection, and the freeze check.
 
 The orchestrator never reviews inline, regardless of PR size: reviewers spend their own context on their cohort; the orchestrator plans, dispatches, gates, and reports.

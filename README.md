@@ -50,23 +50,55 @@ existing project, preserve its filled product paragraph and product-owned docume
 python3 scripts/adopt.py /path/to/target-project
 ```
 
-The workflow config is consumer-owned and optional. Create `.my-workflow.toml` only when a project
-wants a non-default cadence or reusable provider profile:
+The workflow config is consumer-owned and optional. Copy
+`.my-workflow.toml.example` to `.my-workflow.toml` when a project wants to make its cadence or
+provider profile explicit. Adoption never creates or overwrites this file:
 
-```toml
-version = 1
-
-[deep_review]
-cadence = "grouped.3"
-
-[profiles.mixed]
-implementer = "claude"
-verifier = "codex"
-deep_reviewer = "cursor"
+```bash
+cp /path/to/my-workflow/.my-workflow.toml.example /path/to/target-project/.my-workflow.toml
 ```
 
-The resolver defaults to native providers and `grouped.3`; adoption never creates or overwrites
-`.my-workflow.toml`.
+The `cadence` controls the deep-review groups:
+
+- `slice`: one group per slice (`1, 2, 3, 4` → `[1] [2] [3] [4]`).
+- `feature`: one group for the whole feature (`1, 2, 3, 4` → `[1, 2, 3, 4]`).
+- `grouped.N`: consecutive, balanced groups with at most `N` slices (`grouped.3` with four
+  slices → `[1, 2] [3, 4]`).
+
+The resolver uses the native provider for every role unless a named profile or role override is
+selected. Precedence is `CLI override > profile > native provider`:
+
+```bash
+# Native route: all roles use Codex.
+python3 .agents/skills/workflow-config/scripts/workflow_config.py \
+  --root /path/to/target-project --feature register-user-native --slices 4 \
+  --native-provider codex
+
+# Named profile: use the [profiles.mixed] routes from .my-workflow.toml.
+python3 .agents/skills/workflow-config/scripts/workflow_config.py \
+  --root /path/to/target-project --feature register-user-profile --slices 4 \
+  --native-provider codex --profile mixed
+
+# Role overrides win over both the selected profile and the native provider.
+python3 .agents/skills/workflow-config/scripts/workflow_config.py \
+  --root /path/to/target-project --feature register-user-override --slices 4 \
+  --native-provider codex --profile mixed \
+  --override deep_reviewer=cursor --override verifier=claude
+```
+
+The first resolution freezes the effective route and cadence in
+`.specs/features/<feature>/workflow.json`. On resume, the snapshot is authoritative: changes to
+`.my-workflow.toml` or resolver arguments are ignored. Run the resolver with `--refresh` only after
+an explicit human request to resolve the feature again:
+
+```bash
+python3 .agents/skills/workflow-config/scripts/workflow_config.py \
+  --root /path/to/target-project --feature register-user-refresh --slices 4 \
+  --native-provider codex --refresh
+```
+
+The complete contract is in the
+[workflow-config skill](.agents/skills/workflow-config/SKILL.md).
 
 Paste this once to an agent, replacing the pack and target paths:
 

@@ -13,6 +13,13 @@ WORKFLOW_GITIGNORE_ENTRIES = (
     ".deep-review/*",
     "!.deep-review/learnings.md",
     ".specs/features/",
+    "graft/",
+)
+
+WORKFLOW_SEARCHIGNORE_ENTRIES = (
+    "!graft/",
+    "graft/.cache/",
+    "graft/.graph/",
 )
 
 COPY_PATHS = [
@@ -121,19 +128,19 @@ def copy_agents(src: Path, dest: Path) -> None:
         copy_missing(origin, target)
 
 
-def merge_gitignore(dest: Path) -> None:
-    target = dest / ".gitignore"
+def merge_ignore_file(dest: Path, filename: str, entries: tuple[str, ...]) -> None:
+    target = dest / filename
     existing = target.read_text(encoding="utf-8") if target.exists() else ""
     lines = existing.splitlines()
-    managed = [line for line in lines if line in WORKFLOW_GITIGNORE_ENTRIES]
-    if managed == list(WORKFLOW_GITIGNORE_ENTRIES):
+    managed = [line for line in lines if line in entries]
+    if managed == list(entries):
         return
 
-    kept = [line for line in lines if line not in WORKFLOW_GITIGNORE_ENTRIES]
+    kept = [line for line in lines if line not in entries]
     merged = "\n".join(kept).rstrip()
     if merged:
         merged += "\n"
-    merged += "\n".join(WORKFLOW_GITIGNORE_ENTRIES) + "\n"
+    merged += "\n".join(entries) + "\n"
     target.write_text(merged, encoding="utf-8")
 
 
@@ -171,7 +178,8 @@ def main(argv: list[str]) -> None:
             continue
         copy_missing(origin, dest / rel)
     copy_agents(src, dest)
-    merge_gitignore(dest)
+    merge_ignore_file(dest, ".gitignore", WORKFLOW_GITIGNORE_ENTRIES)
+    merge_ignore_file(dest, ".ignore", WORKFLOW_SEARCHIGNORE_ENTRIES)
     write_claude(dest)
     link_claude_skills(dest)
     print(f"adopted workflow into {dest}")
