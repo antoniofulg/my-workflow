@@ -72,6 +72,16 @@ if os.environ.get("FAKE_SKILLS_SLEEP"):
   return cli;
 }
 
+function writeFailingCli(directory: string): string {
+  const cli = join(directory, "failing-skills-cli.py");
+  writeFileSync(
+    cli,
+    "#!/usr/bin/env python3\nimport sys\nsys.exit(7)\n",
+    { mode: 0o755 },
+  );
+  return cli;
+}
+
 function writePack(directory: string, lock: object): string {
   const pack = join(directory, "pack");
   mkdirSync(join(pack, "scripts"), { recursive: true });
@@ -259,6 +269,51 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
     }
   });
 
+  it("fails closed when the external CLI is unavailable and preserves the target", () => {
+    const fixture = mkdtempSync(join(tmpdir(), "my-workflow-cli-unavailable-"));
+    const target = join(fixture, "target");
+    mkdirSync(target);
+    const pack = writePack(fixture, validLock());
+    const consumerBytes = Buffer.from([3, 1, 4, 1, 5]);
+    writeFileSync(join(target, "consumer.bin"), consumerBytes);
+    const lockBytes = Buffer.from('{"version":1,"skills":{"consumer":{"source":"local"}}}\n');
+    writeFileSync(join(target, "skills-lock.json"), lockBytes);
+    try {
+      const result = runPackInstaller(pack, target, join(fixture, "missing-cli"));
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("Security skills unavailable");
+      expect(result.stderr).toContain("Security gate remains uncovered");
+      expect(readFileSync(join(target, "consumer.bin"))).toEqual(consumerBytes);
+      expect(readFileSync(join(target, "skills-lock.json"))).toEqual(lockBytes);
+      expect(existsSync(join(target, ".agents"))).toBe(false);
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
+  it("fails closed when the external CLI returns non-zero and preserves the target", () => {
+    const fixture = mkdtempSync(join(tmpdir(), "my-workflow-cli-failure-"));
+    const target = join(fixture, "target");
+    mkdirSync(target);
+    const pack = writePack(fixture, validLock());
+    const cli = writeFailingCli(fixture);
+    const consumerBytes = Buffer.from([9, 2, 6, 5, 3, 5]);
+    writeFileSync(join(target, "consumer.bin"), consumerBytes);
+    const lockBytes = Buffer.from('{"version":1,"skills":{"consumer":{"source":"local"}}}\n');
+    writeFileSync(join(target, "skills-lock.json"), lockBytes);
+    try {
+      const result = runPackInstaller(pack, target, cli);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("Security skills unavailable");
+      expect(result.stderr).toContain("Security gate remains uncovered");
+      expect(readFileSync(join(target, "consumer.bin"))).toEqual(consumerBytes);
+      expect(readFileSync(join(target, "skills-lock.json"))).toEqual(lockBytes);
+      expect(existsSync(join(target, ".agents"))).toBe(false);
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
   it("recovers a dead target lock and removes it after a successful transaction", () => {
     const fixture = mkdtempSync(join(tmpdir(), "my-workflow-stale-lock-"));
     const cli = writeFakeCli(fixture);
@@ -408,6 +463,28 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
     try {
       const result = runPackInstaller(pack, target, cli);
       expect(result.status).toBe(1);
+      expect(existsSync(join(target, ".agents"))).toBe(false);
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
+  it.each([
+    ["sourceType", "local"],
+    ["skillPath", "skills/attacker/SKILL.md"],
+    ["ref", "0123456789012345678901234567890123456789"],
+  ] as const)("rejects substituted %s before publishing", (field, value) => {
+    const fixture = mkdtempSync(join(tmpdir(), "my-workflow-provenance-field-"));
+    const target = join(fixture, "target");
+    mkdirSync(target);
+    const cli = writeFakeCli(fixture);
+    const lock = validLock();
+    (lock.skills as Record<string, Record<string, string>>)["security-review"][field] = value;
+    const pack = writePack(fixture, lock);
+    try {
+      const result = runPackInstaller(pack, target, cli);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("Security skills unavailable");
       expect(existsSync(join(target, ".agents"))).toBe(false);
     } finally {
       rmSync(fixture, { recursive: true, force: true });

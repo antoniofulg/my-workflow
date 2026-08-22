@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import secrets
 import shutil
 import stat
@@ -22,14 +23,17 @@ SKILLS = {
     "security-best-practices": (
         "openai/skills",
         "skills/.curated/security-best-practices/SKILL.md",
+        "49f948faa9258a0c61caceaf225e179651397431",
     ),
     "security-threat-model": (
         "openai/skills",
         "skills/.curated/security-threat-model/SKILL.md",
+        "49f948faa9258a0c61caceaf225e179651397431",
     ),
     "security-review": (
         "github/awesome-copilot",
         "skills/security-review/SKILL.md",
+        "83561bd7d8a46fcda0581aedabdf8eac7cb196b6",
     ),
 }
 
@@ -59,7 +63,7 @@ def read_locked_skills(pack_root: Path) -> list[LockedSkill]:
         raise InstallationError("skills-lock.json has no skills object")
 
     locked: list[LockedSkill] = []
-    for name, (expected_source, expected_path) in SKILLS.items():
+    for name, (expected_source, expected_path, expected_ref) in SKILLS.items():
         entry = entries.get(name)
         if not isinstance(entry, dict):
             raise InstallationError(f"missing allowlisted lock entry: {name}")
@@ -74,6 +78,8 @@ def read_locked_skills(pack_root: Path) -> list[LockedSkill]:
         ref = entry.get("ref")
         if not isinstance(ref, str) or len(ref) != 40 or any(c not in "0123456789abcdef" for c in ref):
             raise InstallationError(f"{name} must use a lowercase 40-hex commit ref")
+        if ref != expected_ref:
+            raise InstallationError(f"{name} has an unapproved commit ref")
         computed_hash = entry.get("computedHash")
         if not isinstance(computed_hash, str) or len(computed_hash) != 64 or any(
             c not in "0123456789abcdef" for c in computed_hash
@@ -309,6 +315,78 @@ def rollback_paths(target: Path, affected: list[str], snapshot: Path) -> None:
         restore_path(target, relative, snapshot)
 
 
+def merge_managed_lock_entries(content: str, locked: list[LockedSkill]) -> str:
+    """Replace only managed skill members while retaining unrelated member bytes."""
+
+    decoder = json.JSONDecoder()
+    match = re.search(r'"skills"\s*:', content)
+    if not match:
+        raise InstallationError("installed lock has no skills object")
+    object_start = match.end()
+    while object_start < len(content) and content[object_start].isspace():
+        object_start += 1
+    try:
+        skills, object_end = decoder.raw_decode(content, object_start)
+    except json.JSONDecodeError as exc:
+        raise InstallationError(f"installed lock has invalid skills object: {exc}") from exc
+    if not isinstance(skills, dict):
+        raise InstallationError("installed lock has no skills object")
+
+    cursor = object_start + 1
+    members: list[tuple[str, str]] = []
+    while True:
+        while cursor < object_end and content[cursor].isspace():
+            cursor += 1
+        if cursor >= object_end - 1:
+            break
+        key_start = cursor
+        try:
+            key, cursor = decoder.raw_decode(content, cursor)
+        except json.JSONDecodeError as exc:
+            raise InstallationError(f"installed lock has invalid skill key: {exc}") from exc
+        while cursor < object_end and content[cursor].isspace():
+            cursor += 1
+        if cursor >= object_end or content[cursor] != ":":
+            raise InstallationError("installed lock has invalid skill entry")
+        cursor += 1
+        while cursor < object_end and content[cursor].isspace():
+            cursor += 1
+        try:
+            _, value_end = decoder.raw_decode(content, cursor)
+        except json.JSONDecodeError as exc:
+            raise InstallationError(f"installed lock has invalid skill entry: {exc}") from exc
+        members.append((key, content[key_start:value_end]))
+        cursor = value_end
+        while cursor < object_end and content[cursor].isspace():
+            cursor += 1
+        if cursor < object_end and content[cursor] == ",":
+            cursor += 1
+        elif cursor < object_end - 1:
+            raise InstallationError("installed lock has invalid skill separators")
+
+    managed_names = {skill.name for skill in locked}
+    preserved = ["    " + raw for name, raw in members if name not in managed_names]
+    for skill in locked:
+        entry = {
+            "source": skill.source,
+            "sourceType": "github",
+            "skillPath": skill.skill_path,
+            "cliVersion": skill.cli_version,
+            "ref": skill.ref,
+            "computedHash": skill.computed_hash,
+        }
+        raw = json.dumps({skill.name: entry}, indent=2)[1:-1].strip()
+        preserved.append("\n".join("  " + line for line in raw.splitlines()))
+
+    replacement = "{\n" + ",\n".join(preserved) + "\n  }"
+    merged = content[:object_start] + replacement + content[object_end:]
+    try:
+        json.loads(merged)
+    except json.JSONDecodeError as exc:
+        raise InstallationError(f"merged lock is invalid: {exc}") from exc
+    return merged
+
+
 def merge_lock(target: Path, locked: list[LockedSkill]) -> None:
     target_fd = open_directory_chain(target, tuple())
     try:
@@ -325,24 +403,17 @@ def merge_lock(target: Path, locked: list[LockedSkill]) -> None:
             document = json.loads(content)
         except FileNotFoundError:
             document = {"version": LOCK_VERSION, "skills": {}}
+            content = json.dumps(document, indent=2) + "\n"
         except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise InstallationError(f"installed lock is invalid: {exc}") from exc
         if not isinstance(document, dict) or not isinstance(document.get("skills"), dict):
             raise InstallationError("installed lock has no skills object")
         document["version"] = document.get("version", LOCK_VERSION)
-        for skill in locked:
-            document["skills"][skill.name] = {
-                "source": skill.source,
-                "sourceType": "github",
-                "skillPath": skill.skill_path,
-                "cliVersion": skill.cli_version,
-                "ref": skill.ref,
-                "computedHash": skill.computed_hash,
-            }
+        merged_content = merge_managed_lock_entries(content, locked)
         staged_handle, staged_name = tempfile.mkstemp(prefix="skills-lock-", dir=target)
         try:
             with os.fdopen(staged_handle, "w", encoding="utf-8") as staged_file:
-                staged_file.write(json.dumps(document, indent=2) + "\n")
+                staged_file.write(merged_content)
                 staged_file.flush()
                 os.fsync(staged_file.fileno())
             os.replace(staged_name, "skills-lock.json", dst_dir_fd=target_fd)
