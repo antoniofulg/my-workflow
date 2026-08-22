@@ -188,14 +188,19 @@ def reject_global_tlc_paths(dest: Path) -> None:
 
 
 def main(argv: list[str]) -> None:
-    if len(argv) != 2:
-        die("usage: adopt.py <target-directory>")
-    dest = Path(argv[1]).resolve()
+    args = argv[1:]
+    skip_agents = args[:1] == ["--skip-agents"]
+    if skip_agents:
+        args = args[1:]
+    if len(args) != 1:
+        die("usage: adopt.py [--skip-agents] <target-directory>")
+    dest = Path(args[0]).resolve()
     src = Path(__file__).resolve().parent.parent
     if not dest.is_dir():
         die(f"not a directory: {dest}")
     reject_global_tlc_paths(dest)
-    adopt_agents(src, dest)
+    if not skip_agents:
+        adopt_agents(src, dest)
     for rel in COPY_PATHS:
         origin = src / rel
         if not origin.exists():
@@ -209,7 +214,8 @@ def main(argv: list[str]) -> None:
     copy_agents(src, dest)
     merge_ignore_file(dest, ".gitignore", WORKFLOW_GITIGNORE_ENTRIES)
     merge_ignore_file(dest, ".ignore", WORKFLOW_SEARCHIGNORE_ENTRIES)
-    write_claude(dest)
+    if not skip_agents:
+        write_claude(dest)
     link_claude_skills(dest)
     print(f"adopted workflow into {dest}")
 

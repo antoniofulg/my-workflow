@@ -50,6 +50,16 @@ existing project, preserve its filled product paragraph and product-owned docume
 python3 scripts/adopt.py /path/to/target-project
 ```
 
+For an existing project with a filled product paragraph, pass `--skip-agents` to preserve
+`AGENTS.md` and `CLAUDE.md` byte-for-byte while installing the rest of the workflow:
+
+```bash
+python3 scripts/adopt.py --skip-agents /path/to/target-project
+```
+
+This is an explicit opt-in. It skips only the two agent instruction files; merge the workflow loop
+into `AGENTS.md` and update `CLAUDE.md` manually later.
+
 Prerequisites: the target directory must already exist, and `adopt.py` requires Python 3. Adoption
 does not require a Git `HEAD`. Before running the workflow-config resolver, the target must be a Git
 repository with at least one commit. Node.js and npm are needed only to validate this source pack's
@@ -119,10 +129,13 @@ invent a command or install a QA framework during adoption.
 Before writing, report the managed paths and every target path that could be replaced. Preserve
 product-owned product, architecture, design, and stack documentation. For a new project, replace
 the AGENTS.md product stencil and create product docs only as the product earns them. For an
-existing project, let the adoption script refuse a filled product paragraph and merge the delivery
-loop by hand. Preserve existing agent packets and model pins; add only missing packets.
+existing project, the default command refuses a filled product paragraph; use `--skip-agents` when
+you want the rest of the workflow installed first, then merge the delivery loop into `AGENTS.md`
+and update `CLAUDE.md` by hand. Preserve existing agent packets and model pins; add only missing
+packets.
 
 Run `python3 /path/to/my-workflow/scripts/adopt.py /path/to/target-project` only after that review.
+For a filled product paragraph, use `--skip-agents` as described above.
 If `docs/qa/README.md` is absent, create it. If it exists, merge only newly discovered facts into
 the existing profile; never overwrite existing content. Record the discovered interfaces, existing
 runner or manual adapter, start and health authority, authentication, fixtures, cleanup, and
@@ -137,9 +150,9 @@ record `no user-visible change` and do not run QA. Activate `tlc-spec-driven` an
 ```
 
 The script merges the workflow-owned ignore entries, copies missing agent packets, and creates the
-QA profile only when the target does not already have one. It refuses to overwrite a non-stencil
-`AGENTS.md` product paragraph. Always review the resulting diff before accepting managed-path
-replacements.
+QA profile only when the target does not already have one. By default it refuses to overwrite a
+non-stencil `AGENTS.md` product paragraph. With `--skip-agents`, it leaves both `AGENTS.md` and
+`CLAUDE.md` untouched. Always review the resulting diff before accepting managed-path replacements.
 
 ## Skills
 
