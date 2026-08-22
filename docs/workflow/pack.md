@@ -16,6 +16,13 @@ The workflow ships six local capabilities:
 Canonical copies: `.agents/skills/`. Claude: symlinks in `.claude/skills/`. Cursor / Codex /
 OpenCode consume `.agents`. Do not add `.cursor/skills`.
 
+The security skills are external dependencies, not bundled capabilities. The pinned entries for
+`security-best-practices`, `security-threat-model`, and `security-review` live in `skills-lock.json`.
+Adoption prints a separate command for their explicitly authorized installation into the same
+`.agents/skills/` tree. The command uses reviewed commit refs and hashes; it does not install
+`latest` or update dependencies automatically. Until it succeeds, the security gate remains
+uncovered.
+
 Planner / implementer / explorer / verifier are four windows. Packet text lives on the agent files;
 spawn models live there too. Same `name` in `.cursor/agents/`, `.claude/agents/`, `.codex/agents/`.
 Real files, no symlinks. `CLAUDE.md` is `@AGENTS.md`. Explorer is read-only and handles product-tree
@@ -45,6 +52,10 @@ into existing folders without overwriting local files or model pins; a fresh des
 packets. Adoption rejects Makefile references to machine-global `$(HOME)/.claude/...`,
 `${HOME}/.claude/...`, `$HOME/.claude/...`, or `~/.claude/...`; point TLC gates at the adopted
 `.agents/skills/tlc-spec-driven/scripts/...` path instead.
+
+Adoption does not install the external security dependencies. After the bundled workflow is
+adopted, it prints the exact project-local command to run with `--yes`. Review and authorize that
+second step before allowing network access or writes to the consumer.
 
 The consuming project owns product docs, architecture, design, stack, and `make check`.
 

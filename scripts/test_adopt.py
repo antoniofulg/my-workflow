@@ -59,6 +59,31 @@ def test_deep_review_skill_adoption_and_artifact_hygiene() -> None:
         shutil.rmtree(tmp)
 
 
+def test_external_security_step_is_printed_without_installing_security_trees() -> None:
+    tmp = Path(tempfile.mkdtemp()).resolve()
+    try:
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            run(tmp)
+        text = output.getvalue()
+        for name in (
+            "security-best-practices",
+            "security-threat-model",
+            "security-review",
+        ):
+            assert not (tmp / ".agents/skills" / name).exists()
+        installer = (ROOT / "scripts/install_security_skills.py").resolve()
+        assert (
+            f"After explicit authorization, run exactly: python3 {installer} {tmp} --yes"
+            in text
+        )
+        assert "external dependencies, not bundled skills" in text
+        assert "security gate remains uncovered" in text
+        assert not (tmp / ".my-workflow-security-skills.lock").exists()
+    finally:
+        shutil.rmtree(tmp)
+
+
 def test_global_tlc_paths_reject_without_mutation() -> None:
     roots = (
         "$(HOME)/.claude/skills/tlc-spec-driven/scripts",
@@ -313,6 +338,7 @@ if __name__ == "__main__":
     test_gitignore_rules_merge_without_overwrite()
     test_graft_ignore_contract_and_search_visibility()
     test_deep_review_skill_adoption_and_artifact_hygiene()
+    test_external_security_step_is_printed_without_installing_security_trees()
     test_global_tlc_paths_reject_without_mutation()
     test_project_local_tlc_path_is_accepted()
     print("ok")

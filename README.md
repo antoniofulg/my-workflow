@@ -40,6 +40,18 @@ authors and communities:
 The QA skills use their own wording and structure for this workflow; the links above identify the
 inspiration and do not claim upstream authorship.
 
+The workflow references three external security skills:
+
+- `security-best-practices` for secure-by-default language and framework guidance;
+- `security-threat-model` for repository-grounded threat models;
+- `security-review` for high-confidence residual vulnerability reviews.
+
+They are not bundled in this pack. Their GitHub source, canonical path, reviewed commit, and
+content hash are authoritative in [`skills-lock.json`](skills-lock.json). Adoption prints a
+separate installer command; run it only after explicit authorization because it uses the network
+and writes the consumer's `.agents/skills/` tree. It does not install `latest` or silently update
+these dependencies.
+
 ## Adopt the workflow
 
 Copy the loop, not the product. For a new project, replace the stencil paragraph under **What this
@@ -153,6 +165,8 @@ The script merges the workflow-owned ignore entries, copies missing agent packet
 QA profile only when the target does not already have one. By default it refuses to overwrite a
 non-stencil `AGENTS.md` product paragraph. With `--skip-agents`, it leaves both `AGENTS.md` and
 `CLAUDE.md` untouched. Always review the resulting diff before accepting managed-path replacements.
+Adoption itself does not install external security skills. It prints the exact command for the
+separate authorized step and leaves the security gate uncovered until that command succeeds.
 
 ## Skills
 
@@ -161,9 +175,18 @@ Codex and OpenCode consume `.agents`. Do not add `.cursor/skills` or other agent
 project-owned `qa-plan` and `qa-execute` skills use the consuming project's profile in
 `docs/qa/README.md`; they do not select a framework or replace the project's gate.
 
-`adopt.py` installs and updates the bundled TLC, Ponytail, and Deep Review skills. No external skill
-installer is needed. Keep the canonical copies in `.agents/skills/` and the Claude Code symlinks in
-`.claude/skills/`.
+`adopt.py` installs and updates only the bundled TLC, Ponytail, Deep Review, QA, workflow-config,
+and autonomous skills. Keep those canonical copies in `.agents/skills/` and the Claude Code
+symlinks in `.claude/skills/`. The three external security skills are a separate authorized step:
+
+```bash
+python3 /path/to/my-workflow/scripts/install_security_skills.py \
+  /path/to/target-project --yes
+```
+
+The installer uses only the reviewed refs and hashes in `skills-lock.json`; it does not resolve
+`latest` or perform automatic updates. Review its printed plan and authorize the command before
+running it. Until it succeeds, do not treat the security gate as covered.
 
 `autonomous` is vendored here. `CLAUDE.md` is the one line `@AGENTS.md` (not a symlink). Planner,
 implementer, explorer and verifier packets live under `.cursor/agents/`, `.claude/agents/` and
@@ -193,4 +216,3 @@ browser, API, CLI, mobile, or manual QA runner.
 - Library and stack skills
 - A product skeleton, Makefile, port scheme, or worktree-slot arithmetic
 - Retired orchestration history
-- Threat-model and security-review *skills* (the process stays in `docs/guidelines/SECURITY.md`)

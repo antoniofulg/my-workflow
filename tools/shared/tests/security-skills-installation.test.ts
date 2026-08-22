@@ -111,6 +111,33 @@ function fixtureHash(content: string): string {
 }
 
 describe("external security skill installation", { timeout: 30_000 }, () => {
+  it("keeps external provenance documented without vendoring security trees", () => {
+    const readme = readFileSync(join(repositoryRoot, "README.md"), "utf8");
+    expect(readme).toContain("external security skills");
+    expect(readme).toContain("explicit authorization");
+    expect(readme).toContain("skills-lock.json");
+    expect(readme).not.toContain("bundle also includes three security skills");
+  });
+
+  it("adopts bundled workflow without security trees and prints the authorized second step", () => {
+    const fixture = mkdtempSync(join(tmpdir(), "my-workflow-adopt-"));
+    try {
+      const result = spawnSync("python3", [join(repositoryRoot, "scripts/adopt.py"), fixture], {
+        cwd: repositoryRoot,
+        encoding: "utf8",
+      });
+      expect(result.status).toBe(0);
+      for (const name of Object.keys(securitySkills)) {
+        expect(existsSync(join(fixture, ".agents/skills", name))).toBe(false);
+      }
+      expect(result.stdout).toContain("install_security_skills.py");
+      expect(result.stdout).toContain(`${fixture} --yes`);
+      expect(result.stdout).toContain("security gate remains uncovered");
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
   it("keeps only pinned external provenance and no vendored security trees", () => {
     const lock = JSON.parse(readFileSync(join(repositoryRoot, "skills-lock.json"), "utf8"));
     for (const [name, expected] of Object.entries(securitySkills)) {
