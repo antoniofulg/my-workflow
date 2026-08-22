@@ -35,10 +35,8 @@ change, and every remediation moves what the next round reads, so a large diff f
 rounds over one behaviour is a signal about that behaviour; twenty over a finished feature is the
 size talking.
 
-The public hierarchy is `Feature -> Vertical Slice -> Task`. The `workflow-config` resolver reads `.my-workflow.toml` before dispatch. It accepts `slice`, `feature`, or
-`grouped.N`; absent config means `grouped.3`. Grouped reviews are consecutive and balanced, so a
-four-slice feature with `grouped.3` reviews `2+2`, not `3+1`. One pull request and one actor per
-role remain unchanged.
+Read `.agents/skills/workflow-config/SKILL.md` before dispatch; its resolver owns cadence modes,
+default, and balanced groups. One pull request and one actor per role remain unchanged.
 
 **Stages do not loop back into each other.** A deep-review finding never sends work back to
 Technical Verifier. The deep-review cap ends review rounds; it does not revoke the approval for

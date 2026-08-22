@@ -39,7 +39,7 @@ feature      QA session (no product code)
 then         full gate → pull request
 ```
 
-Public hierarchy: `Feature -> Vertical Slice -> Task`. Resolve cadence and delegated providers
-with the canonical `workflow-config` skill before dispatch.
+Public hierarchy: `Feature -> Vertical Slice -> Task`. Read
+`.agents/skills/workflow-config/SKILL.md` before dispatch; it resolves cadence and delegated providers.
 
 A filed issue skips the ceremony: `implement → scoped gate → one commit`.

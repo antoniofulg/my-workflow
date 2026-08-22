@@ -8,8 +8,8 @@ nit changes the diff; the next round finds new nits. The loop is unbounded by co
 
 [REVIEW-ROUNDS.md](../guidelines/REVIEW-ROUNDS.md) is the protocol. This page is the choice.
 
-The public hierarchy is `Feature -> Vertical Slice -> Task`. Before dispatch, `workflow-config`
-resolves `slice`, `feature`, or balanced `grouped.N` cadence; absent config defaults to `grouped.3`.
+The public hierarchy is `Feature -> Vertical Slice -> Task`. Before dispatch, read
+`.agents/skills/workflow-config/SKILL.md`; it resolves the feature's review groups.
 
 ## One Verifier role, several phases
 

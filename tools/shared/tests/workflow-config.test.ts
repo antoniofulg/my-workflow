@@ -68,6 +68,12 @@ describe("workflow configuration skill", () => {
         repositoryRoot,
         ".agents/skills/workflow-config/scripts/workflow_config.py",
       );
+      const agentNames: Record<string, string> = {
+        implementer: "implementer",
+        verifier: "verifier",
+        explorer: "explorer",
+        deep_reviewer: "deep-reviewer",
+      };
       for (const provider of providers) {
         const nativeProvider = provider === "codex" ? "claude" : "codex";
         for (const role of resolverRoles) {
@@ -92,12 +98,14 @@ describe("workflow configuration skill", () => {
           ) as { roles: Record<string, { provider: string; agent_file: string }> };
           const route = snapshot.roles[role];
           expect(route.provider).toBe(provider);
-          expect(typeof route.agent_file).toBe("string");
+          const extension = provider === "codex" ? "toml" : "md";
+          const expectedAgentFile = `.${provider}/agents/${agentNames[role]}.${extension}`;
+          expect(route.agent_file).toBe(expectedAgentFile);
           expect(existsSync(join(temporaryRoot, route.agent_file))).toBe(true);
         }
       }
     } finally {
       rmSync(temporaryRoot, { recursive: true, force: true });
     }
-  });
+  }, 30_000);
 });
