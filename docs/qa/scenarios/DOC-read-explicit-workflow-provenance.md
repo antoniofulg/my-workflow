@@ -11,8 +11,8 @@ bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-22-external-security-skills/session.md
-last_report: docs/qa/reports/2026-08-22-external-security-skills.md
+evidence: docs/qa/evidence/2026-08-22-external-security-skills/session.md; docs/qa/evidence/2026-08-22-version-feature-specs-handoff/session.md
+last_report: docs/qa/reports/2026-08-22-version-feature-specs-handoff.md
 overlaps:
 ---
 

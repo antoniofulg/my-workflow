@@ -4,15 +4,15 @@ area: ADP
 title: Adopt the workflow without replacing consumer-owned state
 persona: Workflow adopter
 journey: J-adopt-workflow
-expected: A fresh target receives the workflow resolver, tools/ad-index.py, and the workflow tour without the pack-only guide or dead links, while re-adoption preserves its workflow config, QA profile, model pins, consumer-modified tools/ad-index.py, and unrelated ignore entries byte-for-byte.
-entry_points: README.md#adopt-the-workflow; scripts/adopt.py; .my-workflow.toml
-qa_status: untested
+expected: A fresh target receives the workflow resolver, tools/ad-index.py, and the workflow tour without the pack-only guide or dead links; re-adoption preserves consumer-owned state; and projects using worktree handoffs or spec-reading gates are told to version their relevant feature specs.
+entry_points: README.md#adopt-the-workflow; docs/guidelines/ARTIFACT-LIFECYCLE.md; scripts/adopt.py; .my-workflow.toml
+qa_status: pass
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence:
-last_report:
+evidence: docs/qa/evidence/2026-08-22-preserve-consumer-ad-index/session.md; docs/qa/evidence/2026-08-22-source-only-pack-guide/session.md; docs/qa/evidence/2026-08-22-version-feature-specs-handoff/session.md
+last_report: docs/qa/reports/2026-08-22-version-feature-specs-handoff.md
 overlaps:
 ---
 
@@ -36,4 +36,5 @@ a consumer-modified `tools/ad-index.py`. The bundled-skill and release-contract 
 For issue #38, the adoption contract keeps `.specs/features/` ignored by default. A consuming
 project that hands work off through Git worktrees or has a gate/CI job read the specs must remove
 the managed ignore entry and version the relevant feature tree; adoption does not detect or migrate
-that choice. This documentation change resets the scenario for the next QA walk.
+that choice. QA on 2026-08-22 confirmed the default ignore, manual unignore, versioned spec handoff
+to a sibling worktree, and a clean clone's independent read.
