@@ -2,7 +2,7 @@
 
 ## Skills
 
-The workflow ships five local capabilities:
+The workflow ships six local capabilities:
 
 | Skill | Role |
 | --- | --- |
@@ -11,6 +11,7 @@ The workflow ships five local capabilities:
 | `qa-execute` | Walks those journeys through the consuming project's existing adapter. |
 | `ponytail` (`full`) | Shortest code that works. Stdlib before a dependency. |
 | `autonomous` | Unattended run: classify feature vs filed issue, settle or halt, merge only when the full gate, blocking findings, and scenarios allow it. |
+| `deep-review` | Multi-lane review orchestration, context assembly, findings, and rendered review artifacts. |
 
 Canonical copies: `.agents/skills/`. Claude: symlinks in `.claude/skills/`. Cursor / Codex /
 OpenCode consume `.agents`. Do not add `.cursor/skills`.
@@ -38,9 +39,12 @@ Empty on purpose. Machinery only: operating schema, `raw/` README, stub indexes,
 
 `python3 scripts/adopt.py <target>` copies the loop into another repo and refuses to overwrite a
 non-stencil **What this project is** paragraph. It writes `@AGENTS.md` as `CLAUDE.md`, copies the
-two project-owned QA skills, and creates `docs/qa/README.md` only when the target has no profile.
-Agent folders copy missing packet files into existing folders without overwriting local files or
-model pins; a fresh destination gets all packets.
+bundled skills (including `deep-review`) without shipping `__pycache__` or `*.pyc`, and creates
+`docs/qa/README.md` only when the target has no profile. Agent folders copy missing packet files
+into existing folders without overwriting local files or model pins; a fresh destination gets all
+packets. Adoption rejects Makefile references to machine-global `$(HOME)/.claude/...`,
+`${HOME}/.claude/...`, `$HOME/.claude/...`, or `~/.claude/...`; point TLC gates at the adopted
+`.agents/skills/tlc-spec-driven/scripts/...` path instead.
 
 The consuming project owns product docs, architecture, design, stack, and `make check`.
 

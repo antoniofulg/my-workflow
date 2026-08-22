@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
+import os
 import shutil
 import subprocess
 import sys
@@ -16,6 +19,81 @@ ROOT = Path(__file__).resolve().parent.parent
 
 def run(dest: Path) -> None:
     main(["adopt.py", str(dest)])
+
+
+def snapshot_tree(root: Path) -> dict[str, tuple[str, bytes | str | None]]:
+    snapshot: dict[str, tuple[str, bytes | str | None]] = {}
+    for path in sorted(root.rglob("*")):
+        relative = str(path.relative_to(root))
+        if path.is_symlink():
+            snapshot[relative] = ("symlink", os.readlink(path))
+        elif path.is_dir():
+            snapshot[relative] = ("directory", None)
+        else:
+            snapshot[relative] = ("file", path.read_bytes())
+    return snapshot
+
+
+def test_deep_review_skill_adoption_and_artifact_hygiene() -> None:
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        run(tmp)
+        for path in (
+            ".agents/skills/deep-review/SKILL.md",
+            ".agents/skills/deep-review/scripts/build_jobs.py",
+            ".agents/skills/deep-review/references/context-pack.md",
+            ".agents/skills/deep-review/assets/PROMPT.md",
+        ):
+            assert (tmp / path).is_file(), path
+        assert (tmp / ".claude/skills/deep-review").is_symlink()
+        assert os.readlink(tmp / ".claude/skills/deep-review") == (
+            "../../.agents/skills/deep-review"
+        )
+        assert not list((tmp / ".agents/skills/deep-review").rglob("__pycache__"))
+        assert not list((tmp / ".agents/skills/deep-review").rglob("*.pyc"))
+    finally:
+        shutil.rmtree(tmp)
+
+
+def test_global_tlc_paths_reject_without_mutation() -> None:
+    roots = (
+        "$(HOME)/.claude/skills/tlc-spec-driven/scripts",
+        "${HOME}/.claude/skills/tlc-spec-driven/scripts",
+        "$HOME/.claude/skills/tlc-spec-driven/scripts",
+        "~/.claude/skills/tlc-spec-driven/scripts",
+    )
+    for root in roots:
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            (tmp / "consumer.txt").write_text("consumer\n", encoding="utf-8")
+            (tmp / "Makefile").write_text(f"TLC := {root}/validate_tasks.py\n", encoding="utf-8")
+            before = snapshot_tree(tmp)
+            stderr = io.StringIO()
+            with contextlib.redirect_stderr(stderr):
+                try:
+                    run(tmp)
+                except SystemExit as exc:
+                    assert exc.code == 1
+                else:
+                    raise AssertionError(f"expected rejection for {root}")
+            assert snapshot_tree(tmp) == before
+            assert "use .agents/skills/tlc-spec-driven/scripts/" in stderr.getvalue()
+        finally:
+            shutil.rmtree(tmp)
+
+
+def test_project_local_tlc_path_is_accepted() -> None:
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        (tmp / "Makefile").write_text(
+            "TLC := .agents/skills/tlc-spec-driven/scripts/validate_tasks.py\n",
+            encoding="utf-8",
+        )
+        run(tmp)
+        assert (tmp / ".agents/skills/tlc-spec-driven/SKILL.md").is_file()
+        assert (tmp / "Makefile").read_text(encoding="utf-8").startswith("TLC := .agents/")
+    finally:
+        shutil.rmtree(tmp)
 
 
 def test_fresh_and_refuse() -> None:
@@ -192,4 +270,7 @@ if __name__ == "__main__":
     test_agent_pins_survive_readopt()
     test_gitignore_rules_merge_without_overwrite()
     test_graft_ignore_contract_and_search_visibility()
+    test_deep_review_skill_adoption_and_artifact_hygiene()
+    test_global_tlc_paths_reject_without_mutation()
+    test_project_local_tlc_path_is_accepted()
     print("ok")
