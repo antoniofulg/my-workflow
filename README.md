@@ -65,8 +65,7 @@ verifier = "codex"
 deep_reviewer = "cursor"
 ```
 
-The resolver defaults to native providers and `grouped.3`; adoption never creates or overwrites
-`.my-workflow.toml`.
+The resolver applies this file; adoption never creates or overwrites `.my-workflow.toml`.
 
 Paste this once to an agent, replacing the pack and target paths:
 

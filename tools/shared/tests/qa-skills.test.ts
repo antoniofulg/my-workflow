@@ -343,14 +343,51 @@ describe("configurable review policy", () => {
   it("uses the canonical hierarchy and resolved deep-review groups", () => {
     const agents = readRepositoryFile("AGENTS.md");
     const reviewRounds = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
+    const reviews = readRepositoryFile("docs/workflow/reviews.md");
     const autonomous = readRepositoryFile(".agents/skills/autonomous/SKILL.md");
     const loop = readRepositoryFile("docs/workflow/loop.md");
     const tour = readRepositoryFile("docs/workflow/README.md");
+    const readme = readRepositoryFile("README.md");
 
-    for (const source of [agents, reviewRounds, autonomous, loop, tour]) {
-      expect(source).toContain("Feature -> Vertical Slice -> Task");
-      expect(source).toContain("workflow-config");
+    expect(agents).toContain("Feature -> Vertical Slice -> Task");
+    expect(agents).toContain(".agents/skills/workflow-config/SKILL.md");
+
+    const reviewConfigPointer = ".agents/skills/workflow-config/SKILL.md";
+    expect(reviewRounds).toContain(reviewConfigPointer);
+    expect(reviewRounds.indexOf(reviewConfigPointer)).toBeLessThan(
+      reviewRounds.indexOf("## The feature closing step"),
+    );
+    for (const repeatedCadenceText of [
+      "`slice`, `feature`, or `grouped.N`",
+      "absent config means",
+      "four-slice feature",
+      "3+1",
+    ]) {
+      expect(reviewRounds).not.toContain(repeatedCadenceText);
     }
+
+    expect(reviews).toContain(reviewConfigPointer);
+    expect(reviews.indexOf(reviewConfigPointer)).toBeLessThan(
+      reviews.indexOf("## One Verifier role, several phases"),
+    );
+    expect(reviews).not.toContain("`slice`, `feature`, or balanced `grouped.N`");
+    expect(reviews).not.toContain("absent config defaults to `grouped.3`");
+
+    const autonomousPointer = ".agents/skills/workflow-config";
+    expect(autonomous).toContain(autonomousPointer);
+    expect(autonomous.indexOf(autonomousPointer)).toBeLessThan(
+      autonomous.indexOf("Three rules an"),
+    );
+
+    const loopPointer = "Resolve cadence with `workflow-config` before dispatch.";
+    expect(loop).toContain(loopPointer);
+    expect(loop.indexOf(loopPointer)).toBeLessThan(loop.indexOf("## Stages"));
+
+    const tourPointer = ".agents/skills/workflow-config/SKILL.md";
+    expect(tour).toContain(tourPointer);
+    expect(tour.indexOf(tourPointer)).toBeLessThan(tour.indexOf("A filed issue skips the ceremony"));
+    expect(readme).toContain("[deep_review]");
+    expect(readme).toContain('cadence = "grouped.3"');
     expect(reviewRounds).toContain("deep-review** (resolved implementation groups)");
     expect(reviewRounds).not.toContain("deep-review** (every slice)");
     const finalGroupInstruction =
