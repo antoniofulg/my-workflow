@@ -11,8 +11,8 @@ bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-22-preserve-consumer-ad-index/session.md; docs/qa/evidence/2026-08-22-source-only-pack-guide/session.md; docs/qa/evidence/2026-08-22-version-feature-specs-handoff/session.md
-last_report: docs/qa/reports/2026-08-22-version-feature-specs-handoff.md
+evidence: docs/qa/evidence/2026-08-22-preserve-consumer-ad-index/session.md; docs/qa/evidence/2026-08-22-source-only-pack-guide/session.md; docs/qa/evidence/2026-08-22-version-feature-specs-handoff/session.md; docs/qa/evidence/2026-08-22-validate-generated-feature-contracts/session.md
+last_report: docs/qa/reports/2026-08-22-validate-generated-feature-contracts.md
 overlaps:
 ---
 
@@ -32,6 +32,9 @@ resolve, and re-adoption preserves a consumer-owned sentinel byte-for-byte.
 
 QA on 2026-08-22 confirmed fresh installation and identical SHA-256 before and after re-adoption of
 a consumer-modified `tools/ad-index.py`. The bundled-skill and release-contract canaries also passed.
+
+QA for issue #39 confirmed initial adoption and re-adoption install byte-identical TLC validator
+CLIs while preserving consumer-owned `.my-workflow.toml` and `docs/qa/README.md` byte-for-byte.
 
 For issue #38, the adoption contract keeps `.specs/features/` ignored by default. A consuming
 project that hands work off through Git worktrees or has a gate/CI job read the specs must remove
