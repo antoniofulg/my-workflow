@@ -59,6 +59,27 @@ def test_deep_review_skill_adoption_and_artifact_hygiene() -> None:
         shutil.rmtree(tmp)
 
 
+def test_pack_guide_stays_source_only_and_tour_has_no_dead_link() -> None:
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        run(tmp)
+        assert (ROOT / "docs/workflow/pack.md").is_file()
+        assert not (tmp / "docs/workflow/pack.md").exists()
+        tour = (tmp / "docs/workflow/README.md").read_text(encoding="utf-8")
+        assert "pack.md" not in tour
+        for path in (
+            "docs/workflow/README.md",
+            "docs/workflow/decisions.md",
+            "docs/workflow/guidelines.md",
+            "docs/workflow/loop.md",
+            "docs/workflow/purpose.md",
+            "docs/workflow/reviews.md",
+        ):
+            assert (tmp / path).is_file(), path
+    finally:
+        shutil.rmtree(tmp)
+
+
 def test_external_security_step_is_printed_without_installing_security_trees() -> None:
     tmp = Path(tempfile.mkdtemp()).resolve()
     try:
@@ -355,6 +376,7 @@ if __name__ == "__main__":
     test_gitignore_rules_merge_without_overwrite()
     test_graft_ignore_contract_and_search_visibility()
     test_deep_review_skill_adoption_and_artifact_hygiene()
+    test_pack_guide_stays_source_only_and_tour_has_no_dead_link()
     test_external_security_step_is_printed_without_installing_security_trees()
     test_global_tlc_paths_reject_without_mutation()
     test_project_local_tlc_path_is_accepted()

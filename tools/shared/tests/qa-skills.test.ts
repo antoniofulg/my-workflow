@@ -615,6 +615,14 @@ describe("adoption and public setup", () => {
     expect(readme).not.toContain("extra .codex/.opencode copies");
   });
 
+  it("IT-020 keeps the pack guide source-only for adopted consumers", () => {
+    const tour = readRepositoryFile("docs/workflow/README.md");
+    const pack = readRepositoryFile("docs/workflow/pack.md");
+
+    expect(tour).toContain("[Skills, knowledge, adopt](pack.md)");
+    expect(pack).toContain("`python3 scripts/adopt.py <target>`");
+  });
+
   it("IT-011 keeps stack-specific QA capabilities in the operational profile", () => {
     const profile = readRepositoryFile("docs/qa/README.md");
 
