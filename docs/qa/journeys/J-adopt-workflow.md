@@ -8,10 +8,11 @@
 
 1. Review the target's clean state, managed paths, and existing operational capabilities.
 2. Adopt into a checkout-local disposable target through the documented CLI.
-3. Confirm the QA skills, existing provider Verifier packets, workflow ignore rules, and initial QA
-   profile are discoverable.
-4. Re-adopt a target with a consumer-owned profile, model pin, and unrelated ignore entries.
-5. Confirm consumer-owned state survives and the resulting diff remains reviewable.
+3. Confirm the QA and workflow-configuration skills, existing provider Verifier packets, workflow
+   ignore rules, and initial QA profile are discoverable.
+4. Re-adopt a target with a consumer-owned `.my-workflow.toml`, QA profile, model pin, and unrelated
+   ignore entries.
+5. Confirm consumer-owned state survives byte-for-byte and the resulting diff remains reviewable.
 
 ## Promises
 
@@ -23,3 +24,6 @@
 
 After adoption, walk [`J-review-workflow-release`](J-review-workflow-release.md) to confirm the
 distributed release still identifies itself and its provenance correctly.
+
+For the configurable-workflow cycle, this journey is also the adjacent canary for
+[`J-configure-feature-workflow`](J-configure-feature-workflow.md).
