@@ -8,6 +8,7 @@ import {
   readlinkSync,
   symlinkSync,
   readFileSync,
+  realpathSync,
   writeFileSync,
   rmSync,
 } from "node:fs";
@@ -129,7 +130,7 @@ function writeConfiguredNpx(
     'claude.symlink_to(pathlib.Path("../../.agents/skills") / skill)\n',
     options.invokeGit ? 'subprocess.run(["git", "--version"], check=True)\n' : "",
     options.log
-      ? 'pathlib.Path(' + JSON.stringify(options.log) + ').open("a").write(" ".join(sys.argv[1:]) + " env=" + os.environ.get("MY_WORKFLOW_TARGET", "<missing>") + " secrets=" + ",".join(name + "=" + str(name in os.environ) for name in ("GITHUB_TOKEN", "GH_TOKEN", "NPM_TOKEN", "AWS_SECRET_ACCESS_KEY")) + "\\n")\n'
+      ? 'pathlib.Path(' + JSON.stringify(options.log) + ').open("a").write(" ".join(sys.argv[1:]) + " path=" + os.environ.get("PATH", "") + " env=" + os.environ.get("MY_WORKFLOW_TARGET", "<missing>") + " secrets=" + ",".join(name + "=" + str(name in os.environ) for name in ("GITHUB_TOKEN", "GH_TOKEN", "NPM_TOKEN", "AWS_SECRET_ACCESS_KEY")) + "\\n")\n'
       : "",
     options.sleep ? "import time\ntime.sleep(" + String(options.sleep) + ")\n" : "",
   ].join("");
@@ -346,16 +347,17 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
         expect(lstatSync(join(target, ".claude/skills", name)).isSymbolicLink()).toBe(true);
         expect(installedLock.skills[name].computedHash).toBe(fixtureHash(content));
       }
-      const commands = readFileSync(log, "utf8").trim().split("\n");
+      const commands = readFileSync(log, "utf8")
+        .trim()
+        .split("\n")
+        .map((line) => line.split(" path=")[0]);
       expect(commands).toHaveLength(3);
-      for (const command of commands) {
-        expect(command).toContain("add");
-        expect(command).toMatch(/#[0-9a-f]{40}/);
-        expect(command).toContain("--skill");
-        expect(command).toContain("--yes");
-        expect(command).not.toContain("latest");
-        expect(command).not.toContain("experimental_install");
-      }
+      expect(commands).toEqual(
+        Object.entries(securitySkills).map(
+          ([name, expected]) =>
+            `--yes skills@1.5.23 add ${expected.source}#${expected.ref} --skill ${name} --agent universal --copy --yes`,
+        ),
+      );
     } finally {
       rmSync(fixture, { recursive: true, force: true });
     }
@@ -813,14 +815,41 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
     const gitTarget = writeFakeGit(versions, trustedGitMarker);
     const npx = join(shims, "npx");
     const git = join(shims, "git");
+    const hostile = join(fixture, "hostile");
+    mkdirSync(hostile);
+    writeFileSync(join(hostile, "npx"), "#!/bin/sh\nprintf hostile-npx > " + JSON.stringify(join(fixture, "hostile-npx.log")) + "\n", { mode: 0o755 });
     symlinkSync(npxTarget, npx);
     symlinkSync(gitTarget, git);
     const pack = writePack(fixture, validLock());
     try {
-      const result = runPackInstaller(pack, target, npx);
+      const result = runPackInstaller(pack, target, npx, {
+        PATH: [shims, hostile, process.env.PATH ?? ""].join(pathDelimiter),
+        GITHUB_TOKEN: "secret",
+      });
       expect(result.status).toBe(0);
       expect(readFileSync(trustedGitMarker, "utf8")).toBe("trusted-git\n");
-      expect(readFileSync(log, "utf8")).toContain("skills@1.5.23");
+      const lines = readFileSync(log, "utf8").trim().split("\n");
+      expect(lines).toHaveLength(3);
+      expect(lines.map((line) => line.split(" path=")[0])).toEqual(
+        Object.entries(securitySkills).map(
+          ([name, expected]) =>
+            `--yes skills@1.5.23 add ${expected.source}#${expected.ref} --skill ${name} --agent universal --copy --yes`,
+        ),
+      );
+      const recordedPath = lines[0].split(" path=")[1].split(" env=")[0];
+      const pathParts = recordedPath.split(pathDelimiter);
+      expect(pathParts.slice(1)).toEqual([
+        shims,
+        realpathSync(versions),
+        "/opt/homebrew/bin",
+        "/usr/local/bin",
+        "/usr/bin",
+        "/bin",
+      ]);
+      expect(new Set(pathParts).size).toBe(pathParts.length);
+      expect(pathParts).not.toContain(hostile);
+      expect(existsSync(join(fixture, "hostile-npx.log"))).toBe(false);
+      expect(lines[0]).toContain("GITHUB_TOKEN=False");
     } finally {
       rmSync(fixture, { recursive: true, force: true });
     }
@@ -883,6 +912,28 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
       });
       expect(result.status).toBe(1);
       expect(result.stderr).toContain("unsafe npx executable target");
+      expect(existsSync(join(target, ".agents"))).toBe(false);
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a lexical tool candidate inside the target even when it resolves outside", () => {
+    const fixture = mkdtempSync(join(tmpdir(), "my-workflow-lexical-tool-root-"));
+    const target = join(fixture, "target");
+    const external = join(fixture, "external");
+    const bin = join(target, "bin");
+    mkdirSync(bin, { recursive: true });
+    mkdirSync(external);
+    const externalNpx = writeConfiguredNpx(external, "fixture\n");
+    symlinkSync(externalNpx, join(bin, "npx"));
+    const pack = writePack(fixture, validLock());
+    try {
+      const result = runPackInstaller(pack, target, join(fixture, "missing-npx"), {
+        PATH: bin + pathDelimiter + (process.env.PATH ?? ""),
+      });
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("unsafe npx executable location");
       expect(existsSync(join(target, ".agents"))).toBe(false);
     } finally {
       rmSync(fixture, { recursive: true, force: true });

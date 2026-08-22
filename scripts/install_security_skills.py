@@ -512,7 +512,10 @@ def validate_tool_candidate(candidate: Path, untrusted_roots: tuple[Path, ...]) 
     if not stat.S_ISREG(info.st_mode) or not os.access(resolved, os.X_OK):
         raise InstallationError(f"invalid {candidate.name} executable: {candidate}")
     directories = (str(lexical.parent), str(resolved.parent))
-    return str(resolved), directories
+    # Validate the resolved target, but preserve the caller's original absolute
+    # candidate for execution.  Host shims (mise/asdf/Homebrew) dispatch based
+    # on argv[0] and may fail when replaced by their realpath.
+    return str(lexical), directories
 
 
 def resolve_active_binary(
@@ -544,9 +547,8 @@ def cli_command(skill: LockedSkill, npx: str) -> list[str]:
         "--skill",
         skill.name,
         "--agent",
-        "claude-code",
-        "cursor",
-        "codex",
+        "universal",
+        "--copy",
         "--yes",
     ]
 
@@ -627,6 +629,23 @@ def verify_installation(target: Path, locked: list[LockedSkill]) -> None:
             raise InstallationError(f"{skill.name} has no matching Claude link")
 
 
+def ensure_staged_claude_link(staging: Path, skill: LockedSkill) -> None:
+    """Create the project-owned Claude link after the universal CLI copy."""
+
+    validate_managed_paths(
+        staging,
+        [f".agents/skills/{skill.name}", f".claude/skills/{skill.name}"],
+    )
+    installed = staging / ".agents" / "skills" / skill.name
+    claude = staging / ".claude" / "skills" / skill.name
+    if claude.exists() or claude.is_symlink():
+        if not claude.is_symlink() or claude.resolve() != installed.resolve():
+            raise InstallationError(f"{skill.name} has an invalid Claude link")
+        return
+    claude.parent.mkdir(parents=True, exist_ok=True)
+    claude.symlink_to(Path("../../.agents/skills") / skill.name)
+
+
 def publish_installation(staging: Path, target: Path, locked: list[LockedSkill]) -> None:
     validate_managed_paths(target, [".agents/skills", ".claude/skills"])
     agents_fd = open_directory_chain(target, (".agents", "skills"), create=True)
@@ -672,7 +691,17 @@ def perform_installation(target: Path, locked: list[LockedSkill], pack_root: Pat
         try:
             (snapshot / "git-wrapper").mkdir(parents=True, exist_ok=True)
             original_path = os.environ.get("PATH", "")
-            untrusted_roots = (target.resolve(), staging.resolve(), pack_root.resolve())
+            # Keep both lexical and canonical spellings.  On macOS `/var` may
+            # be a symlink to `/private/var`; the lexical candidate guard must
+            # still reject a tool named inside the target before resolution.
+            untrusted_roots = (
+                Path(os.path.abspath(target)),
+                target.resolve(),
+                Path(os.path.abspath(staging)),
+                staging.resolve(),
+                Path(os.path.abspath(pack_root)),
+                pack_root.resolve(),
+            )
             npx, npx_directories = resolve_active_binary("npx", original_path, untrusted_roots)
             git, git_directories = resolve_active_binary("git", original_path, untrusted_roots)
             environment = pinned_git_environment(
@@ -685,6 +714,7 @@ def perform_installation(target: Path, locked: list[LockedSkill], pack_root: Pat
                 result = subprocess.run(command, cwd=staging, check=False, env=environment)
                 if result.returncode != 0:
                     raise InstallationError(f"skills CLI failed for {skill.name}")
+                ensure_staged_claude_link(staging, skill)
             staging_managed = [
                 *(f".agents/skills/{skill.name}" for skill in locked),
                 *(f".claude/skills/{skill.name}" for skill in locked),
@@ -749,7 +779,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
     pack_root = Path(__file__).resolve().parent.parent
     try:
-        return install(pack_root, args.target.resolve(), args.yes)
+        # Preserve the caller's lexical target spelling for candidate-root
+        # checks; internal path operations canonicalize where required.
+        return install(pack_root, args.target, args.yes)
     except InstallationError as exc:
         print(f"Security skills unavailable: {', '.join(SKILLS)}", file=sys.stderr)
         print(
