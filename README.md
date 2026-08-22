@@ -50,6 +50,11 @@ existing project, preserve its filled product paragraph and product-owned docume
 python3 scripts/adopt.py /path/to/target-project
 ```
 
+Prerequisites: the target directory must already exist, and `adopt.py` requires Python 3. Adoption
+does not require a Git `HEAD`. Before running the workflow-config resolver, the target must be a Git
+repository with at least one commit. Node.js and npm are needed only to validate this source pack's
+gates, not to adopt it.
+
 The workflow config is consumer-owned and optional. Copy
 `.my-workflow.toml.example` to `.my-workflow.toml` when a project wants to make its cadence or
 provider profile explicit. Adoption never creates or overwrites this file:
@@ -143,15 +148,9 @@ Codex and OpenCode consume `.agents`. Do not add `.cursor/skills` or other agent
 project-owned `qa-plan` and `qa-execute` skills use the consuming project's profile in
 `docs/qa/README.md`; they do not select a framework or replace the project's gate.
 
-```bash
-npx --yes @tech-leads-club/agent-skills install --skill tlc-spec-driven \
-  --agent cursor --agent claude-code --agent codex --agent opencode --symlink --force
-# Keep canonical in .agents/skills/tlc-spec-driven and only a .claude symlink.
-# Delete any .cursor/skills, extra .codex/.opencode copies the installer creates.
-
-npx --yes skills add dietrichgebert/ponytail \
-  --agent claude-code --agent cursor --agent codex --agent opencode --yes
-```
+`adopt.py` installs and updates the bundled TLC, Ponytail, and Deep Review skills. No external skill
+installer is needed. Keep the canonical copies in `.agents/skills/` and the Claude Code symlinks in
+`.claude/skills/`.
 
 `autonomous` is vendored here. `CLAUDE.md` is the one line `@AGENTS.md` (not a symlink). Planner,
 implementer, explorer and verifier packets live under `.cursor/agents/`, `.claude/agents/` and
