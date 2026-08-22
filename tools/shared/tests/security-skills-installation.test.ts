@@ -314,7 +314,7 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
     }
   });
 
-  it("restores pre-existing managed skills, links, and lock after publication fails", () => {
+  it("restores pre-existing managed skills, links, and lock after publication fails", async () => {
     const fixture = mkdtempSync(join(tmpdir(), "my-workflow-rollback-publication-"));
     const target = join(fixture, "target");
     mkdirSync(target);
@@ -336,9 +336,33 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
     writeFileSync(oldLock, "old lock bytes\n");
     symlinkSync("skills-lock-target.json", join(target, "skills-lock.json"));
     before.lock = readFileSync(join(target, "skills-lock.json"), "utf8");
+    const publicationMarker = join(fixture, "publication-seen");
+    const watcher = spawn(
+      "python3",
+      [
+        "-c",
+        "import pathlib, sys, time\n"
+          + "path = pathlib.Path(sys.argv[1])\n"
+          + "marker = pathlib.Path(sys.argv[2])\n"
+          + "deadline = time.time() + 5\n"
+          + "while time.time() < deadline:\n"
+          + "    try:\n"
+          + "        if path.read_text() == 'new\\n':\n"
+          + "            marker.write_text('seen')\n"
+          + "            break\n"
+          + "    except OSError:\n"
+          + "        pass\n"
+          + "    time.sleep(0.001)\n",
+        join(target, ".agents/skills/security-best-practices/SKILL.md"),
+        publicationMarker,
+      ],
+      { stdio: "ignore" },
+    );
     try {
       const result = runPackInstaller(pack, target, cli);
+      await new Promise<number>((resolve) => watcher.on("close", resolve));
       expect(result.status).toBe(1);
+      expect(readFileSync(publicationMarker, "utf8")).toBe("seen");
       for (const name of Object.keys(securitySkills)) {
         expect(readFileSync(join(target, ".agents/skills", name, "SKILL.md"))).toEqual(
           before[`skill:${name}`],
