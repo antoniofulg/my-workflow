@@ -16,6 +16,7 @@ Exit codes: 0 ok, 1 usage/environment error, 2 git/gh failure.
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -170,6 +171,8 @@ def numstat(repo_root: Path, spec, extra=()):
 
 def looks_generated(repo_root: Path, path: str) -> bool:
     f = repo_root / path
+    if f.is_symlink():
+        return False
     if not f.is_file():
         return False
     try:
@@ -227,6 +230,13 @@ def untracked_stat(repo_root: Path, path: str):
     if b"\0" in data:
         return None, None
     return len(data.splitlines()), 0
+
+
+def symlink_target(repo_root: Path, path: str) -> str | None:
+    candidate = repo_root / path
+    if not candidate.is_symlink():
+        return None
+    return os.readlink(candidate)
 
 
 def prior_head(state_path: Path):
@@ -309,7 +319,8 @@ def main():
             if path in tracked:
                 continue
             entries.append({"path": path, "status": "A", "old_path": None})
-            stats[path] = untracked_stat(repo_root, path)
+            link_target = symlink_target(repo_root, path)
+            stats[path] = (1, 0) if link_target is not None else untracked_stat(repo_root, path)
             ws_stats[path] = stats[path]
             adds = stats[path][0]
             if adds:
@@ -326,6 +337,9 @@ def main():
         rec = {"path": path, "status": status, "adds": adds, "dels": dels}
         if e["old_path"]:
             rec["old_path"] = e["old_path"]
+        link_target = symlink_target(repo_root, path)
+        if link_target is not None:
+            rec.update({"kind": "symlink", "target": link_target})
 
         disposition, reason = "selected", None
         if subset is not None and path not in subset:
