@@ -12,7 +12,7 @@ All notable changes to this project are documented here.
 ### Fixed
 
 - Adoption installs the bundled Deep Review skill and excludes Python cache files.
-- Adoption rejects machine-global Claude TLC paths before writing and directs consumers to the project-local vendored TLC path.
+- Adoption rejects HOME-relative Claude TLC paths before writing and directs consumers to the project-local vendored TLC path.
 - Configuration follow-ups strengthen schema validation and make cadence authority explicit.
 
 ## [0.3.3] - 2026-08-22
