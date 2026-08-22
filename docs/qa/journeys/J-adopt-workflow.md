@@ -7,14 +7,16 @@
 ## Flow
 
 1. Review the target's clean state, managed paths, and existing operational capabilities.
-2. Adopt into a checkout-local disposable target through the documented CLI.
-3. Confirm bundled workflow assets are discoverable, the copied workflow tour omits the source-only
+2. Decide whether Git worktrees hand work off or a gate/CI job reads feature specs; when either is
+   true, remove the managed `.specs/features/` ignore entry and version the relevant feature tree.
+3. Adopt into a checkout-local disposable target through the documented CLI.
+4. Confirm bundled workflow assets are discoverable, the copied workflow tour omits the source-only
    pack guide and its links, all three external security skills remain absent, and adoption prints
    their separate authorized installation command.
-4. Re-adopt a target with a consumer-owned `.my-workflow.toml`, QA profile, model pin,
+5. Re-adopt a target with a consumer-owned `.my-workflow.toml`, QA profile, model pin,
    `tools/ad-index.py`, and unrelated ignore entries.
-5. Confirm consumer-owned state survives byte-for-byte and the resulting diff remains reviewable.
-6. Continue to [`J-enable-external-security-skills`](J-enable-external-security-skills.md) only after
+6. Confirm consumer-owned state survives byte-for-byte and the resulting diff remains reviewable.
+7. Continue to [`J-enable-external-security-skills`](J-enable-external-security-skills.md) only after
    explicitly authorizing its networked installer step.
 
 ## Promises

@@ -34,8 +34,11 @@ re-verified from scratch because nothing remembered the last verdict.
 
 ## Rules
 
-1. **Planning artifacts stay out of the durable record.** They live in the active checkout as
-   ignored local state and are not maintained after the merge.
+1. **`.specs/features/` is ignored by default.** Planning artifacts stay out of the durable record:
+   they live in the active checkout as ignored local state and are not maintained after the merge.
+   If a consuming project hands work off through Git worktrees, or a gate/CI job reads the specs, it
+   must version the relevant feature tree: remove the managed `.specs/features/` entry from the
+   target's `.gitignore` and commit those specs. Adoption does not detect or migrate this choice.
 2. **Promote before the pull request.** Anything from a planning artifact that must outlive the
    feature moves to its real home first:
    - A project decision → `.specs/STATE.md` as `AD-NNN`
