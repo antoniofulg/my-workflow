@@ -192,6 +192,22 @@ def test_fresh_and_refuse() -> None:
         shutil.rmtree(tmp)
 
 
+def test_consumer_ad_index_is_preserved_on_readopt() -> None:
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        run(tmp)
+        ad_index = tmp / "tools/ad-index.py"
+        assert ad_index.is_file()
+        consumer_version = b"#!/usr/bin/env python3\n# consumer extension\n"
+        ad_index.write_bytes(consumer_version)
+
+        run(tmp)
+
+        assert ad_index.read_bytes() == consumer_version
+    finally:
+        shutil.rmtree(tmp)
+
+
 def test_skip_agents_preserves_product_files_and_adopts_rest() -> None:
     tmp = Path(tempfile.mkdtemp())
     try:
@@ -332,6 +348,7 @@ def test_graft_ignore_contract_and_search_visibility() -> None:
 
 if __name__ == "__main__":
     test_fresh_and_refuse()
+    test_consumer_ad_index_is_preserved_on_readopt()
     test_skip_agents_preserves_product_files_and_adopts_rest()
     test_skip_agents_preserves_absent_claude_file()
     test_agent_pins_survive_readopt()

@@ -591,7 +591,9 @@ describe("adoption and public setup", () => {
     expect(readme).toContain("no user-visible change");
     expect(adopt).toContain('".agents/skills/qa-plan"');
     expect(adopt).toContain('".agents/skills/qa-execute"');
-    expect(adopt).toContain('COPY_MISSING_PATHS = ["docs/qa/README.md"]');
+    expect(adopt).toContain(
+      'COPY_MISSING_PATHS = ["docs/qa/README.md", "tools/ad-index.py"]',
+    );
   });
 
   it("IT-019 keeps README installation prerequisites and bundled skills authoritative", () => {

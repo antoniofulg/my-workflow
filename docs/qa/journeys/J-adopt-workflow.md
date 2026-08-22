@@ -10,8 +10,8 @@
 2. Adopt into a checkout-local disposable target through the documented CLI.
 3. Confirm bundled workflow assets are discoverable, all three external security skills remain
    absent, and adoption prints their separate authorized installation command.
-4. Re-adopt a target with a consumer-owned `.my-workflow.toml`, QA profile, model pin, and unrelated
-   ignore entries.
+4. Re-adopt a target with a consumer-owned `.my-workflow.toml`, QA profile, model pin,
+   `tools/ad-index.py`, and unrelated ignore entries.
 5. Confirm consumer-owned state survives byte-for-byte and the resulting diff remains reviewable.
 6. Continue to [`J-enable-external-security-skills`](J-enable-external-security-skills.md) only after
    explicitly authorizing its networked installer step.
