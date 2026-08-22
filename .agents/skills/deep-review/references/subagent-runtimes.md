@@ -19,7 +19,15 @@ python3 <skill-dir>/scripts/run_jobs.py --out <out> [--jobs-file <out>/<stage>-j
   --command "compozy exec <runtime flags from the map> --format json --timeout 30m --prompt-file {prompt}"
 ```
 
-The runner owns bounded concurrency (`--workers`, default 4 — each invocation is a full ACP session, not a thread), per-attempt event/err logs under `<out>/runs/`, output validation with one built-in retry, provider-block detection, the source-freeze check, and resume (valid outputs are never re-run). Each job's output file is the agent's only product; the JSONL/stderr logs are operational evidence — never parse them as review output.
+The runner executes reviewer jobs serially. A provider adapter may append
+`--metrics --metrics-db <source> --metrics-reviewer-prefix <configured-path>` to collect cumulative
+snapshots. The Codex adapter's source is `$CODEX_HOME/state_5.sqlite`; it must also pass an explicit
+reviewer path, for example `--metrics-reviewer-prefix "$DEEP_REVIEW_REVIEWER_PREFIX"`. Claude and
+Cursor omit those flags until stable adapters exist, and the runner records `unavailable` without
+inventing totals. Metrics checkpoints are observational and never assign overlapping global deltas
+to individual jobs. The runner owns retries, output validation, provider-block detection, the
+source-freeze check, and resume (valid outputs are never re-run). Each job's output file is the
+agent's only product; JSONL/stderr logs are operational evidence — never parse them as review output.
 
 ## Failure handling
 
@@ -30,4 +38,4 @@ The runner owns bounded concurrency (`--workers`, default 4 — each invocation 
 
 ## Cost
 
-Every external invocation spends `compozy exec` credit — a large PR fans out dozens of agents. `native` fits exploratory runs; external runtimes earn their spend on gate rounds (e.g. loop Phase D's `codex` lane).
+Every external invocation spends `compozy exec` credit — a large PR may require dozens of serial agent invocations. `native` fits exploratory runs; external runtimes earn their spend on gate rounds (e.g. loop Phase D's `codex` lane).

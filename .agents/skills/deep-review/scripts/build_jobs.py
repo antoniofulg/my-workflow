@@ -2,9 +2,10 @@
 """Deep-review plan gate (bootstrap helper; writes only under --out).
 
 Validates plan.json cohorts against the manifest (every selected file owned
-exactly once; hunk_scope slices line-exact; size caps), renders every reviewer
-and sweep prompt from assets/PROMPT.md — injecting only the rules whose scope
-globs match that cohort's files — and materializes jobs.json, the work
+exactly once; hunk_scope slices line-exact; size caps), prepares optional Graft
+context, renders every reviewer and sweep prompt from assets/PROMPT.md —
+injecting only the rules whose scope globs match that cohort's files — and
+materializes jobs.json, the work
 contract every execution engine runs.
 
 Prompt consistency is enforced here: the build fails when a template lost a
@@ -38,6 +39,7 @@ from _common import (
     skill_rel,
     write_json,
 )
+from graft_context import prepare_graft_context
 
 DEFAULT_MAX_COHORT_FILES = 100
 MAX_COHORT_CHANGED_LINES = 6000
@@ -47,12 +49,12 @@ MAX_POLISH_CHANGED_LINES = 1200
 REVIEWER_PLACEHOLDERS = {
     "cohort_name", "risk", "target", "file_list", "scope_instruction", "context",
     "taxonomy", "rules_block", "diff_command", "base", "output", "schema",
-    "lane_instruction", "coverage_contract",
+    "lane_instruction", "coverage_contract", "graft_context",
 }
 SWEEP_PLACEHOLDERS = {
     "sweep_key", "lens", "target", "context", "manifest", "taxonomy",
     "diff_command", "spec_extra", "output", "schema", "rules_block",
-    "coverage_contract",
+    "coverage_contract", "graft_context",
 }
 
 DEFAULT_LENSES = {
@@ -455,6 +457,7 @@ def main() -> int:
         if errors:
             raise RuntimeError("plan validation failed:\n- " + "\n- ".join(errors))
         sweeps = normalize_sweeps(plan, context_pack)
+        graft = prepare_graft_context(repo, out, sorted(selected))
 
         reviewer_template = load_template("reviewer")
         sweep_template = load_template("sweep")
@@ -465,6 +468,7 @@ def main() -> int:
             "taxonomy": f"{skill_rel(repo)}/references/taxonomy.md",
             "diff_command": manifest["diff_command"],
             "schema": schema,
+            "graft_context": rel(Path(graft["path"]), repo),
         }
         prompts_dir = out / "prompts"
         prompts_dir.mkdir(parents=True, exist_ok=True)

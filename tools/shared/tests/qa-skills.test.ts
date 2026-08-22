@@ -386,8 +386,9 @@ describe("configurable review policy", () => {
     const tourPointer = ".agents/skills/workflow-config/SKILL.md";
     expect(tour).toContain(tourPointer);
     expect(tour.indexOf(tourPointer)).toBeLessThan(tour.indexOf("A filed issue skips the ceremony"));
-    expect(readme).toContain("[deep_review]");
-    expect(readme).toContain('cadence = "grouped.3"');
+    expect(readme).toContain("The `cadence` controls the deep-review groups:");
+    expect(readme).toContain("CLI override > profile > native provider");
+    expect(readme).toContain(".specs/features/<feature>/workflow.json");
     expect(reviewRounds).toContain("deep-review** (resolved implementation groups)");
     expect(reviewRounds).not.toContain("deep-review** (every slice)");
     const finalGroupInstruction =
@@ -616,15 +617,15 @@ describe("adoption and public setup", () => {
     expect(qaExecute).toContain("does not write product code, install a framework, invent a");
   });
 
-  it("IT-017 reports release version 0.3.2 consistently", () => {
+  it("IT-017 reports release version 0.3.3 consistently", () => {
     const manifest = JSON.parse(readRepositoryFile("package.json")) as { version?: string };
     const lockfile = JSON.parse(readRepositoryFile("package-lock.json")) as {
       version?: string;
       packages?: { ""?: { version?: string } };
     };
 
-    expect(manifest.version).toBe("0.3.2");
-    expect(lockfile.version).toBe("0.3.2");
-    expect(lockfile.packages?.[""]?.version).toBe("0.3.2");
+    expect(manifest.version).toBe("0.3.3");
+    expect(lockfile.version).toBe("0.3.3");
+    expect(lockfile.packages?.[""]?.version).toBe("0.3.3");
   });
 });

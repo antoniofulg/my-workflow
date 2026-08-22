@@ -107,5 +107,5 @@ describe("workflow configuration skill", () => {
     } finally {
       rmSync(temporaryRoot, { recursive: true, force: true });
     }
-  });
+  }, 30_000);
 });

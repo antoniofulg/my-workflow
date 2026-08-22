@@ -65,3 +65,18 @@ Idle.
   workflow docs, and adoption.
 - **Date**: 2026-08-21
 - **Status**: active
+
+### AD-005
+
+- **Decision**: Keep the optional, checkout-local Graft `0.10.1` integration as the deep-review
+  context aid. Graft failure, absence, stale output, and dot-directory coverage always fall back to
+  plain repository inspection; Graphify is not adopted.
+- **Reason**: The completed local trials showed Graft improved repository-map and symbol context,
+  while the project requires a non-blocking review path and has no evidence to justify replacing it
+  with Graphify.
+- **Trade-off**: The workflow carries a pinned optional tool and its installation surface, while
+  hosts without it retain full review functionality through ordinary inspection.
+- **Scope**: `.agents/skills/deep-review/`, `package.json`, lockfiles, deep-review tests and
+  documentation.
+- **Date**: 2026-08-22
+- **Status**: active

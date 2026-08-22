@@ -1,14 +1,17 @@
 {
   "name": "my-workflow",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "private": true,
   "type": "module",
   "scripts": {
     "knowledge": "tsx tools/knowledge/src/cli.ts",
+    "review:graft:build": "graft build",
+    "review:graft:version": "graft --version",
     "test": "vitest run"
   },
   "devDependencies": {
     "@types/node": "22.20.1",
+    "@nanonets/graft": "0.10.1",
     "skills": "1.5.23",
     "tsx": "4.23.1",
     "typescript": "5.9.3",

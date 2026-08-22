@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here.
 
+## [0.3.3] - 2026-08-22
+
+### Added
+
+- Configurable deep-review cadence (`slice`, `feature`, or `grouped.N`), provider profiles and overrides, frozen workflow snapshots, and a default config example.
+- Optional pinned Graft 0.10.1 context with plain-inspection fallback.
+- Serialized reviewers and retries, plus observational content-safe token metrics with no usage cap.
+
+### Fixed
+
+- Adoption now installs the Graft ignores needed to keep generated artifacts out of Git.
+
 ## [0.3.2] - 2026-08-21
 
 ### Added

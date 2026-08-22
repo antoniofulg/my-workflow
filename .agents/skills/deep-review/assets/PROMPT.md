@@ -1,6 +1,6 @@
 # Deep-review prompt templates
 
-The single source of truth for every prompt the fan-out dispatches. `build_jobs.py` renders these blocks — edit wording here, nowhere else. Consistency is enforced twice at render time: the build fails if a template lost a mandatory `{{placeholder}}`, and fails again if any placeholder survives unfilled in a rendered prompt.
+The single source of truth for every prompt the serialized review dispatches. `build_jobs.py` renders these blocks — edit wording here, nowhere else. Consistency is enforced twice at render time: the build fails if a template lost a mandatory `{{placeholder}}`, and fails again if any placeholder survives unfilled in a rendered prompt.
 
 Placeholders are `{{snake_case}}` tokens. Mandatory sets live in `build_jobs.py` (`REVIEWER_PLACEHOLDERS`, `SWEEP_PLACEHOLDERS`).
 
@@ -16,6 +16,8 @@ FILES — you own every listed hunk:
 {{scope_instruction}}
 
 CONTEXT: read `{{context}}` (change intent, knowledge sources, linters, spec contract when present) and `{{taxonomy}}` (defect/advisory grammar and objective suppression rules) in full before judging.
+
+GRAFT CONTEXT: read `{{graft_context}}` for optional repository map, relevant symbols, and blast-radius orientation. Verify it against the checkout; use plain repository inspection for any fallback paths.
 
 REPO RULES bound to these files — when a result violates one, include its id in `rule_ids` and quote the rule verbatim in `guideline`:
 {{rules_block}}
@@ -37,6 +39,8 @@ Empty defect/advisory arrays are valid only with complete coverage. Validate the
 Global sweep "{{sweep_key}}" over {{target}}: {{lens}}. Read-only: never modify product, test, docs, or generated source — your only write is the output file named in the OUTPUT CONTRACT.
 
 Read `{{context}}`, `{{manifest}}`, and `{{taxonomy}}` in full. Work from the manifest's selected files and hunks; read any repository file you need and see changes with `{{diff_command}}`.
+
+GRAFT CONTEXT: read `{{graft_context}}` for optional repository map, relevant symbols, and blast-radius orientation. Verify it against the checkout; use plain repository inspection for any fallback paths.
 
 REPO RULES applicable across the selected surface — account for every id:
 {{rules_block}}
