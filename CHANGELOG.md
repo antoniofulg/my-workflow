@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented here.
 
+## [0.3.4] - 2026-08-22
+
+### Changed
+
+- Onboarding now relies on the bundled TLC, Ponytail, and Deep Review skills instead of external installers.
+- Documentation now states that the consuming project must have a Git HEAD before resolving workflow configuration.
+
+### Fixed
+
+- Adoption installs the bundled Deep Review skill and excludes Python cache files.
+- Adoption rejects global TLC paths before writing and requires a vendored TLC path.
+- Configuration follow-ups strengthen schema validation and make cadence authority explicit.
+
 ## [0.3.3] - 2026-08-22
 
 ### Added
