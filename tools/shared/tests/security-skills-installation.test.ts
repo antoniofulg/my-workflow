@@ -5,6 +5,7 @@ import {
   lstatSync,
   mkdirSync,
   mkdtempSync,
+  readlinkSync,
   symlinkSync,
   readFileSync,
   writeFileSync,
@@ -99,6 +100,7 @@ function validLock(content = "fixture\n") {
       source: expected.source,
       sourceType: "github",
       skillPath: expected.skillPath,
+      cliVersion: "1.5.23",
       ref: expected.ref,
       computedHash: fixtureHash(content),
     };
@@ -142,6 +144,7 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
     const lock = JSON.parse(readFileSync(join(repositoryRoot, "skills-lock.json"), "utf8"));
     for (const [name, expected] of Object.entries(securitySkills)) {
       expect(lock.skills[name]).toMatchObject({ ...expected, sourceType: "github" });
+      expect(lock.skills[name].cliVersion).toBe("1.5.23");
       expect(expected.ref).toMatch(/^[0-9a-f]{40}$/);
       expect(expected.computedHash).toMatch(/^[0-9a-f]{64}$/);
       expect(existsSync(join(repositoryRoot, ".agents/skills", name))).toBe(false);
@@ -186,6 +189,7 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
         source: expected.source,
         sourceType: "github",
         skillPath: expected.skillPath,
+        cliVersion: "1.5.23",
         ref: expected.ref,
         computedHash: fixtureHash(content),
       };
@@ -193,7 +197,12 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
     writeFileSync(join(fakePack, "skills-lock.json"), JSON.stringify({ version: 1, skills: lockSkills }));
     const cli = writeFakeCli(fixture, content);
     const originalLock = { version: 1, skills: { unrelated: { source: "consumer", sourceType: "local" } } };
-    writeFileSync(join(target, "skills-lock.json"), JSON.stringify(originalLock));
+    const consumerBytes = Buffer.from([0, 1, 2, 255, 10]);
+    writeFileSync(join(target, "consumer.bin"), consumerBytes);
+    writeFileSync(join(target, "skills-lock.json"), JSON.stringify(originalLock, null, 2) + "\n");
+    const originalLockBytes = readFileSync(join(target, "skills-lock.json"));
+    const originalUnrelatedBytes =
+      '"unrelated": {\n      "source": "consumer",\n      "sourceType": "local"\n    }';
     try {
       const result = spawnSync("python3", [join(fakePack, "scripts/install_security_skills.py"), target, "--yes", "--skills-cli", cli], {
         cwd: repositoryRoot,
@@ -203,6 +212,14 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
       expect(result.status).toBe(0);
       const installedLock = JSON.parse(readFileSync(join(target, "skills-lock.json"), "utf8"));
       expect(installedLock.skills.unrelated).toEqual(originalLock.skills.unrelated);
+      expect(readFileSync(join(target, "consumer.bin"))).toEqual(consumerBytes);
+      expect(JSON.stringify(installedLock.skills.unrelated)).toBe(
+        JSON.stringify(originalLock.skills.unrelated),
+      );
+      expect(readFileSync(join(target, "skills-lock.json"), "utf8")).toContain(
+        originalUnrelatedBytes,
+      );
+      expect(originalLockBytes.toString()).toContain(originalUnrelatedBytes);
       for (const name of Object.keys(securitySkills)) {
         const installed = join(target, ".agents/skills", name);
         expect(readFileSync(join(installed, "SKILL.md"), "utf8")).toBe(content);
@@ -279,6 +296,65 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
     }
   });
 
+  it("rejects an external skills lock symlink before touching its referent", () => {
+    const fixture = mkdtempSync(join(tmpdir(), "my-workflow-lock-symlink-"));
+    const external = mkdtempSync(join(tmpdir(), "my-workflow-lock-external-"));
+    const cli = writeFakeCli(fixture);
+    const externalLock = join(external, "skills-lock.json");
+    writeFileSync(externalLock, "consumer lock bytes\n");
+    symlinkSync(externalLock, join(fixture, "skills-lock.json"));
+    try {
+      const result = runInstaller(fixture, ["--yes", "--skills-cli", cli]);
+      expect(result.status).toBe(1);
+      expect(readFileSync(externalLock, "utf8")).toBe("consumer lock bytes\n");
+      expect(lstatSync(join(fixture, "skills-lock.json")).isSymbolicLink()).toBe(true);
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+      rmSync(external, { recursive: true, force: true });
+    }
+  });
+
+  it("restores pre-existing managed skills, links, and lock after publication fails", () => {
+    const fixture = mkdtempSync(join(tmpdir(), "my-workflow-rollback-publication-"));
+    const target = join(fixture, "target");
+    mkdirSync(target);
+    const cli = writeFakeCli(fixture, "new\n");
+    const pack = writePack(fixture, validLock("new\n"));
+    const oldLock = join(target, "skills-lock-target.json");
+    const before: Record<string, string | Buffer> = {};
+    mkdirSync(join(target, ".agents/skills"), { recursive: true });
+    mkdirSync(join(target, ".claude/skills"), { recursive: true });
+    for (const name of Object.keys(securitySkills)) {
+      const installed = join(target, ".agents/skills", name);
+      mkdirSync(installed, { recursive: true });
+      writeFileSync(join(installed, "SKILL.md"), `old-${name}\n`);
+      const link = join(target, ".claude/skills", name);
+      symlinkSync(join("../../.agents/skills", name), link);
+      before[`skill:${name}`] = readFileSync(join(installed, "SKILL.md"));
+      before[`link:${name}`] = readlinkSync(link);
+    }
+    writeFileSync(oldLock, "old lock bytes\n");
+    symlinkSync("skills-lock-target.json", join(target, "skills-lock.json"));
+    before.lock = readFileSync(join(target, "skills-lock.json"), "utf8");
+    try {
+      const result = runPackInstaller(pack, target, cli);
+      expect(result.status).toBe(1);
+      for (const name of Object.keys(securitySkills)) {
+        expect(readFileSync(join(target, ".agents/skills", name, "SKILL.md"))).toEqual(
+          before[`skill:${name}`],
+        );
+        expect(readlinkSync(join(target, ".claude/skills", name))).toBe(
+          before[`link:${name}`],
+        );
+      }
+      expect(readFileSync(join(target, "skills-lock.json"), "utf8")).toBe(before.lock);
+      expect(lstatSync(join(target, "skills-lock.json")).isSymbolicLink()).toBe(true);
+      expect(readFileSync(oldLock, "utf8")).toBe("old lock bytes\n");
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
   it("scrubs the inherited target variable before invoking the external CLI", () => {
     const fixture = mkdtempSync(join(tmpdir(), "my-workflow-env-"));
     const log = join(fixture, "cli.log");
@@ -308,6 +384,28 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
     try {
       const result = runPackInstaller(pack, target, cli);
       expect(result.status).toBe(1);
+      expect(existsSync(join(target, ".agents"))).toBe(false);
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a changed CLI version before publishing any managed tree", () => {
+    const fixture = mkdtempSync(join(tmpdir(), "my-workflow-cli-version-"));
+    const target = join(fixture, "target");
+    mkdirSync(target);
+    const cli = writeFakeCli(fixture);
+    const pack = writePack(fixture, validLock());
+    const installer = join(pack, "scripts/install_security_skills.py");
+    const changed = readFileSync(installer, "utf8").replace(
+      'CLI_VERSION = "1.5.23"',
+      'CLI_VERSION = "9.9.9"',
+    );
+    writeFileSync(installer, changed);
+    try {
+      const result = runPackInstaller(pack, target, cli);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("CLI version");
       expect(existsSync(join(target, ".agents"))).toBe(false);
     } finally {
       rmSync(fixture, { recursive: true, force: true });

@@ -43,6 +43,7 @@ class LockedSkill:
     name: str
     source: str
     skill_path: str
+    cli_version: str
     ref: str
     computed_hash: str
 
@@ -68,6 +69,8 @@ def read_locked_skills(pack_root: Path) -> list[LockedSkill]:
             raise InstallationError(f"{name} has an unapproved source")
         if entry.get("skillPath") != expected_path:
             raise InstallationError(f"{name} has a non-canonical skillPath")
+        if entry.get("cliVersion") != CLI_VERSION:
+            raise InstallationError(f"{name} has an unsupported CLI version")
         ref = entry.get("ref")
         if not isinstance(ref, str) or len(ref) != 40 or any(c not in "0123456789abcdef" for c in ref):
             raise InstallationError(f"{name} must use a lowercase 40-hex commit ref")
@@ -76,7 +79,7 @@ def read_locked_skills(pack_root: Path) -> list[LockedSkill]:
             c not in "0123456789abcdef" for c in computed_hash
         ):
             raise InstallationError(f"{name} must use a lowercase 64-hex computedHash")
-        locked.append(LockedSkill(name, expected_source, expected_path, ref, computed_hash))
+        locked.append(LockedSkill(name, expected_source, expected_path, CLI_VERSION, ref, computed_hash))
     return locked
 
 
@@ -332,6 +335,7 @@ def merge_lock(target: Path, locked: list[LockedSkill]) -> None:
                 "source": skill.source,
                 "sourceType": "github",
                 "skillPath": skill.skill_path,
+                "cliVersion": skill.cli_version,
                 "ref": skill.ref,
                 "computedHash": skill.computed_hash,
             }

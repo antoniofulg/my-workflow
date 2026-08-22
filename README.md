@@ -46,8 +46,9 @@ The workflow references three external security skills:
 - `security-threat-model` for repository-grounded threat models;
 - `security-review` for high-confidence residual vulnerability reviews.
 
-They are not bundled in this pack. Their GitHub source, canonical path, reviewed commit, and
-content hash are authoritative in [`skills-lock.json`](skills-lock.json). Adoption prints a
+They are not bundled in this pack. Their GitHub source, canonical path, reviewed commit, CLI
+version (`1.5.23`), and content hash are authoritative in [`skills-lock.json`](skills-lock.json).
+Adoption prints a
 separate installer command; run it only after explicit authorization because it uses the network
 and writes the consumer's `.agents/skills/` tree. It does not install `latest` or silently update
 these dependencies.
