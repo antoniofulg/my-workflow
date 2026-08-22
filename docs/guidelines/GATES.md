@@ -16,6 +16,7 @@ actual commands the project documents.
 | --- | --- | --- |
 | During a task | The task's own test command | Fast feedback while implementing |
 | Closing a task | The consuming project's scoped gate | Coverage for what this diff touched |
+| Closing a task with a browser surface | The consuming project's browser scoped gate, filtered by `@feature:<slug>` | Runs only that feature's browser scenarios |
 | Closing a feature, before the pull request | The consuming project's full gate | The product gate, once |
 | Heavy subsystem touched | The consuming project's extended gate, if it has one | Adds registered heavy checks |
 
