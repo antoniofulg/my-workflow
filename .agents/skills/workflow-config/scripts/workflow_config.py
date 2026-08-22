@@ -167,17 +167,21 @@ def _git_head(root: Path) -> str:
 
 
 def _agent_file(root: Path, provider: str, role: str) -> str:
-    agent_name = AGENT_NAMES.get(role, role)
-    extensions = ("toml", "md") if provider == "codex" else ("md", "toml")
-    for extension in extensions:
-        relative = Path(f".{provider}") / "agents" / f"{agent_name}.{extension}"
+    candidates = _agent_candidates(provider, role)
+    for relative in candidates:
         if (root / relative).is_file():
             return relative.as_posix()
-    expected = ", ".join(
-        (Path(f".{provider}") / "agents" / f"{agent_name}.{extension}").as_posix()
+    expected = ", ".join(relative.as_posix() for relative in candidates)
+    raise _error(f"missing agent file for provider {provider!r}, role {role!r}; expected {expected}")
+
+
+def _agent_candidates(provider: str, role: str) -> tuple[Path, ...]:
+    agent_name = AGENT_NAMES.get(role, role)
+    extensions = ("toml", "md") if provider == "codex" else ("md", "toml")
+    return tuple(
+        Path(f".{provider}") / "agents" / f"{agent_name}.{extension}"
         for extension in extensions
     )
-    raise _error(f"missing agent file for provider {provider!r}, role {role!r}; expected {expected}")
 
 
 def _snapshot_path(root: Path, feature: str) -> Path:
@@ -246,9 +250,11 @@ def _validate_snapshot(root: Path, feature: str, snapshot: Any) -> dict[str, Any
         agent_file = route["agent_file"]
         if not isinstance(agent_file, str) or not agent_file:
             raise _error(f"existing snapshot role {role!r} agent_file must be a string")
-        expected = _agent_file(root, provider, role)
-        if agent_file != expected:
+        allowed_paths = _agent_candidates(provider, role)
+        if agent_file not in {path.as_posix() for path in allowed_paths}:
             raise _error(f"existing snapshot role {role!r} has an invalid agent_file")
+        if not (root / agent_file).is_file():
+            raise _error(f"existing snapshot role {role!r} agent_file is missing")
     return snapshot
 
 

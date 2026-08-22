@@ -424,6 +424,44 @@ def test_invalid_existing_snapshot_fails_without_mutation() -> None:
         shutil.rmtree(root)
 
 
+def test_resume_preserves_existing_frozen_agent_path() -> None:
+    root = make_repo()
+    try:
+        preferred = root / ".codex/agents/implementer.toml"
+        fallback = root / ".codex/agents/implementer.md"
+        preferred.unlink()
+        fallback.write_text("implementer fallback\n", encoding="utf-8")
+        first = workflow_config.resolve(
+            root=root, feature="frozen-route", slice_count=1, native_provider="codex"
+        )
+        assert first["roles"]["implementer"]["agent_file"] == ".codex/agents/implementer.md"
+
+        preferred.write_text("implementer preferred\n", encoding="utf-8")
+        resumed = workflow_config.resolve(
+            root=root, feature="frozen-route", slice_count=8, native_provider="codex"
+        )
+        assert resumed == first
+
+        path = root / ".specs/features/frozen-route/workflow.json"
+        original = json.loads(path.read_text(encoding="utf-8"))
+        for invalid_path in (".codex/agents/verifier.toml", ".codex/agents/missing.toml"):
+            invalid = json.loads(json.dumps(original))
+            invalid["roles"]["implementer"]["agent_file"] = invalid_path
+            path.write_text(json.dumps(invalid), encoding="utf-8")
+            try:
+                workflow_config.resolve(
+                    root=root, feature="frozen-route", slice_count=1, native_provider="codex"
+                )
+            except workflow_config.ConfigError as exc:
+                assert "agent_file" in str(exc)
+            else:
+                raise AssertionError(f"expected invalid frozen agent path: {invalid_path}")
+    finally:
+        import shutil
+
+        shutil.rmtree(root)
+
+
 if __name__ == "__main__":
     for name, function in sorted(globals().items()):
         if name.startswith("test_"):
