@@ -78,6 +78,11 @@ does not require a Git `HEAD`. Before running the workflow-config resolver, the 
 repository with at least one commit. Node.js and npm are needed only to validate this source pack's
 gates, not to adopt it.
 
+Feature planning under `.specs/features/` is ignored by default because these artifacts normally die
+with the feature branch. If a project hands work off through Git worktrees, or a gate/CI job reads
+the specs, version the relevant feature tree: remove the managed `.specs/features/` entry from the
+target's `.gitignore` and commit those specs. Adoption does not detect or migrate this choice.
+
 The workflow config is consumer-owned and optional. Copy
 `.my-workflow.toml.example` to `.my-workflow.toml` when a project wants to make its cadence or
 provider profile explicit. Adoption never creates or overwrites this file:

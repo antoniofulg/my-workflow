@@ -6,13 +6,13 @@ persona: Workflow adopter
 journey: J-adopt-workflow
 expected: A fresh target receives the workflow resolver, tools/ad-index.py, and the workflow tour without the pack-only guide or dead links, while re-adoption preserves its workflow config, QA profile, model pins, consumer-modified tools/ad-index.py, and unrelated ignore entries byte-for-byte.
 entry_points: README.md#adopt-the-workflow; scripts/adopt.py; .my-workflow.toml
-qa_status: pass
+qa_status: untested
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-22-source-only-pack-guide/session.md
-last_report: docs/qa/reports/2026-08-22-source-only-pack-guide.md
+evidence:
+last_report:
 overlaps:
 ---
 
@@ -32,3 +32,8 @@ resolve, and re-adoption preserves a consumer-owned sentinel byte-for-byte.
 
 QA on 2026-08-22 confirmed fresh installation and identical SHA-256 before and after re-adoption of
 a consumer-modified `tools/ad-index.py`. The bundled-skill and release-contract canaries also passed.
+
+For issue #38, the adoption contract keeps `.specs/features/` ignored by default. A consuming
+project that hands work off through Git worktrees or has a gate/CI job read the specs must remove
+the managed ignore entry and version the relevant feature tree; adoption does not detect or migrate
+that choice. This documentation change resets the scenario for the next QA walk.

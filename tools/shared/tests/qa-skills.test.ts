@@ -65,12 +65,23 @@ describe("QA workflow artifact policy", () => {
     expect(isIgnored(".deep-review/learnings.md")).toBe(false);
   });
 
-  it("IT-014 ignores feature planning while preserving durable decisions", () => {
+  it("IT-014 defaults feature planning to ignored and documents versioned handoff", () => {
+    const readme = readRepositoryFile("README.md");
+    const artifactLifecycle = readRepositoryFile("docs/guidelines/ARTIFACT-LIFECYCLE.md");
+
     expect(isIgnored(".specs/features/qa-skills/spec.md")).toBe(true);
     expect(isIgnored(".specs/STATE.md")).toBe(false);
     expect(isIgnored(".specs/AD-INDEX.md")).toBe(false);
     expect(tracked(".specs/STATE.md")).toBe(".specs/STATE.md");
     expect(tracked(".specs/AD-INDEX.md")).toBe(".specs/AD-INDEX.md");
+    for (const source of [readme, artifactLifecycle]) {
+      const normalized = source.replace(/\s+/g, " ");
+      expect(normalized).toContain("`.specs/features/` is ignored by default");
+      expect(normalized).toContain("hands work off through Git worktrees");
+      expect(normalized).toContain("gate/CI job reads the specs");
+      expect(normalized).toContain("remove the managed `.specs/features/` entry");
+      expect(normalized).toContain("Adoption does not detect or migrate this choice");
+    }
   });
 
   it("IT-015 treats the local task state as the commit precondition", () => {
