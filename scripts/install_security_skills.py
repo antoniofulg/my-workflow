@@ -130,25 +130,7 @@ def plan_lines(locked: list[LockedSkill], target: Path) -> list[str]:
         "Plan (no network access and no target writes):",
     ]
     for skill in locked:
-        lines.append(
-            "  "
-            + " ".join(
-                (
-                    "npx",
-                    "--yes",
-                    f"skills@{CLI_VERSION}",
-                    "add",
-                    f"{skill.source}#{skill.ref}",
-                    "--skill",
-                    skill.name,
-                    "--agent",
-                    "claude-code",
-                    "cursor",
-                    "codex",
-                    "--yes",
-                )
-            )
-        )
+        lines.append("  " + " ".join(cli_command(skill, "npx")))
     lines.append(f"Re-run for the authorized target: {target} --yes")
     return lines
 

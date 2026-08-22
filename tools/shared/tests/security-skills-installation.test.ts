@@ -261,6 +261,17 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
       expect(result.status).toBe(2);
       expect(result.stdout).toContain("no network access and no target writes");
       expect(result.stdout).toContain("49f948faa9258a0c61caceaf225e179651397431");
+      expect(
+        result.stdout
+          .split("\n")
+          .filter((line) => line.startsWith("  npx "))
+          .map((line) => line.trim()),
+      ).toEqual(
+        Object.entries(securitySkills).map(
+          ([name, expected]) =>
+            `npx --yes skills@1.5.23 add ${expected.source}#${expected.ref} --skill ${name} --agent universal --copy --yes`,
+        ),
+      );
       expect(existsSync(join(fixture, ".agents"))).toBe(false);
       expect(readFileSync(join(fixture, "consumer.txt"), "utf8")).toBe("keep\n");
     } finally {
