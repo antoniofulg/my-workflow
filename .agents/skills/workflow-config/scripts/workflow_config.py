@@ -85,32 +85,12 @@ def _read_config(root: Path) -> dict[str, Any]:
 
 
 def _cadence(config: dict[str, Any]) -> str:
-    section = config.get("deep_review", {})
-    if section is None:
-        section = {}
-    if not isinstance(section, dict):
-        raise _error("deep_review must be a table")
-    unknown = set(section) - DEEP_REVIEW_KEYS
-    if unknown:
-        raise _error(f"deep_review contains unknown key {sorted(unknown)[0]!r}")
-    cadence = section.get("cadence", CADENCE_DEFAULT)
-    if not isinstance(cadence, str):
-        raise _error("deep_review.cadence must be a string")
-    return cadence
+    section = config.get("deep_review") or {}
+    return section.get("cadence", CADENCE_DEFAULT)
 
 
 def _profiles(config: dict[str, Any]) -> dict[str, dict[str, str]]:
-    profiles = config.get("profiles", {})
-    if profiles is None:
-        profiles = {}
-    if not isinstance(profiles, dict):
-        raise _error("profiles must be a table")
-    result: dict[str, dict[str, str]] = {}
-    for name, values in profiles.items():
-        if not isinstance(name, str) or not isinstance(values, dict):
-            raise _error(f"profile {name!r} must be a table")
-        result[name] = _validate_role_map(values, f"profile {name!r}")
-    return result
+    return config.get("profiles") or {}
 
 
 def _validate_role_map(values: dict[str, Any], source: str) -> dict[str, str]:
@@ -130,13 +110,20 @@ def _validate_config_schema(config: dict[str, Any]) -> None:
         raise _error(f"contains unknown top-level key {sorted(unknown)[0]!r}")
 
     deep_review = config.get("deep_review", {})
+    if deep_review is None:
+        deep_review = {}
     if not isinstance(deep_review, dict):
         raise _error("deep_review must be a table")
     unknown = set(deep_review) - DEEP_REVIEW_KEYS
     if unknown:
         raise _error(f"deep_review contains unknown key {sorted(unknown)[0]!r}")
+    cadence = deep_review.get("cadence", CADENCE_DEFAULT)
+    if not isinstance(cadence, str):
+        raise _error("deep_review.cadence must be a string")
 
     profiles = config.get("profiles", {})
+    if profiles is None:
+        profiles = {}
     if not isinstance(profiles, dict):
         raise _error("profiles must be a table")
     for name, values in profiles.items():
