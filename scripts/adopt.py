@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -33,6 +34,7 @@ COPY_PATHS = [
     "tools/shared/tests/frontmatter.test.ts",
     "tools/ad-index.py",
     ".agents/skills/tlc-spec-driven",
+    ".agents/skills/deep-review",
     ".agents/skills/ponytail",
     ".agents/skills/ponytail-audit",
     ".agents/skills/ponytail-debt",
@@ -56,6 +58,11 @@ AGENT_PATHS = [
 ]
 
 
+GLOBAL_CLAUDE_ROOT = re.compile(
+    r"(?:\$\(HOME\)|\$\{HOME\}|\$HOME|~)/\.claude(?:/|$)"
+)
+
+
 def die(message: str) -> None:
     print(message, file=sys.stderr)
     raise SystemExit(1)
@@ -66,7 +73,12 @@ def copy_tree(src: Path, dest: Path) -> None:
     if src.is_dir():
         if dest.exists():
             shutil.rmtree(dest)
-        shutil.copytree(src, dest, symlinks=True)
+        shutil.copytree(
+            src,
+            dest,
+            symlinks=True,
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+        )
     else:
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dest)
@@ -159,6 +171,22 @@ def link_claude_skills(dest: Path) -> None:
         pointer.symlink_to(Path("../../.agents/skills") / skill.name)
 
 
+def reject_global_tlc_paths(dest: Path) -> None:
+    makefile = dest / "Makefile"
+    if not makefile.is_file():
+        return
+    for line_number, line in enumerate(
+        makefile.read_text(encoding="utf-8").splitlines(), start=1
+    ):
+        match = GLOBAL_CLAUDE_ROOT.search(line)
+        if match:
+            die(
+                f"refusing adoption: {makefile}:{line_number} uses machine-global "
+                f"TLC path {match.group(0)!r}; use "
+                ".agents/skills/tlc-spec-driven/scripts/... in the target Makefile"
+            )
+
+
 def main(argv: list[str]) -> None:
     if len(argv) != 2:
         die("usage: adopt.py <target-directory>")
@@ -166,6 +194,7 @@ def main(argv: list[str]) -> None:
     src = Path(__file__).resolve().parent.parent
     if not dest.is_dir():
         die(f"not a directory: {dest}")
+    reject_global_tlc_paths(dest)
     adopt_agents(src, dest)
     for rel in COPY_PATHS:
         origin = src / rel
