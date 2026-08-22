@@ -6,13 +6,13 @@ persona: Workflow adopter
 journey: J-adopt-workflow
 expected: A fresh target receives the workflow resolver, and re-adoption preserves its workflow config, QA profile, model pins, and unrelated ignore entries byte-for-byte.
 entry_points: README.md#adopt-the-workflow; scripts/adopt.py; .my-workflow.toml
-qa_status: pass
+qa_status: untested
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-22-external-security-skills/session.md
-last_report: docs/qa/reports/2026-08-22-external-security-skills.md
+evidence:
+last_report:
 overlaps:
 ---
 

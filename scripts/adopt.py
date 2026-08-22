@@ -33,7 +33,6 @@ COPY_PATHS = [
     "tools/knowledge",
     "tools/shared/src/frontmatter.ts",
     "tools/shared/tests/frontmatter.test.ts",
-    "tools/ad-index.py",
     ".agents/skills/tlc-spec-driven",
     ".agents/skills/deep-review",
     ".agents/skills/ponytail",
@@ -50,7 +49,7 @@ COPY_PATHS = [
 
 # The profile is a template. A consuming project's existing profile is product-owned and must
 # survive re-adoption.
-COPY_MISSING_PATHS = ["docs/qa/README.md"]
+COPY_MISSING_PATHS = ["docs/qa/README.md", "tools/ad-index.py"]
 
 AGENT_PATHS = [
     ".cursor/agents",
