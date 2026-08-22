@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -42,8 +43,6 @@ def test_defaults_and_native_routing() -> None:
         assert all(value["provider"] == "codex" for value in snapshot["roles"].values())
         assert snapshot["roles"]["verifier"]["agent_file"] == ".codex/agents/verifier.toml"
     finally:
-        import shutil
-
         shutil.rmtree(root)
 
 
@@ -95,8 +94,6 @@ def test_cli_adapter_resolves_and_reports_invalid_input() -> None:
         assert invalid.stdout == ""
         assert "workflow config: slice count must be at least 1" in invalid.stderr
     finally:
-        import shutil
-
         shutil.rmtree(root)
 
 
@@ -112,7 +109,7 @@ def test_cli_loads_configured_cadence_into_snapshot_and_json() -> None:
         )
         for index, (cadence, slice_count, groups) in enumerate(cases):
             (root / ".my-workflow.toml").write_text(
-                f"[deep_review]\ncadence = '{cadence}'\n", encoding="utf-8"
+                f"version = 1\n[deep_review]\ncadence = '{cadence}'\n", encoding="utf-8"
             )
             feature = f"configured-{index}"
             result = subprocess.run(
@@ -134,10 +131,13 @@ def test_cli_loads_configured_cadence_into_snapshot_and_json() -> None:
             )
             assert result.returncode == 0
             expected = {"cadence": cadence, "groups": groups}
-            assert json.loads(result.stdout)["deep_review"] == expected
+            payload = json.loads(result.stdout)
+            assert payload["version"] == 1
+            assert payload["deep_review"] == expected
             snapshot = json.loads(
                 (root / f".specs/features/{feature}/workflow.json").read_text(encoding="utf-8")
             )
+            assert snapshot["version"] == 1
             assert snapshot["deep_review"] == expected
 
         (root / ".my-workflow.toml").write_text(
@@ -164,8 +164,6 @@ def test_cli_loads_configured_cadence_into_snapshot_and_json() -> None:
         assert invalid.stdout == ""
         assert "workflow config: grouped.N requires N to be at least 1" in invalid.stderr
     finally:
-        import shutil
-
         shutil.rmtree(root)
 
 
@@ -211,8 +209,6 @@ def test_cli_rejects_invalid_config_schema_without_snapshot() -> None:
             assert message in result.stderr
             assert not (root / f".specs/features/{feature}/workflow.json").exists()
     finally:
-        import shutil
-
         shutil.rmtree(root)
 
 
@@ -267,11 +263,17 @@ def test_cadence_modes_and_balancing() -> None:
 
 
 def test_invalid_cadence_and_count() -> None:
-    for cadence in ("grouped", "grouped.0", "grouped.x", "other"):
+    expected_errors = {
+        "grouped": "workflow config: cadence must be 'slice', 'feature', or 'grouped.N'",
+        "grouped.0": "workflow config: grouped.N requires N to be at least 1",
+        "grouped.x": "workflow config: cadence must be 'slice', 'feature', or 'grouped.N'",
+        "other": "workflow config: cadence must be 'slice', 'feature', or 'grouped.N'",
+    }
+    for cadence, expected in expected_errors.items():
         try:
             workflow_config.balanced_groups(2, cadence)
         except workflow_config.ConfigError as exc:
-            assert "cadence" in str(exc) or "N" in str(exc)
+            assert str(exc) == expected
         else:
             raise AssertionError(f"expected invalid cadence: {cadence}")
     try:
@@ -301,8 +303,6 @@ def test_profile_precedence_and_partial_defaults() -> None:
         assert snapshot["roles"]["verifier"]["provider"] == "claude"
         assert snapshot["roles"]["explorer"]["provider"] == "cursor"
     finally:
-        import shutil
-
         shutil.rmtree(root)
 
 
@@ -330,8 +330,6 @@ def test_invalid_routing_has_no_fallback() -> None:
         else:
             raise AssertionError("expected missing agent failure")
     finally:
-        import shutil
-
         shutil.rmtree(root)
 
 
@@ -396,8 +394,6 @@ def test_snapshot_is_stable_and_atomic_failure_preserves_previous() -> None:
             workflow_config.os.replace = real_replace
         assert path.read_text(encoding="utf-8") == original
     finally:
-        import shutil
-
         shutil.rmtree(root)
 
 
@@ -419,8 +415,6 @@ def test_invalid_existing_snapshot_fails_without_mutation() -> None:
                 raise AssertionError("expected malformed snapshot failure")
             assert path.read_bytes() == before
     finally:
-        import shutil
-
         shutil.rmtree(root)
 
 
@@ -457,13 +451,11 @@ def test_resume_preserves_existing_frozen_agent_path() -> None:
             else:
                 raise AssertionError(f"expected invalid frozen agent path: {invalid_path}")
     finally:
-        import shutil
-
         shutil.rmtree(root)
 
 
 if __name__ == "__main__":
-    for name, function in sorted(globals().items()):
-        if name.startswith("test_"):
-            function()
-    print("8 passed, 0 failed")
+    tests = [function for name, function in sorted(globals().items()) if name.startswith("test_")]
+    for function in tests:
+        function()
+    print(f"{len(tests)} passed, 0 failed")

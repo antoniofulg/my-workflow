@@ -23,8 +23,9 @@ def test_fresh_and_refuse() -> None:
         config = tmp / ".my-workflow.toml"
         sentinel = "# consumer-owned\n[deep_review]\ncadence = 'feature'\n"
         config.write_text(sentinel, encoding="utf-8")
+        original_config = config.read_bytes()
         run(tmp)
-        assert config.read_text(encoding="utf-8") == sentinel
+        assert config.read_bytes() == original_config
         agents = (tmp / "AGENTS.md").read_text(encoding="utf-8")
         assert STENCIL in agents
         claude = tmp / "CLAUDE.md"
@@ -55,6 +56,9 @@ def test_fresh_and_refuse() -> None:
             ".codex/agents/explorer.toml",
         ):
             assert (tmp / path).is_file()
+
+        run(tmp)
+        assert config.read_bytes() == original_config
 
         (tmp / "AGENTS.md").write_text(
             "# Agent operating system\n\n## What this project is\n\nA shipped product.\n",
