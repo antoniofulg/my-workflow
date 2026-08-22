@@ -21,6 +21,10 @@ def run(dest: Path) -> None:
     main(["adopt.py", str(dest)])
 
 
+def run_skip_agents(dest: Path) -> None:
+    main(["adopt.py", "--skip-agents", str(dest)])
+
+
 def snapshot_tree(root: Path) -> dict[str, tuple[str, bytes | str | None]]:
     snapshot: dict[str, tuple[str, bytes | str | None]] = {}
     for path in sorted(root.rglob("*")):
@@ -151,12 +155,48 @@ def test_fresh_and_refuse() -> None:
             "# Agent operating system\n\n## What this project is\n\nA shipped product.\n",
             encoding="utf-8",
         )
+        before_refusal = snapshot_tree(tmp)
         try:
             run(tmp)
         except SystemExit as exc:
             assert exc.code == 1
+            assert snapshot_tree(tmp) == before_refusal
         else:
             raise AssertionError("expected refuse on non-stencil product paragraph")
+    finally:
+        shutil.rmtree(tmp)
+
+
+def test_skip_agents_preserves_product_files_and_adopts_rest() -> None:
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        agents = tmp / "AGENTS.md"
+        claude = tmp / "CLAUDE.md"
+        agents.write_text("# Product instructions\n", encoding="utf-8")
+        claude.write_text("# Product Claude instructions\n", encoding="utf-8")
+        original_agents = agents.read_bytes()
+        original_claude = claude.read_bytes()
+
+        run_skip_agents(tmp)
+
+        assert agents.read_bytes() == original_agents
+        assert claude.read_bytes() == original_claude
+        assert (tmp / ".agents/skills/deep-review/SKILL.md").is_file()
+        assert (tmp / ".cursor/agents/explorer.md").is_file()
+        assert (tmp / ".claude/skills/deep-review").is_symlink()
+        assert (tmp / "docs/guidelines/GATES.md").is_file()
+        assert (tmp / "docs/qa/README.md").is_file()
+        assert ".deep-review/*\n" in (tmp / ".gitignore").read_text(encoding="utf-8")
+    finally:
+        shutil.rmtree(tmp)
+
+
+def test_skip_agents_preserves_absent_claude_file() -> None:
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        (tmp / "AGENTS.md").write_text("# Product instructions\n", encoding="utf-8")
+        run_skip_agents(tmp)
+        assert not (tmp / "CLAUDE.md").exists()
     finally:
         shutil.rmtree(tmp)
 
@@ -267,6 +307,8 @@ def test_graft_ignore_contract_and_search_visibility() -> None:
 
 if __name__ == "__main__":
     test_fresh_and_refuse()
+    test_skip_agents_preserves_product_files_and_adopts_rest()
+    test_skip_agents_preserves_absent_claude_file()
     test_agent_pins_survive_readopt()
     test_gitignore_rules_merge_without_overwrite()
     test_graft_ignore_contract_and_search_visibility()
