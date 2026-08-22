@@ -1,0 +1,60 @@
+# Diagram phase task layout
+
+## Test Coverage Matrix
+
+| Task | Tests |
+| --- | --- |
+| T1 | unit |
+| T2 | unit |
+| T3 | unit |
+| T4 | unit |
+
+## Gate Check Commands
+
+| Gate | Command |
+| --- | --- |
+| quick | `python3 -m unittest` |
+
+## Execution Plan
+
+### Phase 1: Foundation
+
+```text
+T1 → T2
+```
+
+### Phase 2: Core
+
+```text
+T3 → T4
+```
+
+## Task Breakdown
+
+### T1: Foundation one
+
+**Depends on**: None
+**Where**: `src/one.py`
+**Tests**: unit
+**Gate**: quick
+
+### T2: Foundation two
+
+**Depends on**: T1
+**Where**: `src/two.py`
+**Tests**: unit
+**Gate**: quick
+
+### T3: Core one
+
+**Depends on**: T2
+**Where**: `src/three.py`
+**Tests**: unit
+**Gate**: quick
+
+### T4: Core two
+
+**Depends on**: T3
+**Where**: `src/four.py`
+**Tests**: unit
+**Gate**: quick

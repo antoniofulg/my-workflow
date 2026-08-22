@@ -109,24 +109,47 @@ def parse_tasks(lines):
 
 
 def parse_phase_membership(lines):
-    """Map task_id -> phase index, read from '### Phase N' headers in the Execution Plan."""
-    membership = {}
-    phase_idx = 0
-    in_phase = False
+    """Map task IDs to phases from nested tasks and phase diagrams.
+
+    The task template supports both task headers nested under a phase and
+    diagrams in the Execution Plan with definitions collected later in Task
+    Breakdown. Keep those sources separate so the latter cannot inherit the
+    last phase merely because the phase heading is still active.
+    """
+    diagram_membership = {}
+    nested_membership = {}
+    phase_idx = None
+    phase_level = None
     for ln in lines:
         pm = re.match(r"^#{2,4}\s+Phase\s+(\d+)", ln.strip(), re.IGNORECASE)
         if pm:
             phase_idx = int(pm.group(1))
-            in_phase = True
+            phase_level = len(ln) - len(ln.lstrip("#"))
+            in_fence = False
             continue
-        if in_phase:
-            # Map a task to a phase ONLY when it appears as a task header (### Tn:),
-            # never when it is merely referenced (e.g. in a `Depends on:` line or a
-            # diagram arrow), which would misattribute the referenced task to this phase.
+        if phase_idx is None:
+            continue
+
+        heading = re.match(r"^(#{2,6})\s+\S", ln.strip())
+        if heading:
             hm = TASK_RE.match(ln.strip())
             if hm:
-                membership[hm.group(1).upper()] = phase_idx
-    return membership
+                nested_membership[hm.group(1).upper()] = phase_idx
+                continue
+            if len(heading.group(1)) <= phase_level:
+                phase_idx = None
+                phase_level = None
+                in_fence = False
+                continue
+
+        if ln.strip().startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            for task_id in EDGE_RE.findall(ln.upper()):
+                diagram_membership[task_id] = phase_idx
+
+    return {**diagram_membership, **nested_membership}
 
 
 def parse_diagram_edges(lines):
