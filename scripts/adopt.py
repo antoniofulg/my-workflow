@@ -24,9 +24,18 @@ WORKFLOW_SEARCHIGNORE_ENTRIES = (
     "graft/.graph/",
 )
 
+WORKFLOW_DOCS = [
+    "docs/workflow/README.md",
+    "docs/workflow/decisions.md",
+    "docs/workflow/guidelines.md",
+    "docs/workflow/loop.md",
+    "docs/workflow/purpose.md",
+    "docs/workflow/reviews.md",
+]
+
 COPY_PATHS = [
     "docs/guidelines",
-    "docs/workflow",
+    *WORKFLOW_DOCS,
     "knowledge/AGENTS.md",
     "knowledge/raw/README.md",
     "knowledge/wiki",
@@ -140,6 +149,17 @@ def copy_agents(src: Path, dest: Path) -> None:
         copy_missing(origin, target)
 
 
+def remove_source_only_pack_link(dest: Path) -> None:
+    tour = dest / "docs/workflow/README.md"
+    pack = dest / "docs/workflow/pack.md"
+    if not tour.is_file() or pack.exists() or pack.is_symlink():
+        return
+    lines = tour.read_text(encoding="utf-8").splitlines(keepends=True)
+    filtered = [line for line in lines if "(pack.md)" not in line]
+    if filtered != lines:
+        tour.write_text("".join(filtered), encoding="utf-8")
+
+
 def merge_ignore_file(dest: Path, filename: str, entries: tuple[str, ...]) -> None:
     target = dest / filename
     existing = target.read_text(encoding="utf-8") if target.exists() else ""
@@ -206,6 +226,7 @@ def main(argv: list[str]) -> None:
         if not origin.exists():
             continue
         copy_tree(origin, dest / rel)
+    remove_source_only_pack_link(dest)
     for rel in COPY_MISSING_PATHS:
         origin = src / rel
         if not origin.exists():
