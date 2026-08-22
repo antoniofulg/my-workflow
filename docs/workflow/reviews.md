@@ -8,6 +8,9 @@ nit changes the diff; the next round finds new nits. The loop is unbounded by co
 
 [REVIEW-ROUNDS.md](../guidelines/REVIEW-ROUNDS.md) is the protocol. This page is the choice.
 
+The public hierarchy is `Feature -> Vertical Slice -> Task`. Before dispatch, `workflow-config`
+resolves `slice`, `feature`, or balanced `grouped.N` cadence; absent config defaults to `grouped.3`.
+
 ## One Verifier role, several phases
 
 The provider `verifier` executes one phase per packet. Deep-review is a separate stage, not a Verifier phase.
@@ -18,12 +21,13 @@ Remediation and cap behavior follow `REVIEW-ROUNDS.md`.
 | **Technical Verifier** | Do the tests actually prove the spec? | ≤3 fix rounds, then the human |
 | **QA Plan** | Which public promises need a walk? | One fresh Verifier session |
 | **QA Execute** | Does this behaviour work through the declared adapter? | One fresh Verifier session |
-| **Deep-review** | Is the code correct, safe, maintainable? | ≤2 rounds, Blocker/Major only |
-| **QA session** (last slice) | Does the finished feature feel right? | One `qa-plan` and one `qa-execute` session |
+| **Deep-review** (resolved groups) | Is the code correct, safe, maintainable? | ≤2 rounds, Blocker/Major only |
+| **QA session** (feature closing step) | Does the finished feature feel right? | One `qa-plan` and one `qa-execute` session |
 
-A documentation-only slice still gets a Technical Verifier and a deep-review. If its docs are an
-interface users or adopters consume, it also gets the two QA phases. `docs/` is full of Markdown
-agents act on; no compiler catches a plan that says work has not started when it has shipped.
+A documentation-only slice still gets a Technical Verifier and is included in the next resolved
+deep-review group. If its docs are an interface users or adopters consume, it also gets the two QA
+phases. `docs/` is full of Markdown agents act on; no compiler catches a shipped plan that says work
+has not started.
 
 They do not send work back to each other. A deep-review finding never restarts the Verifier. A
 round-2 blocker is fixed under the approved loop and its scoped gate; the cap does not open round 3.

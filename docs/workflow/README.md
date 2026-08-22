@@ -32,10 +32,14 @@ These pages do not restate the rules. The guidelines remain the source of truth 
 
 ```
 per slice    implement → scoped gate → atomic commit
-             Verifier ≤3  →  QA walk if user-visible  →  deep-review ≤2
+             Verifier ≤3  →  QA walk if user-visible
+resolved     deep-review groups from workflow config, before QA
 
-last slice   QA session (no product code)
+feature      QA session (no product code)
 then         full gate → pull request
 ```
+
+Public hierarchy: `Feature -> Vertical Slice -> Task`. Resolve cadence and delegated providers
+with the canonical `workflow-config` skill before dispatch.
 
 A filed issue skips the ceremony: `implement → scoped gate → one commit`.

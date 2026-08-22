@@ -8,6 +8,8 @@ Activate `ponytail` at `full` before specify, design, issue selection, any subag
 before writing, refactoring, fixing or reviewing code. Shortest working path. The same instinct as
 “delete rather than bridge” and “no test without an invariant”. `AGENTS.md` is the imperative.
 
+Public hierarchy: `Feature -> Vertical Slice -> Task`. Resolve cadence with `workflow-config` before dispatch.
+
 ## Stages
 
 Walk these in order. The imperative detail lives in `AGENTS.md` and the guideline named in the
@@ -23,15 +25,15 @@ last column.
 | 6 | **Technical Verifier** | Do the tests prove the acceptance criteria? Mutants must die | Filed-issue path; no code in final QA session | [REVIEW-ROUNDS.md](../guidelines/REVIEW-ROUNDS.md) |
 | 7 | **QA Plan** | Map changed public promises to journeys, scenarios, and charters | No user-visible surface | [QA-EXECUTION.md](../guidelines/QA-EXECUTION.md) |
 | 8 | **QA Execute** | Walk public journeys through the declared adapter | No user-visible surface | [QA-EXECUTION.md](../guidelines/QA-EXECUTION.md) |
-| 9 | **Deep-review** | Correct, safe, maintainable — blocking findings only | Final QA session | [REVIEW-ROUNDS.md](../guidelines/REVIEW-ROUNDS.md) |
+| 9 | **Deep-review** | Correct, safe, maintainable — resolved groups, blocking findings only | Final QA session | [REVIEW-ROUNDS.md](../guidelines/REVIEW-ROUNDS.md) |
 | 10 | **QA session** | The finished feature, as a person meets it | Feature has no user-visible change | [QA-EXECUTION.md](../guidelines/QA-EXECUTION.md) |
 | 11 | **Full gate** | The product gate, once, on the final tree | — | [GATES.md](../guidelines/GATES.md) |
 | 12 | **Pull request** | Human merge. Push and merge need an explicit instruction | Halt | [VERIFICATION-EVIDENCE.md](../guidelines/VERIFICATION-EVIDENCE.md) |
 
-The **last slice is the QA session**. It writes no product code, so it gets no technical Verifier or
-deep-review; two distinct fresh Verifier packets still run `qa-plan` and `qa-execute`. Per-slice QA
-asks “does this behaviour work?”. The session asks “does the finished thing feel right?” — which has
-no answer until the last behaviour is in.
+The **feature-closing step is the QA session**. It writes no product code, so it gets no technical
+Verifier or deep-review; two distinct fresh Verifier packets still run `qa-plan` and `qa-execute`.
+Implementation slices remain vertical and independently verified; deep-review follows resolved
+groups before this session.
 
 ## Why slices, not “the whole feature”
 

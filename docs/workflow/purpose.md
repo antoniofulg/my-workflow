@@ -14,8 +14,9 @@ The pack is the floor plus the end condition.
 
 ## What “balance” means here
 
-**Delivery** is: a change small enough to review, a gate cheap enough to run per slice, planning
-that auto-sizes to zero for a one-line fix, and merge authority that stays with the human.
+**Delivery** is: a change small enough to implement and verify by vertical slice, a gate cheap
+enough to run per slice, review cadence selected by workflow config, and merge authority that stays
+with the human.
 
 **Reliability** is: tests derived from acceptance criteria, security surfaces named and given
 `SEC-` cases, a Verifier that is not the author, a persona walk for anything a user can see, and a
@@ -30,7 +31,7 @@ slice that re-reviews Cosmetics until the diff stops moving is not this workflow
 | --- | --- |
 | Verifier ≤3, then escalate | Stops a broken test contract from eating the week |
 | Deep-review ≤2, Blocker/Major only | Stops nitpick churn from being called “quality” |
-| Stages do not loop into each other | Worst case is six passes per slice, then a human |
+| Stages do not loop into each other | Review groups bound repeated reading, then a human |
 | Full gate once per feature | Stops ten-task features from paying the product gate ten times |
 | Approval is local-only | Stops an agent from pushing, merging, or deploying on a spec yes |
 

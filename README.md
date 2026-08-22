@@ -50,6 +50,24 @@ existing project, preserve its filled product paragraph and product-owned docume
 python3 scripts/adopt.py /path/to/target-project
 ```
 
+The workflow config is consumer-owned and optional. Create `.my-workflow.toml` only when a project
+wants a non-default cadence or reusable provider profile:
+
+```toml
+version = 1
+
+[deep_review]
+cadence = "grouped.3"
+
+[profiles.mixed]
+implementer = "claude"
+verifier = "codex"
+deep_reviewer = "cursor"
+```
+
+The resolver defaults to native providers and `grouped.3`; adoption never creates or overwrites
+`.my-workflow.toml`.
+
 Paste this once to an agent, replacing the pack and target paths:
 
 ```

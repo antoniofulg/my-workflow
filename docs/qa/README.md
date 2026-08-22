@@ -12,19 +12,22 @@ For consuming projects, those authorities are their executable manifests or CI j
 | `ADP` | CLI and generated filesystem | `scripts/adopt.py` with a disposable target | [README adoption contract](../../README.md#adopt-the-workflow), [`scripts/adopt.py`](../../scripts/adopt.py) |
 | `QAS` | Manual agent-file inspection | `.agents/skills/qa-plan/`, `.agents/skills/qa-execute/`, provider Verifier packets | [Skills contract](../../README.md#skills) |
 | `DOC` | Documentation | `README.md` | [`README.md`](../../README.md) |
-| `CFG` | Git-visible workflow configuration | `.gitignore`, `.specs/`, adopted target files | [Artifact lifecycle](../guidelines/ARTIFACT-LIFECYCLE.md) |
+| `CFG` | Workflow configuration, generated state, and Git visibility | `.my-workflow.toml`; `.agents/skills/workflow-config/scripts/workflow_config.py`; `.gitignore`; `.specs/` | [README configuration contract](../../README.md#adopt-the-workflow), [`workflow-config` skill](../../.agents/skills/workflow-config/SKILL.md), [artifact lifecycle](../guidelines/ARTIFACT-LIFECYCLE.md) |
 | `REL` | Package metadata | `package.json`, `package-lock.json` | [`package.json`](../../package.json) |
 
 No browser, API, or mobile surface exists in this repository.
 
 ## Runner and adapter
 
-- Existing runner or adapter: CLI/manual, using the public adoption script and filesystem inspection.
+- Existing runner or adapter: CLI/manual, using the public workflow resolver, adoption script, and
+  filesystem inspection.
 - Manifest or CI authority: [`package.json`](../../package.json) owns the structural gate;
   [`scripts/test_adopt.py`](../../scripts/test_adopt.py) owns the disposable adoption smoke path.
-- Exact path used by `qa-execute`: invoke [`scripts/adopt.py`](../../scripts/adopt.py) against a
-  checkout-local disposable target, then inspect that target and the repository files named by each
-  charter.
+- Exact path used by `qa-execute`: invoke the command documented by the
+  [`workflow-config` skill](../../.agents/skills/workflow-config/SKILL.md) inside a checkout-local
+  disposable Git repository; invoke [`scripts/adopt.py`](../../scripts/adopt.py) against a separate
+  checkout-local disposable target; then inspect both targets and the repository files named by
+  each charter.
 - Installed QA tooling discovered: Vitest is declared in [`package.json`](../../package.json) for
   structural checks; it is not a real-user runner. Python standard-library checks live in
   [`scripts/test_adopt.py`](../../scripts/test_adopt.py).
@@ -35,8 +38,8 @@ The workflow does not install a framework or invent commands when a runner is ab
 
 - Build authority: none; this package has no build script or runtime artifact.
 - Production-parity start authority: not applicable; no server or application process exists.
-- Health signal: adoption exits successfully and the disposable target contains the expected
-  workflow assets; the smoke-test assertions define those assets.
+- Health signal: resolution exits successfully with matching JSON stdout and feature snapshot;
+  adoption exits successfully and its disposable target contains the expected workflow assets.
 - Environment and checkout isolation: each QA run uses a target directory owned by the active
   checkout; [`scripts/test_adopt.py`](../../scripts/test_adopt.py) demonstrates isolated temporary
   targets and cleanup.
