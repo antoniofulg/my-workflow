@@ -71,17 +71,17 @@ selected. Precedence is `CLI override > profile > native provider`:
 ```bash
 # Native route: all roles use Codex.
 python3 .agents/skills/workflow-config/scripts/workflow_config.py \
-  --root /path/to/target-project --feature register-user --slices 4 \
+  --root /path/to/target-project --feature register-user-native --slices 4 \
   --native-provider codex
 
 # Named profile: use the [profiles.mixed] routes from .my-workflow.toml.
 python3 .agents/skills/workflow-config/scripts/workflow_config.py \
-  --root /path/to/target-project --feature register-user --slices 4 \
+  --root /path/to/target-project --feature register-user-profile --slices 4 \
   --native-provider codex --profile mixed
 
 # Role overrides win over both the selected profile and the native provider.
 python3 .agents/skills/workflow-config/scripts/workflow_config.py \
-  --root /path/to/target-project --feature register-user --slices 4 \
+  --root /path/to/target-project --feature register-user-override --slices 4 \
   --native-provider codex --profile mixed \
   --override deep_reviewer=cursor --override verifier=claude
 ```
@@ -93,7 +93,7 @@ an explicit human request to resolve the feature again:
 
 ```bash
 python3 .agents/skills/workflow-config/scripts/workflow_config.py \
-  --root /path/to/target-project --feature register-user --slices 4 \
+  --root /path/to/target-project --feature register-user-refresh --slices 4 \
   --native-provider codex --refresh
 ```
 
