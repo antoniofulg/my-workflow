@@ -106,6 +106,16 @@ def tree_hash(directory: Path) -> str:
     return digest.hexdigest()
 
 
+def reject_tree_symlinks(directory: Path) -> None:
+    """Reject every link in an untrusted staged skill without following it."""
+
+    for entry in os.scandir(directory):
+        if entry.is_symlink():
+            raise InstallationError(f"staged skill contains symlink: {entry.path}")
+        if entry.is_dir(follow_symlinks=False):
+            reject_tree_symlinks(Path(entry.path))
+
+
 def plan_lines(locked: list[LockedSkill], target: Path) -> list[str]:
     lines = [
         "External security skill installation is not authorized.",
@@ -495,6 +505,7 @@ def verify_installation(target: Path, locked: list[LockedSkill]) -> None:
         claude = target / ".claude" / "skills" / skill.name
         if not installed.is_dir():
             raise InstallationError(f"{skill.name} was not installed in .agents/skills")
+        reject_tree_symlinks(installed)
         if tree_hash(installed) != skill.computed_hash:
             raise InstallationError(f"{skill.name} failed its pinned tree hash")
         if not claude.is_symlink() or claude.resolve() != installed.resolve():

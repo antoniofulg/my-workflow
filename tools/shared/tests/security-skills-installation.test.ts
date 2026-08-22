@@ -56,6 +56,9 @@ root = pathlib.Path.cwd()
 installed = root / ".agents" / "skills" / skill
 installed.mkdir(parents=True, exist_ok=True)
 (installed / "SKILL.md").write_text(${JSON.stringify(content)})
+link_target = os.environ.get("FAKE_SKILLS_SYMLINK")
+if link_target:
+    (installed / "escape").symlink_to(link_target)
 claude = root / ".claude" / "skills" / skill
 claude.parent.mkdir(parents=True, exist_ok=True)
 if claude.exists() or claude.is_symlink(): claude.unlink()
@@ -507,6 +510,49 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
       const result = runPackInstaller(pack, target, cli);
       expect(result.status).toBe(1);
       expect(result.stderr).toContain("CLI version");
+      expect(existsSync(join(target, ".agents"))).toBe(false);
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a symlink anywhere in a staged skill before publication", () => {
+    const fixture = mkdtempSync(join(tmpdir(), "my-workflow-staged-symlink-"));
+    const target = join(fixture, "target");
+    const external = mkdtempSync(join(tmpdir(), "my-workflow-staged-external-"));
+    mkdirSync(target);
+    const externalSentinel = join(external, "sentinel.txt");
+    writeFileSync(externalSentinel, "do not touch\n");
+    const cli = writeFakeCli(fixture);
+    const pack = writePack(fixture, validLock());
+    try {
+      const result = runPackInstaller(pack, target, cli, {
+        FAKE_SKILLS_SYMLINK: externalSentinel,
+      });
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("symlink");
+      expect(existsSync(join(target, ".agents"))).toBe(false);
+      expect(readFileSync(externalSentinel, "utf8")).toBe("do not touch\n");
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+      rmSync(external, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects an unapproved CLI version in the target lock before invoking the CLI", () => {
+    const fixture = mkdtempSync(join(tmpdir(), "my-workflow-lock-cli-version-"));
+    const target = join(fixture, "target");
+    const log = join(fixture, "cli.log");
+    mkdirSync(target);
+    const cli = writeFakeCli(fixture);
+    const lock = validLock();
+    (lock.skills as Record<string, Record<string, string>>)["security-review"].cliVersion = "1.5.22";
+    const pack = writePack(fixture, lock);
+    try {
+      const result = runPackInstaller(pack, target, cli, { FAKE_SKILLS_LOG: log });
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("CLI version");
+      expect(existsSync(log)).toBe(false);
       expect(existsSync(join(target, ".agents"))).toBe(false);
     } finally {
       rmSync(fixture, { recursive: true, force: true });
