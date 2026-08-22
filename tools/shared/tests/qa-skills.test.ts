@@ -411,6 +411,9 @@ describe("configurable review policy", () => {
   it("bridges workflow resolution and feature-closing QA ordering", () => {
     const specDriven = readRepositoryFile(".agents/skills/tlc-spec-driven/SKILL.md");
     const qaScenarios = readRepositoryFile("docs/guidelines/QA-SCENARIOS.md");
+    const gates = readRepositoryFile("docs/guidelines/GATES.md");
+    const testContract = readRepositoryFile("docs/guidelines/TEST-CONTRACT.md");
+    const normalizedTestContract = testContract.replace(/\s+/g, " ");
     const newFeatureBridge =
       "Before dispatching providers for a new feature, resolve `.agents/skills/workflow-config/SKILL.md`";
     const resumeBridge =
@@ -426,6 +429,12 @@ describe("configurable review policy", () => {
       "The feature-closing QA session runs after the final implementation deep-review group";
     expect(qaScenarios).toContain(closingQa);
     expect(qaScenarios).not.toContain("The feature's last slice runs");
+    expect(gates).toContain(
+      "| Closing a task with a browser surface | The consuming project's browser scoped gate, filtered by `@feature:<slug>` |",
+    );
+    expect(normalizedTestContract).toContain(
+      "The `@feature:<slug>` tag is the selector the consuming project's browser scoped gate uses",
+    );
   });
 });
 

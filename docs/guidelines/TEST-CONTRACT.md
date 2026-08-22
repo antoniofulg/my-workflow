@@ -66,7 +66,8 @@ Pick the cheapest layer that can discriminate the behaviour.
 the e2e case is redundant.
 
 Permanent e2e specs carry `@feature:<slug>` and `@journey:<slug>` tags, unique data with `finally`
-cleanup, and residue-zero assertions.
+cleanup, and residue-zero assertions. The `@feature:<slug>` tag is the selector the consuming
+project's browser scoped gate uses to run only that feature's scenarios.
 
 ## Never add a test just to raise coverage
 
