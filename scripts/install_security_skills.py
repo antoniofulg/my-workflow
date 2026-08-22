@@ -18,6 +18,8 @@ from pathlib import Path
 
 CLI_VERSION = "1.5.23"
 LOCK_VERSION = 1
+TRUSTED_BIN_DIRS = ("/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin")
+RUNTIME_BIN_DIRS = ("/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin")
 SKILLS = {
     "security-best-practices": (
         "openai/skills",
@@ -109,13 +111,18 @@ def validate_tree_entries(directory: Path) -> None:
     """Reject links and special files in an untrusted staged skill."""
 
     for entry in os.scandir(directory):
-        mode = entry.stat(follow_symlinks=False).st_mode
+        if entry.name in {".git", "node_modules"}:
+            raise InstallationError(f"staged skill contains forbidden entry: {entry.path}")
+        info = entry.stat(follow_symlinks=False)
+        mode = info.st_mode
         if stat.S_ISLNK(mode):
             raise InstallationError(f"staged skill contains symlink: {entry.path}")
         if stat.S_ISDIR(mode):
             validate_tree_entries(Path(entry.path))
         elif not stat.S_ISREG(mode):
             raise InstallationError(f"staged skill contains non-regular entry: {entry.path}")
+        elif info.st_nlink != 1:
+            raise InstallationError(f"staged skill contains hardlinked file: {entry.path}")
 
 
 def plan_lines(locked: list[LockedSkill], target: Path) -> list[str]:
@@ -484,9 +491,21 @@ def merge_lock(target: Path, locked: list[LockedSkill]) -> None:
         os.close(target_fd)
 
 
-def cli_command(skill: LockedSkill) -> list[str]:
+def resolve_trusted_binary(name: str) -> str:
+    for directory in TRUSTED_BIN_DIRS:
+        candidate = Path(directory) / name
+        try:
+            mode = candidate.stat().st_mode
+        except OSError:
+            continue
+        if stat.S_ISREG(mode) and os.access(candidate, os.X_OK):
+            return str(candidate)
+    raise InstallationError(f"trusted {name} executable unavailable")
+
+
+def cli_command(skill: LockedSkill, npx: str) -> list[str]:
     return [
-        "npx",
+        npx,
         "--yes",
         f"skills@{CLI_VERSION}",
         "add",
@@ -506,17 +525,20 @@ def child_environment(wrapper_root: Path | None = None) -> dict[str, str]:
 
     allowed = ("PATH", "HOME", "TMPDIR", "TMP", "TEMP", "LANG", "LC_ALL", "LC_CTYPE")
     environment = {name: os.environ[name] for name in allowed if name in os.environ}
+    fixed_path = []
+    for directory in (*TRUSTED_BIN_DIRS, *RUNTIME_BIN_DIRS):
+        if directory not in fixed_path:
+            fixed_path.append(directory)
+    environment["PATH"] = os.pathsep.join(fixed_path)
     if wrapper_root is not None:
-        environment["PATH"] = f"{wrapper_root}{os.pathsep}{environment.get('PATH', '')}"
+        environment["PATH"] = f"{wrapper_root}{os.pathsep}{environment['PATH']}"
     return environment
 
 
 def pinned_git_environment(wrapper_root: Path) -> dict[str, str]:
     """Make skills@1.5.23's shallow clone accept a pinned commit ref."""
 
-    real_git = shutil.which("git")
-    if not real_git:
-        return child_environment()
+    real_git = resolve_trusted_binary("git")
     wrapper = wrapper_root / "git"
     wrapper.write_text(
         "#!/usr/bin/env python3\n"
@@ -613,8 +635,9 @@ def perform_installation(target: Path, locked: list[LockedSkill]) -> None:
         try:
             (snapshot / "git-wrapper").mkdir(parents=True, exist_ok=True)
             environment = pinned_git_environment(snapshot / "git-wrapper")
+            npx = resolve_trusted_binary("npx")
             for skill in locked:
-                command = cli_command(skill)
+                command = cli_command(skill, npx)
                 result = subprocess.run(command, cwd=staging, check=False, env=environment)
                 if result.returncode != 0:
                     raise InstallationError(f"skills CLI failed for {skill.name}")

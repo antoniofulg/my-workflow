@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   existsSync,
@@ -11,7 +11,6 @@ import {
   writeFileSync,
   rmSync,
 } from "node:fs";
-import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { delimiter as pathDelimiter, dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -39,9 +38,13 @@ const securitySkills = {
 } as const;
 
 function runInstaller(target: string, args: string[] = [], env: NodeJS.ProcessEnv = {}) {
+  const pack = writePack(
+    target,
+    JSON.parse(readFileSync(join(repositoryRoot, "skills-lock.json"), "utf8")),
+  );
   return spawnSync(
     "python3",
-    [join(repositoryRoot, "scripts/install_security_skills.py"), target, ...args],
+    [join(pack, "scripts/install_security_skills.py"), target, ...args],
     {
       cwd: repositoryRoot,
       encoding: "utf8",
@@ -91,6 +94,9 @@ function writeConfiguredNpx(
     fail?: boolean;
     fifo?: boolean;
     symlinkTarget?: string;
+    ignoredNames?: string[];
+    hardlinkTarget?: string;
+    invokeGit?: boolean;
     log?: string;
     sleep?: number;
   } = {},
@@ -98,7 +104,7 @@ function writeConfiguredNpx(
   const npx = join(directory, "npx");
   const script = [
     "#!/usr/bin/env python3\n",
-    "import os, pathlib, sys\n",
+    "import os, pathlib, sys, subprocess\n",
     options.fail ? "sys.exit(7)\n" : "",
     'skill = sys.argv[sys.argv.index("--skill") + 1]\n',
     "root = pathlib.Path.cwd()\n",
@@ -108,11 +114,20 @@ function writeConfiguredNpx(
     options.symlinkTarget
       ? '(installed / "escape").symlink_to(' + JSON.stringify(options.symlinkTarget) + ")\n"
       : "",
+    ...(options.ignoredNames ?? []).map(
+      (name) =>
+        '(installed / ' + JSON.stringify(name) + ').mkdir(parents=True, exist_ok=True)\n' +
+        '((installed / ' + JSON.stringify(name) + ') / "payload").write_text("ignored\\n")\n',
+    ),
+    options.hardlinkTarget
+      ? 'os.link(' + JSON.stringify(options.hardlinkTarget) + ', installed / "linked")\n'
+      : "",
     options.fifo ? '(installed / "special").parent.mkdir(parents=True, exist_ok=True)\nos.mkfifo(installed / "special")\n' : "",
     'claude = root / ".claude" / "skills" / skill\n',
     'claude.parent.mkdir(parents=True, exist_ok=True)\n',
     'if claude.exists() or claude.is_symlink(): claude.unlink()\n',
     'claude.symlink_to(pathlib.Path("../../.agents/skills") / skill)\n',
+    options.invokeGit ? 'subprocess.run(["git", "--version"], check=True)\n' : "",
     options.log
       ? 'pathlib.Path(' + JSON.stringify(options.log) + ').open("a").write(" ".join(sys.argv[1:]) + " env=" + os.environ.get("MY_WORKFLOW_TARGET", "<missing>") + " secrets=" + ",".join(name + "=" + str(name in os.environ) for name in ("GITHUB_TOKEN", "GH_TOKEN", "NPM_TOKEN", "AWS_SECRET_ACCESS_KEY")) + "\\n")\n'
       : "",
@@ -122,12 +137,29 @@ function writeConfiguredNpx(
   return npx;
 }
 
+function writeFakeGit(directory: string, marker: string): string {
+  const git = join(directory, "git");
+  writeFileSync(
+    git,
+    "#!/bin/sh\nprintf 'trusted-git\\n' > " + JSON.stringify(marker) + "\nexit 0\n",
+    { mode: 0o755 },
+  );
+  return git;
+}
+
 function writePack(directory: string, lock: object): string {
   const pack = join(directory, "pack");
   mkdirSync(join(pack, "scripts"), { recursive: true });
+  const installer = readFileSync(join(repositoryRoot, "scripts/install_security_skills.py"), "utf8")
+    .replace(
+      /TRUSTED_BIN_DIRS = \([^\n]+\)/,
+      "TRUSTED_BIN_DIRS = (" +
+        JSON.stringify(directory) +
+        ', "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin")',
+    );
   writeFileSync(
     join(pack, "scripts/install_security_skills.py"),
-    readFileSync(join(repositoryRoot, "scripts/install_security_skills.py")),
+    installer,
   );
   writeFileSync(join(pack, "skills-lock.json"), JSON.stringify(lock));
   return pack;
@@ -177,6 +209,15 @@ function validLock(content = "fixture\n") {
 
 function fixtureHash(content: string): string {
   return createHash("sha256").update("SKILL.md").update(content).digest("hex");
+}
+
+function hardlinkFixtureHash(content: string): string {
+  return createHash("sha256")
+    .update("SKILL.md")
+    .update(content)
+    .update("linked")
+    .update(content)
+    .digest("hex");
 }
 
 describe("external security skill installation", { timeout: 30_000 }, () => {
@@ -252,7 +293,16 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
     const content = "fixture\n";
     mkdirSync(join(fakePack, "scripts"), { recursive: true });
     mkdirSync(target, { recursive: true });
-    writeFileSync(join(fakePack, "scripts/install_security_skills.py"), readFileSync(join(repositoryRoot, "scripts/install_security_skills.py")));
+    writeFileSync(
+      join(fakePack, "scripts/install_security_skills.py"),
+      readFileSync(join(repositoryRoot, "scripts/install_security_skills.py"), "utf8")
+        .replace(
+          /TRUSTED_BIN_DIRS = \([^\n]+\)/,
+          "TRUSTED_BIN_DIRS = (" +
+            JSON.stringify(fixture) +
+            ', "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin")',
+        ),
+    );
     const lockSkills: Record<string, Record<string, string>> = {
       unrelated: { source: "consumer/local", sourceType: "local" },
     };
@@ -668,6 +718,91 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
       expect(readFileSync(join(target, "consumer.bin"))).toEqual(consumerBytes);
       expect(readFileSync(join(target, "skills-lock.json"))).toEqual(lockBytes);
       expect(existsSync(join(target, ".agents"))).toBe(false);
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
+  it.each([".git", "node_modules"])(
+    "rejects staged %s content even when the ignored payload matches the hash",
+    (ignoredName) => {
+      const fixture = mkdtempSync(join(tmpdir(), "my-workflow-staged-ignored-"));
+      const target = join(fixture, "target");
+      mkdirSync(target);
+      const npx = writeConfiguredNpx(fixture, "fixture\n", { ignoredNames: [ignoredName] });
+      const pack = writePack(fixture, validLock());
+      const consumerBytes = Buffer.from([8, 8, 8]);
+      const lockBytes = Buffer.from('{"version":1,"skills":{"consumer":{"source":"local"}}}\n');
+      writeFileSync(join(target, "consumer.bin"), consumerBytes);
+      writeFileSync(join(target, "skills-lock.json"), lockBytes);
+      try {
+        const result = runPackInstaller(pack, target, npx);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("forbidden entry");
+        expect(readFileSync(join(target, "consumer.bin"))).toEqual(consumerBytes);
+        expect(readFileSync(join(target, "skills-lock.json"))).toEqual(lockBytes);
+        expect(existsSync(join(target, ".agents"))).toBe(false);
+      } finally {
+        rmSync(fixture, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it("rejects hardlinked staged files without changing the external sentinel", () => {
+    const fixture = mkdtempSync(join(tmpdir(), "my-workflow-staged-hardlink-"));
+    const target = join(fixture, "target");
+    mkdirSync(target);
+    const externalSentinel = join(fixture, "consumer-sentinel.txt");
+    writeFileSync(externalSentinel, "fixture\n");
+    const npx = writeConfiguredNpx(fixture, "fixture\n", { hardlinkTarget: externalSentinel });
+    const lock = validLock();
+    for (const entry of Object.values(lock.skills)) {
+      if (entry.sourceType === "github") entry.computedHash = hardlinkFixtureHash("fixture\n");
+    }
+    const pack = writePack(fixture, lock);
+    try {
+      const result = runPackInstaller(pack, target, npx);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("hardlinked file");
+      expect(readFileSync(externalSentinel, "utf8")).toBe("fixture\n");
+      expect(existsSync(join(target, ".agents"))).toBe(false);
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
+  it("resolves npx and git from trusted paths instead of caller PATH", () => {
+    const fixture = mkdtempSync(join(tmpdir(), "my-workflow-trusted-tools-"));
+    const target = join(fixture, "target");
+    const malicious = join(fixture, "malicious");
+    const trustedGitMarker = join(fixture, "trusted-git.log");
+    const maliciousNpxMarker = join(fixture, "malicious-npx.log");
+    const maliciousGitMarker = join(fixture, "malicious-git.log");
+    mkdirSync(target);
+    mkdirSync(malicious);
+    writeFileSync(
+      join(malicious, "npx"),
+      "#!/bin/sh\nprintf 'malicious-npx\\n' > " + JSON.stringify(maliciousNpxMarker) + "\nexit 9\n",
+      { mode: 0o755 },
+    );
+    writeFileSync(
+      join(malicious, "git"),
+      "#!/bin/sh\nprintf 'malicious-git\\n' > " + JSON.stringify(maliciousGitMarker) + "\nexit 9\n",
+      { mode: 0o755 },
+    );
+    const log = join(fixture, "trusted-npx.log");
+    const npx = writeConfiguredNpx(fixture, "fixture\n", { log, invokeGit: true });
+    writeFakeGit(fixture, trustedGitMarker);
+    const pack = writePack(fixture, validLock());
+    try {
+      const result = runPackInstaller(pack, target, npx, {
+        PATH: malicious + pathDelimiter + (process.env.PATH ?? ""),
+      });
+      expect(result.status).toBe(0);
+      expect(existsSync(maliciousNpxMarker)).toBe(false);
+      expect(existsSync(maliciousGitMarker)).toBe(false);
+      expect(readFileSync(trustedGitMarker, "utf8")).toBe("trusted-git\n");
+      expect(readFileSync(log, "utf8")).toContain("skills@1.5.23");
     } finally {
       rmSync(fixture, { recursive: true, force: true });
     }
