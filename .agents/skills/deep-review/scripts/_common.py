@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -305,6 +306,11 @@ def freeze_snapshot(repo: Path, out: Path) -> str:
         if any(path == item or path.startswith(item + "/") for item in excludes):
             continue
         file_path = repo / path
+        if file_path.is_symlink():
+            digest.update(path.encode())
+            digest.update(b"\0symlink\0")
+            digest.update(os.fsencode(os.readlink(file_path)))
+            continue
         if not file_path.is_file():
             continue
         digest.update(path.encode())
