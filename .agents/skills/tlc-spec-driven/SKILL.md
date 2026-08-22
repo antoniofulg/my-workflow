@@ -88,9 +88,15 @@ A non-zero exit means STOP and fix before proceeding. Skip a script only when no
 
 **New feature:**
 
+Before dispatching providers for a new feature, resolve `.agents/skills/workflow-config/SKILL.md`
+and use its frozen route.
+
 1. Specify → (Design) → (Tasks) → Execute (depth auto-sized)
 
 **Resume work:**
+
+Before dispatching providers for a resumed feature, read its `workflow.json` snapshot and use the
+frozen route.
 
 1. Read `.specs/STATE.md` (Handoff + Decisions).
 2. Reconcile Handoff against git (`branch`, `status --porcelain`, recent commits) and, when present, `tasks.md`; when Tasks was skipped, reconcile the inline execution plan instead. Evidence wins over a stale snapshot. Full procedure: [memory.md](references/memory.md).

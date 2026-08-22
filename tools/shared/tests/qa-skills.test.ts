@@ -339,6 +339,58 @@ describe("canonical QA skills", () => {
   });
 });
 
+describe("configurable review policy", () => {
+  it("uses the canonical hierarchy and resolved deep-review groups", () => {
+    const agents = readRepositoryFile("AGENTS.md");
+    const reviewRounds = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
+    const autonomous = readRepositoryFile(".agents/skills/autonomous/SKILL.md");
+    const loop = readRepositoryFile("docs/workflow/loop.md");
+    const tour = readRepositoryFile("docs/workflow/README.md");
+
+    for (const source of [agents, reviewRounds, autonomous, loop, tour]) {
+      expect(source).toContain("Feature -> Vertical Slice -> Task");
+      expect(source).toContain("workflow-config");
+    }
+    expect(reviewRounds).toContain("deep-review** (resolved implementation groups)");
+    expect(reviewRounds).not.toContain("deep-review** (every slice)");
+    const finalGroupInstruction =
+      "Before final QA, complete the final pending implementation deep-review group.";
+    const qaHeading = "## The feature closing step";
+    const remediationInstruction =
+      "For QA code remediation, review only `reviewed_head..HEAD`, then re-walk affected scenario rows.";
+    expect(reviewRounds).toContain(finalGroupInstruction);
+    expect(reviewRounds.indexOf(finalGroupInstruction)).toBeLessThan(reviewRounds.indexOf(qaHeading));
+    expect(reviewRounds).toContain(remediationInstruction);
+    const deltaIndex = reviewRounds.indexOf("review only `reviewed_head..HEAD`");
+    const rerunIndex = reviewRounds.indexOf("then re-walk affected scenario rows");
+    expect(deltaIndex).toBeGreaterThan(-1);
+    expect(deltaIndex).toBeLessThan(rerunIndex);
+    expect(autonomous).toContain("every resolved");
+    expect(loop).toContain("deep-review follows resolved");
+    expect(tour).toContain("deep-review groups from workflow config");
+  });
+
+  it("bridges workflow resolution and feature-closing QA ordering", () => {
+    const specDriven = readRepositoryFile(".agents/skills/tlc-spec-driven/SKILL.md");
+    const qaScenarios = readRepositoryFile("docs/guidelines/QA-SCENARIOS.md");
+    const newFeatureBridge =
+      "Before dispatching providers for a new feature, resolve `.agents/skills/workflow-config/SKILL.md`";
+    const resumeBridge =
+      "Before dispatching providers for a resumed feature, read its `workflow.json` snapshot";
+    expect(specDriven).toContain(newFeatureBridge);
+    expect(specDriven).toContain(resumeBridge);
+    expect(specDriven.indexOf(newFeatureBridge)).toBeLessThan(specDriven.indexOf("1. Specify"));
+    expect(specDriven.indexOf(resumeBridge)).toBeLessThan(
+      specDriven.indexOf("1. Read `.specs/STATE.md`")
+    );
+
+    const closingQa =
+      "The feature-closing QA session runs after the final implementation deep-review group";
+    expect(qaScenarios).toContain(closingQa);
+    expect(qaScenarios).not.toContain("The feature's last slice runs");
+  });
+});
+
 describe("agent configuration", () => {
   it("IT-018 keeps the three harness matrices and dedicated Deep Review agents aligned", () => {
     const frontmatterValue = (source: string, key: string): string =>

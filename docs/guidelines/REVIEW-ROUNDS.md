@@ -20,42 +20,41 @@ Every nitpick changes the diff, so the next round finds new nitpicks. The loop i
 | **Technical Verifier** (every slice that changes code) | Do the tests actually prove the acceptance criteria? | ≤3 fix rounds, then escalate to the human |
 | **QA Plan** (public slices) | Which public promises need a walk? | One fresh Verifier session |
 | **QA Execute** (public slices) | Does this behaviour work through the declared adapter? | One fresh Verifier session |
-| **deep-review** (every slice) | Is the code correct, safe and maintainable? | ≤2 rounds, blocking findings only |
-| **QA session** (the last slice) | Does the finished feature work for a real user? | One `qa-plan` and one `qa-execute` session |
-
+| **deep-review** (resolved implementation groups) | Is the code correct, safe and maintainable? | ≤2 rounds, blocking findings only |
+| **QA session** (feature closing step) | Does the finished feature work for a real user? | One `qa-plan` and one `qa-execute` session |
 The provider `verifier` executes exactly one phase per packet: `technical`, `qa-plan`, or
 `qa-execute`. The orchestrator dispatches a technical packet, then fresh QA Plan and QA Execute
 packets for a public slice. Deep-review is a separate orchestrator stage, not a Verifier phase;
 internal-only changes skip the QA packets. All QA stages read `docs/guidelines/QA-SCENARIOS.md`; it owns
 fields and statuses. Each stage answers a question the others cannot, so none is redundant.
 
-## Why the slice, and not the feature
+## Why resolved groups, not a rigid interval
 
 Rounds do not grow with the size of a diff, they explode with it. Every round re-reads the whole
 change, and every remediation moves what the next round reads, so a large diff feeds itself. Three
 rounds over one behaviour is a signal about that behaviour; twenty over a finished feature is the
 size talking.
 
-Reviewing per slice is not more ceremony than reviewing per feature — it is the same reading, cut
-where it is cheap. One pull request still, one actor per role still. What changed is how much each
-reading has to hold at once.
+The public hierarchy is `Feature -> Vertical Slice -> Task`. The `workflow-config` resolver reads `.my-workflow.toml` before dispatch. It accepts `slice`, `feature`, or
+`grouped.N`; absent config means `grouped.3`. Grouped reviews are consecutive and balanced, so a
+four-slice feature with `grouped.3` reviews `2+2`, not `3+1`. One pull request and one actor per
+role remain unchanged.
 
 **Stages do not loop back into each other.** A deep-review finding never sends work back to
 Technical Verifier. The deep-review cap ends review rounds; it does not revoke the approval for
 local remediation already in progress. The post-fix gate and escalation rule below decide whether
 the slice is done.
 
-The single exception: when a deep-review fix changes user-visible behaviour, re-walk **the affected scenario rows only**. That is a row-level re-check, not a second walk.
+Before final QA, complete the final pending implementation deep-review group. For QA code remediation, review only `reviewed_head..HEAD`, then re-walk affected scenario rows.
 
-## The last slice
+## The feature closing step
 
-A feature's final slice is the **QA session**. It needs the whole feature and cannot run on part of
-one. The `qa-plan` and `qa-execute` skills own its operational procedure.
+A feature's closing step is the **QA session**, after the final implementation review group. It
+needs the whole feature and cannot run on part of one. The `qa-plan` and `qa-execute` skills own it.
 
 It writes no product code, so it gets no technical Verifier or deep-review. It still receives distinct
 fresh packets, `qa-plan` and `qa-execute`. Per-slice QA answers *"does this behaviour work?"*; the
-final session answers *"does the finished thing feel right?"* — and that question has no meaningful
-answer until the last behaviour is in place.
+final session answers *"does the finished thing feel right?"* after all implementation groups close.
 
 ## Hard rules
 

@@ -129,8 +129,9 @@ without a walk is `untested` debt that no cycle is guaranteed to clear.
 and walks them before it is done — the behaviour is complete by definition, so the verdict is real
 rather than provisional. A slice with no user-visible surface flags nothing and walks nothing.
 
-The feature's last slice runs the full session over everything, per `docs/guidelines/QA-EXECUTION.md`.
-A scenario already walked and passing is confirmed there, not re-litigated.
+The feature-closing QA session runs after the final implementation deep-review group, per
+`docs/guidelines/QA-EXECUTION.md` and `docs/guidelines/REVIEW-ROUNDS.md`. It covers everything; a
+scenario already walked and passing is confirmed there, not re-litigated.
 
 ## Merge behaviour
 

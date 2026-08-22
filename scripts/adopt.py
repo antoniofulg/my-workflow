@@ -35,6 +35,7 @@ COPY_PATHS = [
     ".agents/skills/qa-plan",
     ".agents/skills/qa-execute",
     ".agents/skills/autonomous",
+    ".agents/skills/workflow-config",
 ]
 
 # The profile is a template. A consuming project's existing profile is product-owned and must

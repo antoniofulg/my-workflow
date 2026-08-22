@@ -11,8 +11,8 @@ bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-20-workflow-0.3.0/session.md
-last_report: docs/qa/reports/2026-08-20-workflow-0.3.0.md
+evidence: docs/qa/evidence/2026-08-21-configurable-workflow/adoption-session.md
+last_report: docs/qa/reports/2026-08-21-configurable-workflow.md
 overlaps:
 ---
 
