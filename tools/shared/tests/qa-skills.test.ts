@@ -585,6 +585,24 @@ describe("adoption and public setup", () => {
     expect(adopt).toContain('COPY_MISSING_PATHS = ["docs/qa/README.md"]');
   });
 
+  it("IT-019 keeps README installation prerequisites and bundled skills authoritative", () => {
+    const readme = readRepositoryFile("README.md");
+
+    expect(readme).toContain("the target directory must already exist");
+    expect(readme).toContain("`adopt.py` requires Python 3");
+    expect(readme).toMatch(/Adoption\s+does not require a Git `HEAD`/);
+    expect(readme).toMatch(/the target must be a Git\s+repository with at least one commit/);
+    expect(readme).toMatch(/Node\.js and npm are needed only to validate this source pack's\s+gates/);
+    expect(readme).toMatch(
+      /`adopt\.py` installs and updates the bundled TLC, Ponytail, and Deep Review\s+skills/,
+    );
+    expect(readme).toMatch(/No external skill\s+installer is needed/);
+    expect(readme).not.toContain("@tech-leads-club/agent-skills install");
+    expect(readme).not.toContain("skills add dietrichgebert/ponytail");
+    expect(readme).not.toContain("Delete any .cursor/skills");
+    expect(readme).not.toContain("extra .codex/.opencode copies");
+  });
+
   it("IT-011 keeps stack-specific QA capabilities in the operational profile", () => {
     const profile = readRepositoryFile("docs/qa/README.md");
 
