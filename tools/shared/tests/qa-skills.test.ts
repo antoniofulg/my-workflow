@@ -790,7 +790,7 @@ describe("adoption and public setup", () => {
     expect(normalize(reviewRounds)).not.toContain("blocker remains reproducible");
   });
 
-  it("IT-028 states the stall bound, its source, its default, and the unbounded value", () => {
+  it("IT-028 states the stall bound, its source, its default, its unbounded value, and what the halt report names", () => {
     const reviewRounds = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
     const escalation = normalize(
       reviewRounds.slice(
@@ -805,6 +805,8 @@ describe("adoption and public setup", () => {
     expect(escalation).toMatch(/consecutive attempts repeat one signature|consecutive identical/);
     expect(escalation).toMatch(/default 3|defaults to 3/);
     expect(escalation).toMatch(/0 never halts|0 means unbounded/);
+    expect(escalation).toContain("repeated signature");
+    expect(escalation).toMatch(/attempt count|how many attempts/);
   });
 
   it("IT-029 halts the autonomous run on a stall and cites the guideline", () => {

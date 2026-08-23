@@ -144,7 +144,7 @@ Batch aggressively. One commit per remediation batch is already the commit rule,
 
 Past a cap, remediation continues locally: run the scoped gate after every attempt and record that attempt's **failure signature** — the failing gate command, the sorted set of failing test identifiers, and each one's first assertion message, normalized to drop timings, absolute paths and line numbers. Line numbers shift on any edit, so keeping them would make every attempt read as progress and the bound would never fire.
 
-A signature that differs from the previous attempt's is progress: start the next attempt, with no new human authorization. Halt once `stall_attempts` consecutive attempts repeat one signature, or when the gate cannot be made to run, and hand the human what is still wrong, every fix tried, and the recommended call. `stall_attempts` is `.my-workflow.toml` `[remediation]`, default `3`; `0` never halts for a stall. No new review round opens past a cap — the caps stand. Local fixes only; every remote action keeps the authorization it already had.
+A signature that differs from the previous attempt's is progress: start the next attempt, with no new human authorization. Halt once `stall_attempts` consecutive attempts repeat one signature, or when the gate cannot be made to run, and hand the human what is still wrong — the repeated signature and the attempt count that produced it — every fix tried, and the recommended call. `stall_attempts` is `.my-workflow.toml` `[remediation]`, default `3`; `0` never halts for a stall. No new review round opens past a cap — the caps stand. Local fixes only; every remote action keeps the authorization it already had.
 
 ## Requirement and contract parity
 
