@@ -771,7 +771,7 @@ describe("adoption and public setup", () => {
     expect(normalize(skill)).toContain("keeps it out of workflow.json");
   });
 
-  it("IT-022 (stall-based-halt) bounds post-cap remediation by progress, not by an open blocker", () => {
+  it("IT-027 bounds post-cap remediation by progress, not by an open blocker", () => {
     const reviewRounds = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
     const escalation = normalize(
       reviewRounds.slice(
@@ -790,7 +790,7 @@ describe("adoption and public setup", () => {
     expect(normalize(reviewRounds)).not.toContain("blocker remains reproducible");
   });
 
-  it("IT-023 (stall-based-halt) states the stall bound, its source, its default, and the unbounded value", () => {
+  it("IT-028 states the stall bound, its source, its default, and the unbounded value", () => {
     const reviewRounds = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
     const escalation = normalize(
       reviewRounds.slice(
@@ -807,7 +807,7 @@ describe("adoption and public setup", () => {
     expect(escalation).toMatch(/0 never halts|0 means unbounded/);
   });
 
-  it("IT-024 (stall-based-halt) halts the autonomous run on a stall and cites the guideline", () => {
+  it("IT-029 halts the autonomous run on a stall and cites the guideline", () => {
     const autonomous = readRepositoryFile(".agents/skills/autonomous/SKILL.md");
     const haltConditions = normalize(
       autonomous.slice(
@@ -823,7 +823,7 @@ describe("adoption and public setup", () => {
     expect(haltConditions).not.toContain("stall_attempts");
   });
 
-  it("IT-025 (stall-based-halt) leaves every remote-action authorization halt in force", () => {
+  it("IT-030 leaves every remote-action authorization halt in force", () => {
     const autonomous = readRepositoryFile(".agents/skills/autonomous/SKILL.md");
     const haltConditions = normalize(
       autonomous.slice(

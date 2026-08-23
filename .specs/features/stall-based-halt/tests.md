@@ -28,10 +28,10 @@ guideline and the halt rule stated in the `autonomous` skill are the same rule.
 
 | ID | Behaviour | Given / When | Expected |
 | --- | --- | --- | --- |
-| IT-022 | The escalation rule bounds by progress, not by rounds | read `docs/guidelines/REVIEW-ROUNDS.md` `## Escalation` | states that a changed failure signature continues remediation without new authorization; no longer stops on an open blocker alone |
-| IT-023 | The stall bound and its default are stated | read `docs/guidelines/REVIEW-ROUNDS.md` `## Escalation` | names `stall_attempts`, the default `3`, and `0` as unbounded |
-| IT-024 | The autonomous halt condition matches the guideline | read `.agents/skills/autonomous/SKILL.md` halt conditions | the blocker condition is the stall condition and cites `docs/guidelines/REVIEW-ROUNDS.md` |
-| IT-025 | Remote authorization is untouched | read `.agents/skills/autonomous/SKILL.md` halt conditions | the unauthorized-next-remote-action halt is still present and unchanged |
+| IT-027 | The escalation rule bounds by progress, not by rounds | read `docs/guidelines/REVIEW-ROUNDS.md` `## Escalation` | states that a changed failure signature continues remediation without new authorization; no longer stops on an open blocker alone |
+| IT-028 | The stall bound and its default are stated | read `docs/guidelines/REVIEW-ROUNDS.md` `## Escalation` | names `stall_attempts`, the default `3`, and `0` as unbounded |
+| IT-029 | The autonomous halt condition matches the guideline | read `.agents/skills/autonomous/SKILL.md` halt conditions | the blocker condition is the stall condition and cites `docs/guidelines/REVIEW-ROUNDS.md` |
+| IT-030 | Remote authorization is untouched | read `.agents/skills/autonomous/SKILL.md` halt conditions | the unauthorized-next-remote-action halt is still present and unchanged |
 | IT-026 | The config surface is documented where it is read, and the snapshot is not confused with the output | read `.agents/skills/workflow-config/SKILL.md`, `.my-workflow.toml.example`, and `docs/qa/scenarios/CFG-freeze-feature-workflow.md` | the skill and the example both carry `[remediation] stall_attempts` with the default and the `0` meaning; the skill and the scenario both state the JSON output is the snapshot plus the resolved-now `remediation`, and neither equates the two artifacts |
 
 ## End-to-end
@@ -50,6 +50,6 @@ no new surface).
 | Slice | Tasks own | IDs |
 | --- | --- | --- |
 | 1 — resolver learns `[remediation]` | resolver validation and resolved output | UT-001 … UT-009, IT-026 |
-| 2 — the halt rule becomes a stall rule | guideline and skill wording | IT-022 … IT-025 |
+| 2 — the halt rule becomes a stall rule | guideline and skill wording | IT-027 … IT-030 |
 
 Every ID appears in exactly one slice. No orphans.
