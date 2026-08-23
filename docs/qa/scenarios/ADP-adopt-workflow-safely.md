@@ -6,13 +6,13 @@ persona: Workflow adopter
 journey: J-adopt-workflow
 expected: A fresh target receives the workflow resolver, tools/ad-index.py, and a workflow tour without the pack-only guide or dead links; its instructions keep Ponytail active from workflow start through the full cycle; re-adoption preserves consumer-owned state; and feature workflow state remains visible to Git.
 entry_points: README.md#adopt-the-workflow; docs/guidelines/ARTIFACT-LIFECYCLE.md; scripts/adopt.py; .my-workflow.toml
-qa_status: untested
-bug_ids: BUG-20260822-deep-review-learnings-untrackable; BUG-20260822-feature-specs-ignored
-fix_status: pending
-retest_status: untested
-fix_commits:
-evidence: docs/qa/evidence/2026-08-22-preserve-consumer-ad-index/session.md; docs/qa/evidence/2026-08-22-source-only-pack-guide/session.md; docs/qa/evidence/2026-08-22-version-feature-specs-handoff/session.md; docs/qa/evidence/2026-08-22-validate-generated-feature-contracts/session.md; docs/qa/evidence/2026-08-22-ponytail-full-cycle/session.md; docs/qa/evidence/2026-08-22-authoritative-validation-verdict/session.md; docs/qa/evidence/2026-08-22-deep-review-learnings-retest/session.md
-last_report: docs/qa/reports/2026-08-22-deep-review-learnings-retest.md
+qa_status: pass
+bug_ids: BUG-20260822-deep-review-learnings-untrackable; BUG-20260822-feature-specs-ignored; BUG-20260822-feature-state-gate-conflicts
+fix_status: fixed
+retest_status: pass
+fix_commits: 0413862; a7397d2; 43e9910; a3fc718; 5b5474e
+evidence: docs/qa/evidence/2026-08-22-preserve-consumer-ad-index/session.md; docs/qa/evidence/2026-08-22-source-only-pack-guide/session.md; docs/qa/evidence/2026-08-22-version-feature-specs-handoff/session.md; docs/qa/evidence/2026-08-22-validate-generated-feature-contracts/session.md; docs/qa/evidence/2026-08-22-ponytail-full-cycle/session.md; docs/qa/evidence/2026-08-22-authoritative-validation-verdict/session.md; docs/qa/evidence/2026-08-22-deep-review-learnings-retest/session.md; docs/qa/evidence/2026-08-22-version-feature-state-by-default/session.md
+last_report: docs/qa/reports/2026-08-22-version-feature-state-by-default.md
 overlaps:
 ---
 
@@ -48,3 +48,10 @@ Issue #28 requires a fresh adoption against a target that already ignores `.deep
 durable `.deep-review/learnings.md` must be eligible for Git while other Deep Review artifacts stay
 ignored, and re-adoption must remain idempotent. The canonical smoke test covers the Git contract;
 QA on 2026-08-22 confirmed that contract through fresh adoption and byte-identical re-adoption.
+
+Issue #31 replaces the former opt-in handoff policy: `.specs/features/` is always versioned workflow
+state. Fresh adoption must leave it visible to Git; migration removes only exact legacy ignore
+entries, preserves unrelated target lines, and does not stage or commit consumer files.
+
+QA on 2026-08-22 confirmed fresh visibility, exact legacy migration, byte-idempotent re-adoption,
+unchanged `HEAD` and index, and feature-state handoff through a sibling worktree and clean clone.

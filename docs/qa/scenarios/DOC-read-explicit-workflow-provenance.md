@@ -11,8 +11,8 @@ bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-22-external-security-skills/session.md; docs/qa/evidence/2026-08-22-version-feature-specs-handoff/session.md; docs/qa/evidence/2026-08-22-ponytail-full-cycle/session.md; docs/qa/evidence/2026-08-22-explicit-remote-approval/session.md
-last_report: docs/qa/reports/2026-08-22-explicit-remote-approval.md
+evidence: docs/qa/evidence/2026-08-22-external-security-skills/session.md; docs/qa/evidence/2026-08-22-version-feature-specs-handoff/session.md; docs/qa/evidence/2026-08-22-ponytail-full-cycle/session.md; docs/qa/evidence/2026-08-22-explicit-remote-approval/session.md; docs/qa/evidence/2026-08-22-version-feature-state-by-default/session.md
+last_report: docs/qa/reports/2026-08-22-version-feature-state-by-default.md
 overlaps:
 ---
 
