@@ -42,8 +42,9 @@ product tree in the parent chat. Models live only on the agent files. Cursor als
 
 ## How work happens
 
-Use the `tlc-spec-driven` skill. It auto-sizes. Activate `ponytail` at `full` before specify, design,
-issue selection, any subagent prompt, and before writing, refactoring, fixing or reviewing code.
+Use the `tlc-spec-driven` skill. It auto-sizes. At the start of workflow work, activate `ponytail`
+at `full` and keep it active for the entire session: Specify, Design, Tasks, Execute, every
+subagent prompt, fix, and review, until the human explicitly says `stop ponytail` or `normal mode`.
 
 **Public hierarchy is `Feature -> Vertical Slice -> Task`.** A vertical slice is one observable
 end-to-end behaviour; its tasks are the smallest implementation units plus their tests. e2e only

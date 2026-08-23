@@ -10,9 +10,10 @@
 2. Decide whether Git worktrees hand work off or a gate/CI job reads feature specs; when either is
    true, remove the managed `.specs/features/` ignore entry and version the relevant feature tree.
 3. Adopt into a checkout-local disposable target through the documented CLI.
-4. Confirm bundled workflow assets are discoverable, the copied workflow tour omits the source-only
-   pack guide and its links, all three external security skills remain absent, and adoption prints
-   their separate authorized installation command.
+4. Confirm bundled workflow assets are discoverable, the installed instructions activate Ponytail
+   at workflow start and keep it active through the full cycle, the copied workflow tour omits the
+   source-only pack guide and its links, all three external security skills remain absent, and
+   adoption prints their separate authorized installation command.
 5. Re-adopt a target with a consumer-owned `.my-workflow.toml`, QA profile, model pin,
    `tools/ad-index.py`, and unrelated ignore entries.
 6. Confirm consumer-owned state survives byte-for-byte and the resulting diff remains reviewable.

@@ -4,9 +4,10 @@
 loop. It does not replace it. Auto-size still holds: a one-line change gets no spec; a
 multi-component feature gets full planning.
 
-Activate `ponytail` at `full` before specify, design, issue selection, any subagent prompt, and
-before writing, refactoring, fixing or reviewing code. Shortest working path. The same instinct as
-“delete rather than bridge” and “no test without an invariant”. `AGENTS.md` is the imperative.
+Workflow work starts with `ponytail` at `full`; `AGENTS.md` carries the activation and session
+persistence rule, while the [Ponytail skill](../../.agents/skills/ponytail/SKILL.md) owns its
+explicit stop commands. The same instinct as “delete rather than bridge” and “no test without an
+invariant”.
 
 Public hierarchy: `Feature -> Vertical Slice -> Task`. Resolve cadence with `workflow-config` before dispatch.
 

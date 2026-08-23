@@ -626,6 +626,27 @@ describe("adoption and public setup", () => {
     expect(readme).not.toContain("extra .codex/.opencode copies");
   });
 
+  it("IT-021 keeps Ponytail active from workflow start through the full cycle", () => {
+    const agents = readRepositoryFile("AGENTS.md");
+    const loop = readRepositoryFile("docs/workflow/loop.md");
+    const readme = readRepositoryFile("README.md");
+    const ponytail = readRepositoryFile(".agents/skills/ponytail/SKILL.md");
+
+    expect(agents).toContain(
+      "At the start of workflow work, activate `ponytail`\nat `full` and keep it active for the entire session",
+    );
+    expect(agents).toContain(
+      "Specify, Design, Tasks, Execute, every\nsubagent prompt, fix, and review",
+    );
+    expect(agents).toContain("until the human explicitly says `stop ponytail` or `normal mode`");
+    expect(loop).toContain("`AGENTS.md` carries the activation and session\npersistence rule");
+    expect(loop).toContain("[Ponytail skill](../../.agents/skills/ponytail/SKILL.md)");
+    expect(readme).toContain(
+      "At the start of\nworkflow work, activate `ponytail` at `full`; `AGENTS.md` carries the full-cycle",
+    );
+    expect(ponytail).toContain("ACTIVE EVERY RESPONSE");
+  });
+
   it("IT-020 keeps the pack guide source-only for adopted consumers", () => {
     const tour = readRepositoryFile("docs/workflow/README.md");
     const pack = readRepositoryFile("docs/workflow/pack.md");
