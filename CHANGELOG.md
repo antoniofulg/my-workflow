@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented here.
 
+## [0.3.6] - 2026-08-23
+
+### Added
+
+- Optional Graft and OpenDesign integrations with repository-approved handoffs, source precedence, and safe writer boundaries.
+- Versioned feature workflow state with safe migration of legacy ignore rules.
+- Trackable Deep Review learnings and immutable QA charters with acceptance-criteria-mapped test cases.
+
+### Changed
+
+- Remote actions now require explicit authorization separate from local autonomous readiness.
+- TLC validation honors the explicit `Verdict`; Deep Review uses the effective base and freezes source inputs before acceptance.
+- Knowledge checks reject duplicate decision identities, record author dates, and run outside the repository bundle's full gate.
+
+### Fixed
+
+- Walkthrough comment publishing is idempotent, using PATCH for an existing comment and POST for a missing one.
+
 ## [0.3.5] - 2026-08-22
 
 ### Added
