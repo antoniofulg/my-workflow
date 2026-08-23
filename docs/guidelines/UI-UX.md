@@ -10,6 +10,13 @@ with no new or changed screen skip this.
 
 `.specs/features/<feature>/uiux.md`, written in Design, **before** internal design begins.
 
+## Optional design tooling
+
+OpenDesign or another design tool may support visual iteration when available. It is optional: the
+repository stores only the approved handoff, and tool absence or failure falls back to the normal
+repository artifacts. Resolve disagreements in this order: `spec.md` → `uiux.md` → approved design
+artifact → tool or plugin output, then legacy mockup.
+
 ```markdown
 # <Feature> UI Change Map
 

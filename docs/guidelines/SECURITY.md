@@ -14,6 +14,12 @@ Product rules stay authoritative in the consuming project's product docs. Archit
 authoritative in its architecture docs. This says how feature work applies and verifies them; it does
 not restate them.
 
+## External filesystem writers
+
+Run an external tool that writes files in an isolated environment or with explicitly allowed
+directories. Validate destination paths and symlinks before the first write. Preserve destination-only
+files and never delete them automatically.
+
 ## 1. Before coding — build with the right guidance loaded
 
 1. Invoke the installed `security-best-practices` skill (or the closest equivalent) in

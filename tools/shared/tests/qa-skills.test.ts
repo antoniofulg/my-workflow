@@ -482,6 +482,33 @@ describe("configurable review policy", () => {
   });
 });
 
+describe("optional integration policy", () => {
+  it("IT-023 keeps optional tools stack-agnostic, repository-authoritative, and non-destructive", () => {
+    const readme = readRepositoryFile("README.md");
+    const uiux = readRepositoryFile("docs/guidelines/UI-UX.md");
+    const security = readRepositoryFile("docs/guidelines/SECURITY.md");
+    const state = readRepositoryFile(".specs/STATE.md");
+    const normalizedUiux = uiux.replace(/\s+/g, " ");
+    const normalizedSecurity = security.replace(/\s+/g, " ");
+
+    expect(readme).toContain("The workflow stays stack- and tool-agnostic");
+    expect(readme).toContain("Graft");
+    expect(readme).toContain("OpenDesign");
+    expect(readme).toContain("No integration is mandatory or installed by adoption");
+    expect(normalizedUiux).toContain("repository stores only the approved handoff");
+    expect(normalizedUiux).toContain("`spec.md` → `uiux.md` → approved design");
+    expect(normalizedUiux).toContain("tool or plugin output, then legacy mockup");
+    expect(normalizedUiux).toContain("tool absence or failure falls back to the normal repository artifacts");
+    expect(normalizedSecurity).toContain("isolated environment or with explicitly allowed directories");
+    expect(normalizedSecurity).toContain("Validate destination paths and symlinks before the first write");
+    expect(normalizedSecurity).toContain("never delete them automatically");
+    expect(state).toContain("### AD-006");
+    expect(state).toContain("stack- and tool-agnostic");
+    expect(state).toContain("Graft");
+    expect(state).toContain("OpenDesign");
+  });
+});
+
 describe("agent configuration", () => {
   it("IT-018 keeps the three harness matrices and dedicated Deep Review agents aligned", () => {
     const frontmatterValue = (source: string, key: string): string =>

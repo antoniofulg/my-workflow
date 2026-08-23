@@ -80,3 +80,18 @@ Idle.
   documentation.
 - **Date**: 2026-08-22
 - **Status**: active
+
+### AD-006
+
+- **Decision**: Keep the workflow stack- and tool-agnostic while allowing optional capability
+  integrations. Recommend Graft for deep-review context and OpenDesign for visual iteration; neither
+  is mandatory. The repository remains authoritative for approved handoffs, with precedence
+  `spec.md` → `uiux.md` → approved design artifact → tool or plugin output, then legacy mockup.
+- **Reason**: Optional tools can improve context or iteration without imposing installation, provider,
+  framework, or product-specific paths on consuming projects.
+- **Trade-off**: Integrations may be absent or fail, so agents use honest repository fallbacks;
+  external writers need explicit filesystem boundaries and non-destructive imports.
+- **Scope**: `README.md`, `docs/guidelines/UI-UX.md`, `docs/guidelines/SECURITY.md`, optional
+  integration skills, and feature snapshots.
+- **Date**: 2026-08-23
+- **Status**: active
