@@ -9,7 +9,7 @@ project call, or a one-feature choice becomes “the way the system is”.
 | --- | --- | --- | --- |
 | **Project decision** | `AD-NNN` (three digits) | `.specs/STATE.md`, append-only | The project. Supersede, never delete, never reuse an id |
 | **Architecture invariant** | Whatever the consuming project uses | `docs/architecture/` | Holds regardless of feature. This pack does not invent those ids |
-| **Feature-local** | Table in `decisions.md` | `.specs/features/<slug>/decisions.md` | Dies with the branch unless promoted |
+| **Feature-local** | Table in `decisions.md` | `.specs/features/<slug>/decisions.md` | Versioned with the feature; promote if it must outlive it |
 
 Always cite **the file** with the label. The same letters in two files are not the same object.
 
@@ -20,9 +20,8 @@ Promote before the pull request, per [ARTIFACT-LIFECYCLE.md](../guidelines/ARTIF
 - Must outlive it as an invariant → the architecture docs
 - Must outlive it as an agent rule → `docs/guidelines/`
 
-Planning artifacts (`spec.md`, `design.md`, `tasks.md`, workflow memory) stay in the active checkout
-as ignored local state. After the code exists they are a second description of the same thing, and
-two descriptions drift.
+Feature workflow state (`spec.md`, `design.md`, `tasks.md`, and validation) stays under the versioned
+`.specs/features/<slug>/` tree. Workflow memory remains disposable local state.
 
 ## Halt vs decide
 

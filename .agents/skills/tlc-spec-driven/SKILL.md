@@ -30,7 +30,7 @@ Plan and implement features with precision. Granular tasks. Clear dependencies. 
 
 1. Tests derive from the spec's acceptance criteria and assert spec-defined outcomes - they never mirror the implementation.
 2. The gate must pass (tests pass) before a task is done - the test runner decides, not self-assessment.
-3. One atomic commit per task. When `tasks.md` is present, mark the task complete there (and update spec traceability when used) **before** that commit; when Tasks is skipped, update and verify the inline execution plan before committing. Planning files under `.specs/features/` stay out of the commit. Never batch tasks; never weaken, skip, or delete tests to make them pass.
+3. One atomic commit per task. When `tasks.md` is present, mark the task complete there (and update spec traceability when used) **before** that commit; when Tasks is skipped, update and verify the inline execution plan before committing. Feature files under `.specs/features/` are versioned workflow state and may be part of that atomic commit. Never batch tasks; never weaken, skip, or delete tests to make them pass.
 4. After the LAST task, a fresh **Verifier always runs automatically** (author ≠ verifier) - spec-anchored outcome check + discrimination sensor. It is never optional and never prompted. See Sub-Agent Delegation.
 5. **Blast radius:** approving a spec or tasks authorizes local implementation and local commits only. `git push`, force-push, deploy, production DB changes, and other remote / externally visible / destructive operations require an explicit go-ahead for that action.
 

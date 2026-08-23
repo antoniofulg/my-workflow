@@ -11,23 +11,21 @@
 
 ## Mission
 
-Adopt into a checkout-local disposable target. Confirm feature specs remain ignored by default and
-the public guidance tells projects using worktree handoffs or spec-reading gates/CI to remove that
-managed ignore entry and version the relevant specs, without claiming automatic detection or
-migration.
+Adopt into a checkout-local disposable target. Confirm feature specs are visible to Git by default
+and adoption removes duplicate exact legacy ignore entries while preserving unrelated consumer
+rules, without staging or committing files automatically.
 
 ## Expected observable
 
-The default target ignores `.specs/features/`; README and artifact-lifecycle guidance agree on when
-and how to version it; the adjacent public documentation remains explicit and internally consistent.
+The target keeps `.specs/features/` versioned; README and artifact-lifecycle guidance agree on the
+managed legacy-line migration contract; the adjacent public documentation remains consistent.
 
 ## Planned probes
 
-- Confirm fresh adoption adds the managed `.specs/features/` ignore entry.
-- Compare README and artifact-lifecycle wording for both qualifying conditions and the manual action.
-- In the disposable target, remove the managed entry and confirm a feature spec becomes visible to
-  Git for worktree handoff and clean-checkout gates.
-- Confirm neither document promises automatic detection or migration.
+- Confirm fresh adoption does not add a `.specs/features/` ignore entry.
+- Seed duplicate exact legacy entries and unrelated comments/rules, then confirm only the legacy
+  entries are removed.
+- Re-adopt and confirm the `.gitignore` bytes remain unchanged and a feature spec is visible to Git.
 - Adjacent canary: inspect the public README surfaces owned by
   `DOC-read-explicit-workflow-provenance` for intact scope and provenance statements.
 

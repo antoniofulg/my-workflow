@@ -181,10 +181,10 @@ def test_fresh_and_refuse() -> None:
             "!.deep-review/",
             ".deep-review/*",
             "!.deep-review/learnings.md",
-            ".specs/features/",
             "graft/",
         ):
             assert ignored.splitlines().count(entry) == 1
+        assert ".specs/features/" not in ignored.splitlines()
         search_ignored = (tmp / ".ignore").read_text(encoding="utf-8")
         for entry in ("!graft/", "graft/.cache/", "graft/.graph/"):
             assert search_ignored.splitlines().count(entry) == 1
@@ -297,16 +297,15 @@ def test_gitignore_rules_merge_without_overwrite() -> None:
             "!.deep-review/",
             ".deep-review/*",
             "!.deep-review/learnings.md",
-            ".specs/features/",
             "graft/",
         ):
             assert ignored.splitlines().count(entry) == 1
+        assert ".specs/features/" not in ignored.splitlines()
 
         (tmp / ".gitignore").write_text(
             "consumer-cache/\n"
             "!.deep-review/learnings.md\n"
             ".deep-review/*\n"
-            ".specs/features/\n"
             "consumer-output/\n",
             encoding="utf-8",
         )
@@ -314,11 +313,10 @@ def test_gitignore_rules_merge_without_overwrite() -> None:
         ignored = (tmp / ".gitignore").read_text(encoding="utf-8")
         assert "consumer-cache/\n" in ignored
         assert "consumer-output/\n" in ignored
-        assert ignored.splitlines()[-5:] == [
+        assert ignored.splitlines()[-4:] == [
             "!.deep-review/",
             ".deep-review/*",
             "!.deep-review/learnings.md",
-            ".specs/features/",
             "graft/",
         ]
     finally:
@@ -349,17 +347,71 @@ def test_deep_review_learnings_survive_consumer_parent_ignore() -> None:
         assert review.returncode == 0
         merged_ignore = (tmp / ".gitignore").read_text(encoding="utf-8").splitlines()
         assert merged_ignore.count(".deep-review/") == 1
-        assert merged_ignore[-5:] == [
+        assert merged_ignore[-4:] == [
             "!.deep-review/",
             ".deep-review/*",
             "!.deep-review/learnings.md",
-            ".specs/features/",
             "graft/",
         ]
 
         before = (tmp / ".gitignore").read_bytes()
         run(tmp)
         assert (tmp / ".gitignore").read_bytes() == before
+    finally:
+        shutil.rmtree(tmp)
+
+
+def test_feature_specs_are_versioned_and_legacy_ignore_is_removed() -> None:
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        subprocess.run(["git", "init", "-q", str(tmp)], check=True)
+        run(tmp)
+        gitignore = tmp / ".gitignore"
+        assert ".specs/features/" not in gitignore.read_text(encoding="utf-8").splitlines()
+
+        gitignore.write_text(
+            "# keep this consumer comment\n"
+            "consumer-cache/\n"
+            ".specs/features/\n"
+            ".specs/features/\n"
+            "consumer-output/\n",
+            encoding="utf-8",
+        )
+        run(tmp)
+        migrated = gitignore.read_text(encoding="utf-8")
+        assert ".specs/features/" not in migrated.splitlines()
+        migrated_lines = migrated.splitlines()
+        assert migrated_lines[:3] == [
+            "# keep this consumer comment",
+            "consumer-cache/",
+            "consumer-output/",
+        ]
+        assert migrated_lines[-4:] == [
+            "!.deep-review/",
+            ".deep-review/*",
+            "!.deep-review/learnings.md",
+            "graft/",
+        ]
+
+        feature = tmp / ".specs/features/register-user/spec.md"
+        feature.parent.mkdir(parents=True)
+        feature.write_text("# Register user\n", encoding="utf-8")
+        visible = subprocess.run(
+            ["git", "check-ignore", "--no-index", "--quiet", "--", str(feature.relative_to(tmp))],
+            cwd=tmp,
+            check=False,
+        )
+        assert visible.returncode == 1
+        second_before = gitignore.read_bytes()
+        run(tmp)
+        assert gitignore.read_bytes() == second_before
+        assert feature.relative_to(tmp).as_posix() in subprocess.run(
+            ["git", "ls-files", "--others", "--exclude-standard", "--", ".specs/features"],
+            cwd=tmp,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.splitlines()
     finally:
         shutil.rmtree(tmp)
 
@@ -417,6 +469,7 @@ if __name__ == "__main__":
     test_agent_pins_survive_readopt()
     test_gitignore_rules_merge_without_overwrite()
     test_deep_review_learnings_survive_consumer_parent_ignore()
+    test_feature_specs_are_versioned_and_legacy_ignore_is_removed()
     test_graft_ignore_contract_and_search_visibility()
     test_deep_review_skill_adoption_and_artifact_hygiene()
     test_pack_guide_stays_source_only_and_tour_has_no_dead_link()

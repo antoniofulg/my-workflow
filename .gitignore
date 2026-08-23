@@ -11,7 +11,6 @@ docs/qa/evidence/
 docs/qa/state.csv
 .deep-review/*
 !.deep-review/learnings.md
-.specs/features/
 
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 graft/

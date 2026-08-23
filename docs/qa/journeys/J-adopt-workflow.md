@@ -7,8 +7,8 @@
 ## Flow
 
 1. Review the target's clean state, managed paths, and existing operational capabilities.
-2. Decide whether Git worktrees hand work off or a gate/CI job reads feature specs; when either is
-   true, remove the managed `.specs/features/` ignore entry and version the relevant feature tree.
+2. Confirm `.specs/features/` is versioned workflow state; legacy exact ignore entries are removed
+   during adoption while unrelated consumer rules remain intact.
 3. Adopt into a checkout-local disposable target through the documented CLI.
 4. Confirm bundled workflow assets are discoverable, the installed instructions activate Ponytail
    at workflow start and keep it active through the full cycle, the copied workflow tour omits the

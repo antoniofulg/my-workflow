@@ -11,7 +11,7 @@
 
 ## Mission
 
-Create representative Deep Review, feature-planning, and Graft artifacts in a disposable target,
+Create representative Deep Review, feature workflow, and Graft artifacts in a disposable target,
 then inspect Git eligibility and search behavior without changing durable workflow sources.
 
 ## Expected observable
