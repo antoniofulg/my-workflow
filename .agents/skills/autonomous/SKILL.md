@@ -174,7 +174,7 @@ needs to see.
 Stop, write up what exists, and merge nothing:
 
 - A decision from step 2 would change what gets built
-- The post-cap remediation or gate in `docs/guidelines/REVIEW-ROUNDS.md` leaves a blocker open
+- Post-cap remediation stalls under `docs/guidelines/REVIEW-ROUNDS.md`, or its gate cannot be made to run
 - The work turns out to need a capability that does not exist yet
 - The full gate cannot be made to run
 - The tree is ready but the current session does not explicitly authorize the next remote action

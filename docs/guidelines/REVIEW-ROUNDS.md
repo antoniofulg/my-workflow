@@ -63,7 +63,7 @@ final session answers *"does the finished thing feel right?"* after all implemen
    `tlc-spec-driven` does not have this rule — it bounds the Verifier at 3 iterations but nothing stops
    a round re-raising what a prior round already found. The count bound alone does not converge; this
    rule is what makes it converge.
-2. **Nitpicks never trigger a round.** They go to a follow-up list in the pull request. Only `FIX_BEFORE_SHIP` and `REWORK` findings justify another pass. **In an active, already-approved review loop, fix blocking findings without new human approval through the applicable review cap and run the scoped gate after each correction. Findings produced by the final deep-review round (round 2) are corrected automatically in the same loop; do not start round 3; escalate only if the post-fix gate fails or the blocker remains reproducible.** Local fixes only; remote actions retain separate approval requirements.
+2. **Nitpicks never trigger a round.** They go to a follow-up list in the pull request. Only `FIX_BEFORE_SHIP` and `REWORK` findings justify another pass. **In an active, already-approved review loop, fix blocking findings without new human approval through the applicable review cap and run the scoped gate after each correction. Findings produced by the final deep-review round (round 2) are corrected automatically in the same loop; do not start round 3; past the cap, escalation below bounds remediation by failure signature, not by an open blocker.** Local fixes only; remote actions retain separate approval requirements.
 3. **Deduplicate by root cause, not by occurrence.** One missing null check repeated in six files is
    one finding that lists six files — not six findings.
 4. **Verify before flagging.** Check for an adjacent comment explaining the choice, a decision in
@@ -142,8 +142,9 @@ Batch aggressively. One commit per remediation batch is already the commit rule,
 
 ## Escalation
 
-When a cap is reached, finish the approved remediation and run its scoped gate. Stop and hand the human a short list only if that gate fails or a blocker remains reproducible: what is still wrong, what was tried, and the recommended call.
-The cap forbids another review round; it does not require a new approval for the round-2 fix.
+Past a cap, remediation continues locally: run the scoped gate after every attempt and record that attempt's **failure signature** — the failing gate command, the sorted set of failing test identifiers, and each one's first assertion message, normalized to drop timings, absolute paths and line numbers. Line numbers shift on any edit, so keeping them would make every attempt read as progress and the bound would never fire.
+
+A signature that differs from the previous attempt's is progress: start the next attempt, with no new human authorization. Halt once `stall_attempts` consecutive attempts repeat one signature, or when the gate cannot be made to run, and hand the human what is still wrong, every fix tried, and the recommended call. `stall_attempts` is `.my-workflow.toml` `[remediation]`, default `3`; `0` never halts for a stall. No new review round opens past a cap — the caps stand. Local fixes only; every remote action keeps the authorization it already had.
 
 ## Requirement and contract parity
 

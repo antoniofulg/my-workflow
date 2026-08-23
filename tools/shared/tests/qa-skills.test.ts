@@ -44,6 +44,10 @@ function skillMetadata(relativePath: string): { name: string; description: strin
   return parseSkillMetadata(readRepositoryFile(relativePath), relativePath);
 }
 
+function normalize(source: string): string {
+  return source.replace(/`/g, "").replace(/\s+/g, " ").toLowerCase();
+}
+
 function normalizePacket(source: string): string {
   return source.replaceAll("`", "").replace(/\s+/g, " ").trim();
 }
@@ -298,9 +302,8 @@ describe("canonical QA skills", () => {
       "final deep-review round (round 2)",
       "corrected automatically in the same loop",
       "do not start round 3",
-      "escalate only",
-      "post-fix gate fails",
-      "blocker remains reproducible",
+      "bounds remediation by failure signature",
+      "not by an open blocker",
       "remote actions retain separate approval requirements",
     ]) {
       expect(approvedLoopRule).toContain(anchor);
@@ -315,7 +318,7 @@ describe("canonical QA skills", () => {
       approvedLoopRule.indexOf("do not start round 3"),
     );
     expect(approvedLoopRule.indexOf("do not start round 3")).toBeLessThan(
-      approvedLoopRule.indexOf("escalate only"),
+      approvedLoopRule.indexOf("bounds remediation by failure signature"),
     );
     expect(approvedLoopRule).not.toMatch(/ask(?: the human)? whether to fix/i);
     expect(readRepositoryFile(".agents/skills/deep-review/SKILL.md")).toContain(
@@ -748,8 +751,6 @@ describe("adoption and public setup", () => {
   });
 
   it("IT-026 documents the remediation stall bound where it is read", () => {
-    const normalize = (source: string): string =>
-      source.replace(/`/g, "").replace(/\s+/g, " ").toLowerCase();
     const skill = readRepositoryFile(".agents/skills/workflow-config/SKILL.md");
     const example = readRepositoryFile(".my-workflow.toml.example");
     const scenario = readRepositoryFile("docs/qa/scenarios/CFG-freeze-feature-workflow.md");
@@ -768,6 +769,76 @@ describe("adoption and public setup", () => {
     }
     expect(normalize(skill)).toContain("never write the json output back to it");
     expect(normalize(skill)).toContain("keeps it out of workflow.json");
+  });
+
+  it("IT-022 (stall-based-halt) bounds post-cap remediation by progress, not by an open blocker", () => {
+    const reviewRounds = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
+    const escalation = normalize(
+      reviewRounds.slice(
+        reviewRounds.indexOf("## Escalation"),
+        reviewRounds.indexOf("## Requirement and contract parity"),
+      ),
+    );
+
+    expect(escalation).toContain("failure signature");
+    expect(escalation).toMatch(/(?:with )?no new human authorization|without new human authorization/);
+    expect(escalation).toMatch(/scoped gate after (?:every|each) attempt/);
+    expect(escalation).toMatch(/failing gate command.*failing test identifiers.*first assertion message/);
+    expect(escalation).toMatch(/timings, absolute paths and line numbers|timings, absolute paths, and line numbers/);
+    expect(escalation).toMatch(/no new review round/);
+    expect(escalation).toMatch(/local fixes only/);
+    expect(normalize(reviewRounds)).not.toContain("blocker remains reproducible");
+  });
+
+  it("IT-023 (stall-based-halt) states the stall bound, its source, its default, and the unbounded value", () => {
+    const reviewRounds = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
+    const escalation = normalize(
+      reviewRounds.slice(
+        reviewRounds.indexOf("## Escalation"),
+        reviewRounds.indexOf("## Requirement and contract parity"),
+      ),
+    );
+
+    expect(escalation).toContain("stall_attempts");
+    expect(escalation).toContain(".my-workflow.toml");
+    expect(escalation).toContain("[remediation]");
+    expect(escalation).toMatch(/consecutive attempts repeat one signature|consecutive identical/);
+    expect(escalation).toMatch(/default 3|defaults to 3/);
+    expect(escalation).toMatch(/0 never halts|0 means unbounded/);
+  });
+
+  it("IT-024 (stall-based-halt) halts the autonomous run on a stall and cites the guideline", () => {
+    const autonomous = readRepositoryFile(".agents/skills/autonomous/SKILL.md");
+    const haltConditions = normalize(
+      autonomous.slice(
+        autonomous.indexOf("## Halt conditions"),
+        autonomous.indexOf("## Isolated checkouts"),
+      ),
+    );
+
+    expect(haltConditions).toMatch(/remediation stalls/);
+    expect(haltConditions).toContain("docs/guidelines/review-rounds.md");
+    expect(haltConditions).toMatch(/gate cannot be made to run/);
+    expect(haltConditions).not.toContain("leaves a blocker open");
+    expect(haltConditions).not.toContain("stall_attempts");
+  });
+
+  it("IT-025 (stall-based-halt) leaves every remote-action authorization halt in force", () => {
+    const autonomous = readRepositoryFile(".agents/skills/autonomous/SKILL.md");
+    const haltConditions = normalize(
+      autonomous.slice(
+        autonomous.indexOf("## Halt conditions"),
+        autonomous.indexOf("## Isolated checkouts"),
+      ),
+    );
+
+    expect(haltConditions).toContain(
+      "the tree is ready but the current session does not explicitly authorize the next remote action",
+    );
+    expect(normalize(autonomous)).toContain(
+      "each remote action needs its own explicit authorization in the current session",
+    );
+    expect(normalize(autonomous)).toContain("readiness is evidence, not authorization");
   });
 
   it("IT-017 reports release version 0.3.6 consistently", () => {
