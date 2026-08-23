@@ -30,7 +30,7 @@ export type CheckKnowledgeOptions = {
   raw?: string;
   /**
    * Resolves the last change date (`YYYY-MM-DD`) of a repository file, or null when unknown.
-   * Defaults to the file's last git commit date.
+   * Defaults to the author date of the file's last git commit, which a rebase preserves.
    */
   sourceLastChanged?: (absolutePath: string) => string | null;
 };
@@ -58,6 +58,7 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const URI_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
 const STATE_PATH = join(".specs", "STATE.md");
 const FEATURES_PATH = join(".specs", "features");
+const SPINE_PATH = join("docs", "architecture", "ARCHITECTURE-SPINE.md");
 
 type SourceEntry = {
   id: string | null;
@@ -173,7 +174,7 @@ function gitLastChange(absolutePath: string): GitChange | null {
     const lastChangeAt = (revision: string): GitChange | null => {
       const stdout = execFileSync(
         "git",
-        ["log", "-1", "--format=%H%x00%cs%x00%P", revision, "--", path],
+        ["log", "-1", "--format=%H%x00%as%x00%P", revision, "--", path],
         {
           cwd: root,
           encoding: "utf8",
@@ -348,9 +349,20 @@ function checkGaps(
   const statePath = join(rootDirectory, STATE_PATH);
   if (existsSync(statePath)) {
     const state = readFileSync(statePath, "utf8");
+    const seenStateLabels = new Set<string>();
     for (const match of state.matchAll(/^### (AD-\d+)\s*$/gm)) {
       const label = match[1];
       if (label === undefined) continue;
+      if (seenStateLabels.has(label)) {
+        findings.push({
+          kind: "conformance",
+          severity: "error",
+          file: toPosix(STATE_PATH),
+          message: `${label} appears more than once`,
+        });
+        continue;
+      }
+      seenStateLabels.add(label);
       if (harvestedIds.has(`state-${label.toLowerCase()}`)) continue;
       findings.push({
         kind: "gap",
@@ -358,6 +370,25 @@ function checkGaps(
         file: toPosix(STATE_PATH),
         message: `${label} has no concept; expected a source entry with id "state-${label.toLowerCase()}"`,
       });
+    }
+  }
+
+  const spinePath = join(rootDirectory, SPINE_PATH);
+  if (existsSync(spinePath)) {
+    const seenSpineLabels = new Set<string>();
+    for (const match of readFileSync(spinePath, "utf8").matchAll(/^### (AD-\d+)\b/gm)) {
+      const label = match[1];
+      if (label === undefined) continue;
+      if (seenSpineLabels.has(label)) {
+        findings.push({
+          kind: "conformance",
+          severity: "error",
+          file: toPosix(SPINE_PATH),
+          message: `${label} appears more than once`,
+        });
+        continue;
+      }
+      seenSpineLabels.add(label);
     }
   }
 

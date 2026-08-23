@@ -23,13 +23,17 @@ function frozenClock(date: string) {
   return () => date;
 }
 
-function git(root: string, args: string[], date: string): void {
+/**
+ * `committerDate` defaults to `date` because the two coincide outside a rebase. Passing them apart
+ * is how a rewritten history is reproduced: the author date is the one freshness reads.
+ */
+function git(root: string, args: string[], date: string, committerDate: string = date): void {
   execFileSync("git", args, {
     cwd: root,
     env: {
       ...process.env,
       GIT_AUTHOR_DATE: `${date}T12:00:00-03:00`,
-      GIT_COMMITTER_DATE: `${date}T12:00:00-03:00`,
+      GIT_COMMITTER_DATE: `${committerDate}T12:00:00-03:00`,
     },
     stdio: "ignore",
   });
@@ -236,6 +240,38 @@ describe("drift against repository sources", () => {
     git(root, ["config", "user.email", "knowledge@example.test"], "2026-08-09");
     git(root, ["add", "."], "2026-08-09");
     git(root, ["commit", "-m", "squash source and concept"], "2026-08-09");
+
+    expect(checkKnowledge(root)).toEqual([]);
+  });
+
+  it("stays quiet when a rebase rewrote the source committer date but not its author date", () => {
+    const root = makeBundle({
+      "knowledge/wiki/index.md": ROOT_INDEX,
+      "docs/source.md": "# Source\n",
+    });
+    git(root, ["init", "-b", "main"], "2026-08-01");
+    git(root, ["config", "user.name", "Knowledge Test"], "2026-08-01");
+    git(root, ["config", "user.email", "knowledge@example.test"], "2026-08-01");
+    git(root, ["add", "."], "2026-08-01");
+    git(root, ["commit", "-m", "source"], "2026-08-01", "2026-08-20");
+
+    mkdirSync(join(root, "knowledge/wiki/research"), { recursive: true });
+    writeFileSync(
+      join(root, "knowledge/wiki/research/source.md"),
+      [
+        "---",
+        "type: Research Note",
+        "sources:",
+        "  - id: source",
+        "    resource: ../../../docs/source.md",
+        "    last_modified: 2026-08-08",
+        "---",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+    git(root, ["add", "."], "2026-08-08");
+    git(root, ["commit", "-m", "harvest source"], "2026-08-08");
 
     expect(checkKnowledge(root)).toEqual([]);
   });
@@ -455,6 +491,48 @@ describe("gaps in what has been harvested", () => {
 
     expect(findings).toHaveLength(1);
     expect(findings[0]?.message).toContain("AD-002");
+  });
+
+  it("fails when two ledger headings share an AD-NNN label", () => {
+    const root = makeBundle({
+      "knowledge/wiki/index.md": ROOT_INDEX,
+      ".specs/STATE.md": "### AD-060\n\n### AD-060\n",
+    });
+
+    const findings = checkKnowledge(root);
+
+    expect(findings).toEqual([
+      expect.objectContaining({
+        kind: "gap",
+        severity: "warning",
+        file: ".specs/STATE.md",
+        message: expect.stringContaining("AD-060"),
+      }),
+      expect.objectContaining({
+        kind: "conformance",
+        severity: "error",
+        file: ".specs/STATE.md",
+        message: "AD-060 appears more than once",
+      }),
+    ]);
+  });
+
+  it("fails when two spine headings share an AD-N label", () => {
+    const root = makeBundle({
+      "knowledge/wiki/index.md": ROOT_INDEX,
+      "docs/architecture/ARCHITECTURE-SPINE.md": "### AD-3 — one\n\n### AD-3 — two\n",
+    });
+
+    const findings = checkKnowledge(root);
+
+    expect(findings).toEqual([
+      expect.objectContaining({
+        kind: "conformance",
+        severity: "error",
+        file: "docs/architecture/ARCHITECTURE-SPINE.md",
+        message: "AD-3 appears more than once",
+      }),
+    ]);
   });
 
   it("ignores a matching id that labels a source other than the ledger", () => {
