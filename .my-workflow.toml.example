@@ -3,7 +3,7 @@ version = 1
 [deep_review]
 cadence = "grouped.3"
 
-# Post-cap remediation halts after this many consecutive identical failure signatures.
+# Post-cap remediation halts after this many consecutive attempts that do not shrink the failing set.
 # Default 3. 0 means unbounded: never halt for a stall.
 [remediation]
 stall_attempts = 3

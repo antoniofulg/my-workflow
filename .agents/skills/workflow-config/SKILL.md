@@ -30,7 +30,8 @@ orchestrator has accepted every selected provider.
 ## Remediation stall bound
 
 `.my-workflow.toml` table `[remediation]`, single key `stall_attempts`: how many consecutive
-identical failure signatures end post-cap remediation. Integer of at least `0`, default `3`, where
+attempts that do not shrink the failing-test set end post-cap remediation
+(`docs/guidelines/REVIEW-ROUNDS.md` defines the rule). Integer of at least `0`, default `3`, where
 `0` means unbounded: never halt for a stall. The resolver reports the effective value under
 `remediation` in its JSON output and deliberately keeps it out of `workflow.json`, so a changed
 threshold takes effect on the next attempt instead of the next feature.

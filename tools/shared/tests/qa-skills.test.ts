@@ -753,13 +753,19 @@ describe("adoption and public setup", () => {
   it("IT-026 documents the remediation stall bound where it is read", () => {
     const skill = readRepositoryFile(".agents/skills/workflow-config/SKILL.md");
     const example = readRepositoryFile(".my-workflow.toml.example");
+    const readme = readRepositoryFile("README.md");
     const scenario = readRepositoryFile("docs/qa/scenarios/CFG-freeze-feature-workflow.md");
 
-    for (const source of [skill, example]) {
+    for (const source of [skill, example, readme]) {
       expect(source).toContain("[remediation]");
       expect(source).toContain("stall_attempts");
-      expect(normalize(source)).toContain("default 3");
+      expect(normalize(source)).toMatch(/defaults? (?:to )?3/);
       expect(normalize(source)).toContain("0 means unbounded");
+      expect(normalize(source)).toMatch(/(?:do not|does not) shrink the failing[- ](?:test )?set/);
+    }
+
+    for (const source of [skill, example, readme, readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md")]) {
+      expect(normalize(source)).not.toContain("identical failure signature");
     }
 
     for (const source of [skill, scenario]) {
@@ -784,9 +790,15 @@ describe("adoption and public setup", () => {
     expect(escalation).toMatch(/(?:with )?no new human authorization|without new human authorization/);
     expect(escalation).toMatch(/scoped gate after (?:every|each) attempt/);
     expect(escalation).toMatch(/sorted set of failing test identifiers/);
-    expect(escalation).toMatch(/strictly smaller than the previous attempt/);
+    expect(escalation).toMatch(/strictly smaller than the fewest failing tests seen so far/);
+    expect(escalation).toMatch(/finite by construction/);
     expect(escalation).toMatch(/assertion messages[^.]*(?:never enter|not part of) the comparison/);
-    expect(escalation).not.toMatch(/signature[^.]*assertion message/);
+    expect(escalation).not.toMatch(
+      /signature(?:(?!never|not )[^.])*(?:plus|and|including|with)[^.]*assertion message/,
+    );
+    expect(escalation).not.toMatch(
+      /assertion messages?(?:(?!never|not )[^.])*(?:enters?|is part of|are part of|included in) the (?:comparison|signature)/,
+    );
     expect(escalation).toMatch(/timings, absolute paths and line numbers|timings, absolute paths, and line numbers/);
     expect(escalation).toMatch(/no new review round/);
     expect(escalation).toMatch(/local fixes only/);

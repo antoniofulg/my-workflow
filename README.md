@@ -98,8 +98,9 @@ The `cadence` controls the deep-review groups:
 - `grouped.N`: consecutive, balanced groups with at most `N` slices (`grouped.3` with four
   slices → `[1, 2] [3, 4]`).
 
-`[remediation] stall_attempts` bounds post-cap remediation by consecutive identical failure
-signatures. It defaults to `3`, and `0` means unbounded:
+`[remediation] stall_attempts` bounds post-cap remediation by consecutive attempts that do not
+shrink the failing-test set (`docs/guidelines/REVIEW-ROUNDS.md` defines it). It defaults to `3`, and
+`0` means unbounded:
 
 ```toml
 [remediation]
