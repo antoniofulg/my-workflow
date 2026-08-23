@@ -14,33 +14,31 @@ is never "is this useful" — it is "is this useful *after the feature ships*".
 
 | Durable — committed, maintained | Disposable — scratch, dies with the branch |
 | --- | --- |
-| The code and its tests | `spec.md`, `design.md`, `tasks.md` |
-| `.specs/STATE.md` decisions (`AD-NNN`) | `tests.md` once its cases are implemented |
-| `docs/qa/` — scenarios, journeys, bugs, charters, reports | `memory/` workflow memory |
-| `docs/` — product, architecture, engineering, design | `uiux.md`, `dx.md`, review rounds |
-| Durable lessons | Validation and verification reports |
+| The code and its tests | `memory/` workflow memory |
+| `.specs/features/<feature>/` workflow state | `uiux.md`, `dx.md`, review rounds |
+| `.specs/STATE.md` decisions (`AD-NNN`) | |
+| `docs/qa/` — scenarios, journeys, bugs, charters, reports | |
+| `docs/` — product, architecture, engineering, design | |
+| Durable lessons | |
 
-The principle behind the line: **a planning artifact's job is finished when the code exists.** After
-that it is a second description of the same thing, and two descriptions drift.
+The principle behind the line: **feature workflow state travels with the work.** Specs, tasks, and
+verification state keep worktrees, gates, and reviewers aligned.
 
 A verification artifact's job is never finished, because it answers a question about the *present*
 state of the product — which is why `docs/qa/` is on the other side of the line.
 
 ## Why this exists
 
-The inverted arrangement — permanent planning artifacts gated for drift, no durable record of what
-the product promises users — produces a gate policing documents nobody reads, and features
-re-verified from scratch because nothing remembered the last verdict.
+Product promises still belong in `docs/qa/scenarios/`; feature workflow state belongs under
+`.specs/features/`.
 
 ## Rules
 
-1. **`.specs/features/` is ignored by default.** Planning artifacts stay out of the durable record:
-   they live in the active checkout as ignored local state and are not maintained after the merge.
-   If a consuming project hands work off through Git worktrees, or a gate/CI job reads the specs, it
-   must version the relevant feature tree: remove the managed `.specs/features/` entry from the
-   target's `.gitignore` and commit those specs. Adoption does not detect or migrate this choice.
-2. **Promote before the pull request.** Anything from a planning artifact that must outlive the
-   feature moves to its real home first:
+1. **`.specs/features/` is versioned workflow state.** Specs, tasks, test contracts, workflow
+   snapshots, and validation reports travel with the feature through worktrees, gates, and CI.
+   Adoption removes only the exact legacy managed `.specs/features/` ignore line, including
+   duplicates, while preserving consumer-owned lines and comments; it never stages or commits files.
+2. **Promote before the pull request.** Anything that must outlive the feature moves to its real home:
    - A project decision → `.specs/STATE.md` as `AD-NNN`
    - A durable lesson → the lessons layer
    - A product promise → `docs/qa/scenarios/`

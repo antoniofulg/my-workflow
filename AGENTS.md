@@ -104,7 +104,7 @@ the installed `tlc-spec-driven` skill (`validate_spec.py`, `validate_tasks.py`, 
 | How the system is shaped | `docs/architecture/` |
 | How it looks and behaves | `docs/design/` |
 | Why a past choice was made | `.specs/AD-INDEX.md` |
-| What a feature must do | `.specs/features/<feature>/spec.md` |
+| Versioned feature requirements and task state | `.specs/features/<feature>/spec.md` |
 | What the product currently promises users | `docs/qa/scenarios/` |
 
 ## Isolated checkouts

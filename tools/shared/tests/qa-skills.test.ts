@@ -65,26 +65,25 @@ describe("QA workflow artifact policy", () => {
     expect(isIgnored(".deep-review/learnings.md")).toBe(false);
   });
 
-  it("IT-014 defaults feature planning to ignored and documents versioned handoff", () => {
+  it("IT-014 keeps feature workflow state versioned and documents legacy migration", () => {
     const readme = readRepositoryFile("README.md");
     const artifactLifecycle = readRepositoryFile("docs/guidelines/ARTIFACT-LIFECYCLE.md");
 
-    expect(isIgnored(".specs/features/qa-skills/spec.md")).toBe(true);
+    expect(isIgnored(".specs/features/qa-skills/spec.md")).toBe(false);
     expect(isIgnored(".specs/STATE.md")).toBe(false);
     expect(isIgnored(".specs/AD-INDEX.md")).toBe(false);
     expect(tracked(".specs/STATE.md")).toBe(".specs/STATE.md");
     expect(tracked(".specs/AD-INDEX.md")).toBe(".specs/AD-INDEX.md");
-    for (const source of [readme, artifactLifecycle]) {
-      const normalized = source.replace(/\s+/g, " ");
-      expect(normalized).toContain("`.specs/features/` is ignored by default");
-      expect(normalized).toContain("hands work off through Git worktrees");
-      expect(normalized).toContain("gate/CI job reads the specs");
-      expect(normalized).toContain("remove the managed `.specs/features/` entry");
-      expect(normalized).toContain("Adoption does not detect or migrate this choice");
-    }
+    expect(readme.replace(/\s+/g, " ")).toContain(
+      "Feature workflow state follows the [artifact lifecycle]",
+    );
+    const lifecycle = artifactLifecycle.replace(/\s+/g, " ");
+    expect(lifecycle).toContain("`.specs/features/` is versioned workflow state");
+    expect(lifecycle).toContain("exact legacy managed `.specs/features/` ignore line");
+    expect(lifecycle).toContain("never stages or commits files");
   });
 
-  it("IT-015 treats the local task state as the commit precondition", () => {
+  it("IT-015 treats versioned task state as the commit precondition", () => {
     const agents = readRepositoryFile("AGENTS.md");
     const loop = readRepositoryFile("docs/workflow/loop.md");
     const specDriven = readRepositoryFile(".agents/skills/tlc-spec-driven/SKILL.md");
@@ -118,10 +117,17 @@ describe("QA workflow artifact policy", () => {
     expect(specDriven).toContain(
       "When Tasks was skipped, verify the inline execution plan instead",
     );
+    expect(specDriven).toContain(
+      "Feature files under `.specs/features/` are versioned workflow state",
+    );
     expect(agents).toContain("reconcile Handoff + git");
     expect(memory).toMatch(/when Tasks\s+was skipped,\s+the inline execution-plan completion/);
     expect(validator).toContain("When Tasks was skipped, run the gate command recorded in the inline execution plan");
     expect(implementer).toContain("close the task record **before** creating the commit");
+    expect(implementer).toContain("their task/status updates belong in the atomic commit");
+    expect(implementer.replace(/\s+/g, " ")).toContain(
+      "verify the local status/traceability updates before committing",
+    );
     expect(implementer).toContain("If `tasks.md` is present, mark the task complete in `tasks.md`.");
     expect(implementer).toContain("unrelated bug outside an active, approved review loop");
     expect(implementer).toContain("Findings inside that loop follow `REVIEW-ROUNDS.md`");
@@ -131,26 +137,24 @@ describe("QA workflow artifact policy", () => {
     expect(implementer.indexOf("close the task record **before** creating the commit")).toBeLessThan(
       implementer.indexOf("Create **one** atomic commit"),
     );
-    expect(implementer).not.toContain("include those status/traceability updates");
-    expect(implementer).not.toContain("plus the `tasks.md` / `spec.md` status updates");
+    expect(implementer).not.toContain("Feature planning files under `.specs/features/` stay ignored");
     for (const packet of providerPackets) {
       expect(packet).toMatch(
         /tasks\.md`? when present,? or the task payload and inline execution plan/,
       );
       expect(packet).toContain("inline execution plan when Tasks is skipped");
-      expect(packet).not.toContain("traceability in the same commit");
+      expect(packet).toContain("current local task/spec traceability");
     }
     for (const packet of plannerPackets) {
       expect(packet).toMatch(
         /tasks\.md`? when present or the\s+task payload and inline execution plan when Tasks is skipped/,
       );
     }
-    expect(tracked(".specs/features/qa-skills/tasks.md")).toBe("");
+    expect(tracked(".specs/features/qa-skills/tasks.md")).toBe(
+      ".specs/features/qa-skills/tasks.md",
+    );
   });
 
-  it("IT-016 leaves no disposable feature artifacts tracked", () => {
-    expect(tracked(".specs/features")).toBe("");
-  });
 });
 
 describe("canonical QA skills", () => {

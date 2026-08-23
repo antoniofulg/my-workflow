@@ -15,9 +15,10 @@ WORKFLOW_GITIGNORE_ENTRIES = (
     "!.deep-review/",
     ".deep-review/*",
     "!.deep-review/learnings.md",
-    ".specs/features/",
     "graft/",
 )
+
+LEGACY_WORKFLOW_GITIGNORE_ENTRIES = (".specs/features/",)
 
 WORKFLOW_SEARCHIGNORE_ENTRIES = (
     "!graft/",
@@ -177,6 +178,18 @@ def merge_ignore_file(dest: Path, filename: str, entries: tuple[str, ...]) -> No
     target.write_text(merged, encoding="utf-8")
 
 
+def remove_legacy_managed_ignore(
+    dest: Path, filename: str, entries: tuple[str, ...]
+) -> None:
+    target = dest / filename
+    if not target.exists():
+        return
+    lines = target.read_text(encoding="utf-8").splitlines(keepends=True)
+    kept = [line for line in lines if line.rstrip("\r\n") not in entries]
+    if kept != lines:
+        target.write_text("".join(kept), encoding="utf-8")
+
+
 def link_claude_skills(dest: Path) -> None:
     claude_skills = dest / ".claude" / "skills"
     claude_skills.mkdir(parents=True, exist_ok=True)
@@ -234,6 +247,9 @@ def main(argv: list[str]) -> None:
             continue
         copy_missing(origin, dest / rel)
     copy_agents(src, dest)
+    remove_legacy_managed_ignore(
+        dest, ".gitignore", LEGACY_WORKFLOW_GITIGNORE_ENTRIES
+    )
     merge_ignore_file(dest, ".gitignore", WORKFLOW_GITIGNORE_ENTRIES)
     merge_ignore_file(dest, ".ignore", WORKFLOW_SEARCHIGNORE_ENTRIES)
     if not skip_agents:

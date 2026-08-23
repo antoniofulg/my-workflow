@@ -227,8 +227,8 @@ After the gate check passes:
 
 After the gate is green, close the task record **before** creating the commit. When `tasks.md` is
 present, it is the resume source; when Tasks was skipped, the inline execution plan is the local
-state to update and verify. Feature planning files under `.specs/features/` stay ignored and are
-not commit contents. Never leave the local task state open after a successful task commit - a
+state to update and verify. Feature files under `.specs/features/` are versioned workflow state and
+their task/status updates belong in the atomic commit. Never leave the local task state open after a successful task commit - a
 crash between those steps is how resume redoes finished work.
 
 1. If `tasks.md` is present, mark the task complete in `tasks.md`. If Tasks was skipped, mark the
