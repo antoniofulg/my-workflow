@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented here.
 
+## [0.3.5] - 2026-08-22
+
+### Added
+
+- Authorized installation and onboarding for pinned external security skills.
+- Scoped browser gate tags for feature-specific checks.
+- Consumer-owned ad-index preservation during adoption.
+- Source-only pack guide and versioned feature-spec guidance for worktree and gate consumers.
+- TLC validator compatibility with generated feature layouts.
+- Ponytail `full` activation across the complete workflow cycle.
+- Deep Review manifests now handle symlink entries safely.
+- Adoption supports opt-in preservation of existing `AGENTS.md` and `CLAUDE.md` files.
+
 ## [0.3.4] - 2026-08-22
 
 ### Changed
