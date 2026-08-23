@@ -11,10 +11,17 @@ bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-21-configurable-workflow/resolver-session.md
-last_report: docs/qa/reports/2026-08-21-configurable-workflow.md
+evidence: docs/qa/evidence/2026-08-23-stall-based-halt/resolver-session.md
+last_report: docs/qa/reports/2026-08-23-stall-based-halt.md
 overlaps:
 ---
 
 Covers `CWF-STATE-1` through `CWF-STATE-4`: complete snapshot fields, repeat stability, preservation
 of a prior valid snapshot on atomic-write failure, and frozen resume until a human requests refresh.
+
+Reset to `untested` for the `stall-based-halt` cycle. The promise changed: the JSON output is no
+longer identical to the snapshot — it is the snapshot plus a resolved-now `remediation` — and resume
+behaviour changed with it. A resume must stay inert to an unrelated schema edit in
+`.my-workflow.toml`, still fail closed on an invalid `[remediation]` value, and still fail on a TOML
+that cannot be parsed at all. Overlaps `CFG-bound-remediation-stall-attempts` only on the value's
+validity; this scenario owns the snapshot-versus-output boundary and resume.
