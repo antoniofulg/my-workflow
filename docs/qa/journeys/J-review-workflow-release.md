@@ -25,6 +25,6 @@ remote-delivery authority, and published capability version.
 - [`DOC-read-explicit-workflow-provenance`](../scenarios/DOC-read-explicit-workflow-provenance.md)
 - [`DOC-use-optional-tools-with-repository-authority`](../scenarios/DOC-use-optional-tools-with-repository-authority.md)
 - [`DOC-require-explicit-remote-action-approval`](../scenarios/DOC-require-explicit-remote-action-approval.md)
-- [`REL-report-capability-version-0-3-0`](../scenarios/REL-report-capability-version-0-3-0.md)
+- [`REL-report-current-workflow-release`](../scenarios/REL-report-current-workflow-release.md)
 
 This journey is the adjacent canary for `J-adopt-workflow`.

@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "promote_threshold": 2,
+  "window_days": 45,
+  "quarantine_threshold": 2,
+  "next_id": 3,
+  "lessons": [
+    {
+      "id": "L-001",
+      "key": "gate_fail::scope canonical test discovery so ignored qa evidence cannot change the gate",
+      "text": "Scope canonical test discovery so ignored QA evidence cannot change the gate.",
+      "signal": "gate_fail",
+      "scope": "release",
+      "status": "candidate",
+      "features": [
+        "release-0.3.6"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/release-0.3.6/validation.md:65 (release)"
+      ],
+      "created": "2026-08-23T06:43:47Z",
+      "last_seen": "2026-08-23T06:43:47Z"
+    },
+    {
+      "id": "L-002",
+      "key": "gate_fail::run diff hygiene across the full release range after previously ignored artifacts become tracked",
+      "text": "Run diff hygiene across the full release range after previously ignored artifacts become tracked.",
+      "signal": "gate_fail",
+      "scope": "release",
+      "status": "candidate",
+      "features": [
+        "release-0.3.6"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/release-0.3.6/validation.md:66 (release)"
+      ],
+      "created": "2026-08-23T06:43:47Z",
+      "last_seen": "2026-08-23T06:43:47Z"
+    }
+  ]
+}

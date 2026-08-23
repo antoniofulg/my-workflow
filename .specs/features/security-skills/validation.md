@@ -191,11 +191,11 @@ One checkout-local scratch worktree was reused and removed. Seven behavior mutat
 
 ## QA Bug-Fix Reverification: `7795295`
 
-**Date**: 2026-08-22  
-**Phase**: technical  
-**Bug**: `docs/qa/bugs/BUG-20260822-security-installer-rejects-active-npx.md`  
-**Diff range**: `b9024ea..7795295`  
-**Verifier**: fresh independent Verifier (author != verifier)  
+**Date**: 2026-08-22
+**Phase**: technical
+**Bug**: `docs/qa/bugs/BUG-20260822-security-installer-rejects-active-npx.md`
+**Diff range**: `b9024ea..7795295`
+**Verifier**: fresh independent Verifier (author != verifier)
 **Verdict**: PASS
 
 ### Public Red/Green Reproduction

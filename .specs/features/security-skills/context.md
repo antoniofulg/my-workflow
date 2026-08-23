@@ -19,4 +19,3 @@ Adoption installs the workflow only and prints a separate, explicit command for 
 ## Deferred Ideas
 
 - Automatic upstream updates and provider-specific security packs are separate features.
-
