@@ -10,7 +10,7 @@ For consuming projects, those authorities are their executable manifests or CI j
 | Area | Interface | Entry point | Authority |
 | --- | --- | --- | --- |
 | `ADP` | Adoption and external-skill CLI plus generated filesystem | `scripts/adopt.py`; `scripts/install_security_skills.py` with a disposable target | [README adoption contract](../../README.md#adopt-the-workflow), [`scripts/adopt.py`](../../scripts/adopt.py), [`scripts/install_security_skills.py`](../../scripts/install_security_skills.py) |
-| `QAS` | Manual agent-file inspection | `.agents/skills/qa-plan/`, `.agents/skills/qa-execute/`, provider Verifier packets | [Skills contract](../../README.md#skills) |
+| `QAS` | Manual agent-file inspection and checkout-local CLI recipes | `.agents/skills/qa-plan/`, `.agents/skills/qa-execute/`, `.agents/skills/deep-review/references/publish-github.md`, provider Verifier packets | [Skills contract](../../README.md#skills), [Deep Review publication recipe](../../.agents/skills/deep-review/references/publish-github.md) |
 | `DOC` | Documentation | `README.md` | [`README.md`](../../README.md) |
 | `CFG` | Workflow configuration, generated state, and Git visibility | `.my-workflow.toml`; `.agents/skills/workflow-config/scripts/workflow_config.py`; `.gitignore`; `.specs/` | [README configuration contract](../../README.md#adopt-the-workflow), [`workflow-config` skill](../../.agents/skills/workflow-config/SKILL.md), [artifact lifecycle](../guidelines/ARTIFACT-LIFECYCLE.md) |
 | `REL` | Package metadata | `package.json`, `package-lock.json` | [`package.json`](../../package.json) |
@@ -20,7 +20,9 @@ No browser, API, or mobile surface exists in this repository.
 ## Runner and adapter
 
 - Existing runner or adapter: CLI/manual, using the public workflow resolver, adoption script, and
-  filesystem inspection.
+  filesystem inspection. Deep Review publication recipes use a checkout-local fake `gh` that logs
+  arguments; [`tools/test_deep_review_contract.py`](../../tools/test_deep_review_contract.py) owns
+  that no-network adapter.
 - Manifest or CI authority: [`package.json`](../../package.json) owns the structural gate;
   [`scripts/test_adopt.py`](../../scripts/test_adopt.py) owns the disposable adoption smoke path.
 - Exact path used by `qa-execute`: invoke the command documented by the
@@ -29,7 +31,10 @@ No browser, API, or mobile surface exists in this repository.
   checkout-local disposable target; inspect its printed external-skill command before invoking
   [`scripts/install_security_skills.py`](../../scripts/install_security_skills.py) only when the
   QA packet explicitly authorizes network access and target writes; then inspect the targets and
-  repository files named by each charter.
+  repository files named by each charter. For Deep Review publication, extract the public recipe
+  and execute it with the checkout-local fake `gh` pattern owned by
+  [`tools/test_deep_review_contract.py`](../../tools/test_deep_review_contract.py); never contact
+  GitHub during QA.
 - Installed QA tooling discovered: Vitest is declared in [`package.json`](../../package.json) for
   structural checks; it is not a real-user runner. Python standard-library checks live in
   [`scripts/test_adopt.py`](../../scripts/test_adopt.py).

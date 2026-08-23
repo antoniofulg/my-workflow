@@ -11,11 +11,13 @@ bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-22-deep-review-metrics-graft/session.md
-last_report: docs/qa/reports/2026-08-22-deep-review-metrics-graft.md
+evidence: docs/qa/evidence/2026-08-22-deep-review-metrics-graft/session.md; docs/qa/evidence/2026-08-22-deep-review-walkthrough-upsert/session.md
+last_report: docs/qa/reports/2026-08-22-deep-review-walkthrough-upsert.md
 overlaps:
 ---
 
 Covers `DRM-01` through `DRM-05`, `DRM-07`, and `DRM-08`: snapshots and cumulative
 checkpoints, preserved outputs, non-blocking fallback, serial execution, content-safe persistence,
 the Codex allowlist, and honest absence for unsupported telemetry.
+The issue #29 QA cycle reconfirmed the adjacent eight-test Deep Review contract after exercising
+walkthrough publication through the public recipe.
