@@ -11,11 +11,12 @@ bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-22-external-security-skills/session.md; docs/qa/evidence/2026-08-22-version-feature-specs-handoff/session.md; docs/qa/evidence/2026-08-22-ponytail-full-cycle/session.md
-last_report: docs/qa/reports/2026-08-22-ponytail-full-cycle.md
+evidence: docs/qa/evidence/2026-08-22-external-security-skills/session.md; docs/qa/evidence/2026-08-22-version-feature-specs-handoff/session.md; docs/qa/evidence/2026-08-22-ponytail-full-cycle/session.md; docs/qa/evidence/2026-08-22-explicit-remote-approval/session.md
+last_report: docs/qa/reports/2026-08-22-explicit-remote-approval.md
 overlaps:
 ---
 
 Covers public provenance, authorship, clean-room adaptation language, the bundled-versus-external
-security-skill boundary in `SSK-07`, and the reusable package's stack-agnostic scope. Reset because
-the public provenance and skills documentation changed for this cycle.
+security-skill boundary in `SSK-07`, and the reusable package's stack-agnostic scope. The current
+pass re-read the credits, three immutable external-skill entries, and product-neutral introduction
+as the remote-approval journey's adjacent canary.

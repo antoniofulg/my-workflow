@@ -1,25 +1,28 @@
 ---
 name: autonomous
-description: Ship work unattended, from grounding through a merged pull request. Classifies the request as a feature or an issue batch and runs the matching loop.
+description: Ship work unattended through a proven-ready tree. Classifies the request as a feature or an issue batch and runs the matching loop; remote actions remain separately authorized.
 disable-model-invocation: true
 argument-hint: "[the work, in your own words]"
 ---
 
 # Autonomous
 
-Ship work end to end while nobody is watching.
+Run the local work end to end while nobody is watching, then prove whether the tree is ready for
+remote delivery.
 
 `AGENTS.md` owns the process. Run it. This skill owns only what an **unattended** run needs on top:
-what to settle before starting, when to **halt**, and the authority to merge.
+what to settle before starting, when to **halt**, and how to report remote-delivery readiness.
 
 ## Run to the end
 
 Nobody is reading. A run that finishes Specify and reports for acknowledgement has stopped, and it
-stays stopped until someone happens to look — which is the whole cost the human was avoiding.
+stays stopped until someone happens to look — which is the whole cost the human was avoiding. A run
+that proves readiness but lacks remote authority stops at that boundary and reports the next action.
 
 Carry straight through Specify, Design, Tasks and Execute. Announcing what just finished is fine;
-waiting after announcing it is not. There are exactly two ways a run ends: **merged**, or **halted**
-on one of the conditions listed at the end of this file.
+waiting after announcing it is not. A run ends **merged only after an explicitly authorized merge**,
+or **halted** on the conditions listed at the end of this file, including missing authorization for
+the next remote action.
 
 Ambiguity that does not change what gets built is a decision to make, record in `decisions.md`, and
 move past — not a reason to pause. Only the halt conditions stop the run, and hitting one ends it
@@ -110,31 +113,41 @@ with a comment saying why.
 deep-review group is complete, any flagged scenario is walked, and the final QA session is complete; for a batch, every
 selected issue is fixed and closed or explicitly left open with a reason.
 
-## 4. Merge
+## 4. Prove readiness, then respect the remote boundary
 
-Merge when all three hold:
+The following conditions prove that a remote delivery would be safe to consider:
 
 | | |
 | --- | --- |
 | The consuming project's full gate exits 0 | On the final tree, after the last commit. A cached or partial result is not evidence. `make check` when the project has it |
 | No blocking findings remain | `Blocker` and `Major` per `docs/guidelines/REVIEW-ROUNDS.md` |
-| `main` has not moved underneath | If it has: integrate it, re-run the full gate, then merge |
+| `main` has not moved underneath | If it has: integrate it, re-run the full gate, then re-prove readiness |
 | Every flagged scenario is terminal | See the three cases below. Only when the change is user-visible |
 
-What each verdict does to the merge:
+What each verdict does to readiness:
 
-- **`pass`** — merge.
+- **`pass`** — readiness may proceed to the remote-authorization check.
 - **`untested`** — **blocks.** It was flagged and never walked, which is a promise nobody checked and
   the one failure a green gate cannot catch. Walk it, or get an explicit waiver and record the waiver
-  as an `AD-NNN` so the merge does not rest on silence.
-- **`blocked-verify`** — does not block, and the pull request names it. Some legs only a human can
-  complete; a feature touching one of them would otherwise never be mergeable.
+  as an `AD-NNN` so remote delivery does not rest on silence.
+- **`blocked-verify`** — does not block readiness, and the eventual pull request names it. Some legs
+  only a human can complete; a feature touching one of them would otherwise never be deliverable.
 
-Merge with `gh pr merge <n> --merge`. Leave the branch.
+Read the current prompt and session for authority **after** proving readiness. Readiness is evidence, not authorization:
+invoking `autonomous`, approving a spec or tasks, or saying “ready” never grants
+permission to push, create a pull request, or merge. Each remote action needs its own explicit
+authorization in the current session. If the exact next action is not authorized, stop and report
+the readiness evidence and the action awaiting authorization. Never infer authorization for a later
+action from an earlier one.
 
-One pull request per run — a batch of issues ships together, the same way a feature's slices do.
+When a remote action is explicitly authorized, perform only that action, then re-check the boundary
+before the next one. Leave the branch after the authorized work.
 
-**Done when:** the pull request reads merged, or the run halted with the reason recorded.
+One pull request per run — a batch of issues ships together, the same way a feature's slices do —
+when pull-request creation is explicitly authorized.
+
+**Done when:** readiness is proven and every explicitly authorized remote action is complete, or the
+run halted with the reason and the next unauthorized action recorded.
 
 ## 5. Report
 
@@ -164,6 +177,7 @@ Stop, write up what exists, and merge nothing:
 - The post-cap remediation or gate in `docs/guidelines/REVIEW-ROUNDS.md` leaves a blocker open
 - The work turns out to need a capability that does not exist yet
 - The full gate cannot be made to run
+- The tree is ready but the current session does not explicitly authorize the next remote action
 
 A halt report naming what stopped the run is a result. Shipping past a blocker to have something
 merged by morning is not.
