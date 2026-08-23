@@ -85,8 +85,9 @@ and report references are internally consistent.
 
 ### 5. Write session charters
 
-Create or update one charter under `docs/qa/charters/` per meaningful persona × journey × tour ×
-time-box for this cycle. Point each charter at its scenario and journey, state the public entry
+Create one new dated charter under `docs/qa/charters/` per meaningful persona × journey × tour ×
+time-box for this cycle. Never update an existing charter. Journeys and scenarios may be refreshed
+when the contract changes. Point each charter at its scenario and journey, state the public entry
 point, and define the observable that proves success. Include the adjacent canary and prioritize
 changed or risky paths.
 

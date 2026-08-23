@@ -37,9 +37,11 @@ task breakdown — not an output of it.
 
 ## Rules
 
-1. **Derive, do not invent.** Unit cases come from every component and error path in the design;
-   integration cases from every component boundary; e2e cases from every journey; security cases from
-   `docs/guidelines/SECURITY.md` when its condition fires.
+1. **Derive, do not invent.** Every case maps to a spec acceptance criterion. Use components, error
+   paths, boundaries, and journeys to find coverage gaps; if one reveals behavior absent from the
+   spec, clarify the acceptance criterion before adding a case. Never create a case solely because a
+   component or boundary exists. Security cases also follow `docs/guidelines/SECURITY.md` when its
+   condition fires.
 2. **Every case names an exact input, condition and expected result.** "Test the happy path" is not a
    case. "`POST` the create route with an unknown region returns 422 and no row" is.
 3. **Every ID is assigned to exactly one task** — the task implementing the behaviour it verifies.

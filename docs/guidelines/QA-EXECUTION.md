@@ -16,8 +16,8 @@ verification only. Record `no user-visible change` when no public promise change
 
 Use the provider's existing `verifier` with one phase per packet:
 
-1. Send a fresh `phase: qa-plan` packet to invoke `qa-plan` and create or refresh durable journeys,
-   scenarios, and charters.
+1. Send a fresh `phase: qa-plan` packet to invoke `qa-plan`, create or refresh durable journeys and
+   scenarios, and create a new dated charter for this cycle. Never edit an existing charter.
 2. Send a distinct fresh `phase: qa-execute` packet to invoke `qa-execute` and walk those journeys.
 
 The QA Plan session ends before the product starts. The QA Execute session does not write product

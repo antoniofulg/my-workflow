@@ -28,6 +28,7 @@
 - [`ADP-validate-generated-feature-contracts`](../scenarios/ADP-validate-generated-feature-contracts.md)
 - [`ADP-validate-feature-completion-state`](../scenarios/ADP-validate-feature-completion-state.md)
 - [`QAS-discover-independent-qa-skills`](../scenarios/QAS-discover-independent-qa-skills.md)
+- [`QAS-enforce-spec-anchored-qa-contracts`](../scenarios/QAS-enforce-spec-anchored-qa-contracts.md)
 - [`CFG-keep-local-artifacts-out-of-git`](../scenarios/CFG-keep-local-artifacts-out-of-git.md)
 
 ## Adjacent canary

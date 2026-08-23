@@ -333,6 +333,35 @@ describe("canonical QA skills", () => {
     }
   });
 
+  it("IT-022 reconciles immutable QA charters, spec-anchored cases, and filed-issue QA", () => {
+    const execution = readRepositoryFile("docs/guidelines/QA-EXECUTION.md");
+    const qaPlan = readRepositoryFile(".agents/skills/qa-plan/SKILL.md");
+    const testContract = readRepositoryFile("docs/guidelines/TEST-CONTRACT.md");
+    const reviewRounds = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
+
+    for (const source of [execution, qaPlan]) {
+      expect(source).toContain("new dated charter");
+      expect(source).toMatch(/journeys? and\s+scenarios/i);
+      expect(source).toMatch(/never (?:edit|update) an existing charter/i);
+    }
+    expect(execution).not.toContain("create or refresh durable journeys, scenarios, and charters");
+    expect(qaPlan).not.toContain("Create or update one charter");
+
+    expect(testContract).toContain("Every case maps to a spec acceptance criterion");
+    expect(testContract).toContain("clarify the acceptance criterion before adding a case");
+    expect(testContract).toContain("Never create a case solely because a");
+    expect(testContract).not.toContain("Unit cases come from every component");
+    expect(testContract).not.toContain("integration cases from every component boundary");
+
+    const filedIssueRule = reviewRounds.slice(
+      reviewRounds.indexOf("## Fixing a filed issue"),
+      reviewRounds.indexOf("## Escalation"),
+    );
+    expect(filedIssueRule).toContain("If the fix changes user-visible behaviour");
+    expect(filedIssueRule).toContain("flag its scenario");
+    expect(filedIssueRule).toContain("walk it");
+  });
+
   it("IT-013 records the selected QA adapter and checkout-local evidence", () => {
     const qaExecute = readRepositoryFile(".agents/skills/qa-execute/SKILL.md");
 
