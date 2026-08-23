@@ -11,8 +11,8 @@ bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-22-preserve-consumer-ad-index/session.md; docs/qa/evidence/2026-08-22-source-only-pack-guide/session.md; docs/qa/evidence/2026-08-22-version-feature-specs-handoff/session.md; docs/qa/evidence/2026-08-22-validate-generated-feature-contracts/session.md; docs/qa/evidence/2026-08-22-ponytail-full-cycle/session.md
-last_report: docs/qa/reports/2026-08-22-ponytail-full-cycle.md
+evidence: docs/qa/evidence/2026-08-22-preserve-consumer-ad-index/session.md; docs/qa/evidence/2026-08-22-source-only-pack-guide/session.md; docs/qa/evidence/2026-08-22-version-feature-specs-handoff/session.md; docs/qa/evidence/2026-08-22-validate-generated-feature-contracts/session.md; docs/qa/evidence/2026-08-22-ponytail-full-cycle/session.md; docs/qa/evidence/2026-08-22-authoritative-validation-verdict/session.md
+last_report: docs/qa/reports/2026-08-22-authoritative-validation-verdict.md
 overlaps:
 ---
 
@@ -46,3 +46,6 @@ project that hands work off through Git worktrees or has a gate/CI job read the 
 the managed ignore entry and version the relevant feature tree; adoption does not detect or migrate
 that choice. QA on 2026-08-22 confirmed the default ignore, manual unignore, versioned spec handoff
 to a sibling worktree, and a clean clone's independent read.
+
+QA for issue #27 confirmed adoption and re-adoption install a validator byte-identical to the source
+while preserving a consumer-owned `.my-workflow.toml` byte-for-byte.
