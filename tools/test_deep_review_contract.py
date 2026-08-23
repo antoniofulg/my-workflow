@@ -19,6 +19,10 @@ SCRIPTS = Path(__file__).resolve().parents[1] / ".agents/skills/deep-review/scri
 BUILD_MANIFEST = SCRIPTS / "build_manifest.py"
 RUN_JOBS = SCRIPTS / "run_jobs.py"
 RENDER_REVIEW = SCRIPTS / "render_review.py"
+PUBLISH_RECIPE = (
+    Path(__file__).resolve().parents[1]
+    / ".agents/skills/deep-review/references/publish-github.md"
+)
 sys.path.insert(0, str(SCRIPTS))
 
 from _common import freeze_snapshot  # noqa: E402
@@ -36,6 +40,14 @@ def run_script(script: Path, root: Path, *args: str) -> subprocess.CompletedProc
     return subprocess.run(
         [sys.executable, str(script), *args], cwd=root, capture_output=True, text=True
     )
+
+
+def publish_walkthrough_recipe() -> str:
+    document = PUBLISH_RECIPE.read_text(encoding="utf-8")
+    section = document[document.index("## 1. Upsert the walkthrough comment") :]
+    start = section.index("```bash") + len("```bash\n")
+    end = section.index("```", start)
+    return section[start:end]
 
 
 def init_repo(raw: str) -> Path:
@@ -169,6 +181,76 @@ def finding(severity: str) -> dict:
 
 
 class DeepReviewContractTests(unittest.TestCase):
+    def test_walkthrough_publish_is_one_idempotent_upsert(self) -> None:
+        recipe = publish_walkthrough_recipe()
+        self.assertIn("--jq '[.[] | select(.body | contains(\"<!-- deep-review:walkthrough -->\"))][0].id // empty'", recipe)
+        self.assertIn('if [ -n "$CID" ]; then', recipe)
+        self.assertNotIn("/comments/null", recipe)
+
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            out = root / "out dir"
+            out.mkdir()
+            walkthrough = out / "walkthrough.md"
+            walkthrough.write_text("walkthrough\n", encoding="utf-8")
+            log = root / "gh.log"
+            fake_gh = root / "gh"
+            fake_gh.write_text(
+                "#!/bin/sh\n"
+                "printf 'CALL\\n' >> \"$GH_LOG\"\n"
+                "for arg do printf '<%s>\\n' \"$arg\" >> \"$GH_LOG\"; done\n"
+                "if [ \"$GH_MODE\" = existing ] && [ \"$2\" = \"repos/$R/issues/$N/comments\" ]; then\n"
+                "  printf '42\\n'\n"
+                "fi\n",
+                encoding="utf-8",
+            )
+            fake_gh.chmod(0o700)
+
+            def run_publish(mode: str) -> list[list[str]]:
+                env = os.environ.copy()
+                env.update(
+                    {
+                        "GH_LOG": str(log),
+                        "GH_MODE": mode,
+                        "PATH": f"{root}:{env['PATH']}",
+                        "R": "owner/repo",
+                        "N": "17",
+                        "OUT": str(out),
+                    }
+                )
+                log.write_text("", encoding="utf-8")
+                result = subprocess.run(
+                    ["sh", "-eu", "-c", recipe],
+                    cwd=root,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                calls: list[list[str]] = []
+                current: list[str] = []
+                for line in log.read_text(encoding="utf-8").splitlines():
+                    if line == "CALL":
+                        if current:
+                            calls.append(current)
+                        current = []
+                    else:
+                        current.append(line[1:-1])
+                if current:
+                    calls.append(current)
+                return calls
+
+            list_call = ["api", "repos/owner/repo/issues/17/comments", "--paginate", "--jq", "[.[] | select(.body | contains(\"<!-- deep-review:walkthrough -->\"))][0].id // empty"]
+            body_arg = f"body=@{walkthrough}"
+            self.assertEqual(
+                run_publish("empty"),
+                [list_call, ["api", "repos/owner/repo/issues/17/comments", "-F", body_arg]],
+            )
+            self.assertEqual(
+                run_publish("existing"),
+                [list_call, ["api", "repos/owner/repo/issues/comments/42", "-X", "PATCH", "-F", body_arg]],
+            )
+
     def test_incremental_manifest_uses_effective_base_for_hunks_and_command(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)

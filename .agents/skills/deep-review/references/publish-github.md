@@ -17,11 +17,15 @@ Same login means `event=COMMENT`. For a bot/machine user, `request_changes_workf
 One comment per PR, edited in place through its marker:
 
 ```bash
-CID=$(gh api repos/$R/issues/$N/comments --paginate \
-  --jq '[.[] | select(.body | contains("<!-- deep-review:walkthrough -->"))][0].id')
-# absent → create; present → edit
-gh api repos/$R/issues/$N/comments -F body=@"$OUT/walkthrough.md"
-gh api repos/$R/issues/comments/$CID -X PATCH -F body=@"$OUT/walkthrough.md"
+CID="$(gh api "repos/$R/issues/$N/comments" --paginate \
+  --jq '[.[] | select(.body | contains("<!-- deep-review:walkthrough -->"))][0].id // empty')"
+if [ -n "$CID" ]; then
+  gh api "repos/$R/issues/comments/$CID" -X PATCH \
+    -F "body=@$OUT/walkthrough.md"
+else
+  gh api "repos/$R/issues/$N/comments" \
+    -F "body=@$OUT/walkthrough.md"
+fi
 ```
 
 ## 2. Anchor defects and advisories
