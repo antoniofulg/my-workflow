@@ -221,6 +221,15 @@ def main() -> int:
 
     status_path = Path(args.status_file).resolve() if args.status_file else out / "runs" / f"{jobs_path.stem}-status.json"
     if args.validate_only:
+        if not args.no_freeze_check:
+            try:
+                drift = check_freeze(repo, out, "validate")
+            except RuntimeError as error:
+                sys.stderr.write(f"{error}\n")
+                return 1
+            if drift:
+                sys.stderr.write(drift[0] + "\n")
+                return 3
         rows = []
         for job in jobs:
             state, reason = job_state(repo, out, job)
