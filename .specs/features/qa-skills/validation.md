@@ -47,9 +47,9 @@ All 14 commits in the range match Conventional Commit syntax.
 | QA-16 | Verifier reads the profile and reports adapter, exact path, evidence, and limitations at `.codex/agents/verifier.toml:31`; exact assertions at `tools/shared/tests/qa-skills.test.ts:283`; final report records them at `docs/qa/reports/2026-08-20-workflow-0.3.0.md:5`. | PASS |
 | QA-17 | Suggested prompt requires status check, read-only discovery, product-doc preservation, managed-path review, complete diff, and declared gate at `README.md:58` and `:64`; exact assertions at `tools/shared/tests/qa-skills.test.ts:327`. | PASS |
 | QA-18 | README routes public changes to fresh `qa-plan` and `qa-execute` packets through the existing Verifier without embedding their procedures at `README.md:77`; assertions at `tools/shared/tests/qa-skills.test.ts:327`. | PASS |
-| QA-19 | `.specs/features/` is ignored while STATE/index remain tracked at `.gitignore:14`; Git-backed assertions at `tools/shared/tests/qa-skills.test.ts:68`. | PASS |
-| QA-20 | Current local task or inline-plan state is a pre-commit condition without tracked task coupling; ordering/provider assertions at `tools/shared/tests/qa-skills.test.ts:76`. | PASS |
-| QA-21 | No disposable feature artifact remains tracked; Git-backed assertion at `tools/shared/tests/qa-skills.test.ts:138`; three historical artifacts are deleted in the range while `.specs/STATE.md` and `.specs/AD-INDEX.md` remain. | PASS |
+| QA-19 | `.specs/features/` remains eligible for Git alongside STATE/index; Git-backed assertions at `tools/shared/tests/qa-skills.test.ts:72`-`:76` and tracked task state at `:153`-`:155`. | PASS |
+| QA-20 | Versioned task state is closed before the atomic commit, with task/status updates allowed in that commit; ordering and positive contract assertions at `tools/shared/tests/qa-skills.test.ts:104`-`:146`. | PASS |
+| QA-21 | Adoption removes exact duplicate legacy feature-ignore entries, preserves consumer rules, and does not stage files; canonical adoption assertions at `scripts/test_adopt.py:364`-`:414` and contract wording at `tools/shared/tests/qa-skills.test.ts:77`-`:83`. | PASS |
 | QA-22 | Package and root lockfile declarations all equal `0.3.0` at `package.json:3` and `package-lock.json:3`; exact assertions at `tools/shared/tests/qa-skills.test.ts:383`. | PASS |
 
 **Spec-anchored status**: 22/22 matched; 0 gaps; 0 spec-precision gaps.

@@ -26,8 +26,8 @@ Pedro Nauck skills that inspired them.
 - `docs/qa/` remains durable. Raw QA evidence and generated run state remain disposable.
 - Each consuming project records its stack-specific QA capability profile in `docs/qa/README.md`;
   executable manifests and CI remain authoritative for commands already declared there.
-- Feature planning trees under `.specs/features/` are local, ignored state; `.specs/STATE.md` and
-  `.specs/AD-INDEX.md` remain durable and tracked.
+- Feature workflow trees under `.specs/features/` are versioned state alongside `.specs/STATE.md`
+  and `.specs/AD-INDEX.md`; raw QA evidence and generated run state remain disposable.
 
 Open questions: None.
 
@@ -115,16 +115,16 @@ Acceptance criteria:
 - **QA-17:** WHEN a reader uses either suggested adoption prompt THEN the prompt SHALL require a clean-state check, read-only capability discovery, preservation of product-owned documentation, explicit review of overwritten managed paths, and final diff plus gate evidence.
 - **QA-18:** WHEN the workflow documents its suggested prompts THEN the system SHALL point QA work to `qa-plan`, `qa-execute`, and the existing provider Verifier without duplicating their operational instructions in the README.
 
-### US-09 — Keep feature specs local
+### US-09 — Keep feature workflow state durable
 
-As the workflow author, I want transient feature planning artifacts kept out of repository history
-while durable decisions remain reviewable.
+As the workflow author, I want feature specifications and task state versioned so worktrees, gates,
+and reviewers share the same contract and progress.
 
 Acceptance criteria:
 
-- **QA-19:** WHEN feature planning creates files under `.specs/features/` THEN Git SHALL ignore that tree while continuing to track `.specs/STATE.md` and `.specs/AD-INDEX.md`.
-- **QA-20:** WHEN task commits are created THEN the workflow SHALL require the local `tasks.md` state to be current without requiring that disposable file to be part of the commit.
-- **QA-21:** WHEN this feature is delivered THEN previously tracked disposable feature artifacts SHALL be removed from the current tree without removing durable decisions.
+- **QA-19:** WHEN feature planning creates files under `.specs/features/` THEN Git SHALL keep that tree eligible for tracking as versioned workflow state alongside `.specs/STATE.md` and `.specs/AD-INDEX.md`.
+- **QA-20:** WHEN task commits are created THEN the workflow SHALL require the current versioned `tasks.md` state to be closed before the commit, and its task/status update MAY be included in the same atomic commit.
+- **QA-21:** WHEN adoption finds exact legacy `.specs/features/` ignore entries THEN it SHALL remove those entries, including duplicates, preserve unrelated consumer lines and comments, and SHALL NOT stage or commit files automatically.
 
 ### US-10 — Publish the new capability version
 
