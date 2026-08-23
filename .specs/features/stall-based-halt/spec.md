@@ -10,9 +10,9 @@ bounding is a remediation loop that stops converging.
 
 ## Goals
 
-- [ ] A post-cap blocker whose failure signature changes between attempts never halts a run.
-- [ ] A remediation loop that produces the same failure signature `stall_attempts` times in a row
-      halts and reports, with `stall_attempts` defaulting to 3.
+- [ ] A post-cap blocker whose set of failing tests shrinks each attempt never halts a run.
+- [ ] A remediation loop that fails to shrink its set of failing tests `stall_attempts` times in a
+      row halts and reports, with `stall_attempts` defaulting to 3.
 - [ ] The threshold is consumer-owned in `.my-workflow.toml` and validated by the resolver.
 - [ ] Remote authorization is unchanged: push, pull request, merge and deploy still each need an
       explicit go-ahead.
@@ -24,7 +24,7 @@ bounding is a remediation loop that stops converging.
 | The `≤3` Technical Verifier and `≤2` deep-review round caps | They bound review, which already converges. Only the post-cap remediation halt is miscalibrated. |
 | Freezing `stall_attempts` in `.specs/features/<feature>/workflow.json` | The snapshot exists to keep routing stable mid-feature. A halt threshold is an operator preference that should take effect on the next attempt, not at the next feature. |
 | Relaxing any remote-action authorization | Orthogonal to this halt, and the reason the run is safe to leave unattended. |
-| Automatic detection of a wrong fix strategy | A changing failure signature is progress by definition here; judging fix quality is the reviewer's job, not the halt's. |
+| Automatic detection of a wrong fix strategy | A shrinking set of failing tests is progress by definition here; judging fix quality is the reviewer's job, not the halt's. |
 
 ---
 
@@ -32,7 +32,8 @@ bounding is a remediation loop that stops converging.
 
 | Assumption / decision | Chosen default | Rationale | Confirmed? |
 | --- | --- | --- | --- |
-| What a "failure signature" is | The scoped gate's failing command, plus the sorted set of failing test identifiers, plus the first assertion message of each — normalized to drop timings, absolute paths, and line numbers | These are the parts that change when a fix moves the failure and stay identical when it does not. Line numbers shift on any edit, so including them would make every attempt look like progress | y |
+| What a "failure signature" is | The sorted set of failing test identifiers for the scoped gate's failing command, normalized to drop timings, absolute paths, and line numbers. The assertion message is reported as diagnosis and is never compared | The set is the one part a real fix shrinks. Line numbers shift on any edit, and an assertion message churns with flaky ordering and with embedded PIDs, ports and object addresses, so comparing either would make every attempt look like progress and the bound would never fire | y |
+| What counts as progress | Only a strictly smaller set of failing tests; the same set, a larger one, or a different one of the same size is a stalled attempt | A fix that changes which tests fail without reducing the count reads as a stall. The accepted cost is a halt report for a person to read, not a broken tree, and it is what stops a flaky test buying the loop another round by adding a failure | y |
 | `stall_attempts = 0` | Means unbounded: never halt for a stall | Gives the operator the "never stop on a blocker" behaviour without a second key. One key, one meaning per value | y |
 | Where the threshold lives | `.my-workflow.toml`, table `[remediation]`, key `stall_attempts` | `CONFIG_KEYS` in the resolver is a strict allowlist, so an unknown table already fails the run. The key has to be taught to the resolver either way | y |
 | A run halted for a stall is ended, not paused | Matches the existing `autonomous` halt semantics | A paused run stays stopped until someone looks, which is the cost the operator was avoiding | y |
@@ -53,8 +54,8 @@ attempt changes the failure, so that a blocker with a known root cause does not 
 **Acceptance Criteria**:
 
 1. The escalation rule in `docs/guidelines/REVIEW-ROUNDS.md` SHALL bound post-cap remediation by
-   consecutive identical failure signatures and SHALL NOT bound it by review-round count.
-2. WHEN an attempt's failure signature differs from the previous attempt's THEN the run SHALL start another remediation attempt without new human authorization.
+   consecutive stalled attempts and SHALL NOT bound it by review-round count.
+2. WHEN an attempt's set of failing tests is strictly smaller than the previous attempt's THEN the run SHALL start another remediation attempt without new human authorization.
 3. WHILE post-cap remediation is running the run SHALL run the scoped gate after each attempt and
    record that attempt's failure signature.
 4. The run SHALL NOT open a new review round while remediating post-cap.
@@ -74,7 +75,7 @@ prevent.
 
 **Acceptance Criteria**:
 
-1. WHEN `stall_attempts` consecutive attempts produce identical failure signatures THEN the run SHALL halt, write the halt report, and merge nothing.
+1. WHEN `stall_attempts` consecutive attempts fail to shrink the set of failing tests THEN the run SHALL halt, write the halt report, and merge nothing.
 2. WHERE `stall_attempts` is `0` the run SHALL NOT halt for a stall.
 3. The halt report SHALL name the repeated failure signature, the number of attempts, and every fix
    that was tried.
@@ -116,7 +117,7 @@ with each invalid value; assert exit codes and resolved output.
 - IF `.my-workflow.toml` is absent THEN the resolver SHALL resolve `stall_attempts` to `3`.
 - IF `[remediation]` is present but empty THEN the resolver SHALL resolve `stall_attempts` to `3`.
 - WHEN two consecutive attempts fail with the same test identifiers but different assertion messages
-  THEN the run SHALL treat the signatures as different and continue.
+  THEN the run SHALL treat the second attempt as stalled.
 - WHEN an attempt makes the gate green THEN post-cap remediation SHALL end and the stall count
   SHALL reset.
 - IF a blocker remains open and the run halts for a stall THEN the run SHALL NOT push, open a pull
@@ -141,8 +142,8 @@ with each invalid value; assert exit codes and resolved output.
 
 ## Success Criteria
 
-- [ ] A run whose failure signature changes each attempt never asks for authorization to continue.
-- [ ] A run repeating one failure signature `stall_attempts` times halts with a report naming it.
+- [ ] A run whose set of failing tests shrinks each attempt never asks for authorization to continue.
+- [ ] A run that stalls `stall_attempts` times halts with a report naming the repeated signature.
 - [ ] `python3 .agents/skills/workflow-config/scripts/workflow_config.py` accepts `[remediation]`
       and rejects every malformed value with a message naming the key.
 - [ ] `npx vitest run --dir tools` and `python3 tools/test_workflow_config.py` pass.

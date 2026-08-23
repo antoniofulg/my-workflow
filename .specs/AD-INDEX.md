@@ -13,4 +13,4 @@ When recording an `AD-NNN`, run `python3 tools/ad-index.py` in the same commit.
 | `AD-004` | active | Workflow routing is consumer-configurable in `.my-workflow.toml`. |
 | `AD-005` | active | Keep the optional, checkout-local Graft `0.10.1` integration as the deep-review context aid. |
 | `AD-006` | active | Keep the workflow stack- and tool-agnostic while allowing optional capability integrations. |
-| `AD-007` | active | Bound post-cap remediation by consecutive identical failure signatures, not by an open blocker. |
+| `AD-007` | active | Bound post-cap remediation by consecutive stalled attempts, not by an open blocker. |

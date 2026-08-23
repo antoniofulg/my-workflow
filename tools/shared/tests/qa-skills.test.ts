@@ -771,7 +771,7 @@ describe("adoption and public setup", () => {
     expect(normalize(skill)).toContain("keeps it out of workflow.json");
   });
 
-  it("IT-027 bounds post-cap remediation by progress, not by an open blocker", () => {
+  it("IT-027 makes progress a strictly smaller set of failing tests", () => {
     const reviewRounds = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
     const escalation = normalize(
       reviewRounds.slice(
@@ -783,7 +783,10 @@ describe("adoption and public setup", () => {
     expect(escalation).toContain("failure signature");
     expect(escalation).toMatch(/(?:with )?no new human authorization|without new human authorization/);
     expect(escalation).toMatch(/scoped gate after (?:every|each) attempt/);
-    expect(escalation).toMatch(/failing gate command.*failing test identifiers.*first assertion message/);
+    expect(escalation).toMatch(/sorted set of failing test identifiers/);
+    expect(escalation).toMatch(/strictly smaller than the previous attempt/);
+    expect(escalation).toMatch(/assertion messages[^.]*(?:never enter|not part of) the comparison/);
+    expect(escalation).not.toMatch(/signature[^.]*assertion message/);
     expect(escalation).toMatch(/timings, absolute paths and line numbers|timings, absolute paths, and line numbers/);
     expect(escalation).toMatch(/no new review round/);
     expect(escalation).toMatch(/local fixes only/);
@@ -802,10 +805,10 @@ describe("adoption and public setup", () => {
     expect(escalation).toContain("stall_attempts");
     expect(escalation).toContain(".my-workflow.toml");
     expect(escalation).toContain("[remediation]");
-    expect(escalation).toMatch(/consecutive attempts repeat one signature|consecutive identical/);
+    expect(escalation).toMatch(/consecutive attempts stall|consecutive stalled attempts/);
     expect(escalation).toMatch(/default 3|defaults to 3/);
     expect(escalation).toMatch(/0 never halts|0 means unbounded/);
-    expect(escalation).toContain("repeated signature");
+    expect(escalation).toMatch(/repeated (?:failure )?signature/);
     expect(escalation).toMatch(/attempt count|how many attempts/);
   });
 

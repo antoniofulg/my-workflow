@@ -2,16 +2,19 @@
 
 ### AD-007
 
-- **Decision**: Bound post-cap remediation by consecutive identical failure signatures, not by an
-  open blocker. A run keeps remediating while each attempt changes the failure signature, and halts
-  once `stall_attempts` consecutive attempts repeat one. The threshold is consumer-owned in
+- **Decision**: Bound post-cap remediation by consecutive stalled attempts, not by an open blocker.
+  The failure signature is the sorted set of failing test identifiers; progress is a strictly smaller
+  set, and the assertion message is reported but never compared. A run halts once `stall_attempts`
+  consecutive attempts fail to shrink that set. The threshold is consumer-owned in
   `.my-workflow.toml` (`[remediation] stall_attempts`), defaults to `3`, and `0` means unbounded.
 - **Reason**: The review caps bound how often a reviewer produces new findings, which already
   converges. The halt they fed bounded the wrong quantity: a blocker with a diagnosed root cause and
   a named next fix ended an unattended run that the operator would always have told to continue.
-- **Trade-off**: A run can now spend more attempts on one blocker before reporting. The stall count
-  is what keeps that finite, and a signature that ignores line numbers is what keeps a no-op edit
-  from reading as progress.
+- **Trade-off**: A fix that changes which tests fail without reducing the count reads as a stall and
+  costs a halt report to read. That is accepted: requiring consecutive *identical* signatures was
+  insufficient, because one flaky test or one unnormalized PID, port or object address in a message
+  keeps the signature changing forever and the bound never fires. Shrinking is the only progress a
+  cosmetic change cannot fake.
 - **Scope**: `docs/guidelines/REVIEW-ROUNDS.md`, `.agents/skills/autonomous/SKILL.md`,
   `.agents/skills/workflow-config/` and its resolver, `.my-workflow.toml.example`, `README.md`.
 - **Date**: 2026-08-23
