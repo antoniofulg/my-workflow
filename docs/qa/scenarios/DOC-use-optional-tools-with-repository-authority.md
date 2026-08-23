@@ -6,13 +6,13 @@ persona: Repository reader
 journey: J-review-workflow-release
 expected: The workflow recommends Graft and OpenDesign without installing or requiring them, preserves repository fallback and explicit approved-handoff precedence, bounds external writes non-destructively, and omits operational tool setup from public guidance.
 entry_points: README.md#optional-integrations; docs/guidelines/UI-UX.md#optional-design-tooling; docs/guidelines/SECURITY.md#external-filesystem-writers; .specs/AD-INDEX.md; .specs/STATE.md
-qa_status: untested
+qa_status: pass
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence:
-last_report:
+evidence: docs/qa/evidence/2026-08-23-optional-design-tools/session.md
+last_report: docs/qa/reports/2026-08-23-optional-design-tools.md
 overlaps:
 ---
 

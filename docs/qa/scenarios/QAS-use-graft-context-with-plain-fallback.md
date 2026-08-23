@@ -11,8 +11,8 @@ bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-22-deep-review-metrics-graft/session.md
-last_report: docs/qa/reports/2026-08-22-deep-review-metrics-graft.md
+evidence: docs/qa/evidence/2026-08-22-deep-review-metrics-graft/session.md; docs/qa/evidence/2026-08-23-optional-design-tools/session.md
+last_report: docs/qa/reports/2026-08-23-optional-design-tools.md
 overlaps:
 ---
 
