@@ -1,5 +1,22 @@
 # Project state
 
+### AD-007
+
+- **Decision**: Bound post-cap remediation by consecutive identical failure signatures, not by an
+  open blocker. A run keeps remediating while each attempt changes the failure signature, and halts
+  once `stall_attempts` consecutive attempts repeat one. The threshold is consumer-owned in
+  `.my-workflow.toml` (`[remediation] stall_attempts`), defaults to `3`, and `0` means unbounded.
+- **Reason**: The review caps bound how often a reviewer produces new findings, which already
+  converges. The halt they fed bounded the wrong quantity: a blocker with a diagnosed root cause and
+  a named next fix ended an unattended run that the operator would always have told to continue.
+- **Trade-off**: A run can now spend more attempts on one blocker before reporting. The stall count
+  is what keeps that finite, and a signature that ignores line numbers is what keeps a no-op edit
+  from reading as progress.
+- **Scope**: `docs/guidelines/REVIEW-ROUNDS.md`, `.agents/skills/autonomous/SKILL.md`,
+  `.agents/skills/workflow-config/` and its resolver, `.my-workflow.toml.example`, `README.md`.
+- **Date**: 2026-08-23
+- **Status**: active
+
 ## Handoff
 
 Idle.

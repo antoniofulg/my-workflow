@@ -1,0 +1,34 @@
+{
+  "deep_review": {
+    "cadence": "grouped.3",
+    "groups": [
+      [
+        1,
+        2
+      ]
+    ]
+  },
+  "feature": "stall-based-halt",
+  "git_head": "6675d5574e692a7534b676519e89fbc484289b46",
+  "overrides": {},
+  "profile": null,
+  "roles": {
+    "deep_reviewer": {
+      "agent_file": ".claude/agents/deep-reviewer.md",
+      "provider": "claude"
+    },
+    "explorer": {
+      "agent_file": ".claude/agents/explorer.md",
+      "provider": "claude"
+    },
+    "implementer": {
+      "agent_file": ".claude/agents/implementer.md",
+      "provider": "claude"
+    },
+    "verifier": {
+      "agent_file": ".claude/agents/verifier.md",
+      "provider": "claude"
+    }
+  },
+  "version": 1
+}
