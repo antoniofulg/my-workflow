@@ -29,8 +29,9 @@ product tree in the parent chat. Models live only on the agent files. Cursor als
 - **Never add a test just to raise coverage.** Name the invariant, the owning layer, and the canonical
   suite; extend that suite. If no invariant exists, do not write the test.
 - **Approval authorizes local work only.** A spec or task approval covers scoped local changes and
-  atomic local commits. Push, pull request, merge, deploy and production database changes each need an
-  explicit go-ahead in the prompt.
+  atomic local commits. Readiness is evidence, not authorization: push, pull request, merge, deploy
+  and production database changes each need an explicit go-ahead for that action in the current
+  prompt or session.
 - **Instruction files cost every turn.** This file and `docs/guidelines/*.md` load into prompts.
   Growing one with restated or redundant prose is a defect. Read `docs/guidelines/CONTEXT-BUDGET.md`
   before editing either.
@@ -94,8 +95,6 @@ this pack.
 Recording an `AD-NNN` also runs `python3 tools/ad-index.py` in that commit. Skill validators live in
 the installed `tlc-spec-driven` skill (`validate_spec.py`, `validate_tasks.py`, `check_commit.py`,
 `validate_state.py`). The consuming project owns `make check`.
-
-A spec or task approval authorizes local implementation and local commits only.
 
 ## Where the truth lives
 

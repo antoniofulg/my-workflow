@@ -19,7 +19,7 @@ Start here: **[docs/workflow/](docs/workflow/)** — an index of every stage, gu
 | Scoped gate per slice; full gate once | Never weaken a test to go green |
 | Nitpicks become filed issues, not extra rounds | Blocker and Major still hold the ship |
 | `ponytail` at `full` — shortest code that works | Security surfaces declared and given `SEC-` ids |
-| Human schedules merge | Approval is local-only; push and deploy need an explicit go-ahead |
+| Human schedules remote delivery | Readiness is evidence, not authorization; push, pull request, merge, and deploy each need an explicit go-ahead |
 
 The loop, the caps, and the guidelines are the mechanism. The tour explains **why** each exists.
 `AGENTS.md` is what agents run.
