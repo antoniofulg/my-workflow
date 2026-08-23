@@ -748,13 +748,17 @@ describe("adoption and public setup", () => {
   });
 
   it("IT-017 reports release version 0.3.6 consistently", () => {
-    const manifest = JSON.parse(readRepositoryFile("package.json")) as { version?: string };
+    const manifest = JSON.parse(readRepositoryFile("package.json")) as {
+      version?: string;
+      scripts?: { test?: string };
+    };
     const lockfile = JSON.parse(readRepositoryFile("package-lock.json")) as {
       version?: string;
       packages?: { ""?: { version?: string } };
     };
 
     expect(manifest.version).toBe("0.3.6");
+    expect(manifest.scripts?.test).toBe("vitest run --dir tools/shared/tests");
     expect(lockfile.version).toBe("0.3.6");
     expect(lockfile.packages?.[""]?.version).toBe("0.3.6");
   });

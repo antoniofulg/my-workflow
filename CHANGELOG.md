@@ -19,6 +19,7 @@ All notable changes to this project are documented here.
 ### Fixed
 
 - Walkthrough comment publishing is idempotent, using PATCH for an existing comment and POST for a missing one.
+- The full test gate now runs only canonical tests under `tools/shared/tests` via Vitest's scoped directory, so copied QA evidence cannot be discovered.
 
 ## [0.3.5] - 2026-08-22
 

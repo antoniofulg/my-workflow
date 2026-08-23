@@ -7,7 +7,7 @@
     "knowledge": "tsx tools/knowledge/src/cli.ts",
     "review:graft:build": "graft build",
     "review:graft:version": "graft --version",
-    "test": "vitest run"
+    "test": "vitest run --dir tools/shared/tests"
   },
   "devDependencies": {
     "@types/node": "22.20.1",

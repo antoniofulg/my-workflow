@@ -1,9 +1,9 @@
 # QA Skills Final Validation — PASS
 
-**Date**: 2026-08-20  
-**Spec**: `.specs/features/qa-skills/spec.md`  
-**Diff range**: `281ed81200138650b57bc766d9a03b1bf06031ca..92fc3e4a0e7e605de10440d023d440ad65ababdd` (`origin/main..92fc3e4`)  
-**Verifier**: independent final Verifier (author != verifier)  
+**Date**: 2026-08-20
+**Spec**: `.specs/features/qa-skills/spec.md`
+**Diff range**: `281ed81200138650b57bc766d9a03b1bf06031ca..92fc3e4a0e7e605de10440d023d440ad65ababdd` (`origin/main..92fc3e4`)
+**Verifier**: independent final Verifier (author != verifier)
 **Phase**: `technical`
 
 ## Verdict
@@ -77,7 +77,7 @@ Mutations ran in detached temporary worktrees. The real checkout was clean befor
 | M4 | Routed Codex `qa-execute` to `qa-plan`. | KILLED by IT-003 at `tools/shared/tests/qa-skills.test.ts:233`. |
 
 **Sensor depth**: lightweight, targeted at provenance, consumer ownership, terminal QA state, and
-provider routing.  
+provider routing.
 **Result**: 4/4 killed — PASS.
 
 ## Gate Evidence
@@ -115,8 +115,8 @@ None.
 
 ## Summary
 
-**Overall**: PASS — ready for delivery.  
-**Spec-anchored check**: 22/22.  
-**Sensor**: 4/4 killed.  
-**Gate**: 55/55.  
+**Overall**: PASS — ready for delivery.
+**Spec-anchored check**: 22/22.
+**Sensor**: 4/4 killed.
+**Gate**: 55/55.
 **QA status**: 5/5 scenarios pass; no pending state.

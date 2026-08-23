@@ -55,4 +55,3 @@
 | --- | --- | --- |
 | Distribution | External, pinned installation after adoption | Keeps third-party skills reviewable and updateable without vendoring |
 | Publication | Staging plus per-target lock and rollback | Prevents partial or concurrent corruption |
-
