@@ -12,6 +12,8 @@ All notable changes to this project are documented here.
 - Source-only pack guide and versioned feature-spec guidance for worktree and gate consumers.
 - TLC validator compatibility with generated feature layouts.
 - Ponytail `full` activation across the complete workflow cycle.
+- Deep Review manifests now handle symlink entries safely.
+- Adoption supports opt-in preservation of existing `AGENTS.md` and `CLAUDE.md` files.
 
 ## [0.3.4] - 2026-08-22
 
