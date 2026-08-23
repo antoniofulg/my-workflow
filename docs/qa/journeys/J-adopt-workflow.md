@@ -25,6 +25,7 @@
 - [`ADP-adopt-workflow-safely`](../scenarios/ADP-adopt-workflow-safely.md)
 - [`ADP-separate-external-security-skills`](../scenarios/ADP-separate-external-security-skills.md)
 - [`ADP-validate-generated-feature-contracts`](../scenarios/ADP-validate-generated-feature-contracts.md)
+- [`ADP-validate-feature-completion-state`](../scenarios/ADP-validate-feature-completion-state.md)
 - [`QAS-discover-independent-qa-skills`](../scenarios/QAS-discover-independent-qa-skills.md)
 - [`CFG-keep-local-artifacts-out-of-git`](../scenarios/CFG-keep-local-artifacts-out-of-git.md)
 

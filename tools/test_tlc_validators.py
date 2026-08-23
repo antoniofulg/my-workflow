@@ -11,6 +11,7 @@ sys.path.insert(0, str(SCRIPTS))
 
 import validate_spec  # noqa: E402
 import validate_tasks  # noqa: E402
+import validate_state  # noqa: E402
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures/tlc-validator"
@@ -21,6 +22,31 @@ def lines(name: str) -> list[str]:
 
 
 class TLCValidatorTests(unittest.TestCase):
+    def test_explicit_fail_verdict_wins_over_legacy_result_pass(self) -> None:
+        self.assertEqual(
+            validate_state._verdict("**Verdict**: FAIL\n**Result**: PASS"),
+            "fail",
+        )
+
+
+    def test_explicit_pass_verdict_wins_over_legacy_result_fail(self) -> None:
+        self.assertEqual(
+            validate_state._verdict("**Verdict**: PASS\n**Result**: FAIL"),
+            "pass",
+        )
+
+
+    def test_legacy_result_pass_remains_supported(self) -> None:
+        self.assertEqual(validate_state._verdict("**Result**: PASS"), "pass")
+
+
+    def test_legacy_result_summary_pass_remains_supported(self) -> None:
+        self.assertEqual(
+            validate_state._verdict("**Result**: 1/1 killed — PASS."),
+            "pass",
+        )
+
+
     def test_nested_phase_definitions_keep_each_task_in_its_phase(self) -> None:
         self.assertEqual(
             validate_tasks.parse_phase_membership(lines("nested-phase-tasks.md")),

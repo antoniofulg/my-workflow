@@ -36,6 +36,20 @@ import sys
 
 # A file:line citation: a path with an extension, then :<line>. e.g. src/a.ts:42
 EVIDENCE_RE = re.compile(r"[\w./-]+\.[A-Za-z0-9]+:\d+")
+FIELD_RE = re.compile(
+    r"^\s*(?:(?P<plain>Verdict|Result)|\*\*(?P<bold>Verdict|Result)\*\*)"
+    r"\s*:\s*(?P<value>.*?)\s*$",
+    re.IGNORECASE,
+)
+STATUS_RE = re.compile(r"^(PASS|FAIL)[.!]?$", re.IGNORECASE)
+RESULT_SUMMARY_RE = re.compile(
+    r"^\d+/\d+\s+killed\s+[—-]\s*(PASS|FAIL)[.!]?$",
+    re.IGNORECASE,
+)
+UNFILLED_RE = re.compile(
+    r"\[\s*PASS(?:\s*✅)?\s*\|\s*FAIL(?:\s*❌)?\s*\]",
+    re.IGNORECASE,
+)
 
 
 def _feature_dirs(root):
@@ -51,23 +65,60 @@ def _feature_dirs(root):
 
 def _verdict(text):
     """Return 'pass', 'fail', 'unfilled', or None from a validation report."""
-    # Look at the '## Validation' heading first, then a '**Result**' line.
+    # Explicit Verdict fields are authoritative. Result is the legacy fallback.
     lines = text.splitlines()
-    candidates = [
-        ln for ln in lines
-        if re.search(r"^#{1,4}\s*validation\b", ln.strip(), re.IGNORECASE)
-        or re.search(r"\*{0,2}result\*{0,2}\s*:", ln.strip(), re.IGNORECASE)
-    ]
-    hay = " ".join(candidates) if candidates else text
-    has_pass = re.search(r"\bPASS\b", hay) is not None
-    has_fail = re.search(r"\bFAIL\b", hay) is not None
-    if has_pass and has_fail:
-        # Both present on the verdict line = unfilled template "[PASS | FAIL]".
+
+    def field_status(value, *, legacy=False):
+        value = value.strip()
+        match = STATUS_RE.fullmatch(value)
+        if match:
+            return match.group(1).lower()
+        if legacy:
+            match = RESULT_SUMMARY_RE.fullmatch(value)
+            if match:
+                return match.group(1).lower()
+        return None
+
+    explicit_seen = False
+    for line in lines:
+        match = FIELD_RE.match(line)
+        if not match:
+            continue
+        field = match.group("plain") or match.group("bold")
+        if field.lower() != "verdict":
+            continue
+        explicit_seen = True
+        status = field_status(match.group("value"))
+        if status:
+            return status
+
+    # An explicit but unfilled Verdict must not fall through to a legacy Result.
+    if explicit_seen:
         return "unfilled"
-    if has_pass:
-        return "pass"
-    if has_fail:
-        return "fail"
+
+    for line in lines:
+        match = FIELD_RE.match(line)
+        if not match:
+            continue
+        field = match.group("plain") or match.group("bold")
+        if field.lower() != "result":
+            continue
+        status = field_status(match.group("value"), legacy=True)
+        if status:
+            return status
+
+    # Keep the template diagnostic deterministic without treating prose or table
+    # cells containing PASS/FAIL as a verdict.
+    if any(
+        re.match(r"^#{1,4}\s*validation\b", line.strip(), re.IGNORECASE)
+        and UNFILLED_RE.search(line)
+        for line in lines
+    ) or any(
+        FIELD_RE.match(line)
+        and UNFILLED_RE.search(FIELD_RE.match(line).group("value"))
+        for line in lines
+    ):
+        return "unfilled"
     return None
 
 
