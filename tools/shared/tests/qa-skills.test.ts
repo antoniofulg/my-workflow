@@ -748,16 +748,26 @@ describe("adoption and public setup", () => {
   });
 
   it("IT-026 documents the remediation stall bound where it is read", () => {
+    const normalize = (source: string): string =>
+      source.replace(/`/g, "").replace(/\s+/g, " ").toLowerCase();
     const skill = readRepositoryFile(".agents/skills/workflow-config/SKILL.md");
     const example = readRepositoryFile(".my-workflow.toml.example");
+    const scenario = readRepositoryFile("docs/qa/scenarios/CFG-freeze-feature-workflow.md");
 
     for (const source of [skill, example]) {
       expect(source).toContain("[remediation]");
       expect(source).toContain("stall_attempts");
-      const plain = source.replace(/`/g, "").toLowerCase();
-      expect(plain).toContain("default 3");
-      expect(plain).toContain("0 means unbounded");
+      expect(normalize(source)).toContain("default 3");
+      expect(normalize(source)).toContain("0 means unbounded");
     }
+
+    for (const source of [skill, scenario]) {
+      expect(normalize(source)).toContain("plus the resolved-now remediation");
+      expect(normalize(source)).not.toContain("the same resolved state");
+      expect(normalize(source)).not.toContain("matching json output");
+    }
+    expect(normalize(skill)).toContain("never write the json output back to it");
+    expect(normalize(skill)).toContain("keeps it out of workflow.json");
   });
 
   it("IT-017 reports release version 0.3.6 consistently", () => {

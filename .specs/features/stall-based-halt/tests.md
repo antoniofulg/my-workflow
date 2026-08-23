@@ -32,7 +32,7 @@ guideline and the halt rule stated in the `autonomous` skill are the same rule.
 | IT-023 | The stall bound and its default are stated | read `docs/guidelines/REVIEW-ROUNDS.md` `## Escalation` | names `stall_attempts`, the default `3`, and `0` as unbounded |
 | IT-024 | The autonomous halt condition matches the guideline | read `.agents/skills/autonomous/SKILL.md` halt conditions | the blocker condition is the stall condition and cites `docs/guidelines/REVIEW-ROUNDS.md` |
 | IT-025 | Remote authorization is untouched | read `.agents/skills/autonomous/SKILL.md` halt conditions | the unauthorized-next-remote-action halt is still present and unchanged |
-| IT-026 | The config surface is documented where it is read | read `.agents/skills/workflow-config/SKILL.md` and `.my-workflow.toml.example` | both carry `[remediation] stall_attempts` with the default and the `0` meaning |
+| IT-026 | The config surface is documented where it is read, and the snapshot is not confused with the output | read `.agents/skills/workflow-config/SKILL.md`, `.my-workflow.toml.example`, and `docs/qa/scenarios/CFG-freeze-feature-workflow.md` | the skill and the example both carry `[remediation] stall_attempts` with the default and the `0` meaning; the skill and the scenario both state the JSON output is the snapshot plus the resolved-now `remediation`, and neither equates the two artifacts |
 
 ## End-to-end
 

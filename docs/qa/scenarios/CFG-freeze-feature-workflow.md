@@ -4,7 +4,7 @@ area: CFG
 title: Freeze and safely resume a feature workflow
 persona: Workflow adopter
 journey: J-configure-feature-workflow
-expected: Resolution atomically produces matching JSON output and feature state that remains stable on resume until an explicit refresh.
+expected: Resolution atomically produces feature state that remains stable on resume until an explicit refresh, and JSON output that is that state plus the resolved-now remediation.
 entry_points: .agents/skills/workflow-config/scripts/workflow_config.py; .specs/features/<slug>/workflow.json; .agents/skills/workflow-config/SKILL.md
 qa_status: pass
 bug_ids:

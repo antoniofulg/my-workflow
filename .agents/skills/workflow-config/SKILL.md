@@ -19,7 +19,8 @@ python3 .agents/skills/workflow-config/scripts/workflow_config.py \
   [--override <role>=<provider>]...
 ```
 
-Treat the JSON output and `.specs/features/<feature-slug>/workflow.json` as the same resolved state.
+The JSON output is `.specs/features/<feature-slug>/workflow.json` plus the resolved-now
+`remediation`. The snapshot is the frozen routing state; never write the JSON output back to it.
 The resolver owns config parsing, validation, balanced groups, role precedence, agent-file lookup,
 and atomic persistence. Keep those rules in the resolver instead of restating them here.
 
