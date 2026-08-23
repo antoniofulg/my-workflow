@@ -758,7 +758,7 @@ describe("adoption and public setup", () => {
     };
 
     expect(manifest.version).toBe("0.3.6");
-    expect(manifest.scripts?.test).toBe("vitest run --dir tools/shared/tests");
+    expect(manifest.scripts?.test).toBe("vitest run --dir tools");
     expect(lockfile.version).toBe("0.3.6");
     expect(lockfile.packages?.[""]?.version).toBe("0.3.6");
   });
