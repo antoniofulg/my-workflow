@@ -64,5 +64,7 @@ and `uiux.md` / `dx.md` field by field. Paraphrase is not parity.
 fresh command. Scope binds — unit tests do not justify “feature complete”. A passing review over a
 red gate is void.
 
-Escalate only when the post-fix gate fails or a blocker remains reproducible at the cap. A halt
-report is a result.
+Past a cap, remediation keeps going while each attempt shrinks the failing-test set, and stops when
+the attempts stop shrinking it or the gate cannot be made to run —
+[REVIEW-ROUNDS.md](../guidelines/REVIEW-ROUNDS.md) `## Escalation` owns the condition and its
+threshold. A halt report is a result.

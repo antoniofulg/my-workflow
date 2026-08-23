@@ -3,7 +3,8 @@ version = 1
 [deep_review]
 cadence = "grouped.3"
 
-# Post-cap remediation halts after this many consecutive attempts that do not shrink the failing set.
+# Post-cap remediation halts after this many consecutive attempts that do not shrink the failing set
+# (docs/guidelines/REVIEW-ROUNDS.md defines the rule).
 # Default 3. 0 means unbounded: never halt for a stall.
 [remediation]
 stall_attempts = 3

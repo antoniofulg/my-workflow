@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -764,8 +764,20 @@ describe("adoption and public setup", () => {
       expect(normalize(source)).toMatch(/(?:do not|does not) shrink the failing[- ](?:test )?set/);
     }
 
-    for (const source of [skill, example, readme, readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md")]) {
+    // Every surface scripts/adopt.py installs that can state the halt rule, so a retired
+    // formulation cannot survive in one of them while the guideline says something else.
+    const installedHaltSurfaces = [
+      "docs/guidelines/REVIEW-ROUNDS.md",
+      ".agents/skills/autonomous/SKILL.md",
+      ...readdirSync(join(repositoryRoot, "docs/workflow"))
+        .filter((name) => name.endsWith(".md"))
+        .map((name) => `docs/workflow/${name}`),
+    ].map(readRepositoryFile);
+
+    for (const source of [skill, example, readme, ...installedHaltSurfaces]) {
       expect(normalize(source)).not.toContain("identical failure signature");
+      expect(normalize(source)).not.toContain("blocker remains reproducible");
+      expect(normalize(source)).not.toContain("leaves a blocker open");
     }
 
     for (const source of [skill, scenario]) {
