@@ -592,6 +592,74 @@ def test_stall_attempts_is_not_frozen_into_the_snapshot() -> None:
         shutil.rmtree(root)
 
 
+def test_resume_survives_unrelated_config_edits_but_still_validates_remediation() -> None:
+    # UT-010 / UT-011 / UT-012: the snapshot keeps a resume stable until an explicit
+    # refresh, so only the unfrozen [remediation] table may fail a resume.
+    root = make_repo()
+    try:
+        resolver = ROOT / ".agents/skills/workflow-config/scripts/workflow_config.py"
+
+        def run(feature: str) -> subprocess.CompletedProcess[str]:
+            return subprocess.run(
+                [
+                    sys.executable,
+                    str(resolver),
+                    "--root",
+                    str(root),
+                    "--feature",
+                    feature,
+                    "--slices",
+                    "2",
+                    "--native-provider",
+                    "codex",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        config = root / ".my-workflow.toml"
+        config.write_text(
+            "version = 1\n[remediation]\nstall_attempts = 5\n", encoding="utf-8"
+        )
+        first = run("resume-guard")
+        assert first.returncode == 0, first.stderr
+        frozen = json.loads(
+            (root / ".specs/features/resume-guard/workflow.json").read_text(encoding="utf-8")
+        )
+
+        # UT-010: an unrelated invalid key is inert on resume.
+        config.write_text(
+            "version = 1\nbogus = 1\n[remediation]\nstall_attempts = 7\n", encoding="utf-8"
+        )
+        resumed = run("resume-guard")
+        assert resumed.returncode == 0, resumed.stderr
+        payload = json.loads(resumed.stdout)
+        assert {key: payload[key] for key in frozen} == frozen
+        assert payload["remediation"] == {"stall_attempts": 7}
+
+        # UT-011: the unfrozen table is still validated on resume.
+        config.write_text(
+            "version = 1\n[remediation]\nstall_attempts = -1\n", encoding="utf-8"
+        )
+        invalid = run("resume-guard")
+        assert invalid.returncode != 0
+        assert invalid.stdout == ""
+        assert "remediation.stall_attempts" in invalid.stderr
+
+        # UT-012: a fresh resolve still validates the whole config.
+        config.write_text(
+            "version = 1\nbogus = 1\n[remediation]\nstall_attempts = 7\n", encoding="utf-8"
+        )
+        fresh = run("resume-guard-fresh")
+        assert fresh.returncode != 0
+        assert fresh.stdout == ""
+        assert "unknown top-level key 'bogus'" in fresh.stderr
+        assert not (root / ".specs/features/resume-guard-fresh/workflow.json").exists()
+    finally:
+        shutil.rmtree(root)
+
+
 if __name__ == "__main__":
     tests = [function for name, function in sorted(globals().items()) if name.startswith("test_")]
     for function in tests:

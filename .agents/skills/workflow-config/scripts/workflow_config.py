@@ -66,7 +66,7 @@ def balanced_groups(slice_count: int, cadence: str) -> list[list[int]]:
     return groups
 
 
-def _read_config(root: Path) -> dict[str, Any]:
+def _load_toml(root: Path) -> dict[str, Any]:
     path = root / ".my-workflow.toml"
     if not path.exists():
         return {}
@@ -79,6 +79,11 @@ def _read_config(root: Path) -> dict[str, Any]:
         raise _error(f"invalid .my-workflow.toml: {exc}") from exc
     if not isinstance(config, dict):
         raise _error(".my-workflow.toml must contain a table")
+    return config
+
+
+def _read_config(root: Path) -> dict[str, Any]:
+    config = _load_toml(root)
     version = config.get("version", 1)
     if type(version) is not int or version != 1:
         raise _error("version must be integer 1")
@@ -91,7 +96,15 @@ def _cadence(config: dict[str, Any]) -> str:
     return section.get("cadence", CADENCE_DEFAULT)
 
 
-def _stall_attempts(config: dict[str, Any]) -> int:
+def _stall_attempts(root: Path) -> int:
+    """Resolve the live stall bound, validating its own table and nothing else.
+
+    The snapshot deliberately does not freeze this value, so a resume has to read the
+    current config. It must not re-validate the whole config: an unrelated edit
+    elsewhere in `.my-workflow.toml` stays inert until an explicit `--refresh`.
+    """
+    config = _load_toml(root)
+    _validate_remediation(config)
     section = config.get("remediation") or {}
     return section.get("stall_attempts", STALL_ATTEMPTS_DEFAULT)
 
@@ -111,6 +124,20 @@ def _validate_role_map(values: dict[str, Any], source: str) -> dict[str, str]:
     return result
 
 
+def _validate_remediation(config: dict[str, Any]) -> None:
+    remediation = config.get("remediation", {})
+    if remediation is None:
+        remediation = {}
+    if not isinstance(remediation, dict):
+        raise _error("remediation must be a table")
+    unknown = set(remediation) - REMEDIATION_KEYS
+    if unknown:
+        raise _error(f"remediation contains unknown key {sorted(unknown)[0]!r}")
+    attempts = remediation.get("stall_attempts", STALL_ATTEMPTS_DEFAULT)
+    if type(attempts) is not int or attempts < 0:
+        raise _error("remediation.stall_attempts must be an integer of at least 0")
+
+
 def _validate_config_schema(config: dict[str, Any]) -> None:
     unknown = set(config) - CONFIG_KEYS
     if unknown:
@@ -128,17 +155,7 @@ def _validate_config_schema(config: dict[str, Any]) -> None:
     if not isinstance(cadence, str):
         raise _error("deep_review.cadence must be a string")
 
-    remediation = config.get("remediation", {})
-    if remediation is None:
-        remediation = {}
-    if not isinstance(remediation, dict):
-        raise _error("remediation must be a table")
-    unknown = set(remediation) - REMEDIATION_KEYS
-    if unknown:
-        raise _error(f"remediation contains unknown key {sorted(unknown)[0]!r}")
-    attempts = remediation.get("stall_attempts", STALL_ATTEMPTS_DEFAULT)
-    if type(attempts) is not int or attempts < 0:
-        raise _error("remediation.stall_attempts must be an integer of at least 0")
+    _validate_remediation(config)
 
     profiles = config.get("profiles", {})
     if profiles is None:
@@ -355,7 +372,7 @@ def main(argv: list[str] | None = None) -> int:
         snapshot = resolve(**vars(args))
         resolved = {
             **snapshot,
-            "remediation": {"stall_attempts": _stall_attempts(_read_config(args.root))},
+            "remediation": {"stall_attempts": _stall_attempts(args.root)},
         }
     except ConfigError as exc:
         print(str(exc), file=sys.stderr)

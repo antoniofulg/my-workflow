@@ -20,6 +20,9 @@ configuration surface it documents, and rejects the rest by name.
 | UT-007 | A negative value is rejected | `stall_attempts = -1` | exit non-zero, message contains `remediation.stall_attempts` |
 | UT-008 | An unknown key is rejected by name | `[remediation] attempts = 3` | exit non-zero, message names `attempts` |
 | UT-009 | The threshold is not frozen | resolve a feature with `[remediation] stall_attempts = 5` | `.specs/features/<feature>/workflow.json` contains no `remediation` key and still validates on resume |
+| UT-010 | An unrelated config edit stays inert on resume | frozen snapshot, then `.my-workflow.toml` gains an invalid top-level key | exit 0, the snapshot fields are echoed unchanged, `remediation` reports the current value |
+| UT-011 | The unfrozen table is still validated on resume | frozen snapshot, then `[remediation] stall_attempts = -1` | exit non-zero, message contains `remediation.stall_attempts` |
+| UT-012 | A fresh resolve validates the whole config | no snapshot, `.my-workflow.toml` has an invalid top-level key | exit non-zero naming the key, no snapshot written |
 
 ## Integration
 
