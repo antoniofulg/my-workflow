@@ -1,7 +1,7 @@
 # J-run-deep-review
 
 **Persona:** Workflow operator
-**Goal:** Complete a Deep Review with serial reviewers, honest metrics, and optional Graft context.
+**Goal:** Complete and publish a Deep Review with serial reviewers, honest metrics, and optional Graft context.
 **Entry point:** `.agents/skills/deep-review/SKILL.md` → `scripts/run_jobs.py`
 
 ## Flow
@@ -12,11 +12,13 @@
 4. Repeat without compatible telemetry and confirm the review result is unchanged and usage is
    reported as unavailable.
 5. Make Graft unavailable and confirm prompts direct the reviewer to ordinary repository inspection.
+6. Publish the walkthrough and confirm the marker selects exactly one create-or-edit action.
 
 ## Promises
 
 - [`QAS-observe-serialized-deep-review-metrics`](../scenarios/QAS-observe-serialized-deep-review-metrics.md)
 - [`QAS-use-graft-context-with-plain-fallback`](../scenarios/QAS-use-graft-context-with-plain-fallback.md)
+- [`QAS-upsert-deep-review-walkthrough`](../scenarios/QAS-upsert-deep-review-walkthrough.md)
 
 ## Adjacent canary
 
