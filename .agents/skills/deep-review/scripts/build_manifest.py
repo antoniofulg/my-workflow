@@ -306,9 +306,10 @@ def main():
         if last_head and run(["git", "merge-base", "--is-ancestor", last_head, head],
                              repo_root, check=False).returncode == 0 and last_head != head:
             mode, effective_base = "incremental", last_head
+        diff_command = f"git diff {effective_base[:12]}..{head[:12]} -- <file>"
     archive_prior_round(out_dir, round_n)
 
-    spec = diff_spec(base, head, args.staged, args.worktree)
+    spec = diff_spec(effective_base, head, args.staged, args.worktree)
     entries = diff_name_status(repo_root, spec)
     stats = numstat(repo_root, spec)
     ws_stats = numstat(repo_root, spec, extra=("-w", "--ignore-blank-lines"))
