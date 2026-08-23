@@ -132,8 +132,8 @@ with each invalid value; assert exit codes and resolved output.
 | HALT-02 | P1: A diagnosed blocker does not end the run | Tasks | Pending |
 | HALT-03 | P1: A stuck loop still stops | Tasks | Pending |
 | HALT-04 | P1: A stuck loop still stops | Tasks | Pending |
-| HALT-05 | P1: The threshold is consumer-owned | Tasks | Pending |
-| HALT-06 | P1: The threshold is consumer-owned | Tasks | Pending |
+| HALT-05 | P1: The threshold is consumer-owned | Execute | Done |
+| HALT-06 | P1: The threshold is consumer-owned | Execute | Done |
 
 **Coverage:** 6 total, 6 mapped to tasks, 0 unmapped
 

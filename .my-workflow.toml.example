@@ -3,6 +3,11 @@ version = 1
 [deep_review]
 cadence = "grouped.3"
 
+# Post-cap remediation halts after this many consecutive identical failure signatures.
+# Default 3. 0 means unbounded: never halt for a stall.
+[remediation]
+stall_attempts = 3
+
 # Optional named profile. Omit this table to use one native provider for every role.
 [profiles.mixed]
 implementer = "claude"

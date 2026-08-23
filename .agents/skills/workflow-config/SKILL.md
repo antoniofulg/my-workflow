@@ -26,6 +26,16 @@ and atomic persistence. Keep those rules in the resolver instead of restating th
 Done when: the snapshot exists, contains the effective cadence and role routes, and the capable
 orchestrator has accepted every selected provider.
 
+## Remediation stall bound
+
+`.my-workflow.toml` table `[remediation]`, single key `stall_attempts`: how many consecutive
+identical failure signatures end post-cap remediation. Integer of at least `0`, default `3`, where
+`0` means unbounded: never halt for a stall. The resolver reports the effective value under
+`remediation` in its JSON output and deliberately keeps it out of `workflow.json`, so a changed
+threshold takes effect on the next attempt instead of the next feature.
+
+Done when: the resolved output reports the intended `stall_attempts`.
+
 ## Resume
 
 Read the existing feature snapshot before dispatch. Use its `deep_review`, `roles`, and `git_head`

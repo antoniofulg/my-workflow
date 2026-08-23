@@ -747,6 +747,19 @@ describe("adoption and public setup", () => {
     expect(qaExecute).toContain("does not write product code, install a framework, invent a");
   });
 
+  it("IT-026 documents the remediation stall bound where it is read", () => {
+    const skill = readRepositoryFile(".agents/skills/workflow-config/SKILL.md");
+    const example = readRepositoryFile(".my-workflow.toml.example");
+
+    for (const source of [skill, example]) {
+      expect(source).toContain("[remediation]");
+      expect(source).toContain("stall_attempts");
+      const plain = source.replace(/`/g, "").toLowerCase();
+      expect(plain).toContain("default 3");
+      expect(plain).toContain("0 means unbounded");
+    }
+  });
+
   it("IT-017 reports release version 0.3.6 consistently", () => {
     const manifest = JSON.parse(readRepositoryFile("package.json")) as {
       version?: string;

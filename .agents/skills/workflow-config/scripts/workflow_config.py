@@ -25,8 +25,10 @@ AGENT_NAMES = {"deep_reviewer": "deep-reviewer"}
 CADENCE_DEFAULT = "grouped.3"
 CADENCE_RE = re.compile(r"^grouped\.(\d+)$")
 SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
-CONFIG_KEYS = {"version", "deep_review", "profiles"}
+CONFIG_KEYS = {"version", "deep_review", "profiles", "remediation"}
 DEEP_REVIEW_KEYS = {"cadence"}
+REMEDIATION_KEYS = {"stall_attempts"}
+STALL_ATTEMPTS_DEFAULT = 3
 
 
 class ConfigError(ValueError):
@@ -89,6 +91,11 @@ def _cadence(config: dict[str, Any]) -> str:
     return section.get("cadence", CADENCE_DEFAULT)
 
 
+def _stall_attempts(config: dict[str, Any]) -> int:
+    section = config.get("remediation") or {}
+    return section.get("stall_attempts", STALL_ATTEMPTS_DEFAULT)
+
+
 def _profiles(config: dict[str, Any]) -> dict[str, dict[str, str]]:
     return config.get("profiles") or {}
 
@@ -120,6 +127,18 @@ def _validate_config_schema(config: dict[str, Any]) -> None:
     cadence = deep_review.get("cadence", CADENCE_DEFAULT)
     if not isinstance(cadence, str):
         raise _error("deep_review.cadence must be a string")
+
+    remediation = config.get("remediation", {})
+    if remediation is None:
+        remediation = {}
+    if not isinstance(remediation, dict):
+        raise _error("remediation must be a table")
+    unknown = set(remediation) - REMEDIATION_KEYS
+    if unknown:
+        raise _error(f"remediation contains unknown key {sorted(unknown)[0]!r}")
+    attempts = remediation.get("stall_attempts", STALL_ATTEMPTS_DEFAULT)
+    if type(attempts) is not int or attempts < 0:
+        raise _error("remediation.stall_attempts must be an integer of at least 0")
 
     profiles = config.get("profiles", {})
     if profiles is None:
@@ -331,12 +350,17 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    args = _parser().parse_args(argv)
     try:
-        snapshot = resolve(**vars(_parser().parse_args(argv)))
+        snapshot = resolve(**vars(args))
+        resolved = {
+            **snapshot,
+            "remediation": {"stall_attempts": _stall_attempts(_read_config(args.root))},
+        }
     except ConfigError as exc:
         print(str(exc), file=sys.stderr)
         return 1
-    print(json.dumps(snapshot, indent=2, sort_keys=True))
+    print(json.dumps(resolved, indent=2, sort_keys=True))
     return 0
 
 

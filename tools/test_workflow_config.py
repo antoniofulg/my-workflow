@@ -454,6 +454,144 @@ def test_resume_preserves_existing_frozen_agent_path() -> None:
         shutil.rmtree(root)
 
 
+def test_cli_resolves_remediation_stall_attempts() -> None:
+    root = make_repo()
+    try:
+        resolver = ROOT / ".agents/skills/workflow-config/scripts/workflow_config.py"
+        cases = (
+            # UT-001 absent config, UT-002 absent table, UT-003 empty table.
+            ("absent-config", None, 3),
+            ("absent-table", "version = 1\n[deep_review]\ncadence = 'slice'\n", 3),
+            ("empty-table", "version = 1\n[remediation]\n", 3),
+            # UT-004 a declared value, UT-005 zero is unbounded.
+            ("declared", "version = 1\n[remediation]\nstall_attempts = 5\n", 5),
+            ("unbounded", "version = 1\n[remediation]\nstall_attempts = 0\n", 0),
+        )
+        config_path = root / ".my-workflow.toml"
+        for feature, config, expected in cases:
+            if config is None:
+                config_path.unlink(missing_ok=True)
+            else:
+                config_path.write_text(config, encoding="utf-8")
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(resolver),
+                    "--root",
+                    str(root),
+                    "--feature",
+                    feature,
+                    "--slices",
+                    "2",
+                    "--native-provider",
+                    "codex",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            assert result.returncode == 0, result.stderr
+            payload = json.loads(result.stdout)
+            assert payload["remediation"] == {"stall_attempts": expected}
+    finally:
+        shutil.rmtree(root)
+
+
+def test_cli_rejects_invalid_remediation_by_name() -> None:
+    root = make_repo()
+    try:
+        resolver = ROOT / ".agents/skills/workflow-config/scripts/workflow_config.py"
+        cases = (
+            # UT-006 non-integer, UT-007 negative, UT-008 unknown key named.
+            (
+                "stall-string",
+                "[remediation]\nstall_attempts = '3'\n",
+                "remediation.stall_attempts",
+            ),
+            (
+                "stall-bool",
+                "[remediation]\nstall_attempts = true\n",
+                "remediation.stall_attempts",
+            ),
+            (
+                "stall-negative",
+                "[remediation]\nstall_attempts = -1\n",
+                "remediation.stall_attempts",
+            ),
+            (
+                "stall-unknown-key",
+                "[remediation]\nattempts = 3\n",
+                "remediation contains unknown key 'attempts'",
+            ),
+        )
+        for feature, config, message in cases:
+            (root / ".my-workflow.toml").write_text(config, encoding="utf-8")
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(resolver),
+                    "--root",
+                    str(root),
+                    "--feature",
+                    feature,
+                    "--slices",
+                    "2",
+                    "--native-provider",
+                    "codex",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            assert result.returncode != 0
+            assert result.stdout == ""
+            assert message in result.stderr
+            assert not (root / f".specs/features/{feature}/workflow.json").exists()
+    finally:
+        shutil.rmtree(root)
+
+
+def test_stall_attempts_is_not_frozen_into_the_snapshot() -> None:
+    # UT-009: the threshold stays an operator preference, so a resume picks up a new value.
+    root = make_repo()
+    try:
+        resolver = ROOT / ".agents/skills/workflow-config/scripts/workflow_config.py"
+        command = [
+            sys.executable,
+            str(resolver),
+            "--root",
+            str(root),
+            "--feature",
+            "not-frozen",
+            "--slices",
+            "2",
+            "--native-provider",
+            "codex",
+        ]
+        (root / ".my-workflow.toml").write_text(
+            "version = 1\n[remediation]\nstall_attempts = 5\n", encoding="utf-8"
+        )
+        first = subprocess.run(command, text=True, capture_output=True, check=False)
+        assert first.returncode == 0, first.stderr
+        assert json.loads(first.stdout)["remediation"] == {"stall_attempts": 5}
+
+        snapshot = json.loads(
+            (root / ".specs/features/not-frozen/workflow.json").read_text(encoding="utf-8")
+        )
+        assert "remediation" not in snapshot
+
+        (root / ".my-workflow.toml").write_text(
+            "version = 1\n[remediation]\nstall_attempts = 7\n", encoding="utf-8"
+        )
+        resumed = subprocess.run(command, text=True, capture_output=True, check=False)
+        assert resumed.returncode == 0, resumed.stderr
+        payload = json.loads(resumed.stdout)
+        assert payload["remediation"] == {"stall_attempts": 7}
+        assert {key: payload[key] for key in snapshot} == snapshot
+    finally:
+        shutil.rmtree(root)
+
+
 if __name__ == "__main__":
     tests = [function for name, function in sorted(globals().items()) if name.startswith("test_")]
     for function in tests:

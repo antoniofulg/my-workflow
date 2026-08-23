@@ -98,6 +98,14 @@ The `cadence` controls the deep-review groups:
 - `grouped.N`: consecutive, balanced groups with at most `N` slices (`grouped.3` with four
   slices → `[1, 2] [3, 4]`).
 
+`[remediation] stall_attempts` bounds post-cap remediation by consecutive identical failure
+signatures. It defaults to `3`, and `0` means unbounded:
+
+```toml
+[remediation]
+stall_attempts = 3
+```
+
 The resolver uses the native provider for every role unless a named profile or role override is
 selected. Precedence is `CLI override > profile > native provider`:
 
