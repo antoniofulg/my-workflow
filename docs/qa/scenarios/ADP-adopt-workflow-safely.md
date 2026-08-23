@@ -6,7 +6,7 @@ persona: Workflow adopter
 journey: J-adopt-workflow
 expected: A fresh target receives the workflow resolver, tools/ad-index.py, and the workflow tour without the pack-only guide or dead links; re-adoption preserves consumer-owned state; and projects using worktree handoffs or spec-reading gates are told to version their relevant feature specs.
 entry_points: README.md#adopt-the-workflow; docs/guidelines/ARTIFACT-LIFECYCLE.md; scripts/adopt.py; .my-workflow.toml
-qa_status: pass
+qa_status: untested
 bug_ids:
 fix_status:
 retest_status:
@@ -35,6 +35,10 @@ a consumer-modified `tools/ad-index.py`. The bundled-skill and release-contract 
 
 QA for issue #39 confirmed initial adoption and re-adoption install byte-identical TLC validator
 CLIs while preserving consumer-owned `.my-workflow.toml` and `docs/qa/README.md` byte-for-byte.
+
+For issue #41, adoption documents Ponytail activation at workflow start and points to `AGENTS.md`
+for the full-cycle persistence rule. QA must confirm the installed adoption contract does not
+regress to implementation-only activation.
 
 For issue #38, the adoption contract keeps `.specs/features/` ignored by default. A consuming
 project that hands work off through Git worktrees or has a gate/CI job read the specs must remove
