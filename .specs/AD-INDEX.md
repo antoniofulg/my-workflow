@@ -12,3 +12,4 @@ When recording an `AD-NNN`, run `python3 tools/ad-index.py` in the same commit.
 | `AD-003` | active | `.specs/features/` is ignored local state. |
 | `AD-004` | active | Workflow routing is consumer-configurable in `.my-workflow.toml`. |
 | `AD-005` | active | Keep the optional, checkout-local Graft `0.10.1` integration as the deep-review context aid. |
+| `AD-006` | active | Keep the workflow stack- and tool-agnostic while allowing optional capability integrations. |

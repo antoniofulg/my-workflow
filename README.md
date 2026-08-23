@@ -133,6 +133,18 @@ python3 .agents/skills/workflow-config/scripts/workflow_config.py \
 The complete contract is in the
 [workflow-config skill](.agents/skills/workflow-config/SKILL.md).
 
+## Optional integrations
+
+The workflow stays stack- and tool-agnostic. Optional capabilities can improve a stage when
+available:
+
+- **Graft** can enrich deep-review context; absence or failure falls back to repository inspection.
+- **OpenDesign** can support visual iteration; the repository stores only the approved handoff, and
+  absence or failure falls back to normal repository artifacts.
+
+No integration is mandatory or installed by adoption. Keep daemon, port, CLI and version details in
+the relevant skill.
+
 Paste this once to an agent, replacing the pack and target paths:
 
 ```
