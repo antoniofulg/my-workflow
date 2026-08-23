@@ -8,8 +8,8 @@
 - **Adapter:** manual repository inspection
 - **Exact path:** `git ls-files -z | xargs -0 grep -n -i -e 'blocker remains reproducible' -e 'leaves a blocker open' -e 'reproducible blocker'`
 - **Evidence:** `docs/qa/evidence/2026-08-23-stall-based-halt/halt-rule-session.md`
-- **Fix commit:**
-- **Retest:**
+- **Fix commit:** `3dee592` — `docs(workflow): point the tour at the canonical halt rule`
+- **Retest:** 2026-08-23, fresh Verifier, `qa-execute` retest over `c841207..a27543c` — **pass**. `docs/qa/evidence/2026-08-23-stall-based-halt/retest-session.md`; report section `docs/qa/reports/2026-08-23-stall-based-halt.md` `## Retest — 2026-08-23`.
 
 ## Reproduction
 

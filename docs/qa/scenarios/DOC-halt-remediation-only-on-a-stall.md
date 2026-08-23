@@ -6,12 +6,12 @@ persona: Workflow operator
 journey: J-run-deep-review
 expected: Every surface an operator reads states one halt rule — remediation continues while an attempt reaches a new minimum failing-test set and halts only after stall_attempts consecutive stalls or an unrunnable gate — and none still halts on an open blocker alone.
 entry_points: docs/guidelines/REVIEW-ROUNDS.md; .agents/skills/autonomous/SKILL.md; .agents/skills/workflow-config/SKILL.md; README.md; .my-workflow.toml.example
-qa_status: fail
+qa_status: pass
 bug_ids: BUG-20260823-workflow-tour-states-retired-halt-rule
 fix_status: fixed
-retest_status:
-fix_commits:
-evidence: docs/qa/evidence/2026-08-23-stall-based-halt/halt-rule-session.md
+retest_status: pass
+fix_commits: 3dee592
+evidence: docs/qa/evidence/2026-08-23-stall-based-halt/halt-rule-session.md; docs/qa/evidence/2026-08-23-stall-based-halt/retest-session.md
 last_report: docs/qa/reports/2026-08-23-stall-based-halt.md
 overlaps:
 ---

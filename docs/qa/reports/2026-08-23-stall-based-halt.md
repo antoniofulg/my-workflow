@@ -133,3 +133,71 @@ touched.
   `[remediation]` comment.
 
 No commit, push, pull request, or merge was performed in this session.
+
+## Retest — 2026-08-23
+
+- **Range:** `c841207..a27543c`; fix commit `3dee592`
+- **Session:** fresh Verifier, `qa-execute` (retest only). Neither the fix nor the walk above was
+  written here. No product code, test, or guideline modified.
+- **Scope:** per `docs/guidelines/REVIEW-ROUNDS.md`, only `reviewed_head..HEAD` and the affected
+  scenario rows — probes 6, 7 and 8 from `CH-halt-on-stalled-remediation-2026-08-23`.
+- **Evidence:** `docs/qa/evidence/2026-08-23-stall-based-halt/retest-session.md` (disposable)
+- **Gate:** `npx vitest run --dir tools` → **8 files, 113 tests passed, exit 0**;
+  `python3 tools/test_workflow_config.py` → **15 passed, 0 failed**
+
+| # | Probe | Result |
+| --- | --- | --- |
+| 6 | The retired formulation survives nowhere | **pass** — re-derived, not accepted from the fix's report |
+| 7 | The skill cites rather than restates | **pass** — `.agents/skills/autonomous/SKILL.md:177`, no `stall_attempts`, no default |
+| 8 | Canary — the remote boundary | **pass** — nothing in the range opened a remote path |
+
+**Probe 6.** The sweep was re-run from the repository root over the whole tree — not the files the
+fix touched — and recursively, so the symlinked `.claude/skills/*` trees were read too. Patterns:
+`blocker remains reproducible`, `leaves a blocker open`, `reproducible blocker`, `identical failure
+signature`, `same failure signature`, `blocker is still`, `still reproducible`. Every hit is a
+negative test guard, a QA record quoting the forbidden phrasing, or
+`.specs/features/stall-based-halt/validation.md`. **No hit on an installed instruction surface
+outside a record.** `docs/workflow/reviews.md:67-70` is now a pointer that names neither the
+threshold nor `stall_attempts`. A second sweep for the rule's positive vocabulary (`stall`, `halt`,
+`failure signature`) across the installed surfaces confirms the rule is stated once, at
+`docs/guidelines/REVIEW-ROUNDS.md:145-147`, and cited elsewhere.
+
+**The extended IT-026 sweep was verified by injection, not by reading.** In a detached
+`git worktree` under the scratchpad — never `git stash`, never the real tree — a scratch tour page
+`docs/workflow/zz-sensor.md` containing the retired sentence was created, a file named nowhere in
+the suite. `npx vitest run --dir tools` returned **1 failed | 112 passed (113)**, failing at
+`tools/shared/tests/qa-skills.test.ts:779` inside `IT-026`. The guard's
+`readdirSync(join(repositoryRoot, "docs/workflow"))` really does read the directory from disk, so a
+tour page added later is swept automatically. Scratch file and worktree removed, `worktree prune`
+run.
+
+**`docs/workflow/purpose.md:38-39` judged independently and left alone.** "Escalate is a result
+after the required post-cap remediation and gate. Shipping past a cap with a reproducible blocker is
+not." The subject is shipping and the predicate is "is not [a result]". It states no trigger, no
+"only", and no threshold, and is the same statement as `.agents/skills/autonomous/SKILL.md:182-183`.
+It is a readiness statement, not a halt condition. The original walk and the fix were both right to
+leave it.
+
+**CFG scenarios confirmed by diff, not re-walked.** `git diff c841207..a27543c` touches
+`.my-workflow.toml.example` only as the two-line pointer comment this report's probe-1 divergence
+asked for; `.agents/skills/workflow-config/` and its resolver are untouched in the range.
+`CFG-bound-remediation-stall-attempts` and `CFG-freeze-feature-workflow` stay `pass`.
+
+**Minor observation, not filed.** `docs/workflow/reviews.md` says "each attempt shrinks the
+failing-test set" where the guideline says strictly smaller than the fewest seen so far in the loop.
+It routes the reader to the owning section for the condition, so no surface carries a divergent
+rule. Same class as the probe-1 observation already on the follow-up list. A second follow-up: the
+scenario's `entry_points` does not list `docs/workflow/reviews.md`, the surface the drift actually
+landed on — a `qa-plan` edit, not a `qa-execute` one.
+
+### Retest disposition
+
+**Delivery is no longer blocked.**
+
+- `DOC-halt-remediation-only-on-a-stall` → `qa_status: pass`, `fix_status: fixed`,
+  `retest_status: pass`, `fix_commits: 3dee592`.
+- `BUG-20260823-workflow-tour-states-retired-halt-rule` — fix commit and retest recorded; closed.
+- All four scenarios in this cycle's matrix are `pass`. None is `untested`, `fail`, or blocked.
+- Non-blocking follow-ups: the `reviews.md` paraphrase above and the scenario `entry_points` gap.
+
+No commit, push, pull request, or merge was performed in this retest session.
