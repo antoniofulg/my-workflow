@@ -1,0 +1,34 @@
+{
+  "deep_review": {
+    "cadence": "grouped.3",
+    "groups": [
+      [
+        1,
+        2
+      ]
+    ]
+  },
+  "feature": "security-skills",
+  "git_head": "4871e63cc2aed355f9ef17efbf500b2dae65525b",
+  "overrides": {},
+  "profile": null,
+  "roles": {
+    "deep_reviewer": {
+      "agent_file": ".codex/agents/deep-reviewer.toml",
+      "provider": "codex"
+    },
+    "explorer": {
+      "agent_file": ".codex/agents/explorer.toml",
+      "provider": "codex"
+    },
+    "implementer": {
+      "agent_file": ".codex/agents/implementer.toml",
+      "provider": "codex"
+    },
+    "verifier": {
+      "agent_file": ".codex/agents/verifier.toml",
+      "provider": "codex"
+    }
+  },
+  "version": 1
+}
