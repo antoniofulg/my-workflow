@@ -6,10 +6,10 @@ persona: Workflow adopter
 journey: J-adopt-workflow
 expected: A fresh target receives the workflow resolver, tools/ad-index.py, and a workflow tour without the pack-only guide or dead links; its instructions keep Ponytail active from workflow start through the full cycle; re-adoption preserves consumer-owned state; and projects using worktree handoffs or spec-reading gates are told to version their relevant feature specs.
 entry_points: README.md#adopt-the-workflow; docs/guidelines/ARTIFACT-LIFECYCLE.md; scripts/adopt.py; .my-workflow.toml
-qa_status: pass
-bug_ids:
-fix_status:
-retest_status:
+qa_status: fail
+bug_ids: BUG-20260822-deep-review-learnings-untrackable
+fix_status: fixed
+retest_status: pending
 fix_commits:
 evidence: docs/qa/evidence/2026-08-22-preserve-consumer-ad-index/session.md; docs/qa/evidence/2026-08-22-source-only-pack-guide/session.md; docs/qa/evidence/2026-08-22-version-feature-specs-handoff/session.md; docs/qa/evidence/2026-08-22-validate-generated-feature-contracts/session.md; docs/qa/evidence/2026-08-22-ponytail-full-cycle/session.md; docs/qa/evidence/2026-08-22-authoritative-validation-verdict/session.md
 last_report: docs/qa/reports/2026-08-22-authoritative-validation-verdict.md
@@ -49,3 +49,9 @@ to a sibling worktree, and a clean clone's independent read.
 
 QA for issue #27 confirmed adoption and re-adoption install a validator byte-identical to the source
 while preserving a consumer-owned `.my-workflow.toml` byte-for-byte.
+
+Issue #28 requires a fresh adoption against a target that already ignores `.deep-review/`: the
+durable `.deep-review/learnings.md` must be eligible for Git while other Deep Review artifacts stay
+ignored, and re-adoption must remain idempotent. The canonical smoke test covers the Git contract;
+QA must retest the public adoption journey and record evidence here before marking this scenario
+passing again.

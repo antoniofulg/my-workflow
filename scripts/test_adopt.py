@@ -178,6 +178,7 @@ def test_fresh_and_refuse() -> None:
         assert (tmp / ".cursor/agents/planner.md").is_file()
         ignored = (tmp / ".gitignore").read_text(encoding="utf-8")
         for entry in (
+            "!.deep-review/",
             ".deep-review/*",
             "!.deep-review/learnings.md",
             ".specs/features/",
@@ -293,6 +294,7 @@ def test_gitignore_rules_merge_without_overwrite() -> None:
         ignored = (tmp / ".gitignore").read_text(encoding="utf-8")
         assert "consumer-cache/\n" in ignored
         for entry in (
+            "!.deep-review/",
             ".deep-review/*",
             "!.deep-review/learnings.md",
             ".specs/features/",
@@ -312,12 +314,52 @@ def test_gitignore_rules_merge_without_overwrite() -> None:
         ignored = (tmp / ".gitignore").read_text(encoding="utf-8")
         assert "consumer-cache/\n" in ignored
         assert "consumer-output/\n" in ignored
-        assert ignored.splitlines()[-4:] == [
+        assert ignored.splitlines()[-5:] == [
+            "!.deep-review/",
             ".deep-review/*",
             "!.deep-review/learnings.md",
             ".specs/features/",
             "graft/",
         ]
+    finally:
+        shutil.rmtree(tmp)
+
+
+def test_deep_review_learnings_survive_consumer_parent_ignore() -> None:
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        (tmp / ".gitignore").write_text(
+            ".deep-review/\nconsumer-cache/\n", encoding="utf-8"
+        )
+        subprocess.run(["git", "init", "-q", str(tmp)], check=True)
+        run(tmp)
+        (tmp / ".deep-review").mkdir(exist_ok=True)
+        (tmp / ".deep-review/learnings.md").write_text("durable\n", encoding="utf-8")
+        (tmp / ".deep-review/review.json").write_text("generated\n", encoding="utf-8")
+
+        learnings = subprocess.run(
+            ["git", "-C", str(tmp), "check-ignore", "-q", "--", ".deep-review/learnings.md"],
+            check=False,
+        )
+        review = subprocess.run(
+            ["git", "-C", str(tmp), "check-ignore", "-q", "--", ".deep-review/review.json"],
+            check=False,
+        )
+        assert learnings.returncode == 1
+        assert review.returncode == 0
+        merged_ignore = (tmp / ".gitignore").read_text(encoding="utf-8").splitlines()
+        assert merged_ignore.count(".deep-review/") == 1
+        assert merged_ignore[-5:] == [
+            "!.deep-review/",
+            ".deep-review/*",
+            "!.deep-review/learnings.md",
+            ".specs/features/",
+            "graft/",
+        ]
+
+        before = (tmp / ".gitignore").read_bytes()
+        run(tmp)
+        assert (tmp / ".gitignore").read_bytes() == before
     finally:
         shutil.rmtree(tmp)
 
@@ -374,6 +416,7 @@ if __name__ == "__main__":
     test_skip_agents_preserves_absent_claude_file()
     test_agent_pins_survive_readopt()
     test_gitignore_rules_merge_without_overwrite()
+    test_deep_review_learnings_survive_consumer_parent_ignore()
     test_graft_ignore_contract_and_search_visibility()
     test_deep_review_skill_adoption_and_artifact_hygiene()
     test_pack_guide_stays_source_only_and_tour_has_no_dead_link()

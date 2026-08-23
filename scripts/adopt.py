@@ -12,6 +12,7 @@ from pathlib import Path
 STENCIL = "<!-- product-stencil:"
 
 WORKFLOW_GITIGNORE_ENTRIES = (
+    "!.deep-review/",
     ".deep-review/*",
     "!.deep-review/learnings.md",
     ".specs/features/",
