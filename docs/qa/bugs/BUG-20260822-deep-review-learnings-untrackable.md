@@ -1,15 +1,15 @@
 # BUG-20260822-deep-review-learnings-untrackable
 
-- **Status:** fixed — retest pending
+- **Status:** fixed — retest passed
 - **Severity:** major
 - **Scenario:** `ADP-adopt-workflow-safely`
 - **Expected:** Adoption keeps `.deep-review/learnings.md` eligible for Git even when the consumer already ignores `.deep-review/`, while generated Deep Review artifacts remain ignored.
 - **Observed:** The adopted child negation could not override a consumer `.deep-review/` parent rule, so `git check-ignore -q .deep-review/learnings.md` returned `0`.
 - **Adapter:** adoption CLI plus `git check-ignore`
 - **Exact path:** `python3 scripts/adopt.py <checkout-local-target>`, then `git -C <target> check-ignore -q -- .deep-review/learnings.md`
-- **Evidence:** pending QA retest
-- **Fix commit:** pending
-- **Retest:** pending
+- **Evidence:** `docs/qa/evidence/2026-08-22-deep-review-learnings-retest/session.md`
+- **Fix commit:** `0413862`
+- **Retest:** passed on 2026-08-22 through fresh adoption and re-adoption in a disposable Git target; learnings remained trackable while generated artifacts remained ignored
 
 ## Reproduction
 
