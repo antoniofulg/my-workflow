@@ -788,3 +788,63 @@ closure remain pending.
 - `python3 tools/test_qa_parallel_pilot.py`: 6 tests passed, 0 failed; the ownership matrix covers root, feature, missing, extra, duplicate, outside, and reordered worktree values through subprocess cleanup.
 - Every matrix case creates a real owned worktree and unowned sentinel, then asserts nonzero rejection, fixture/worktree/sentinel survival, and no tombstone.
 - The `f46e5c21...` ledger entry remains open at count 1 for fresh verifier closure; no ledger count was changed by this remediation.
+
+## Slice D / T7R5 Independent Technical Re-verification
+
+**Date:** 2026-08-24
+**Diff range:** `3f2b174..d1770a6` (T7R5 focus: `d1770a6^..d1770a6`)
+**Verifier:** independent Technical Verifier (author != verifier)
+**Slice verdict:** PASS. The canonical public cleanup matrix now discriminates every non-HEAD
+ownership binding and closes `f46e5c21...` at its historical count 1. No real Orca pilot was run in
+this technical phase.
+
+### Spec-Anchored Acceptance Criteria
+
+| Criterion | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| E2E-001 / SEC-008 complete ownership | Cleanup rejects tampered root, feature, or exact worktree ownership before changing the fixture. | `tools/test_qa_parallel_pilot.py:192-229` invokes the public cleanup process for root, feature, missing, extra, duplicate, outside, and reordered worktree values; `:225-229` asserts nonzero rejection, fixture/worktree/sentinel survival, and no tombstone. | PASS |
+| E2E-001 / SEC-008 source ownership | Source-HEAD-only tampering remains rejected with zero owned deletion. | `tools/test_qa_parallel_pilot.py:105-127` asserts process failure plus fixture and owned-worktree survival. | PASS |
+| E2E-001 / SEC-008 bounded cleanup | Legitimate cleanup removes exact owned Git worktrees, preserves unowned siblings, retains residual evidence, and converges only after residual removal. | `tools/test_qa_parallel_pilot.py:72-94,130-189` asserts exact removal, sentinel survival, stable retry residuals, and final idempotent success. | PASS |
+| E2E-001 / EXE-06 pilot preflight | The disposable public dry-run remains correlated to the repository HEAD and exposes exactly two ready resource-free lanes. | `tools/test_qa_parallel_pilot.py:15-43` asserts safe mode, exact HEAD equality, two ready lanes, and `Resources: none`. | PASS |
+
+**Spec-anchored status:** 4 PASS, 0 FAIL, 0 spec-precision gaps in T7R5 scope.
+
+### Public CLI Matrix and Regression Evidence
+
+- `python3 tools/test_qa_parallel_pilot.py` -> exit 0, 6 passed, 0 failed. The seven tamper rows are
+  iterations inside the canonical matrix at `tools/test_qa_parallel_pilot.py:193-201`.
+- IT-007: `npm_config_offline=true npx vitest run tools/shared/tests/autonomous-parallelization.test.ts`
+  -> exit 0, 2 passed, 0 failed.
+- Directed Slice D regressions: executor 37, Orca 20, Git 7, planner 16, config 18; 98 passed,
+  0 failed.
+- Full `npm_config_offline=true npm run test:all` -> exit 0: 110 Vitest tests in 9 files and every
+  discovered `tools/test_*.py` suite passed; 0 failed/skipped.
+- Strict spec/tasks validators -> 0 errors, 0 warnings; AD index current; Python compile,
+  `git diff --check 3f2b174..d1770a6`, and T7R5 Conventional Commit validation -> exit 0.
+
+### Discrimination Sensor
+
+Real-tree porcelain was empty before the sensor and empty after scratch cleanup. A detached
+temporary worktree at `d1770a6` was removed after the run.
+
+| Mutation | Directed result | Outcome |
+| --- | --- | --- |
+| Bypass `_validate_root` in `_validate_fixture`, removing root/feature/exact-worktree ownership authorization from cleanup. | `python3 tools/test_qa_parallel_pilot.py` exited 1 at `tools/test_qa_parallel_pilot.py:226`; a tampered-root case deleted the fixture instead of preserving it. | KILLED |
+
+**Sensor:** lightweight, 1 required ownership mutation injected, 1 killed, 0 survived. PASS.
+
+### Fingerprint Accounting
+
+- `f46e5c21f55a5f436fccfddb8504677394d245e5e9b70b44b0003eb0043564ff` is closed at historical
+  count 1. The public adverse matrix covers every requested ownership field and the exact prior
+  `_validate_root` bypass now dies; this passing re-verification adds no failed-remediation count.
+- Prior T7 source-HEAD, residual-retry, sibling-ownership, frozen-HEAD, and idempotency fingerprints
+  remain closed at their recorded counts; all canonical regressions pass.
+
+### Ranked Gaps
+
+None for Slice D technical verification.
+
+**Overall:** PASS for Slice D technical verification after T7R5. Grouped C-D deep-review, the real
+Orca E2E-001 pilot, QA Plan, QA Execute, and final feature closure remain pending and are outside
+this verdict.
