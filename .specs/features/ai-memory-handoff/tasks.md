@@ -75,7 +75,7 @@ T1 → T2 → T3 → T4 → T5
 
 ### T4: Track the operator handoff journey
 
-**Status:** pending
+**Status:** complete
 **What:** Add the durable QA scenario for Codex exit, finalization, and resume in another provider.
 **Where:** `docs/qa/scenarios/WFL-ai-memory-handoff.md`
 **Depends on:** T3
