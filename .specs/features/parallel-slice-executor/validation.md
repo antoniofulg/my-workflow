@@ -565,3 +565,74 @@ rejects a missing or mismatched frozen source HEAD and returns equal `source_git
 records an attestation, and returns an explicit idempotent success on repeat; unmarked roots remain
 untouched. Canonical tests cover both verifier mutants. Fingerprints `c81a953f...` and `d8cf8d2e...`
 remain at count 1 pending fresh verifier closure; this remediation does not edit their ledger counts.
+
+## Slice D / T7R2 Independent Technical Re-verification
+
+**Date:** 2026-08-24
+**Diff range:** c478fca^..c478fca
+**Verifier:** independent Technical Verifier (author != verifier)
+**Slice verdict:** FAIL. Both prior blockers are resolved, but cleanup can delete an unmarked derived
+sibling directory. No real Orca pilot was executed in this technical phase.
+
+### Spec-Anchored Acceptance Criteria
+
+| Criterion | Spec-defined outcome | file:line + assertion | Result |
+| --- | --- | --- | --- |
+| E2E-001 / EXE-06 | Frozen source HEAD must equal the disposable repository HEAD before planner or Orca effects. | `tools/qa_parallel_pilot.py:74-80`; `tools/test_qa_parallel_pilot.py:32-35,53-58` assert equality and rejection. Direct probes rejected missing, zero, nonexistent, and mismatched real HEAD before planner/Orca. | PASS |
+| E2E-001 / EXE-18 | Dry-run exposes exactly two ready `Resources: none` lanes. | `tools/test_qa_parallel_pilot.py:32-38` asserts safe mode, validated state, two lanes, empty resources, and ready state. A real disposable repository returned two lanes and exact HEAD `66ff68a32220b35b22736733e1a8d41dc7cbd0ff`. | PASS |
+| E2E-001 / SEC-008 retry | Cleanup is explicitly idempotent after process restart for the same attested root and rejects a tampered attestation. | `tools/qa_parallel_pilot.py:105-114`; `tools/test_qa_parallel_pilot.py:40-43` assert first cleanup false and second-process cleanup true. Direct tampering probe was rejected. | PASS |
+| E2E-001 / SEC-008 ownership | Cleanup targets only owned fixture/worktree receipts; unmarked sibling paths survive. | `tools/qa_parallel_pilot.py:116-123` recursively scans and removes `.<fixture>-parallel-slices` without an ownership marker or attestation. Direct adverse probe created an unmarked derived sibling and returned `unowned_derived_sibling_survived=false`. No canonical assertion covers this path. | FAIL |
+
+**Spec-anchored status:** 3 PASS, 1 FAIL, 0 spec-precision gaps in T7R2 scope.
+
+### Gate Evidence
+
+- Canonical pilot harness: 2 passed, 0 failed.
+- IT-007: 2 passed, 0 failed.
+- Directed Slice D suites: executor 37, Git 7, Orca 20, planner 16, config 18; 98 passed, 0 failed.
+- Full `npm run test:all`: 110 Vitest tests in 9 files plus 147 reported Python cases and contract smoke; 0 failed/skipped.
+- Strict spec/tasks validators: 0 errors, 0 warnings; AD index current.
+- Python compile, commit-message validation, commit diff check, and real-tree diff check: exit 0.
+
+### Adverse Probes and Discrimination Sensor
+
+Real-tree porcelain was empty before the sensor. Mutations ran in detached temporary worktree
+`/var/folders/lc/_v1mn5h560d2tsmz474y7d1c0000gn/T/tmp.vItjRHf5bG/tree` at `c478fca`; the scratch
+was removed before report/ledger edits.
+
+| Probe / mutation | Behavior | Result |
+| --- | --- | --- |
+| P1 | Missing, zero, nonexistent, and mismatched real `git_head` must stop before planner/Orca. | All four rejected; no planner/Orca invocation recorded. PASS. |
+| P2 | Valid dry-run must report repository HEAD exactly and two ready resource-free lanes. | Exact equality and two lanes observed. PASS. |
+| P3 | First cleanup, restarted retry, and tampered attestation. | First non-idempotent success, restarted idempotent success, tamper rejected. PASS. |
+| P4 | Unmarked derived sibling directory must survive cleanup. | Directory and sentinel were deleted. FAIL. |
+| M1 | Disable frozen-HEAD mismatch rejection. | Canonical pilot suite exited 1 at `tools/test_qa_parallel_pilot.py:58`. KILLED. |
+| M2 | Make repeated attested cleanup raise instead of return idempotent success. | Canonical pilot suite exited 1 at `tools/test_qa_parallel_pilot.py:42`. KILLED. |
+
+**Sensor:** lightweight, 2 prior-blocker mutations, 2 killed, 0 survived. PASS. The direct ownership
+probe exposes a separate implementation and coverage gap.
+
+### Fingerprint Accounting
+
+- `c81a953f...` is closed at historical count 1: source HEAD is now correlated and its mutant dies.
+- `d8cf8d2e...` is closed at historical count 1: repeated cleanup now returns stable evidence and its mutant dies.
+- `d0a63e2...` is open at count 1: unmarked derived sibling root is recursively removed during fixture cleanup. This is a distinct root cause and failure path, not another round of either prior blocker.
+
+### Ranked Gaps
+
+1. **Blocker / E2E-001, SEC-008:** Require explicit ownership evidence for the derived worktree root
+   before traversing or deleting it, reject missing/mismatched ownership, and add a canonical test
+   proving an unmarked derived sibling plus its sentinel survive fixture cleanup. Avoid recursive
+   discovery of deletion targets; consume the exact owned worktree receipts.
+
+**Overall:** FAIL for Slice D after T7R2. Prior blockers closed. New SEC-008 sibling-ownership
+fingerprint is at count 1. Grouped C-D deep-review, real Orca E2E-001, QA, and feature closure remain
+pending after remediation and fresh verification.
+
+## T7R3 post-remediation
+
+T7R3 binds cleanup to the setup ownership manifest and exact `parallel-pilot/A-T1` and `B-T2`
+worktree paths. It removes only valid owned Git worktrees, never recursively deletes the derived
+sibling root, preserves unowned sentinel content, and returns an honest residual error. Prior
+source-HEAD correlation and idempotent retry behavior remain green. Fingerprint `d0a63e2...` stays
+at count 1 pending fresh verifier closure; no ledger count is changed by this remediation.

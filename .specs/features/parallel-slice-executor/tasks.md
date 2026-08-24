@@ -255,6 +255,25 @@ T3 + T4 + T6 -> T7
 **Remediation gate:** Harness/directed suites, `npm run test:all`, strict validators/index, compile, diff check, adequacy review.
 **Remediation commit:** `fix(workflow): harden parallel pilot lifecycle`.
 
+### T7R3: Attest parallel pilot cleanup ownership
+
+**Remediation status:** complete
+**Slice:** D
+**Remediation resources:** none
+**Observable behaviour:** Pilot cleanup removes only the exact attested worktree paths and preserves unowned sibling contents with an honest residual result.
+**Where:** `tools/qa_parallel_pilot.py`
+**Remediation depends on:** T7R2
+**Remediation requirements:** E2E-001, SEC-008
+**Remediation done when:**
+
+- [x] Setup persists an ownership attestation binding fixture root, source HEAD, feature, and exact worktree paths.
+- [x] Cleanup removes only legitimate owned Git worktrees, never recursively discovers/deletes sibling paths, and reports residual unowned content.
+- [x] Sentinel-survival and legitimate-owned-removal tests pass; prior HEAD/retry behavior remains intact.
+
+**Remediation tests:** `tools/test_qa_parallel_pilot.py`, full discovery and directed regressions.
+**Remediation gate:** Harness/full gate, strict validators/index, compile, diff check, adequacy review.
+**Remediation commit:** `fix(workflow): attest parallel pilot cleanup`.
+
 ## Review Remediation
 
 The human rejected a slice-global cap because the prior rounds closed different blockers. T2R4

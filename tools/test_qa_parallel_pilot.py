@@ -69,6 +69,34 @@ def test_pilot_dry_run_rejects_frozen_head_mutation_and_unmarked_cleanup() -> No
         (fixture_root.parent / f".{fixture_root.name}.parallel-pilot-cleaned").unlink(missing_ok=True)
 
 
+def test_cleanup_removes_exact_owned_worktree_and_preserves_unowned_sibling() -> None:
+    setup = subprocess.run([sys.executable, str(HARNESS), "setup"], text=True, capture_output=True, check=True)
+    fixture = json.loads(setup.stdout)["root"]
+    fixture_root = Path(fixture)
+    sibling_root = fixture_root.parent / f".{fixture_root.name}-parallel-slices"
+    owned = sibling_root / "parallel-pilot" / "A-T1"
+    unowned = sibling_root / "parallel-pilot" / "unowned"
+    try:
+        owned.parent.mkdir(parents=True)
+        subprocess.run(["git", "worktree", "add", "--detach", str(owned), "HEAD"], cwd=fixture_root, check=True, capture_output=True)
+        unowned.mkdir()
+        sentinel = unowned / "sentinel"
+        sentinel.write_text("preserve\n", encoding="utf-8")
+        cleanup = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--root", fixture], text=True, capture_output=True, check=False)
+        assert cleanup.returncode != 0
+        assert not owned.exists()
+        assert sentinel.read_text(encoding="utf-8") == "preserve\n"
+    finally:
+        if fixture_root.exists():
+            subprocess.run(["git", "worktree", "remove", "--force", str(owned)], cwd=fixture_root, check=False, capture_output=True)
+        if fixture_root.exists():
+            subprocess.run([sys.executable, str(HARNESS), "cleanup", "--root", fixture], check=False)
+        if sibling_root.exists():
+            import shutil
+            shutil.rmtree(sibling_root)
+        (fixture_root.parent / f".{fixture_root.name}.parallel-pilot-cleaned").unlink(missing_ok=True)
+
+
 if __name__ == "__main__":
     tests = [function for name, function in sorted(globals().items()) if name.startswith("test_")]
     for function in tests:

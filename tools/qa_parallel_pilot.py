@@ -13,8 +13,10 @@ from pathlib import Path
 
 FEATURE = "parallel-pilot"
 MARKER = ".parallel-slice-qa-fixture"
+OWNERSHIP = ".parallel-slice-qa-ownership.json"
 PREFIX = "parallel-slice-pilot-"
 ROOT = Path(__file__).resolve().parent.parent
+OWNED_WORKTREES = ("parallel-pilot/A-T1", "parallel-pilot/B-T2")
 
 
 def git(root: Path, *args: str, check: bool = True) -> str:
@@ -25,7 +27,7 @@ def git(root: Path, *args: str, check: bool = True) -> str:
 
 
 def setup() -> dict[str, str]:
-    root = Path(tempfile.mkdtemp(prefix="parallel-slice-pilot-"))
+    root = Path(tempfile.mkdtemp(prefix="parallel-slice-pilot-")).resolve()
     try:
         git(root, "init", "-q")
         git(root, "config", "user.email", "qa@example.com")
@@ -55,6 +57,10 @@ def setup() -> dict[str, str]:
             encoding="utf-8",
         )
         (root / MARKER).write_text("disposable QA fixture\n", encoding="utf-8")
+        (root / OWNERSHIP).write_text(
+            json.dumps({"root": str(root), "feature": FEATURE, "source_git_head": head, "worktrees": list(OWNED_WORKTREES)}, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
         return {"root": str(root), "feature": FEATURE, "status": "created"}
     except Exception:
         shutil.rmtree(root, ignore_errors=True)
@@ -66,8 +72,11 @@ def _validate_root(value: str) -> Path:
     temporary_root = Path(tempfile.gettempdir()).resolve()
     if temporary_root not in root.parents or not root.name.startswith(PREFIX):
         raise ValueError("pilot root is outside the disposable fixture boundary")
-    if not root.is_dir() or not (root / MARKER).is_file() or not (root / ".specs/features" / FEATURE / "workflow.json").is_file():
+    if not root.is_dir() or not (root / MARKER).is_file() or not (root / OWNERSHIP).is_file() or not (root / ".specs/features" / FEATURE / "workflow.json").is_file():
         raise ValueError("not a parallel pilot fixture")
+    ownership = json.loads((root / OWNERSHIP).read_text(encoding="utf-8"))
+    if ownership.get("root") != str(root) or ownership.get("feature") != FEATURE or ownership.get("worktrees") != list(OWNED_WORKTREES):
+        raise ValueError("pilot ownership attestation is invalid")
     return root
 
 
@@ -78,6 +87,8 @@ def dry_run(root_value: str) -> dict[str, object]:
     repository_head = git(root, "rev-parse", "HEAD")
     if snapshot.get("git_head") != repository_head:
         raise ValueError("pilot frozen git_head does not match repository HEAD")
+    if json.loads((root / OWNERSHIP).read_text(encoding="utf-8")).get("source_git_head") != repository_head:
+        raise ValueError("pilot ownership source HEAD does not match repository HEAD")
     planner = ROOT / ".agents/skills/workflow-config/scripts/parallel_plan.py"
     result = subprocess.run(
         ["python3", str(planner), "--root", str(root), "--feature", FEATURE],
@@ -114,14 +125,29 @@ def cleanup(root_value: str) -> dict[str, object]:
         return {"cleaned": True, "idempotent": True, "root": root_value}
     root = _validate_root(root_value)
     worktree_root = root.parent / f".{root.name}-parallel-slices"
+    residual: list[str] = []
+    for relative in OWNED_WORKTREES:
+        worktree = worktree_root / relative
+        if not worktree.exists():
+            continue
+        if not worktree.is_dir() or not (worktree / ".git").exists():
+            residual.append(str(worktree))
+            continue
+        result = subprocess.run(["git", "worktree", "remove", "--force", str(worktree)], cwd=root, check=False, capture_output=True)
+        if result.returncode != 0 or worktree.exists():
+            residual.append(str(worktree))
     if worktree_root.exists():
-        for child in sorted(worktree_root.rglob("*"), reverse=True):
-            if child.is_dir() and (child / ".git").exists():
-                subprocess.run(["git", "worktree", "remove", "--force", str(child)], cwd=root, check=False)
-        shutil.rmtree(worktree_root, ignore_errors=True)
+        for entry in (worktree_root / FEATURE, worktree_root):
+            if entry.is_dir():
+                try:
+                    entry.rmdir()
+                except OSError:
+                    pass
+        if worktree_root.exists():
+            residual.extend(str(path) for path in sorted(worktree_root.iterdir()))
     attestation.write_text(json.dumps({"root": str(root), "status": "cleaned"}, sort_keys=True) + "\n", encoding="utf-8")
     shutil.rmtree(root)
-    return {"cleaned": True, "idempotent": False, "root": root_value}
+    return {"cleaned": not residual, "idempotent": False, "residual_paths": residual, "root": root_value}
 
 
 def main() -> int:
@@ -136,7 +162,7 @@ def main() -> int:
     else:
         parser.error("--root is required for dry-run and cleanup")
     print(json.dumps(result, sort_keys=True))
-    return 0
+    return 0 if result.get("cleaned", True) else 1
 
 
 if __name__ == "__main__":

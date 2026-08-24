@@ -28,3 +28,4 @@
 - T7 binds the CLI to a proven Orca `orchestration.contract.v1` capability gate, keeps unsupported auto mode serial with zero effects, consumes frozen Git/provider seams through the Coordinator, and hands E2E-001 to fresh QA as untested without a real author pilot.
 - T7R1 moves E2E-001 off the disabled/completed feature into a disposable `parallel-pilot` fixture with frozen safe mode, two explicit resource-free lanes, planner dry-run validation, public executor interface, and exact cleanup; Orca start remains fresh-QA-only.
 - T7R2 makes the pilot dry-run prove frozen source HEAD equality and returns both heads, while cleanup uses a bounded attestation for explicit repeat-safe no-op and rejects unmarked roots; no Orca pilot is run by the author.
+- T7R3 binds cleanup to the setup ownership manifest's exact `A-T1`/`B-T2` worktree paths, removes only valid Git worktrees, preserves unowned siblings as residual errors, and never uses broad recursive sibling deletion.

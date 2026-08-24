@@ -95,3 +95,10 @@ complete definition; all other edits are short pointers.
 | Source correlation | Pass | `qa_parallel_pilot.py` compares frozen `git_head` to `git rev-parse HEAD` before planner dry-run output. |
 | Cleanup lifecycle | Pass | Bounded marker/attestation validates first cleanup, repeat idempotent cleanup, and rejects arbitrary roots. |
 | Mutation coverage | Pass | Canonical QA test covers zero-hash source mutation and repeated cleanup/unmarked path rejection. |
+
+## T7R3 delta
+
+| Item | Result | Evidence |
+| --- | --- | --- |
+| Ownership scope | Pass | Setup manifest binds root/source/feature to exact worktree paths; cleanup has no recursive sibling discovery. |
+| Residual handling | Pass | Sentinel-survival test expects non-zero residual cleanup while preserving unowned content; owned Git worktree removal remains green. |
