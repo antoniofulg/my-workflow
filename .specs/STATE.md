@@ -95,3 +95,20 @@ Idle.
   integration skills, and feature snapshots.
 - **Date**: 2026-08-23
 - **Status**: active
+
+### AD-008
+
+- **Decision**: Adopt upstream ai-memory `1.31.0` only as an opt-in, transient handoff transport
+  between Claude Code, Codex, and Cursor. Lifecycle hooks and the sourceable Codex helper may create
+  one pending baton, but MCP, briefing, routing skills, managed workstreams, LLMs, embeddings,
+  consolidation, and auto-improvement remain disabled. Git, `.specs/`, tasks, architecture docs,
+  and `knowledge/` remain the only project authority.
+- **Reason**: Provider limits can end a session before work is finished; a bounded single-use baton
+  resumes the next session without recurring startup context or a second task and decision ledger.
+- **Trade-off**: The local runtime stores captured session material outside the checkout and still
+  needs explicit path exclusions because free-form prompts and shell output are not a complete DLP
+  boundary. Codex requires a manual `handoff` fallback when its process exits abnormally.
+- **Scope**: `scripts/ai-memory.zsh`, `scripts/test_ai_memory.py`, `docs/workflow/ai-memory.md`,
+  `README.md`, `docs/qa/`, and this decision record.
+- **Date**: 2026-08-23
+- **Status**: active

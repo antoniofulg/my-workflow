@@ -87,7 +87,7 @@ T1 → T2 → T3 → T4 → T5
 
 ### T5: Record the authority boundary
 
-**Status:** pending
+**Status:** complete
 **What:** Record AD-008: ai-memory is optional transient transport, never project authority; regenerate the decision index.
 **Where:** `.specs/STATE.md`
 **Depends on:** T4
