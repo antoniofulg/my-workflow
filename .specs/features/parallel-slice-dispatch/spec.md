@@ -117,6 +117,7 @@ that reduced wall time never weakens readiness.
 
 - IF two candidates declare the same exact write path THEN the planner SHALL select serial fallback.
 - IF a task depends on an unknown task ID THEN the planner SHALL select serial fallback and name the unknown ID.
+- IF `tasks.md` is missing or unreadable THEN the planner CLI SHALL exit non-zero and SHALL emit no plan JSON.
 - IF a worker stops while its worktree is dirty THEN the orchestrator SHALL refuse waiting status and select serial recovery.
 - WHEN the last consumed dependency checkpoint already equals the final upstream base THEN final reconciliation SHALL be a no-op.
 
@@ -127,17 +128,17 @@ that reduced wall time never weakens readiness.
 | PAR-01 | Freeze the dispatch policy | Design | Verified |
 | PAR-02 | Freeze the dispatch policy | Design | Verified |
 | PAR-03 | Freeze the dispatch policy | Design | Verified |
-| PAR-04 | Freeze the dispatch policy | Design | Verified |
+| PAR-04 | Freeze the dispatch policy | Design | Implementing |
 | PAR-05 | Plan ready work | Design | Verified |
 | PAR-06 | Plan ready work | Design | Verified |
 | PAR-07 | Plan ready work | Design | Verified |
 | PAR-08 | Plan ready work | Design | Verified |
 | PAR-09 | Plan ready work | Design | Verified |
-| PAR-10 | Plan ready work | Design | Verified |
+| PAR-10 | Plan ready work | Design | Implementing |
 | PAR-11 | Plan ready work | Design | Verified |
 | PAR-12 | Preserve workflow evidence | Design | Verified |
-| PAR-13 | Preserve workflow evidence | Design | Verified |
-| PAR-14 | Preserve workflow evidence | Design | Verified |
+| PAR-13 | Preserve workflow evidence | Design | Implementing |
+| PAR-14 | Preserve workflow evidence | Design | Implementing |
 | PAR-15 | Preserve workflow evidence | Design | Verified |
 | PAR-16 | Preserve workflow evidence | Design | Verified |
 

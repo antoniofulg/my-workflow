@@ -31,6 +31,7 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(policy).toContain("without creating a worker or worktree");
     expect(policy).toContain("one worker per slice");
     expect(policy).toContain("Tasks inside a slice remain sequential");
+    expect(policy).toContain("must first leave a clean committed checkpoint");
     expect(policy).toContain("report the exact dependency and current head");
     expect(policy).toContain("end the clean worker turn");
     expect(policy).toContain("dependency completion event");
@@ -38,7 +39,9 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(policy).toContain("If the worker is dirty");
     expect(policy).toContain("not a valid waiter");
     expect(policy).toMatch(/use the existing serial recovery\s+path/i);
-    expect(policy).toMatch(/sync(?:hronize)? at declared dependency checkpoints/i);
+    expect(policy).toMatch(
+      /Synchronize at declared dependency checkpoints\s+before the dependent task consumes a newer\s+upstream commit/,
+    );
     expect(policy).toMatch(/do(?:es not| not) rebase after every task/i);
     expect(policy).toContain("final reconciliation");
     expect(policy).toMatch(

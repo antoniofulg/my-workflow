@@ -543,6 +543,19 @@ def test_resume_preserves_existing_frozen_agent_path() -> None:
         shutil.rmtree(root)
 
 
+def test_checked_in_v1_snapshots_resume_with_disabled_parallelization() -> None:
+    for feature in ("optional-design-tools", "parallel-slice-dispatch", "security-skills"):
+        snapshot = workflow_config.resolve(
+            root=ROOT,
+            feature=feature,
+            slice_count=1,
+            native_provider="codex",
+        )
+        assert snapshot["version"] == 1
+        assert snapshot["feature"] == feature
+        assert snapshot["parallelization"] == {"mode": "disabled"}
+
+
 if __name__ == "__main__":
     tests = [function for name, function in sorted(globals().items()) if name.startswith("test_")]
     for function in tests:

@@ -242,6 +242,53 @@ def test_same_state_and_head_emit_byte_identical_json() -> None:
         shutil.rmtree(root)
 
 
+def test_missing_tasks_file_exits_nonzero_without_a_successful_plan() -> None:
+    root = make_repo(task("T1", "A"))
+    try:
+        (root / ".specs/features/fixture/tasks.md").unlink()
+        resolver = ROOT / ".agents/skills/workflow-config/scripts/parallel_plan.py"
+        result = subprocess.run(
+            [sys.executable, str(resolver), "--root", str(root), "--feature", "fixture"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert result.returncode == 1
+        assert result.stdout == ""
+        assert "tasks file is missing or unreadable" in result.stderr
+    finally:
+        shutil.rmtree(root)
+
+
+def test_snapshot_identity_and_version_are_validated_before_mode_and_head() -> None:
+    root = make_repo(task("T1", "A"))
+    path = root / ".specs/features/fixture/workflow.json"
+    try:
+        for snapshot in (
+            {
+                "feature": "other-feature",
+                "git_head": "",
+                "parallelization": {"mode": "invalid"},
+                "version": 1,
+            },
+            {
+                "feature": "fixture",
+                "git_head": "",
+                "parallelization": {"mode": "invalid"},
+                "version": 2,
+            },
+        ):
+            path.write_text(json.dumps(snapshot), encoding="utf-8")
+            try:
+                parallel_plan.plan(root=root, feature="fixture")
+            except ValueError as exc:
+                assert str(exc) == "invalid workflow snapshot"
+            else:
+                raise AssertionError("expected invalid workflow snapshot")
+    finally:
+        shutil.rmtree(root)
+
+
 def test_cli_emits_the_point_in_time_plan() -> None:
     root = make_repo(
         task("T1", "A", status="complete") + task("T2", "B", depends_on="T1"), mode="full"

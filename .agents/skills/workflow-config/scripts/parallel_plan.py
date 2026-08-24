@@ -36,6 +36,13 @@ def _snapshot(root: Path, feature: str) -> dict[str, Any]:
     path = root / ".specs" / "features" / feature / "workflow.json"
     try:
         snapshot = json.loads(path.read_text(encoding="utf-8"))
+        if (
+            not isinstance(snapshot, dict)
+            or type(snapshot.get("version")) is not int
+            or snapshot["version"] != 1
+            or snapshot.get("feature") != feature
+        ):
+            raise ValueError("invalid workflow snapshot")
         mode = snapshot["parallelization"]["mode"]
         source_git_head = snapshot["git_head"]
     except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
@@ -189,7 +196,7 @@ def plan(
     try:
         tasks, reasons = _parse_tasks(tasks_path)
     except OSError as exc:
-        tasks, reasons = [], [f"missing-tasks:{exc.filename or tasks_path}"]
+        raise ValueError("tasks file is missing or unreadable") from exc
 
     by_id = {task.id: task for task in tasks}
     for task in tasks:
