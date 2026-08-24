@@ -1,22 +1,24 @@
 # J-configure-feature-workflow
 
 **Persona:** Workflow adopter
-**Goal:** Configure and freeze one feature's review cadence and delegated-provider routes.
+**Goal:** Configure, freeze, and inspect one feature's review, provider, and slice-dispatch policy.
 **Entry point:** `.my-workflow.toml` → `workflow-config` resolver CLI
 
 ## Flow
 
-1. Start with no config and resolve a feature using the current provider.
-2. Add a cadence and partial mixed-provider profile, then explicitly refresh the feature resolution.
-3. Add one role override and confirm precedence in JSON stdout and the feature snapshot.
-4. Resume without refresh and confirm the frozen route survives config and HEAD changes.
-5. Correct a named invalid input after the resolver rejects it without fallback or snapshot loss.
+1. Start with no config and resolve a feature using the current provider and disabled dispatch.
+2. Select a supported parallelization mode, then explicitly refresh the feature resolution.
+3. Add a cadence, partial mixed-provider profile, and role override; confirm precedence in JSON stdout and the feature snapshot.
+4. Plan the versioned task state and inspect ready, blocked, checkpoint, or serial-fallback output.
+5. Resume without refresh and confirm the frozen route survives config and HEAD changes.
+6. Correct a named invalid input after the resolver rejects it without fallback or snapshot loss.
 
 ## Promises
 
 - [`CFG-resolve-deep-review-cadence`](../scenarios/CFG-resolve-deep-review-cadence.md)
 - [`CFG-route-delegated-role-providers`](../scenarios/CFG-route-delegated-role-providers.md)
 - [`CFG-freeze-feature-workflow`](../scenarios/CFG-freeze-feature-workflow.md)
+- [`CFG-plan-parallel-slice-dispatch`](../scenarios/CFG-plan-parallel-slice-dispatch.md)
 
 ## Adjacent canary
 
