@@ -240,3 +240,12 @@ and recursively redacted payloads, acknowledgement and release receipts are dura
 correlated across restart, convergence paths/aliases are bounded and existing-only, and the
 declared Python gate discovers every `tools/test_*.py`. C/D implementation findings remain Planned;
 there is no review round 3 or real Orca pilot in this remediation.
+
+### Group A-B post-fix closure
+
+- **Reviewed head:** `4d328cd` (round 2), final remediation head `cbced4e`.
+- **Post-fix command:** `npm run test:all`.
+- **Result:** exit 0; 109 Vitest tests and all 10 discovered Python suites passed.
+- **Directed counts:** Orca adapter 20, executor 32, convergence 6; final-round negative reproductions passed.
+- **Disposition:** grouped deep-review A-B closed by the required post-round-2 remediation and green gate; no round 3 was opened.
+- **Feature status:** incomplete. T4-T7, grouped review C-D, real Orca pilot, final QA, and final full gate remain.

@@ -3,10 +3,10 @@
 ## Handoff
 
 - **Feature**: `.specs/features/parallel-slice-executor`
-- **Phase / Task**: Execute / grouped deep-review slices A-B
-- **Completed**: T1, T2, T2R1-T2R5, T3, T3R1, T3R2; Slice A and Slice B Technical Verifier PASS
+- **Phase / Task**: Execute / Slice C / T4
+- **Completed**: T1, T2, T2R1-T2R5, T3, T3R1, T3R2, TDR1, TDR2; Slice A/B Technical Verifiers PASS; grouped deep-review A-B closed by round-2 post-fix gate
 - **In-progress** (file:line): none
-- **Next step**: Run the first frozen deep-review group over slices A-B, remediate blocking findings within its cap, then start Slice C/T4.
+- **Next step**: Implement T4 Git checkpoint reconciliation, then dispatch its fresh Technical Verifier.
 - **Blockers**: none
 - **Uncommitted files**: none after the blocker-record commit
 - **Branch**: `feat/parallel-slice-executor`
