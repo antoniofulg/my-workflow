@@ -492,6 +492,29 @@ affected QA scenarios are explicitly untested pending fresh QA.
 **Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
 **Commit**: `docs(config): publish local agent configuration`
 
+### T19: Close revised architecture test gaps
+
+**What**: Prove the shipped `mixed` profile and adoption's malformed-local-config contract in the
+canonical configuration and adoption suites.
+**Where**: canonical configuration and adoption contract suites
+**Depends on**: T18
+**Requirement**: AMR-01, AMR-07
+
+**Done when**:
+
+- [x] The tracked example's exact four `profiles.mixed` mappings are asserted and public profile
+  resolution returns the exact provider route for every delegated role.
+- [x] Adoption with a malformed existing local config exits 1 with the exact actionable diagnostic,
+  preserves local config/template/example/runtime bytes, and makes no partial writes.
+- [x] Resolver, adoption, Vitest, task/spec/state validators, diff, and commit gates pass.
+
+**Status:** complete — canonical contract and adoption suites pass with 30 resolver, 18 adoption,
+and 110 Vitest tests; malformed local-config adoption is byte-preservation covered.
+
+**Tests**: unit and integration, `UT-001`, `IT-003`
+**Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
+**Commit**: `test(config): close revised architecture contract gaps`
+
 ## Phase Execution Map
 
 ```text
@@ -499,7 +522,7 @@ Phase 1 -> Phase 2 -> Phase 3
 
 Phase 1: T1 -> T2 -> T3
 Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -> T14
-Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18
+Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19
 ```
 
 ## Task Granularity Check
@@ -524,6 +547,7 @@ Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18
 | T16 | Runtime generator | PASS |
 | T17 | Adoption integration | PASS |
 | T18 | Public contract publication | PASS |
+| T19 | Revised architecture contract coverage | PASS |
 
 ## Diagram-Definition Cross-Check
 
@@ -547,6 +571,7 @@ Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18
 | T16 | T15 | T15 -> T16 | PASS |
 | T17 | T16 | T16 -> T17 | PASS |
 | T18 | T17 | T17 -> T18 | PASS |
+| T19 | T18 | T18 -> T19 | PASS |
 
 ## Test Co-location Validation
 
@@ -570,3 +595,4 @@ Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18
 | T16 | Resolver/generator | unit | unit | PASS |
 | T17 | Adoption integration | integration | integration | PASS |
 | T18 | Contract/docs | unit + CLI/manual | unit + CLI/manual | PASS |
+| T19 | Mixed profile and malformed adoption config | unit + integration | unit + integration | PASS |

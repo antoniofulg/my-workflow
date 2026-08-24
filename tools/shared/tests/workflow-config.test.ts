@@ -84,6 +84,57 @@ describe("workflow configuration skill", () => {
     expect(packaged.some((path) => path.startsWith(".cursor/agents/"))).toBe(false);
   });
 
+  it("resolves the shipped mixed profile to its exact provider routes", () => {
+    const example = readRepositoryFile(".my-workflow.toml.example");
+    expect(example).toContain(
+      "[profiles.mixed]\nimplementer = \"claude\"\nverifier = \"codex\"\nexplorer = \"cursor\"\ndeep_reviewer = \"codex\"",
+    );
+
+    const temporaryRoot = mkdtempSync(join(tmpdir(), "workflow-profile-"));
+    try {
+      cpSync(join(repositoryRoot, "templates"), join(temporaryRoot, "templates"), { recursive: true });
+      cpSync(join(repositoryRoot, ".my-workflow.toml.example"), join(temporaryRoot, ".my-workflow.toml.example"));
+      execFileSync("git", ["init", "-q"], { cwd: temporaryRoot });
+      execFileSync(
+        "git",
+        ["-c", "user.email=test@example.com", "-c", "user.name=Test", "commit", "--allow-empty", "-qm", "seed"],
+        { cwd: temporaryRoot },
+      );
+      const resolver = join(
+        repositoryRoot,
+        ".agents/skills/workflow-config/scripts/workflow_config.py",
+      );
+      execFileSync("python3", [resolver, "--root", temporaryRoot, "--sync-agents"], { encoding: "utf8" });
+      const snapshot = JSON.parse(
+        execFileSync(
+          "python3",
+          [
+            resolver,
+            "--root",
+            temporaryRoot,
+            "--feature",
+            "mixed-profile-contract",
+            "--slices",
+            "1",
+            "--native-provider",
+            "cursor",
+            "--profile",
+            "mixed",
+          ],
+          { encoding: "utf8" },
+        ),
+      ) as { roles: Record<string, { provider: string }> };
+      expect(snapshot.roles).toMatchObject({
+        implementer: { provider: "claude" },
+        verifier: { provider: "codex" },
+        explorer: { provider: "cursor" },
+        deep_reviewer: { provider: "codex" },
+      });
+    } finally {
+      rmSync(temporaryRoot, { recursive: true, force: true });
+    }
+  }, 30_000);
+
   it("asserts resolver-returned agent files for every non-native provider route", () => {
     const temporaryRoot = mkdtempSync(join(tmpdir(), "workflow-config-"));
     try {

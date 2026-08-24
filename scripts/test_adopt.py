@@ -389,6 +389,49 @@ def test_adoption_rejects_invalid_template_before_runtime_writes() -> None:
         shutil.rmtree(tmp)
 
 
+def test_adoption_rejects_malformed_local_config_without_partial_writes() -> None:
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        run(tmp)
+        config = tmp / ".my-workflow.toml"
+        config.write_bytes(b"version = 1\n")
+        before = snapshot_tree(tmp)
+        runtime_before = {
+            path: path.read_bytes()
+            for provider in workflow_config.PROVIDERS
+            for role in workflow_config.ROLES
+            for path in [tmp / workflow_config._runtime_relative(provider, role)]
+        }
+        sources_before = {
+            path: path.read_bytes()
+            for path in [tmp / ".my-workflow.toml.example", *sorted((tmp / "templates/agents").rglob("*"))]
+            if path.is_file()
+        }
+        stderr = io.StringIO()
+        stdout = io.StringIO()
+        with contextlib.redirect_stderr(stderr), contextlib.redirect_stdout(stdout):
+            try:
+                run(tmp)
+            except SystemExit as exc:
+                assert exc.code == 1
+            else:
+                raise AssertionError("expected malformed local config rejection")
+        assert stdout.getvalue() == ""
+        assert stderr.getvalue() == (
+            "adoption could not synchronize agent metadata: "
+            "workflow-config: version must be integer 2\n"
+        )
+        assert snapshot_tree(tmp) == before
+        assert config.read_bytes() == b"version = 1\n"
+        assert {path: path.read_bytes() for path in runtime_before} == runtime_before
+        assert {
+            path: path.read_bytes()
+            for path in sources_before
+        } == sources_before
+    finally:
+        shutil.rmtree(tmp)
+
+
 def test_existing_config_drives_all_native_values_and_preserves_non_model_bytes() -> None:
     tmp = Path(tempfile.mkdtemp())
     try:
@@ -608,6 +651,7 @@ if __name__ == "__main__":
     test_runtime_edits_are_overwritten_from_templates_on_readopt()
     test_adoption_installs_v2_config_and_syncs_fifteen_packets()
     test_adoption_rejects_invalid_template_before_runtime_writes()
+    test_adoption_rejects_malformed_local_config_without_partial_writes()
     test_gitignore_rules_merge_without_overwrite()
     test_deep_review_learnings_survive_consumer_parent_ignore()
     test_feature_specs_are_versioned_and_legacy_ignore_is_removed()
