@@ -1,7 +1,7 @@
 # Parallel Slice Dispatch Tasks
 
 **Design:** `.specs/features/parallel-slice-dispatch/design.md`
-**Status:** Approved
+**Status:** Done
 
 ## Test Coverage Matrix
 

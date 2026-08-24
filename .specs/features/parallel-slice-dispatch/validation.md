@@ -324,7 +324,7 @@ This diff changes public configuration/CLI and docs-as-interface. Technical vali
 ## Final Feature Technical Verdict
 
 **Diff range:** `6675d5574e692a7534b676519e89fbc484289b46..723e098`
-Verdict: FAIL
+Historical verdict: FAIL
 
 | Requirement group | Result |
 | --- | --- |
@@ -334,3 +334,113 @@ Verdict: FAIL
 | PAR-13–PAR-15 | FAIL — precise clauses are present in source contract but not fully discriminated by IT-006. |
 
 All recorded tasks are marked complete, all fresh gates pass, and baseline counts did not decrease. Technical completion still fails because evidence-or-zero and sensor requirements are stronger than a green gate. Deep-review and QA remain delivery stages outside this technical verdict; neither should run as a substitute for closing this test gap.
+
+## Final Feature Technical Re-verification
+
+**Date:** 2026-08-24
+**Diff range:** `6675d5574e692a7534b676519e89fbc484289b46..9d919ea`
+**Remediation commit:** `9d919ea`
+**Verifier:** fresh independent Verifier (author != verifier)
+**Feature status:** TECHNICALLY VERIFIED
+
+This re-verification preserves the preceding FAIL as historical evidence and independently checks the complete feature after T3R1. The remediation closes the exact IT-006 clauses that previously lacked discrimination.
+
+### Task completion
+
+| Task | Status | Evidence |
+| --- | --- | --- |
+| T1 | Verified | Resolver gate remains 14/14 green; PAR-01–PAR-04 retain exact assertions. |
+| T2/T2R1 | Verified | Planner gate remains 11/11 green; PAR-05–PAR-11 and task-status transitions retain exact assertions. |
+| T3/T3R1 | Verified after remediation | IT-006 passes and 3/3 fresh safety mutations were killed, including the formerly surviving unconditional-rebase mutation. |
+| T4 | Verified | AD index check passes and durable workflow state remains in the feature diff. |
+
+### Spec-anchored acceptance criteria
+
+| Criterion | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| PAR-01 | Missing configuration freezes `disabled`. | `tools/test_workflow_config.py:36-43` — `assert snapshot["parallelization"] == {"mode": "disabled"}`; `tools/test_workflow_config.py:453` repeats the persisted snapshot assertion. | PASS |
+| PAR-02 | `disabled`, `safe`, and `full` are each accepted and frozen exactly. | `tools/test_workflow_config.py:50-81` — iterates the exact enum and asserts emitted and persisted equality. | PASS |
+| PAR-03 | An unsupported mode exits through `ConfigError` without replacing a valid snapshot. | `tools/test_workflow_config.py:86-110` — asserts the validation error and byte-identical original snapshot. | PASS |
+| PAR-04 | Resume uses the frozen mode despite later configuration changes. | `tools/test_workflow_config.py:115-131` — changes config from `full` to `disabled`, then asserts the resumed snapshot remains `full`. | PASS |
+| PAR-05 | At most the first incomplete task of each slice is dispatchable. | `tools/test_parallel_plan.py:74-79` — lanes are exactly T1 and T3; later same-slice T2 is blocked by `slice-order:T1`. | PASS |
+| PAR-06 | Disabled mode returns one serial lane in declaration order. | `tools/test_parallel_plan.py:84-92` — exact serial T1 lane and disabled T2 block. | PASS |
+| PAR-07 | Safe mode permits independent roots and requires verified cross-slice producers. | `tools/test_parallel_plan.py:97-109` — T2 is blocked by `awaiting-verified-slice:A` until A is supplied as verified. | PASS |
+| PAR-08 | Full mode exposes a dependent slice after completion and records the sync checkpoint. | `tools/test_parallel_plan.py:114-121` — T2 is `ready` with `sync_after == ["T1"]`. | PASS |
+| PAR-09 | Incomplete dependencies block their consumer and no later same-slice task is dispatched. | `tools/test_parallel_plan.py:157-167` — T2 remains exactly blocked by `dependency-incomplete:T3`; `tools/test_parallel_plan.py:74-79` covers later same-slice blocking. | PASS |
+| PAR-10 | Missing metadata, cycles, unknown dependencies, ambiguous writes, or ready write conflicts select serial fallback with every decisive reason. | `tools/test_parallel_plan.py:126-187` — covers all failure classes, exact collision names, blocked-before-conflict ordering, and the complete ordered reason set. | PASS |
+| PAR-11 | Same feature state and Git head emit byte-identical JSON. | `tools/test_parallel_plan.py:233-240` — asserts exact stdout bytes; `tools/test_parallel_plan.py:245-278` asserts the complete projection. | PASS |
+| PAR-12 | Missing isolated executor follows the existing serial path without creating worker/worktree. | `tools/shared/tests/autonomous-parallelization.test.ts:29-31` asserts all three clauses; policy at `.agents/skills/autonomous/references/parallelization.md:20-23`. | PASS |
+| PAR-13 | Waiting requires an exact dependency/head report, clean committed checkpoint, turn end, event-only follow-up, and dirty-worker refusal. | `tools/shared/tests/autonomous-parallelization.test.ts:34-40` asserts exact reporting, turn end, event/no-polling, dirty refusal, invalid waiter, and serial recovery; policy at `.agents/skills/autonomous/references/parallelization.md:40-47`. | PASS |
+| PAR-14 | A newer dependency checkpoint is synchronized by exact commit and its affected gate reruns before continuation. | `tools/shared/tests/autonomous-parallelization.test.ts:41-48` asserts checkpoint cadence, no per-task rebase, exact event commit, and gate-before-continuation; policy at `.agents/skills/autonomous/references/parallelization.md:49-59`. | PASS |
+| PAR-15 | A changed reviewed tree invalidates every affected gate, Verifier, and deep-review verdict and repeats the affected gate. | `tools/shared/tests/autonomous-parallelization.test.ts:49-52` asserts both invalidation and repeat-before-next-stage clauses; policy at `.agents/skills/autonomous/references/parallelization.md:61-63`. | PASS |
+| PAR-16 | Atomic task gates/commits, slice Verifier, grouped deep-review, final QA, and final-tree full gate remain mandatory. | `tools/shared/tests/autonomous-parallelization.test.ts:53-59` asserts every retained stage and unchanged TLC; policy at `.agents/skills/autonomous/references/parallelization.md:65-74`. | PASS |
+
+**Spec-anchored result:** 16/16 requirements match precise outcomes; 0 uncovered criteria and 0 spec-precision gaps.
+
+### Status transitions and edge cases
+
+| Contract / edge | Evidence | Result |
+| --- | --- | --- |
+| `in_progress` is never redispatched | `tools/test_parallel_plan.py:192-199` asserts exact `in-progress:T1` blocking. | PASS |
+| `waiting` stays blocked until every dependency completes, then emits only `follow_up` | `tools/test_parallel_plan.py:203-228` asserts both states and exact lane output. | PASS |
+| Same exact write path selects serial fallback and names both tasks | `tools/test_parallel_plan.py:147-153` asserts `write-conflict:T1:T2:src/shared.py`. | PASS |
+| Unknown dependency selects serial fallback and names the unknown ID | `tools/test_parallel_plan.py:172-187` asserts `unknown-dependency:T1->T99` in the complete ordered reason set. | PASS |
+| Dirty waiting worker is refused and serial recovery is selected | `tools/shared/tests/autonomous-parallelization.test.ts:38-40`; source contract `.agents/skills/autonomous/references/parallelization.md:44-47`. | PASS |
+| Final reconciliation is a no-op when the consumed checkpoint already equals final base | `tools/shared/tests/autonomous-parallelization.test.ts:43-46`; source contract `.agents/skills/autonomous/references/parallelization.md:56-57`. | PASS |
+
+### Fresh full and structural gates
+
+| Command | Result |
+| --- | --- |
+| `npm_config_offline=true npm test` | PASS — 9 files, 109 tests passed, 0 failed, 0 skipped. |
+| `for test_file in tools/test_*.py; do python3 "$test_file" || exit 1; done` | PASS — ad-index `ok`; numbered suites 8 + 5 + 19 + 11 + 9 + 14 = 66 passed, 0 failed, 0 skipped. |
+| `npx vitest run tools/shared/tests/autonomous-parallelization.test.ts` | PASS — IT-006 1/1. |
+| `python3 .agents/skills/tlc-spec-driven/scripts/validate_spec.py .specs/features/parallel-slice-dispatch/spec.md` | PASS — 0 errors, 0 warnings. |
+| `python3 .agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/parallel-slice-dispatch/tasks.md` | PASS — 0 errors, 0 warnings. |
+| `python3 tools/ad-index.py --check` | PASS — `AD-INDEX.md up to date`. |
+| `git diff --check 6675d5574e692a7534b676519e89fbc484289b46..9d919ea` | PASS — no output. |
+
+Fresh baseline at `6675d5574e692a7534b676519e89fbc484289b46`: 8 Vitest files / 108 tests and 52 numbered Python tests plus ad-index `ok`. Final delta: +1 Vitest test and +14 Python tests; no test deletion or skip observed.
+
+### Fresh discrimination sensor
+
+Sensor ran in three detached temporary worktrees at `9d919ea`. Each worktree used the existing dependency tree only to run the targeted canonical IT-006 test. All scratch worktrees were removed; real-tree porcelain matched the empty pre-sensor baseline before this report update.
+
+| Mutation | Expected regression | Result |
+| --- | --- | --- |
+| Replace conditional final reconciliation with unconditional rebase while retaining the phrase `final reconciliation`. | The formerly surviving edge regression must now fail the exact no-op clause. | KILLED at `tools/shared/tests/autonomous-parallelization.test.ts:44-46`. |
+| Allow a dirty worker to register as a waiter and resume without serial recovery. | PAR-13 dirty-state safety becomes false. | KILLED at `tools/shared/tests/autonomous-parallelization.test.ts:39-40`. |
+| Remove the affected-gate rerun before consuming a newer dependency checkpoint. | PAR-14 permits continuation on unvalidated integration. | KILLED at `tools/shared/tests/autonomous-parallelization.test.ts:48`. |
+
+**Sensor depth:** lightweight, 3 targeted safety-contract mutations focused on the previous FAIL.
+**Sensor result:** PASS — 3/3 killed, 0 survived.
+
+### Code quality and contract parity
+
+| Check | Result |
+| --- | --- |
+| No scope beyond the requested opt-in planning and orchestration contract | PASS |
+| Standard-library planner and resolver reuse existing workflow state | PASS |
+| TLC task execution remains unchanged and sequential within each slice | PASS |
+| Every requirement maps to the canonical resolver, planner, or shared contract suite | PASS |
+| No duplicate test suite, weakened assertion, deleted test, or skipped gate | PASS |
+| Documented test contract followed | PASS — tests assert spec-defined outcomes in their owning layer, and the sensor proves the repaired safety clauses discriminate regressions. |
+
+### Ranked gaps
+
+None. T3R1 closes the previous Major gap without weakening any workflow stage.
+
+### QA disposition
+
+Technical verification is complete. The feature changes public configuration/CLI and docs-as-interface, so the separately routed QA Plan, QA Execute, grouped deep-review, and final delivery gate remain workflow stages; they are not substituted by this technical PASS.
+
+## Final Re-verification Summary
+
+**Overall:** TECHNICAL PASS
+
+- Spec-anchored check: 16/16 requirements matched, 0 gaps.
+- Gate: 109 Vitest + 66 numbered Python tests passed, 0 failed, 0 skipped.
+- Sensor: 3/3 targeted mutations killed, including the prior survivor.
+- Historical FAIL retained above; T3R1 is the closing remediation.
+
+Verdict: PASS

@@ -124,22 +124,22 @@ that reduced wall time never weakens readiness.
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| PAR-01 | Freeze the dispatch policy | Design | Complete |
-| PAR-02 | Freeze the dispatch policy | Design | Complete |
-| PAR-03 | Freeze the dispatch policy | Design | Complete |
-| PAR-04 | Freeze the dispatch policy | Design | Complete |
-| PAR-05 | Plan ready work | Design | Complete |
-| PAR-06 | Plan ready work | Design | Complete |
-| PAR-07 | Plan ready work | Design | Complete |
-| PAR-08 | Plan ready work | Design | Complete |
-| PAR-09 | Plan ready work | Design | Complete |
-| PAR-10 | Plan ready work | Design | Complete |
-| PAR-11 | Plan ready work | Design | Complete |
-| PAR-12 | Preserve workflow evidence | Design | Implementing |
-| PAR-13 | Preserve workflow evidence | Design | Implementing |
-| PAR-14 | Preserve workflow evidence | Design | Implementing |
-| PAR-15 | Preserve workflow evidence | Design | Implementing |
-| PAR-16 | Preserve workflow evidence | Design | Implementing |
+| PAR-01 | Freeze the dispatch policy | Design | Verified |
+| PAR-02 | Freeze the dispatch policy | Design | Verified |
+| PAR-03 | Freeze the dispatch policy | Design | Verified |
+| PAR-04 | Freeze the dispatch policy | Design | Verified |
+| PAR-05 | Plan ready work | Design | Verified |
+| PAR-06 | Plan ready work | Design | Verified |
+| PAR-07 | Plan ready work | Design | Verified |
+| PAR-08 | Plan ready work | Design | Verified |
+| PAR-09 | Plan ready work | Design | Verified |
+| PAR-10 | Plan ready work | Design | Verified |
+| PAR-11 | Plan ready work | Design | Verified |
+| PAR-12 | Preserve workflow evidence | Design | Verified |
+| PAR-13 | Preserve workflow evidence | Design | Verified |
+| PAR-14 | Preserve workflow evidence | Design | Verified |
+| PAR-15 | Preserve workflow evidence | Design | Verified |
+| PAR-16 | Preserve workflow evidence | Design | Verified |
 
 **Coverage:** 16 total, 16 mapped to design, 0 unmapped.
 
