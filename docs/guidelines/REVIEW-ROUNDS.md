@@ -17,7 +17,7 @@ Every nitpick changes the diff, so the next round finds new nitpicks. The loop i
 
 | Stage | Asks | Cap |
 | --- | --- | --- |
-| **Technical Verifier** (every slice that changes code) | Do the tests actually prove the acceptance criteria? | ≤3 fix rounds, then escalate to the human |
+| **Technical Verifier** (every slice that changes code) | Do the tests actually prove the acceptance criteria? | Fingerprint-scoped; halt on third failed remediation |
 | **QA Plan** (public slices) | Which public promises need a walk? | One fresh Verifier session |
 | **QA Execute** (public slices) | Does this behaviour work through the declared adapter? | One fresh Verifier session |
 | **deep-review** (resolved implementation groups) | Is the code correct, safe and maintainable? | ≤2 rounds, blocking findings only |
@@ -60,9 +60,8 @@ final session answers *"does the finished thing feel right?"* after all implemen
    prior rounds. A pending, accepted, or already-resolved issue is never re-raised. This is what makes
    the loop monotonic and therefore finite.
 
-   `tlc-spec-driven` does not have this rule — it bounds the Verifier at 3 iterations but nothing stops
-   a round re-raising what a prior round already found. The count bound alone does not converge; this
-   rule is what makes it converge.
+   `tlc-spec-driven` points here for remediation identity and counting; this rule prevents a renamed
+   finding from resetting its history while allowing a distinct blocker to proceed.
 2. **Nitpicks never trigger a round.** They go to a follow-up list in the pull request. Only `FIX_BEFORE_SHIP` and `REWORK` findings justify another pass. **In an active, already-approved review loop, fix blocking findings without new human approval through the applicable review cap and run the scoped gate after each correction. Findings produced by the final deep-review round (round 2) are corrected automatically in the same loop; do not start round 3; escalate only if the post-fix gate fails or the blocker remains reproducible.** Local fixes only; remote actions retain separate approval requirements.
 3. **Deduplicate by root cause, not by occurrence.** One missing null check repeated in six files is
    one finding that lists six files — not six findings.
@@ -87,15 +86,15 @@ identity and buys the same independence.
    killed-process shim, a test-of-the-test, or a prefix allowlist the spec did not name is overbuild.
    Filed-issue review uses the same rule. `ponytail-review` is the skill; this rule is what makes
    YAGNI blocking.
-
+## Fingerprinted remediation accounting
+`fingerprint = requirement + root cause + failure path` is each finding's immutable identity. Maintain an independent failed-remediation counter for each fingerprint; count only a scoped post-fix gate failure. Halt on the third failed remediation of the same fingerprint and escalate the path.
+Rewording or reopening a finding preserves its fingerprint and counter. A distinct blocker starts at count zero and does not consume another fingerprint's counter; the diagnostic cap is separate.
 ## Finding shape
-
 Every finding states, in this order:
 
 - **Premise** — the fact in the code that starts the argument, with `file:line`
 - **Path** — the concrete sequence from that fact to a wrong outcome
 - **Verdict** — severity from the taxonomy below, never inflated
-
 A finding without a failure path is an advisory, not a defect. Advisories state
 **Premise → Improvement → Fix** and never block.
 

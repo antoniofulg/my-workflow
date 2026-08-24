@@ -7,7 +7,7 @@ file before every atomic commit, and close every code-changing slice with a fres
 The feature's frozen mode is authoritative; absent a capable executor, use the existing serial path.
 
 **Design:** `.specs/features/parallel-slice-executor/design.md`
-**Status:** Blocked after Technical Verifier cap
+**Status:** In Progress
 
 ## Test Coverage Matrix
 
@@ -217,10 +217,35 @@ T3 + T4 + T6 -> T7
 
 ## Review Remediation
 
-The Slice A Technical Verifier remains FAIL after T2R1, T2R2, and T2R3. IT-001 does not prove the
-public `resume` verb in `safe` mode against persisted pending state; the adapter-removal mutant
-survives. T3-T7 remain blocked until the human authorizes an exceptional fix/reverify or changes the
-contract. No further remediation is scheduled implicitly.
+The human rejected a slice-global cap because the prior rounds closed different blockers. T2R4
+corrects the durable convergence rule before T2R5 resumes the remaining IT-001 fingerprint. T3-T7
+remain blocked only until Slice A passes its Technical Verifier.
+
+### T2R4: Count verification attempts per blocker fingerprint
+
+**Remediation status:** complete
+**Slice:** A
+**Remediation resources:** none
+**Observable behaviour:** Technical Verifier remediation counts are keyed by requirement, root cause, and failure path; distinct blockers start at one and the same blocker halts only after its third failed remediation.
+**Where:** `docs/guidelines/REVIEW-ROUNDS.md`
+**Remediation depends on:** T2R3
+**Remediation requirements:** EXE-23, EXE-24, EXE-25
+**Remediation tests:** IT-008 in `tools/shared/tests/qa-skills.test.ts` plus existing shared workflow tests.
+**Remediation gate:** Targeted Vitest, full `npm_config_offline=true npm test`, strict spec/tasks validators, AD index, writing-skills audit, and `git diff --check`.
+**Remediation commit:** `fix(workflow): count repeated verification blockers`.
+
+### T2R5: Prove safe-mode CLI resume
+
+**Remediation status:** pending
+**Slice:** A
+**Remediation resources:** none
+**Observable behaviour:** Public CLI `resume` loads persisted pending safe-mode state, constructs the selected adapter, reconciles the receipt without a duplicate effect, and emits its own correlated JSON result.
+**Where:** `.agents/skills/autonomous/scripts/parallel_execute.py`
+**Remediation depends on:** T2R4
+**Remediation requirements:** EXE-03, EXE-04, EXE-05
+**Remediation tests:** IT-001 safe-mode resume in `tools/test_parallel_executor.py`; the adapter-removal mutant must die.
+**Remediation gate:** Executor tests, strict spec/tasks validators, AD index, `git diff --check`, and fresh Technical Verifier.
+**Remediation commit:** `fix(workflow): prove safe resume reconciliation`.
 
 ### T2R1: Harden resume, disabled-mode, isolation, and lease recovery
 

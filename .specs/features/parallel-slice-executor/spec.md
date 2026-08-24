@@ -109,6 +109,19 @@ so that one checkout cannot silently test another checkout's runtime or data.
 
 **Independent Test:** Run a command-provider double for success, duplication, malformed data, timeout, and cleanup, and prove resource-bearing lanes never start without an accepted lease.
 
+### P1: Continue unattended while verification converges
+
+**User Story:** As an operator leaving an autonomous run unattended, I want verification limits
+scoped to the blocker that is not converging so unrelated findings do not waste the delivery window.
+
+**Acceptance Criteria:**
+
+1. **EXE-23:** WHEN a Technical Verifier reports a blocking finding THEN the workflow SHALL fingerprint it by requirement, root cause, and concrete failure path and SHALL persist its failed-remediation count.
+2. **EXE-24:** WHEN a different blocker fingerprint appears after another closes THEN its count SHALL start at one and the autonomous run SHALL continue through the approved local remediation loop.
+3. **EXE-25:** IF the same blocker fingerprint fails three remediation attempts THEN the workflow SHALL halt for human direction; wording changes or reopening the same requirement, root cause, and failure path SHALL retain that fingerprint and count.
+
+**Independent Test:** Inspect the canonical review rule, every TLC/autonomous pointer, and the public workflow documentation for one blocker-scoped convergence contract with no global three-round wording.
+
 ## Security Surfaces
 
 | ID | Surface | Control | Requirements |
@@ -187,8 +200,11 @@ so that one checkout cannot silently test another checkout's runtime or data.
 | SEC-006 | Orca adapter | B | Planned |
 | SEC-007 | Resource provider | D | Complete |
 | SEC-008 | Resource provider | D | Complete |
+| EXE-23 | Review convergence policy | A | Complete |
+| EXE-24 | Review convergence policy | A | Complete |
+| EXE-25 | Review convergence policy | A | Complete |
 
-**Coverage:** 30 total requirements, 30 mapped, 0 unmapped.
+**Coverage:** 33 total requirements, 33 mapped, 0 unmapped.
 
 ## Success Criteria
 
@@ -198,4 +214,5 @@ so that one checkout cannot silently test another checkout's runtime or data.
 - [ ] Disposable Git tests prove checkpoint rebase, conflict abort, evidence invalidation, and slice merge.
 - [ ] Resource-bearing lanes cannot run without a conforming provider; `Resources: none` remains usable.
 - [ ] A real Orca pilot records two concurrent isolated worktrees and terminal event cleanup.
+- [ ] Distinct Technical Verifier blockers no longer consume one global remediation cap.
 - [ ] TLC implementation, commit, Verifier, deep-review, and QA semantics remain unchanged.

@@ -3,11 +3,11 @@
 ## Handoff
 
 - **Feature**: `.specs/features/parallel-slice-executor`
-- **Phase / Task**: Execute / Slice A post-cap technical verification
+- **Phase / Task**: Execute / Slice A / T2R4
 - **Completed**: T1, T2, T2R1, T2R2, T2R3
 - **In-progress** (file:line): none
-- **Next step**: Human decides whether to authorize one exceptional, narrowly scoped IT-001 fix and fresh Technical Verifier; do not start T3-T7 first.
-- **Blockers**: Public CLI `resume` is proven only in `disabled`; a safe-mode adapter-removal mutant survives after three fix rounds.
+- **Next step**: Implement blocker-scoped convergence in T2R4, then T2R5 safe-mode resume and a fresh Technical Verifier before T3-T7.
+- **Blockers**: none; the human cleared the global-cap halt and retained IT-001 as the active blocker fingerprint.
 - **Uncommitted files**: none after the blocker-record commit
 - **Branch**: `feat/parallel-slice-executor`
 
@@ -175,5 +175,20 @@
 - **Reason**: Orca's public worktree-create command does not accept a destination path, while SEC-004 requires destination validation before the first writer or worker process.
 - **Trade-off**: The core owns this narrow Git worktree primitive; adapter-specific worker and event effects remain behind the provider-neutral protocol.
 - **Scope**: Parallel slice executor worktree creation, adapter contracts, and future worktree/worker providers.
+- **Date**: 2026-08-24
+- **Status**: active
+
+### AD-012
+
+- **Decision**: Technical Verifier remediation is bounded per blocker fingerprint, defined by the
+  requirement, root cause, and concrete failure path. Distinct blockers start independent counts;
+  the same fingerprint halts only after its third failed remediation, and reopening retains its
+  identity and count.
+- **Reason**: A slice-global round cap can stop an unattended run even while each cycle closes a
+  different defect, wasting the delivery window without signalling non-convergence.
+- **Trade-off**: A slice with many distinct blockers can run longer, while repeated or renamed
+  versions of one blocker remain bounded and all other halt conditions still apply.
+- **Scope**: Technical Verifier fix/reverify loops, autonomous halt decisions, TLC verifier guidance,
+  review workflow documentation, and their contract tests.
 - **Date**: 2026-08-24
 - **Status**: active

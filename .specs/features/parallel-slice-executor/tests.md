@@ -24,6 +24,7 @@
 | IT-005 | EXE-19–EXE-22 | Frozen provider config | Missing, valid, external, directory, or symlinked provider path | Snapshot freezes the safe executable or resolution fails without replacing prior state. |
 | IT-006 | EXE-18–EXE-21 | Planned resource requirements | Valid, missing, or ambiguous task `Resources` metadata | Plan exposes exact names or selects serial fallback before execution. |
 | IT-007 | EXE-01–EXE-22 | Autonomous contract | Shared workflow suite reads executor policy | Core/adapter boundary, serial fallback, TLC order, checkpoints, evidence, and lifecycle remain mandatory. |
+| IT-008 | EXE-23–EXE-25 | Blocker-scoped convergence | Shared review contract reads the canonical rule, TLC pointers, and public docs | Fingerprint is requirement + root cause + failure path; distinct blockers start at one; the same blocker halts only after three failed remediations. |
 
 ## End-to-end
 
@@ -59,3 +60,4 @@ provider and QA adapter.
 | IT-005 | T5 |
 | IT-006 | T6 |
 | IT-007, E2E-001 | T7 |
+| IT-008 | T2R4 |

@@ -40,6 +40,13 @@ pilot. TLC remains the sequential engine inside every slice and every existing r
 - A future IDE implements the same protocol and conformance suite.
 - Resource allocation is a consumer-owned command provider; the core accepts only a correlated lease receipt.
 
+### Verification convergence
+
+- Technical Verifier remediation limits belong to each blocker fingerprint, not the whole slice.
+- A fingerprint is requirement, root cause, and concrete failure path; changed wording does not mint a new blocker.
+- Different blockers start their own count and do not stop an unattended run that is still making progress.
+- The third failed remediation of the same fingerprint halts; a reopened blocker retains its prior identity and count.
+
 ### Agent's Discretion
 
 - Python module split, internal type names, JSON key ordering, and bounded timeout defaults.

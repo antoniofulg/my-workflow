@@ -13,3 +13,4 @@
 - T2R1 requires lazy disabled-mode startup, pending receipt reconciliation, preflight path/provider checks, and terminal lease cleanup evidence.
 - T2R2 derives and validates sibling Git worktree destinations before writes; Orca adapters attach workers to existing checkouts rather than allocating paths.
 - T2R3 removes adapter worktree allocation entirely, validates recovered leases through the fresh-receipt normalizer, and exposes CLI resume as a distinct command result.
+- T2R4 makes review convergence fingerprint-scoped; `REVIEW-ROUNDS.md` is canonical and bridge docs must not restate its full accounting.

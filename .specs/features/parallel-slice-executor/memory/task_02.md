@@ -7,3 +7,4 @@
 - T2R1 regression gate: `python3 tools/test_parallel_executor.py` passed with 21 cases; validation gaps are recorded in `validation.md` and the scoped S11 threat model is `threat-model.md`.
 - T2R2 regression gate: `python3 tools/test_parallel_executor.py` passed with 25 cases during implementation; pending action boundaries and Git destination contract are covered.
 - T2R3 regression gate: `python3 tools/test_parallel_executor.py` passed with 26 cases during implementation; pending worker, nested lease, no-legacy-adapter, and CLI resume cases are covered.
+- T2R4 gate: targeted IT-008 passed with 23 tests; full npm gate and strict documentation/task/index checks remain the commit gate.

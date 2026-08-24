@@ -32,7 +32,7 @@ These pages do not restate the rules. The guidelines remain the source of truth 
 
 ```
 per slice    implement → scoped gate → atomic commit
-             Verifier ≤3  →  QA walk if user-visible
+             Verifier fingerprint cap  →  QA walk if user-visible
 resolved     deep-review groups from workflow config, before QA
 
 feature      QA session (no product code)
@@ -41,5 +41,8 @@ then         full gate → pull request
 
 Public hierarchy: `Feature -> Vertical Slice -> Task`. Read
 `.agents/skills/workflow-config/SKILL.md` before dispatch; it resolves cadence and delegated providers.
+
+Repeated review blockers use the immutable fingerprint and independent counter in
+[`REVIEW-ROUNDS.md`](../guidelines/REVIEW-ROUNDS.md); this guide does not duplicate that protocol.
 
 A filed issue skips the ceremony: `implement → scoped gate → one commit`.

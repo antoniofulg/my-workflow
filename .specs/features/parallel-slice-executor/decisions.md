@@ -9,6 +9,7 @@
 | End a waiting worker turn and resume it by follow-up. | Event-driven idle time uses no model polling tokens. | Watchdog agent or periodic status prompts. | Change worker lifecycle and runtime adapter. | A dependency event creates one later worker turn. |
 | Make execution IDE-agnostic with Orca as the first adapter. | Teams may move IDEs while keeping the workflow. | Orca-specific policy core. | Replace or extend the adapter conformance boundary. | Non-Orca environments remain serial until an adapter exists. |
 | Keep versioned feature specs and local runtime receipts separate. | Specs are shared truth; terminal/lease IDs are host state. | Ignore feature state or commit runtime identifiers. | Migrate local state discovery and cleanup. | Resume needs access to the same Git repository metadata. |
+| Count Technical Verifier remediation per blocker fingerprint. | Distinct findings show progress and must not stop an unattended run after an unrelated global count. | One three-round cap for the entire slice; an unbounded loop with no repeated-blocker stop. | Update the canonical review rule, TLC pointers, public docs, and contract tests. | A genuinely new blocker receives its own bounded remediation window. |
 
 ## Autonomous run decisions
 
@@ -26,6 +27,7 @@
 | Decision | Record |
 | --- | --- |
 | Parallel execution policy is provider-neutral; Git owns prevalidated worktree creation, Orca owns worker/events, and missing resource capability serializes. | `AD-011` in `.specs/STATE.md` supersedes `AD-010`. |
+| Technical Verifier convergence is bounded per blocker fingerprint rather than by a slice-global round count. | `AD-012` in `.specs/STATE.md`. |
 
 ## Halt report
 
@@ -34,7 +36,6 @@ executor tests pass and the final sensor kills pending-worker and recovered-leas
 IT-001 exercises public CLI `resume` only in `disabled`. Removing adapter construction from the
 parallel `resume` path still passes the suite.
 
-T3-T7 have not started. Continuing requires a human decision because `docs/guidelines/REVIEW-ROUNDS.md`
-caps this loop. The recommended choice is one exceptional fix limited to safe-mode persisted-state
-`resume`, followed by a fresh Technical Verifier. Accepting the gap or weakening IT-001 conflicts
-with the user's reliability requirement.
+The human determined that a global counter contradicts unattended delivery because the three rounds
+closed different blockers. The halt is cleared by `AD-012`: T2R4 corrects the convergence rule and
+T2R5 addresses the remaining safe-mode `resume` fingerprint without weakening IT-001.

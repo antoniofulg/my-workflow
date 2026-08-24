@@ -233,6 +233,32 @@ describe("canonical QA skills", () => {
     expect(() => parseSkillMetadata("name: qa-plan\ndescription: misplaced", "fixture")).toThrow(
       "Missing valid initial frontmatter",
     );
+
+    const reviewRounds = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
+    expect(reviewRounds).toContain("fingerprint = requirement + root cause + failure path");
+    expect(reviewRounds).toContain("independent failed-remediation counter for each fingerprint");
+    expect(reviewRounds).toContain("third failed remediation of the same fingerprint");
+    expect(reviewRounds).toContain("Rewording or reopening a finding preserves its fingerprint and counter");
+    expect(reviewRounds).toContain("A distinct blocker starts at count zero and does not consume another fingerprint's counter");
+    expect(reviewRounds).not.toMatch(/one global (?:remediation|blocker) counter/i);
+
+    for (const relativePath of [
+      ".agents/skills/tlc-spec-driven/SKILL.md",
+      ".agents/skills/tlc-spec-driven/references/validate.md",
+      ".agents/skills/tlc-spec-driven/references/sub-agents.md",
+      ".agents/skills/tlc-spec-driven/references/implement.md",
+      ".agents/skills/autonomous/SKILL.md",
+      "docs/workflow/reviews.md",
+      "docs/workflow/README.md",
+      "docs/workflow/purpose.md",
+    ]) {
+      const source = readRepositoryFile(relativePath);
+      expect(source).toContain("REVIEW-ROUNDS.md");
+      expect(source).toContain("fingerprint");
+    }
+    expect(readRepositoryFile(".agents/skills/tlc-spec-driven/references/validate.md")).toContain(
+      "diagnostic cap is per issue and separate from review-remediation fingerprint accounting",
+    );
   });
 
   it("IT-003 dispatches all QA phases through each existing Verifier", () => {
