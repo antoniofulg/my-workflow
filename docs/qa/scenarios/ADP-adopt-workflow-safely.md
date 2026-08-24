@@ -4,21 +4,21 @@ area: ADP
 title: Adopt the workflow without replacing consumer-owned state
 persona: Workflow adopter
 journey: J-adopt-workflow
-expected: A fresh target receives the workflow resolver, tools/ad-index.py, and a workflow tour without the pack-only guide or dead links; its instructions keep Ponytail active from workflow start through the full cycle; re-adoption preserves consumer-owned state; and feature workflow state remains visible to Git.
-entry_points: README.md#adopt-the-workflow; docs/guidelines/ARTIFACT-LIFECYCLE.md; scripts/adopt.py; .my-workflow.toml
+expected: A fresh target receives the workflow resolver, tracked example/templates, initialized local config, generated runtime packets, tools/ad-index.py, and a valid workflow tour; re-adoption preserves consumer-owned local state and feature workflow state remains visible to Git.
+entry_points: README.md#adopt-the-workflow; docs/guidelines/ARTIFACT-LIFECYCLE.md; scripts/adopt.py; .my-workflow.toml.example; .my-workflow.toml; templates/agents/
 qa_status: pass
 bug_ids: BUG-20260822-deep-review-learnings-untrackable; BUG-20260822-feature-specs-ignored; BUG-20260822-feature-state-gate-conflicts
 fix_status: fixed
 retest_status: pass
 fix_commits: 0413862; a7397d2; 43e9910; a3fc718; 5b5474e
-evidence: docs/qa/evidence/2026-08-22-preserve-consumer-ad-index/session.md; docs/qa/evidence/2026-08-22-source-only-pack-guide/session.md; docs/qa/evidence/2026-08-22-version-feature-specs-handoff/session.md; docs/qa/evidence/2026-08-22-validate-generated-feature-contracts/session.md; docs/qa/evidence/2026-08-22-ponytail-full-cycle/session.md; docs/qa/evidence/2026-08-22-authoritative-validation-verdict/session.md; docs/qa/evidence/2026-08-22-deep-review-learnings-retest/session.md; docs/qa/evidence/2026-08-22-version-feature-state-by-default/session.md; docs/qa/evidence/2026-08-24-ai-memory-handoff/session.md
-last_report: docs/qa/reports/2026-08-24-ai-memory-handoff.md
+evidence: docs/qa/evidence/2026-08-24-agent-model-routing-local-state/session.log
+last_report: docs/qa/reports/2026-08-24-agent-model-routing-local-state.md
 overlaps:
 ---
 
-Covers `CWF-ADOPT-1` through `CWF-ADOPT-3`: resolver installation, safe capability discovery,
-managed-path review, initial profile creation, preservation of `.my-workflow.toml`, and the installed
-hierarchy/resolution instructions when the workflow is adopted again.
+Covers `CWF-ADOPT-1` through `CWF-ADOPT-3`: resolver installation, tracked-source discovery,
+managed-path review, initial profile creation, preservation of `.my-workflow.toml` and templates,
+runtime regeneration, and the installed hierarchy/resolution instructions when adopted again.
 
 For issue #36, fresh adoption must install `tools/ad-index.py`; after the consumer changes that file,
 re-adoption must preserve its bytes.

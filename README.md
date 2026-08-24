@@ -83,13 +83,24 @@ remains visible to Git. Adoption removes only the exact legacy `.specs/features/
 including duplicates, preserves consumer-owned lines and comments, and never stages or commits
 files.
 
-The workflow config is consumer-owned and optional. Copy
-`.my-workflow.toml.example` to `.my-workflow.toml` when a project wants to make its cadence or
-provider profile explicit. Adoption never creates or overwrites this file:
+The tracked `.my-workflow.toml.example` documents the complete v2 matrix and `mixed` profile. Each
+checkout owns an ignored `.my-workflow.toml`, initialized from that example by sync or adoption;
+it is the single editable source for all Claude, Codex, and Cursor model and effort choices. The
+tracked `templates/agents/` trees hold canonical instruction bodies, while sync generates the
+ignored native runtime packets. Re-adoption preserves an existing local config byte-for-byte and
+regenerates runtime packets from the templates and that config.
 
 ```bash
-cp /path/to/my-workflow/.my-workflow.toml.example /path/to/target-project/.my-workflow.toml
+python3 .agents/skills/workflow-config/scripts/workflow_config.py \
+  --root /path/to/target-project --sync-agents
 ```
+
+Edit the `[models.<provider>.<role>]` tables in the local `.my-workflow.toml`, then run the explicit
+sync command. If the local file is missing, sync validates and copies
+`.my-workflow.toml.example` first. It reports changed and unchanged runtime packet paths and is
+idempotent. Native `model`, `effort`, and `model_reasoning_effort` fields are generated output; do
+not edit runtime packets manually. Runtime edits are disposable; edit tracked templates when
+changing instruction bodies.
 
 The `cadence` controls the deep-review groups:
 
@@ -120,9 +131,10 @@ python3 .agents/skills/workflow-config/scripts/workflow_config.py \
 ```
 
 The first resolution freezes the effective route and cadence in
-`.specs/features/<feature>/workflow.json`. On resume, the snapshot is authoritative: changes to
-`.my-workflow.toml` or resolver arguments are ignored. Run the resolver with `--refresh` only after
-an explicit human request to resolve the feature again:
+`.specs/features/<feature>/workflow.json`, including model and effort for every delegated role.
+Planner is synchronized but remains the top-level session, not a delegated snapshot role. On
+resume, the snapshot is authoritative and packet metadata must still match its frozen model and
+effort. If it differs, synchronize packets and explicitly refresh; ordinary resume will fail:
 
 ```bash
 python3 .agents/skills/workflow-config/scripts/workflow_config.py \
@@ -165,11 +177,13 @@ product-owned product, architecture, design, and stack documentation. For a new 
 the AGENTS.md product stencil and create product docs only as the product earns them. For an
 existing project, the default command refuses a filled product paragraph; use `--skip-agents` when
 you want the rest of the workflow installed first, then merge the delivery loop into `AGENTS.md`
-and update `CLAUDE.md` by hand. Preserve existing agent packets and model pins; add only missing
-packets.
+and update `CLAUDE.md` by hand. Preserve an existing local `.my-workflow.toml` byte-for-byte.
+Install missing example/templates, then let `--sync-agents` generate the ignored runtime packets;
+runtime edits are disposable and tracked templates are the instruction source.
 
 Run `python3 /path/to/my-workflow/scripts/adopt.py /path/to/target-project` only after that review.
-For a filled product paragraph, use `--skip-agents` as described above.
+For a filled product paragraph, use `--skip-agents` as described above. Adoption also runs the
+target's explicit `--sync-agents` command after installing missing example/templates.
 If `docs/qa/README.md` is absent, create it. If it exists, merge only newly discovered facts into
 the existing profile; never overwrite existing content. Record the discovered interfaces, existing
 runner or manual adapter, start and health authority, authentication, fixtures, cleanup, and
@@ -185,8 +199,9 @@ workflow work, activate `ponytail` at `full`; `AGENTS.md` carries the full-cycle
 the explicit stop commands.
 ```
 
-The script merges the workflow-owned ignore entries, copies missing agent packets, and creates the
-QA profile only when the target does not already have one. By default it refuses to overwrite a
+The script merges the workflow-owned ignore entries, copies missing example/templates, generates
+local runtime packets, and creates the QA profile only when the target does not already have one.
+By default it refuses to overwrite a
 non-stencil `AGENTS.md` product paragraph. With `--skip-agents`, it leaves both `AGENTS.md` and
 `CLAUDE.md` untouched. Always review the resulting diff before accepting managed-path replacements.
 Adoption itself does not install external security skills. It prints the exact command for the
@@ -212,9 +227,10 @@ The installer uses only the reviewed refs and hashes in `skills-lock.json`; it d
 `latest` or perform automatic updates. Review its printed plan and authorize the command before
 running it. Until it succeeds, do not treat the security gate as covered.
 
-`autonomous` is vendored here. `CLAUDE.md` is the one line `@AGENTS.md` (not a symlink). Planner,
-implementer, explorer and verifier packets live under `.cursor/agents/`, `.claude/agents/` and
-`.codex/agents/`.
+`autonomous` is vendored here. `CLAUDE.md` is the one line `@AGENTS.md` (not a symlink). Canonical
+packet templates live under `templates/agents/{cursor,claude,codex}/`; generated implementer,
+explorer and verifier runtimes live under the ignored `.cursor/agents/`, `.claude/agents/` and
+`.codex/agents/` directories.
 
 ## Knowledge checker
 

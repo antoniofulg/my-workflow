@@ -1,0 +1,41 @@
+{
+  "deep_review": {
+    "cadence": "grouped.3",
+    "groups": [
+      [
+        1
+      ]
+    ]
+  },
+  "feature": "agent-model-routing",
+  "git_head": "e3f7150b3c20220c3a9c297e68b3c5aae8cfd0b9",
+  "overrides": {},
+  "profile": null,
+  "roles": {
+    "deep_reviewer": {
+      "agent_file": ".codex/agents/deep-reviewer.toml",
+      "effort": "high",
+      "model": "gpt-5.6-luna",
+      "provider": "codex"
+    },
+    "explorer": {
+      "agent_file": ".codex/agents/explorer.toml",
+      "effort": "medium",
+      "model": "gpt-5.6-luna",
+      "provider": "codex"
+    },
+    "implementer": {
+      "agent_file": ".codex/agents/implementer.toml",
+      "effort": "high",
+      "model": "gpt-5.6-luna",
+      "provider": "codex"
+    },
+    "verifier": {
+      "agent_file": ".codex/agents/verifier.toml",
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "provider": "codex"
+    }
+  },
+  "version": 2
+}

@@ -6,12 +6,17 @@ from __future__ import annotations
 import re
 import shlex
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
 STENCIL = "<!-- product-stencil:"
 
 WORKFLOW_GITIGNORE_ENTRIES = (
+    ".my-workflow.toml",
+    ".claude/agents/",
+    ".codex/agents/",
+    ".cursor/agents/",
     "!.deep-review/",
     ".deep-review/*",
     "!.deep-review/learnings.md",
@@ -60,12 +65,11 @@ COPY_PATHS = [
 
 # The profile is a template. A consuming project's existing profile is product-owned and must
 # survive re-adoption.
-COPY_MISSING_PATHS = ["docs/qa/README.md", "tools/ad-index.py"]
-
-AGENT_PATHS = [
-    ".cursor/agents",
-    ".claude/agents",
-    ".codex/agents",
+COPY_MISSING_PATHS = [
+    "docs/qa/README.md",
+    "tools/ad-index.py",
+    ".my-workflow.toml.example",
+    "templates/agents",
 ]
 
 
@@ -140,15 +144,6 @@ def write_claude(dest: Path) -> None:
     if link.exists() or link.is_symlink():
         link.unlink()
     link.write_text("@AGENTS.md\n", encoding="utf-8")
-
-
-def copy_agents(src: Path, dest: Path) -> None:
-    for rel in AGENT_PATHS:
-        origin = src / rel
-        target = dest / rel
-        if not origin.exists():
-            continue
-        copy_missing(origin, target)
 
 
 def remove_source_only_pack_link(dest: Path) -> None:
@@ -246,7 +241,6 @@ def main(argv: list[str]) -> None:
         if not origin.exists():
             continue
         copy_missing(origin, dest / rel)
-    copy_agents(src, dest)
     remove_legacy_managed_ignore(
         dest, ".gitignore", LEGACY_WORKFLOW_GITIGNORE_ENTRIES
     )
@@ -255,6 +249,18 @@ def main(argv: list[str]) -> None:
     if not skip_agents:
         write_claude(dest)
     link_claude_skills(dest)
+    resolver = dest / ".agents/skills/workflow-config/scripts/workflow_config.py"
+    if resolver.is_file():
+        result = subprocess.run(
+            [sys.executable, str(resolver), "--root", str(dest), "--sync-agents"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            detail = result.stderr.strip() or result.stdout.strip() or "unknown synchronization error"
+            die(f"adoption could not synchronize agent metadata: {detail}")
+        print(result.stdout.strip())
     print(f"adopted workflow into {dest}")
     installer = src / "scripts" / "install_security_skills.py"
     command = shlex.join(("python3", str(installer), str(dest), "--yes"))

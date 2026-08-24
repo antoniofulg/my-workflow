@@ -15,10 +15,13 @@
    at workflow start and keep it active through the full cycle, the copied workflow tour omits the
    source-only pack guide and its links, all three external security skills remain absent, and
    adoption prints their separate authorized installation command.
-5. Re-adopt a target with a consumer-owned `.my-workflow.toml`, QA profile, model pin,
-   `tools/ad-index.py`, and unrelated ignore entries.
-6. Confirm consumer-owned state survives byte-for-byte and the resulting diff remains reviewable.
-7. Continue to [`J-enable-external-security-skills`](J-enable-external-security-skills.md) only after
+5. Re-adopt a target with a consumer-owned `.my-workflow.toml`, QA profile, model settings,
+   template bodies, `tools/ad-index.py`, and unrelated ignore entries.
+6. Confirm the local config and consumer-owned template/profile state survive byte-for-byte, runtime
+   packets regenerate, and the resulting diff remains reviewable.
+7. Pack and clone the adopted source state; confirm tracked example/templates travel while local
+   config/runtime packets do not, then regenerate the checkout-local packets from tracked sources.
+8. Continue to [`J-enable-external-security-skills`](J-enable-external-security-skills.md) only after
    explicitly authorizing its networked installer step.
 
 ## Promises

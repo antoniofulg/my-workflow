@@ -116,3 +116,33 @@ Idle.
   threat model, and this decision record.
 - **Date**: 2026-08-23
 - **Status**: active
+
+### AD-009
+
+- **Decision**: `.my-workflow.toml` is the single editable source for bundled Claude, Codex, and
+  Cursor agent models and efforts. Provider packet metadata is generated through explicit sync, and
+  delegated model settings freeze in each feature workflow snapshot.
+- **Reason**: Provider-specific model pins duplicate one operator choice across three syntaxes and
+  can silently diverge. The native runtimes still require those fields, so generated metadata keeps
+  their contracts while centralizing ownership.
+- **Trade-off**: Native packet files remain materialized tracked output, and an active feature needs
+  explicit refresh after a deliberate model change. Provider runtimes still decide whether a model
+  supports a selected effort.
+- **Scope**: `.my-workflow.toml`, provider agent packets, workflow configuration and snapshots,
+  adoption, tests, and public workflow documentation.
+- **Date**: 2026-08-24
+- **Status**: superseded by AD-010
+
+### AD-010
+
+- **Decision**: Track `.my-workflow.toml.example` and provider packet templates, while keeping
+  `.my-workflow.toml` and generated `.claude`, `.codex`, and `.cursor` runtime agent trees local and
+  ignored. Feature snapshots continue to freeze delegated model and effort settings.
+- **Reason**: Provider access, quotas, profiles, models, and efforts vary by operator. Switching them
+  must not create repository changes, while agent instructions still need a reviewable source.
+- **Trade-off**: A fresh checkout must initialize local config and generate runtime packets before
+  custom agents are available.
+- **Scope**: Workflow configuration, provider templates/runtime packets, adoption, packaging, tests,
+  documentation, and feature snapshots.
+- **Date**: 2026-08-24
+- **Status**: active

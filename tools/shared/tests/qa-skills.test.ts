@@ -49,9 +49,9 @@ function normalizePacket(source: string): string {
 }
 
 const verifierPacketPaths = [
-  ".cursor/agents/verifier.md",
-  ".claude/agents/verifier.md",
-  ".codex/agents/verifier.toml",
+  "templates/agents/cursor/verifier.md",
+  "templates/agents/claude/verifier.md",
+  "templates/agents/codex/verifier.toml",
 ] as const;
 
 describe("QA workflow artifact policy", () => {
@@ -91,14 +91,14 @@ describe("QA workflow artifact policy", () => {
     const validator = readRepositoryFile(".agents/skills/tlc-spec-driven/references/validate.md");
     const memory = readRepositoryFile(".agents/skills/tlc-spec-driven/references/memory.md");
     const providerPackets = [
-      readRepositoryFile(".cursor/agents/implementer.md"),
-      readRepositoryFile(".claude/agents/implementer.md"),
-      readRepositoryFile(".codex/agents/implementer.toml"),
+      readRepositoryFile("templates/agents/cursor/implementer.md"),
+      readRepositoryFile("templates/agents/claude/implementer.md"),
+      readRepositoryFile("templates/agents/codex/implementer.toml"),
     ];
     const plannerPackets = [
-      readRepositoryFile(".cursor/agents/planner.md"),
-      readRepositoryFile(".claude/agents/planner.md"),
-      readRepositoryFile(".codex/agents/planner.toml"),
+      readRepositoryFile("templates/agents/cursor/planner.md"),
+      readRepositoryFile("templates/agents/claude/planner.md"),
+      readRepositoryFile("templates/agents/codex/planner.toml"),
     ];
 
     expect(agents).toMatch(
@@ -518,59 +518,43 @@ describe("agent configuration", () => {
     const value = (source: string, format: "frontmatter" | "toml", key: string): string =>
       format === "toml" ? tomlValue(source, key) : frontmatterValue(source, key);
 
-    const matrix = [
-      [".claude/agents/planner.md", "planner", "opus", "high", "frontmatter"],
-      [".claude/agents/implementer.md", "implementer", "opus", "medium", "frontmatter"],
-      [".claude/agents/verifier.md", "verifier", "opus", "medium", "frontmatter"],
-      [".claude/agents/explorer.md", "explorer", "sonnet", "medium", "frontmatter"],
-      [".cursor/agents/planner.md", "planner", "cursor-grok-4.6[effort=high]", "", "frontmatter"],
-      [".cursor/agents/implementer.md", "implementer", "gpt-5.6-luna[effort=high]", "", "frontmatter"],
-      [".cursor/agents/verifier.md", "verifier", "cursor-grok-4.6[effort=medium]", "", "frontmatter"],
-      [".cursor/agents/explorer.md", "explorer", "gpt-5.6-luna[effort=medium]", "", "frontmatter"],
-      [".codex/agents/planner.toml", "planner", "gpt-5.6-sol", "high", "toml"],
-      [".codex/agents/implementer.toml", "implementer", "gpt-5.6-luna", "high", "toml"],
-      [".codex/agents/verifier.toml", "verifier", "gpt-5.6-sol", "medium", "toml"],
-      [".codex/agents/explorer.toml", "explorer", "gpt-5.6-luna", "medium", "toml"],
-    ] as const;
+    const config = readRepositoryFile(".my-workflow.toml.example");
+    const settings = new Map<string, { model: string; effort: string }>();
+    const section = /\[models\.(claude|codex|cursor)\.(planner|implementer|verifier|explorer|deep_reviewer)\]\s+model = "([^"]+)"\s+effort = "([^"]+)"/g;
+    for (const match of config.matchAll(section)) {
+      settings.set(`${match[1]}.${match[2]}`, { model: match[3], effort: match[4] });
+    }
+    expect(settings.size).toBe(15);
 
-    for (const [relativePath, expectedName, expectedModel, expectedEffort, format] of matrix) {
-      const source = readRepositoryFile(relativePath);
-
-      expect(value(source, format, "name")).toBe(expectedName);
-      expect(value(source, format, "model")).toBe(expectedModel);
-      if (format === "toml") {
-        expect(value(source, format, "model_reasoning_effort")).toBe(expectedEffort);
-      } else if (expectedEffort) {
-        expect(value(source, format, "effort")).toBe(expectedEffort);
+    for (const provider of ["claude", "codex", "cursor"] as const) {
+      for (const role of ["planner", "implementer", "verifier", "explorer", "deep_reviewer"] as const) {
+        const agentName = role === "deep_reviewer" ? "deep-reviewer" : role;
+        const extension = provider === "codex" ? "toml" : "md";
+        const format = provider === "codex" ? "toml" : "frontmatter";
+        const relativePath = `templates/agents/${provider}/${agentName}.${extension}`;
+        const source = readRepositoryFile(relativePath);
+        const expected = settings.get(`${provider}.${role}`)!;
+        expect(value(source, format, "name")).toBe(agentName);
+        if (provider === "cursor") {
+          expect(value(source, format, "model")).toBe(`${expected.model}[effort=${expected.effort}]`);
+        } else {
+          expect(value(source, format, "model")).toBe(expected.model);
+          const effortKey = provider === "codex" ? "model_reasoning_effort" : "effort";
+          expect(value(source, format, effortKey)).toBe(expected.effort);
+        }
+        if (role === "deep_reviewer") {
+          expect(source).toContain("Do not edit source, tests, or configuration.");
+          expect(source).toMatch(/one materialized Deep Review job/i);
+          expect(source).toMatch(/one output artifact/i);
+          expect(source).toMatch(/findings through .*schema/i);
+        }
       }
     }
 
-    const deepReviewers = [
-      [".claude/agents/deep-reviewer.md", "sonnet", "high", "frontmatter"],
-      [".cursor/agents/deep-reviewer.md", "gpt-5.6-luna[effort=high]", "", "frontmatter"],
-      [".codex/agents/deep-reviewer.toml", "gpt-5.6-luna", "high", "toml"],
-    ] as const;
-
-    for (const [relativePath, expectedModel, expectedEffort, format] of deepReviewers) {
-      const source = readRepositoryFile(relativePath);
-
-      expect(value(source, format, "name")).toBe("deep-reviewer");
-      expect(value(source, format, "model")).toBe(expectedModel);
-      if (format === "toml") {
-        expect(value(source, format, "model_reasoning_effort")).toBe(expectedEffort);
-      } else if (expectedEffort) {
-        expect(value(source, format, "effort")).toBe(expectedEffort);
-      }
-      expect(source).toContain("Do not edit source, tests, or configuration.");
-      expect(source).toMatch(/one materialized Deep Review job/i);
-      expect(source).toMatch(/one output artifact/i);
-      expect(source).toMatch(/findings through .*schema/i);
-    }
-
-    expect(readRepositoryFile(".claude/agents/deep-reviewer.md")).toMatch(
+    expect(readRepositoryFile("templates/agents/claude/deep-reviewer.md")).toMatch(
       /^tools:\s*Read, Grep, Glob, Bash$/m,
     );
-    const cursorDeepReviewer = readRepositoryFile(".cursor/agents/deep-reviewer.md");
+    const cursorDeepReviewer = readRepositoryFile("templates/agents/cursor/deep-reviewer.md");
     expect(cursorDeepReviewer).not.toMatch(/^readonly:\s*true$/m);
 
     const runtime = readRepositoryFile(".agents/skills/deep-review/references/subagent-runtimes.md");
@@ -662,9 +646,8 @@ describe("adoption and public setup", () => {
     expect(readme).toContain("no user-visible change");
     expect(adopt).toContain('".agents/skills/qa-plan"');
     expect(adopt).toContain('".agents/skills/qa-execute"');
-    expect(adopt).toContain(
-      'COPY_MISSING_PATHS = ["docs/qa/README.md", "tools/ad-index.py"]',
-    );
+    expect(adopt).toContain('".my-workflow.toml.example"');
+    expect(adopt).toContain('"templates/agents"');
   });
 
   it("IT-019 keeps README installation prerequisites and bundled skills authoritative", () => {

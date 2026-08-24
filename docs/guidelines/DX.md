@@ -52,6 +52,7 @@ What this feature deletes. Hard cuts, no aliases, no dual fields.
    removes something states exactly what goes, and the same change updates every caller.
 6. **It respects the project's boundary.** The consuming project's architecture docs name the product
    boundary. A surface that would violate that boundary is wrong at design time, not at build time.
+7. **Write all versioned or published text in English.**
 
 ## What to grill before freezing
 

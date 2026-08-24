@@ -5,16 +5,17 @@ title: Route delegated roles without changing provider definitions
 persona: Workflow adopter
 journey: J-configure-feature-workflow
 expected: The resolver reports override-over-profile-over-native routes to existing provider agent files and rejects every invalid route without fallback.
-entry_points: .my-workflow.toml; .agents/skills/workflow-config/scripts/workflow_config.py
+entry_points: .my-workflow.toml; templates/agents/; .claude/agents/; .codex/agents/; .cursor/agents/; .agents/skills/workflow-config/scripts/workflow_config.py
 qa_status: pass
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-21-configurable-workflow/resolver-session.md
-last_report: docs/qa/reports/2026-08-21-configurable-workflow.md
+evidence: docs/qa/evidence/2026-08-24-agent-model-routing-local-state/summary.json
+last_report: docs/qa/reports/2026-08-24-agent-model-routing-local-state.md
 overlaps:
 ---
 
 Covers `CWF-ROUTE-1` through `CWF-ROUTE-5`: native routing, partial profiles, explicit overrides,
-provider-owned agent files, and precise failures for invalid profiles, roles, providers, or paths.
+provider-owned generated runtime files, canonical template ownership, and precise failures for
+invalid profiles, roles, providers, or paths.
