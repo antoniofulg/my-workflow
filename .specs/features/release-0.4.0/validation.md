@@ -3,8 +3,9 @@
 **Date**: 2026-08-24
 **Phase**: technical
 **Contract**: `.specs/features/ai-memory-handoff/spec.md` AIM-11/AIM-12 and `.specs/features/ai-memory-handoff/tests.md` IT-005
-**Feature diff range**: `v0.3.6..61f2e74d5adb1c1bb49efe7bb7e72109286c8106`
+**Feature diff range**: `v0.3.6..6eebb9d10270622b6db70104137d356ec7fff8ce`
 **QA-fix slice**: `162b86a..61f2e74d5adb1c1bb49efe7bb7e72109286c8106`
+**Final QA record**: `6eebb9d10270622b6db70104137d356ec7fff8ce`
 **Verifier**: independent Technical Verifier, author != verifier
 **Scope**: local release verification only; no QA execution, product/config change, commit, tag, push, publication, or machine lifecycle action
 **Verdict**: PASS
@@ -24,7 +25,7 @@
 | --- | --- | --- | --- |
 | Runtime walked | Handoff delivery, single-use/no replay, Codex wrapper/fallback/noninteractive fix, and adoption canary. | `docs/qa/reports/2026-08-24-ai-memory-handoff.md:14`-`:17`, `:26`-`:51` records those runtime probes and no lifecycle-control walk. | PASS |
 | Documented/dry-run | Lifecycle controls are documented and command-checked/dry-run only. | `docs/qa/reports/2026-08-24-release-0-4-0.md:32`-`:35` records help and hook-only dry-run inspection, with no `--apply`, service change, re-enable, or purge. | PASS |
-| Technical validation | Reviewer isolation remains technical validation pending a later release QA walk. | `CHANGELOG.md:20` labels the category; `tools/shared/tests/qa-skills.test.ts:773` enforces that label. | PASS |
+| Technical validation | Reviewer isolation remains labeled technical validation; final release QA also walked its public documentation pointers without claiming live reviewer execution. | `CHANGELOG.md:20` and `tools/shared/tests/qa-skills.test.ts:773` enforce the label; `docs/qa/reports/2026-08-24-release-0-4-0.md:59`-`:62` records the documentation-pointer walk. | PASS |
 
 The categories are exact and non-overlapping. No runtime evidence is claimed for disable, re-enable,
 or purge.
@@ -65,12 +66,17 @@ clean pre-sensor baseline after cleanup.
 
 ## QA Disposition
 
-Technical verification does not change QA state. The release journey remains `qa_status: fail`, the
-bug remains open, and retest remains pending at
-`docs/qa/scenarios/REL-report-current-workflow-release.md:9`-`:15` and
-`docs/qa/bugs/BUG-20260824-release-overstates-lifecycle-qa.md:3`-`:17`.
+Fresh QA Execute completed after the technical PASS. The release report records `PASS after retest`
+at `docs/qa/reports/2026-08-24-release-0-4-0.md:10` and the fixed-path evidence, package dry-run,
+adjacent canaries, and final gates at `:38`-`:73`. The durable scenario is `qa_status: pass`,
+`fix_status: fixed`, and `retest_status: pass` at
+`docs/qa/scenarios/REL-report-current-workflow-release.md:9`-`:15`; the linked major bug is fixed
+with a passing retest at `docs/qa/bugs/BUG-20260824-release-overstates-lifecycle-qa.md:3`-`:17`.
 
-Fresh QA Execute must resume the affected release journey and adjacent canaries after this PASS.
+No release-journey QA item remains pending or blocked. Recorded limitations remain: this repository
+has no browser, API, mobile, auth, server-application, or production-health surface, and the secret
+scan was bounded and heuristic rather than a dedicated entropy/history scan
+(`docs/qa/reports/2026-08-24-release-0-4-0.md:75`-`:80`).
 
 ## Ranked Gaps
 
@@ -78,9 +84,11 @@ None for technical AIM-11/AIM-12 verification.
 
 ## Summary
 
-**Overall**: PASS for technical release verification.
+**Overall**: PASS for technical release verification and final release QA.
 
 **Spec-anchored check**: 2/2 outcomes matched; 0 precision gaps.
 **Gate**: scoped 23/23 and full 108/108 Vitest tests passed; all release lanes exited 0.
 **Sensor**: 2/2 mutations killed.
-**Next step**: fresh QA Execute; no tag or publication conclusion is made here.
+**QA**: PASS after fix and fresh retest; no pending items or blockers.
+**Limitations**: no browser/API/mobile/auth/server/production-health surface; secret scan was bounded and heuristic.
+**Next step**: release evidence is synchronized; no tag or publication action was taken.

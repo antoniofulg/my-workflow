@@ -5,6 +5,7 @@
 **Spec**: `.specs/features/ai-memory-handoff/spec.md`
 **Feature diff range**: `6675d55..61f2e74d5adb1c1bb49efe7bb7e72109286c8106`
 **Current verification scope**: AIM-11/AIM-12 release contract at `61f2e74`; prior AIM-01-AIM-10 evidence retained
+**Final release QA record**: `6eebb9d10270622b6db70104137d356ec7fff8ce`
 **T9 slice range**: `065f50a..42d8ceb`
 **T10 documentation scope**: `README.md`, `docs/workflow/ai-memory.md`, and the AIM-10 feature contract
 **Verifier**: independent Technical Verifier, author != verifier
@@ -108,12 +109,16 @@ each mutation. Both worktrees were removed; real-checkout porcelain matched the 
 | No redundant guideline growth; hard 160-line cap remains green | PASS |
 | AD/spec/test/threat contract parity | PASS |
 | Tests map to acceptance criteria; manual SEC-003 uses the owning contract layer | PASS |
-| AIM-12 changes release docs-as-interface and therefore requires fresh QA Execute after technical PASS | PASS — QA state left unchanged in this phase |
+| AIM-12 changes release docs-as-interface and therefore requires fresh QA Execute after technical PASS | PASS — fresh QA completed; release report records PASS after retest |
 
-Existing QA records and statuses were not changed. Prior provider-handoff QA remains recorded in
-`docs/qa/reports/2026-08-24-ai-memory-handoff.md`; reviewer isolation remains technical validation.
-Release scenario `REL-report-current-workflow-release` remains failed with retest pending until a
-fresh QA Execute resumes it and its adjacent canaries.
+The technical phase did not change QA state. A later fresh QA Execute passed the release journey and
+adjacent canaries: `docs/qa/reports/2026-08-24-release-0-4-0.md:10`, `:38`-`:73`. The durable release
+scenario now records pass/fixed/retest-pass at
+`docs/qa/scenarios/REL-report-current-workflow-release.md:9`-`:15`; the linked bug is fixed with a
+passing retest at `docs/qa/bugs/BUG-20260824-release-overstates-lifecycle-qa.md:3`-`:17`. Prior
+provider-handoff QA remains recorded in `docs/qa/reports/2026-08-24-ai-memory-handoff.md`; reviewer
+isolation remains technical validation. Release-QA limitations remain those recorded at
+`docs/qa/reports/2026-08-24-release-0-4-0.md:75`-`:80`.
 
 ## Summary
 
@@ -122,4 +127,4 @@ fresh QA Execute resumes it and its adjacent canaries.
 - **Spec-anchored check**: 12/12 outcomes matched; 0 precision gaps; current slice AIM-11/AIM-12 independently re-derived.
 - **Gate**: scoped 23/23 and full 108/108 Vitest tests passed; all Python, AD, review, workflow, TLC, dependency, knowledge, validator, and diff lanes exited 0.
 - **Sensor**: prior reviewer-isolation sensor 3/3 killed; current release sensor 2/2 killed.
-- **Ranked gaps**: none for technical verification. Fresh QA Execute required.
+- **Ranked gaps**: none for technical verification or release QA; no pending items or blockers.
