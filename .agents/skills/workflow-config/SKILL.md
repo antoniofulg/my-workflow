@@ -21,15 +21,17 @@ python3 .agents/skills/workflow-config/scripts/workflow_config.py \
 
 Treat the JSON output and `.specs/features/<feature-slug>/workflow.json` as the same resolved state.
 The resolver owns config parsing, validation, balanced groups, role precedence, agent-file lookup,
-and atomic persistence. Keep those rules in the resolver instead of restating them here.
+parallelization mode, and atomic persistence. Keep those rules in the resolver instead of restating
+them here.
 
-Done when: the snapshot exists, contains the effective cadence and role routes, and the capable
+Done when: the snapshot exists, contains the effective parallelization mode, cadence and role routes, and the capable
 orchestrator has accepted every selected provider.
 
 ## Resume
 
-Read the existing feature snapshot before dispatch. Use its `deep_review`, `roles`, and `git_head`
-values even when `.my-workflow.toml` has changed. Do not silently re-resolve an active feature.
+Read the existing feature snapshot before dispatch. Use its `parallelization`, `deep_review`, `roles`,
+and `git_head` values even when `.my-workflow.toml` has changed. Do not silently re-resolve an active
+feature.
 
 Done when: resumed dispatch uses the snapshot's effective route and records no new resolution.
 

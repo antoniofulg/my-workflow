@@ -39,9 +39,96 @@ def test_defaults_and_native_routing() -> None:
         snapshot = workflow_config.resolve(
             root=root, feature="default", slice_count=4, native_provider="codex"
         )
+        assert snapshot["parallelization"] == {"mode": "disabled"}
         assert snapshot["deep_review"] == {"cadence": "grouped.3", "groups": [[1, 2], [3, 4]]}
         assert all(value["provider"] == "codex" for value in snapshot["roles"].values())
         assert snapshot["roles"]["verifier"]["agent_file"] == ".codex/agents/verifier.toml"
+    finally:
+        shutil.rmtree(root)
+
+
+def test_parallelization_accepts_supported_modes() -> None:
+    root = make_repo()
+    try:
+        resolver = ROOT / ".agents/skills/workflow-config/scripts/workflow_config.py"
+        for mode in ("disabled", "safe", "full"):
+            (root / ".my-workflow.toml").write_text(
+                f"[parallelization]\nmode = '{mode}'\n", encoding="utf-8"
+            )
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(resolver),
+                    "--root",
+                    str(root),
+                    "--feature",
+                    f"mode-{mode}",
+                    "--slices",
+                    "1",
+                    "--native-provider",
+                    "codex",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            assert result.returncode == 0
+            payload = json.loads(result.stdout)
+            assert payload["parallelization"] == {"mode": mode}
+            snapshot = json.loads(
+                (root / f".specs/features/mode-{mode}/workflow.json").read_text(encoding="utf-8")
+            )
+            assert snapshot["parallelization"] == {"mode": mode}
+    finally:
+        shutil.rmtree(root)
+
+
+def test_parallelization_rejects_invalid_mode_without_replacing_snapshot() -> None:
+    root = make_repo()
+    try:
+        first = workflow_config.resolve(
+            root=root, feature="invalid-mode", slice_count=1, native_provider="codex"
+        )
+        path = root / ".specs/features/invalid-mode/workflow.json"
+        original = path.read_bytes()
+        (root / ".my-workflow.toml").write_text(
+            "[parallelization]\nmode = 'speculative'\n", encoding="utf-8"
+        )
+        try:
+            workflow_config.resolve(
+                root=root,
+                feature="invalid-mode",
+                slice_count=1,
+                native_provider="codex",
+                refresh=True,
+            )
+        except workflow_config.ConfigError as exc:
+            assert "parallelization.mode" in str(exc)
+        else:
+            raise AssertionError("expected invalid parallelization mode")
+        assert path.read_bytes() == original
+        assert json.loads(path.read_text(encoding="utf-8")) == first
+    finally:
+        shutil.rmtree(root)
+
+
+def test_parallelization_resume_uses_frozen_mode_after_config_changes() -> None:
+    root = make_repo()
+    try:
+        (root / ".my-workflow.toml").write_text(
+            "[parallelization]\nmode = 'full'\n", encoding="utf-8"
+        )
+        first = workflow_config.resolve(
+            root=root, feature="frozen-mode", slice_count=1, native_provider="codex"
+        )
+        (root / ".my-workflow.toml").write_text(
+            "[parallelization]\nmode = 'disabled'\n", encoding="utf-8"
+        )
+        resumed = workflow_config.resolve(
+            root=root, feature="frozen-mode", slice_count=8, native_provider="cursor"
+        )
+        assert resumed == first
+        assert resumed["parallelization"] == {"mode": "full"}
     finally:
         shutil.rmtree(root)
 
@@ -351,6 +438,7 @@ def test_snapshot_is_stable_and_atomic_failure_preserves_previous() -> None:
             "profile",
             "overrides",
             "deep_review",
+            "parallelization",
             "roles",
         }
         assert on_disk["version"] == 1
@@ -362,6 +450,7 @@ def test_snapshot_is_stable_and_atomic_failure_preserves_previous() -> None:
             "cadence": "grouped.3",
             "groups": [[1, 2]],
         }
+        assert on_disk["parallelization"] == {"mode": "disabled"}
         expected_agents = {
             "implementer": ".codex/agents/implementer.toml",
             "verifier": ".codex/agents/verifier.toml",

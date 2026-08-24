@@ -1,5 +1,8 @@
 version = 1
 
+[parallelization]
+mode = "disabled" # disabled, safe, or full
+
 [deep_review]
 cadence = "grouped.3"
 

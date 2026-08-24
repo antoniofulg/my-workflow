@@ -25,8 +25,11 @@ AGENT_NAMES = {"deep_reviewer": "deep-reviewer"}
 CADENCE_DEFAULT = "grouped.3"
 CADENCE_RE = re.compile(r"^grouped\.(\d+)$")
 SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
-CONFIG_KEYS = {"version", "deep_review", "profiles"}
+PARALLELIZATION_DEFAULT = "disabled"
+PARALLELIZATION_MODES = ("disabled", "safe", "full")
+CONFIG_KEYS = {"version", "deep_review", "parallelization", "profiles"}
 DEEP_REVIEW_KEYS = {"cadence"}
+PARALLELIZATION_KEYS = {"mode"}
 
 
 class ConfigError(ValueError):
@@ -89,6 +92,11 @@ def _cadence(config: dict[str, Any]) -> str:
     return section.get("cadence", CADENCE_DEFAULT)
 
 
+def _parallelization(config: dict[str, Any]) -> dict[str, str]:
+    section = config.get("parallelization") or {}
+    return {"mode": section.get("mode", PARALLELIZATION_DEFAULT)}
+
+
 def _profiles(config: dict[str, Any]) -> dict[str, dict[str, str]]:
     return config.get("profiles") or {}
 
@@ -120,6 +128,21 @@ def _validate_config_schema(config: dict[str, Any]) -> None:
     cadence = deep_review.get("cadence", CADENCE_DEFAULT)
     if not isinstance(cadence, str):
         raise _error("deep_review.cadence must be a string")
+
+    parallelization = config.get("parallelization", {})
+    if parallelization is None:
+        parallelization = {}
+    if not isinstance(parallelization, dict):
+        raise _error("parallelization must be a table")
+    unknown = set(parallelization) - PARALLELIZATION_KEYS
+    if unknown:
+        raise _error(f"parallelization contains unknown key {sorted(unknown)[0]!r}")
+    mode = parallelization.get("mode", PARALLELIZATION_DEFAULT)
+    if not isinstance(mode, str) or mode not in PARALLELIZATION_MODES:
+        raise _error(
+            "parallelization.mode must be one of "
+            + ", ".join(repr(value) for value in PARALLELIZATION_MODES)
+        )
 
     profiles = config.get("profiles", {})
     if profiles is None:
@@ -187,6 +210,7 @@ def _validate_snapshot(root: Path, feature: str, snapshot: Any) -> dict[str, Any
         "profile",
         "overrides",
         "deep_review",
+        "parallelization",
         "roles",
     }
     if set(snapshot) != required:
@@ -223,6 +247,13 @@ def _validate_snapshot(root: Path, feature: str, snapshot: Any) -> dict[str, Any
         raise _error("existing snapshot deep_review.groups must be consecutive")
     if balanced_groups(len(flattened), cadence) != groups:
         raise _error("existing snapshot deep_review.groups do not match cadence")
+
+    parallelization = snapshot["parallelization"]
+    if not isinstance(parallelization, dict) or set(parallelization) != {"mode"}:
+        raise _error("existing snapshot parallelization has an incomplete schema")
+    mode = parallelization["mode"]
+    if not isinstance(mode, str) or mode not in PARALLELIZATION_MODES:
+        raise _error("existing snapshot parallelization.mode is invalid")
 
     roles = snapshot["roles"]
     if not isinstance(roles, dict) or set(roles) != set(ROLES):
@@ -294,6 +325,7 @@ def resolve(
 
     config = _read_config(root)
     cadence = _cadence(config)
+    parallelization = _parallelization(config)
     groups = balanced_groups(slice_count, cadence)
     profiles = _profiles(config)
     if profile is not None and profile not in profiles:
@@ -312,6 +344,7 @@ def resolve(
         "profile": profile,
         "overrides": parsed_overrides,
         "deep_review": {"cadence": cadence, "groups": groups},
+        "parallelization": parallelization,
         "roles": roles,
     }
     _write_snapshot(snapshot_path, snapshot)
