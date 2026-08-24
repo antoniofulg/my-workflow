@@ -17,7 +17,7 @@ All notable changes to this project are documented here.
 ### Fixed
 
 - Noninteractive and informational Codex commands no longer finalize an unrelated open session.
-- QA runtime walks cover the ai-memory handoff and lifecycle-control paths; reviewer isolation remains technical validation unless a later release QA session covers its documentation contract.
+- QA runtime walks cover handoff delivery, single-use/no replay, the Codex wrapper/fallback/noninteractive fix, and the adoption canary. Lifecycle controls are documented and command-checked/dry-run only; reviewer isolation remains technical validation unless a later release QA session covers its documentation contract.
 
 ## [0.3.6] - 2026-08-23
 

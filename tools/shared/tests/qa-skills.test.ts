@@ -758,6 +758,9 @@ describe("adoption and public setup", () => {
     };
     const changelog = readRepositoryFile("CHANGELOG.md");
     const latestHeading = changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m)?.[1];
+    const releaseStart = changelog.indexOf(`## [${manifest.version}]`);
+    const nextRelease = changelog.indexOf("\n## [", releaseStart + 1);
+    const latestRelease = changelog.slice(releaseStart, nextRelease === -1 ? undefined : nextRelease);
 
     expect(manifest.version).toBe("0.4.0");
     expect(manifest.scripts?.test).toBe("vitest run --dir tools");
@@ -765,5 +768,9 @@ describe("adoption and public setup", () => {
     expect(lockfile.packages?.[""]?.version).toBe("0.4.0");
     expect(latestHeading).toBe("0.4.0");
     expect(latestHeading).toBe(manifest.version);
+    expect(latestRelease).toContain("QA runtime walks cover handoff delivery, single-use/no replay");
+    expect(latestRelease).toContain("Lifecycle controls are documented and command-checked/dry-run only");
+    expect(latestRelease).toContain("reviewer isolation remains technical validation");
+    expect(latestRelease).not.toContain("QA runtime walks cover the ai-memory handoff and lifecycle-control paths");
   });
 });

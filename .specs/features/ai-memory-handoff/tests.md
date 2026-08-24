@@ -22,7 +22,7 @@
 | IT-002 | Decision index remains canonical | Run the AD index generator/check after recording the integration decision | `AD-008` appears once and index verification exits 0 |
 | IT-003 | Repository gate remains green | Run the repository's full offline gate | Command exits 0 with no failed or skipped tests |
 | IT-004 | Lifecycle controls are explicit and reversible | Read the guide, inspect `ai-memory uninstall --help`, and run hook-only uninstall dry-run without `--apply` | Enable/re-enable steps, exact hook-only disablement, separate service stop, no-data-deletion boundary, no repository toggle, and irreversible purge are each explicit |
-| IT-005 | Release surfaces agree | Inspect `package.json`, both root `package-lock.json` version fields, newest changelog heading, and canonical version assertions | Every release surface reports `0.4.0` and the version-consistency gate passes |
+| IT-005 | Release surfaces and claims agree | Inspect `package.json`, both root `package-lock.json` version fields, newest changelog heading, and canonical version/release-claim assertions | Every release surface reports `0.4.0`; release notes distinguish runtime walks, lifecycle dry-runs, and technical reviewer validation; the version-consistency gate passes |
 
 ## End-to-end
 

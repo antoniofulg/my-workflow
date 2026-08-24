@@ -32,7 +32,7 @@ Commit. The last code-changing task is followed by a fresh Verifier.
 One vertical slice, executed sequentially:
 
 ```text
-T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9 → T10 → T11 → T12
+T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9 → T10 → T11 → T12 → T13
 ```
 
 ## Task Breakdown
@@ -192,6 +192,20 @@ T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9 → T10 → T11 → T
 **Gate:** Scoped/full/release gates, validators, and `git diff --check`.
 **Commit:** `test(release): enforce 0.4.0 version parity`
 
+### T13: Align release notes with QA evidence
+
+**Status:** complete
+**What:** Bound the 0.4.0 QA claim to runtime-walked handoff evidence, documented lifecycle dry-runs, and technical reviewer validation, with a semantic assertion in the canonical release test.
+**Where:** `tools/shared/tests/qa-skills.test.ts`
+**Contract updates:** `.specs/features/ai-memory-handoff/spec.md`, `.specs/features/ai-memory-handoff/tests.md`, `CHANGELOG.md`
+**Depends on:** T12
+**Reuses:** Existing IT-005/AIM-11 release-consistency assertion.
+**Requirement:** AIM-12.
+**Tests:** IT-005/AIM-12; unsupported lifecycle-runtime claims must fail the canonical suite.
+**QA:** No QA artifacts changed; current runtime report and reviewer validation scope remain preserved.
+**Gate:** Scoped/full/release gates, validators, and `git diff --check`.
+**Commit:** `fix(release): align 0.4.0 notes with qa evidence`
+
 ## Diagram-Definition Cross-Check
 
 | Task | Depends On | Diagram Shows | Status |
@@ -205,6 +219,7 @@ T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9 → T10 → T11 → T
 | T10 | T9 | T9 → T10 | match |
 | T11 | T10 | T10 → T11 | match |
 | T12 | T11 | T11 → T12 | match |
+| T13 | T12 | T12 → T13 | match |
 
 ## Test Co-location Validation
 
@@ -219,3 +234,4 @@ T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9 → T10 → T11 → T
 | T10 | lifecycle documentation | manual contract review | IT-004 | match |
 | T11 | release authorities | integration | IT-005 | match |
 | T12 | release consistency | integration | IT-005/AIM-11 | match |
+| T13 | release claim bounds | integration | IT-005/AIM-12 | match |

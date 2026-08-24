@@ -79,6 +79,11 @@ Independent test: inspect `package.json`, both root lockfile version fields, the
 heading, and the canonical `tools/shared/tests/qa-skills.test.ts` IT-005 assertion, then run the
 release gates without changing the remote or machine.
 
+- **AIM-12:** WHEN the `0.4.0` changelog describes QA THEN it SHALL distinguish runtime-walked handoff evidence from documented/dry-run lifecycle controls and technical reviewer-isolation validation.
+
+Independent test: inspect the newest release section and the canonical IT-005 assertion for the
+runtime-evidence, dry-run, and technical-validation distinctions.
+
 ## Edge Cases
 
 - IF the Codex child is terminated with `kill -9` while the wrapper shell remains alive THEN the wrapper SHALL still run its cleanup finalization; IF the shell or wrapper dies before cleanup THEN the operator SHALL run the explicit `handoff` fallback after returning to the project directory.
@@ -111,6 +116,7 @@ release gates without changing the remote or machine.
 | AIM-09 | Preserve workflow authority and privacy | Specify | Complete |
 | AIM-10 | Preserve workflow authority and privacy | Specify | Complete |
 | AIM-11 | Keep release surfaces consistent | Specify | Complete |
+| AIM-12 | Keep release claims bounded | Specify | Complete |
 
 ## Success Criteria
 
@@ -120,3 +126,4 @@ release gates without changing the remote or machine.
 - Internal reviewer context stays packet-defined and does not consume Implementer handoff context.
 - Operators can enable, disable without deleting data, re-enable, or deliberately purge ai-memory without a repository toggle.
 - Release `0.4.0` identity is consistent across package metadata, changelog, and canonical assertions.
+- Release QA claims distinguish runtime walks, lifecycle dry-runs, and technical reviewer validation.
