@@ -6,13 +6,13 @@ persona: Workflow adopter
 journey: J-adopt-workflow
 expected: A normal Codex exit or manual fallback leaves one project-scoped handoff that another supported agent consumes once without loading a recurring briefing or changing repository authority.
 entry_points: docs/workflow/ai-memory.md; scripts/ai-memory.zsh; ai-memory install-hooks; codex; claude; cursor
-qa_status: untested
-bug_ids:
-fix_status:
+qa_status: fail
+bug_ids: BUG-20260824-noninteractive-codex-finalizes-open-session
+fix_status: pending
 retest_status:
 fix_commits:
-evidence:
-last_report:
+evidence: docs/qa/evidence/2026-08-24-ai-memory-handoff/session.md
+last_report: docs/qa/reports/2026-08-24-ai-memory-handoff.md
 overlaps:
 ---
 
@@ -38,3 +38,8 @@ Walk on a workstation where ai-memory `1.31.0` is installed outside the checkout
 The repository has no automated harness for provider lifecycle behavior. Record command output and
 screenshots or redacted agent-visible evidence under ignored `docs/qa/evidence/`, then update this
 scenario's status and report fields in a dated QA report.
+
+QA on 2026-08-24 stopped at the mandatory noninteractive-wrapper risk probe. A sourced helper ran
+`finalize-session` after `codex --version` and ended the latest controlled interactive Codex session
+even though the child created no session. See
+`BUG-20260824-noninteractive-codex-finalizes-open-session`.
