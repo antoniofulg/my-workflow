@@ -10,9 +10,11 @@ orchestrator dispatch the frozen route.
 
 ## Synchronize agent metadata
 
-`.my-workflow.toml` is the single editable source for every Claude, Codex, and Cursor model and
-effort across planner, implementer, verifier, explorer, and deep reviewer. Native packet fields are
-generated output and packet instructions remain provider-owned.
+`.my-workflow.toml` is the checkout-local single editable source for every Claude, Codex, and Cursor
+model and effort across planner, implementer, verifier, explorer, and deep reviewer. The tracked
+`.my-workflow.toml.example` initializes it, and tracked `templates/agents/` bodies are the source
+for ignored generated runtime packets. Native packet fields are generated output; edit templates
+for instruction changes.
 
 Run:
 
@@ -21,8 +23,9 @@ python3 .agents/skills/workflow-config/scripts/workflow_config.py \
   --root . --sync-agents
 ```
 
-The command validates the complete matrix and every packet before writing, reports `changed` and
-`unchanged` paths, and is idempotent. Adoption runs it after installing missing config and packets.
+The command validates the complete matrix and every template before writing, initializes a missing
+local config from the example, reports `changed` and `unchanged` runtime paths, and is idempotent.
+Adoption runs it after installing missing example/templates.
 
 ## First resolution
 
@@ -72,7 +75,7 @@ Done when: every dispatched role has an available provider and its existing agen
 
 Read the resolver's stderr and correct the named input before retrying:
 
-- Parse or validation failure: fix `.my-workflow.toml` or the CLI argument and rerun.
+- Parse or validation failure: fix the local config, example/template source, or CLI argument and rerun.
 - Provider failure: make the named provider and role agent available; use no fallback.
 - Snapshot write failure: restore write access to the feature state directory and rerun; atomic
   replacement preserves the prior valid snapshot.

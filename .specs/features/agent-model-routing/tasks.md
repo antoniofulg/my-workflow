@@ -6,7 +6,7 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 flow and Critical Rules.** If the skill cannot be activated, stop without implementation.
 
 **Design**: `.specs/features/agent-model-routing/design.md`
-**Status**: In Progress
+**Status**: Done
 
 ## Test Coverage Matrix
 
@@ -93,7 +93,7 @@ T15 -> T16 -> T17 -> T18
 **Done when**:
 
 - [x] All fifteen packets render their native model syntax from central config.
-- [x] Validation completes before replacement and preserves non-model bytes.
+- [x] Validation completes before replacement and generated packets retain template instruction bytes.
 - [x] JSON output lists changed and unchanged project-relative paths.
 - [x] `UT-003` through `UT-007` and `UT-011` pass.
 - [x] Quick gate passes with zero failures.
@@ -146,8 +146,9 @@ T15 -> T16 -> T17 -> T18
 
 **Done when**:
 
-- [x] Fresh adoption installs `.my-workflow.toml` and matching packets.
-- [x] Re-adoption preserves config and non-model packet content while applying configured metadata.
+- [x] Fresh adoption installs the example/templates, initializes local `.my-workflow.toml`, and
+  generates matching runtime packets.
+- [x] Re-adoption preserves local config and template content while regenerating configured runtime metadata.
 - [x] Invalid packet synchronization fails with its path.
 - [x] `IT-001`, `IT-002`, and `IT-003` pass.
 - [x] Full gate passes with zero failures.
@@ -173,7 +174,8 @@ T15 -> T16 -> T17 -> T18
 
 **Done when**:
 
-- [x] Documentation names `.my-workflow.toml` as the editable source and native fields as generated.
+- [x] Documentation names the local `.my-workflow.toml` as the editable source, tracked templates as
+  instruction sources, and native fields/runtime packets as generated.
 - [x] Obsolete model-pin ownership language and example-copy steps are removed.
 - [x] Contract tests compare every native packet with the central matrix.
 - [x] `E2E-001` and `E2E-002` have terminal QA evidence.
@@ -277,7 +279,7 @@ feature snapshot, preserving direct `balanced_groups()` coverage.
 
 ### T10: Harden packet grammar and reset stale QA evidence
 
-**What**: Validate native model round-trips, scope metadata to native headers, preserve packet bytes
+**What**: Validate native model round-trips, scope metadata to native headers, preserve template bytes
 including CRLF, and remove premature public QA claims. Refresh the always-loaded ownership pointers.
 **Where**: `.agents/skills/workflow-config/scripts/workflow_config.py`,
 `tools/test_workflow_config.py`, `AGENTS.md`, `docs/workflow/ai-memory.md`, `docs/qa/`
@@ -474,7 +476,18 @@ template-driven regeneration, local-config preservation, and ignore ownership.
 **Where**: `README.md`
 **Depends on**: T17
 **Requirement**: AMR-08, AMR-09
-**Done when**: docs describe one setup/sync flow; package includes tracked sources only; Git checks prove local state ignored; public QA is terminal.
+**Done when**:
+
+- [x] Agent instructions, README, workflow docs, ai-memory guidance, and QA profile describe
+  example/template versus local/runtime ownership and the one setup/sync flow.
+- [x] Contract and package tests prove the mixed profile, canonical paths, tracked sources,
+  ignored local state, and package inclusion/exclusion rules.
+- [x] Affected public scenarios and journeys are reset to `untested` for a fresh QA plan/execute
+  cycle; no stale pass is retained.
+
+**Status:** complete — documentation and contracts updated, package ownership checks pass, and
+affected QA scenarios are explicitly untested pending fresh QA.
+
 **Tests**: unit and CLI/manual — contract/package tests plus final QA.
 **Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
 **Commit**: `docs(config): publish local agent configuration`

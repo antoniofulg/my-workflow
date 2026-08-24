@@ -75,7 +75,9 @@ briefing off. Do not run `ai-memory bootstrap`, `ai-memory embed`, `ai-memory au
 the contract.
 
 There is intentionally no `.my-workflow.toml` toggle for ai-memory: that file owns workflow cadence,
-role routing, and bundled agent model/effort settings, while ai-memory is an operator-local optional capability. `.ai-memory.toml` only
+role routing, and bundled agent model/effort settings, while ai-memory is an operator-local optional
+capability. The workflow's `.my-workflow.toml.example` and tracked agent templates are repository
+sources; the active config and generated runtimes remain checkout-local. `.ai-memory.toml` only
 declares workspace/project scope and capture exclusions; its presence does not enable or disable
 ai-memory.
 

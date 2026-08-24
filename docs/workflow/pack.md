@@ -24,10 +24,11 @@ commit refs and hashes; it does not install
 `latest` or update dependencies automatically. Until it succeeds, the security gate remains
 uncovered.
 
-Planner / implementer / explorer / verifier are four windows. Packet text lives on the agent files;
-spawn models live there too. Same `name` in `.cursor/agents/`, `.claude/agents/`, `.codex/agents/`.
-Real files, no symlinks. `CLAUDE.md` is `@AGENTS.md`. Explorer is read-only and handles product-tree
-searches and flow traces for the parent agent.
+Planner / implementer / explorer / verifier are four windows. Canonical packet bodies live in
+`templates/agents/{cursor,claude,codex}/`; sync generates ignored runtime files in
+`.cursor/agents/`, `.claude/agents/`, and `.codex/agents/`. Spawn models live on those generated
+files. `CLAUDE.md` is `@AGENTS.md`. Explorer is read-only and handles product-tree searches and
+flow traces for the parent agent.
 
 `autonomous` readiness still needs: full gate 0 on the final tree, no Blocker/Major left, `main` not
 moved underneath, and flagged scenarios terminal (`untested` blocks; `blocked-verify` does not).
@@ -51,10 +52,10 @@ Empty on purpose. Machinery only: operating schema, `raw/` README, stub indexes,
 `python3 scripts/adopt.py <target>` copies the loop into another repo and refuses to overwrite a
 non-stencil **What this project is** paragraph. It writes `@AGENTS.md` as `CLAUDE.md`, copies the
 bundled skills (including `deep-review`) without shipping `__pycache__` or `*.pyc`, and creates
-`docs/qa/README.md` only when the target has no profile. Agent folders copy missing packet files
-into existing folders without overwriting local packet instructions or configuration; a fresh
-destination gets all packets. Adoption then synchronizes generated model metadata from the central
-`.my-workflow.toml`. Adoption rejects Makefile references to machine-global `$(HOME)/.claude/...`,
+`docs/qa/README.md` only when the target has no profile. It copies missing
+`.my-workflow.toml.example` and `templates/agents/`, preserves an existing local
+`.my-workflow.toml`, and generates ignored runtime packets from those sources. Adoption rejects
+Makefile references to machine-global `$(HOME)/.claude/...`,
 `${HOME}/.claude/...`, `$HOME/.claude/...`, or `~/.claude/...`; point TLC gates at the adopted
 `.agents/skills/tlc-spec-driven/scripts/...` path instead.
 

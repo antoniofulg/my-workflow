@@ -8,9 +8,9 @@ runtime packets drift apart.
 
 ## Goals
 
-- [ ] Make local `.my-workflow.toml` the only manually edited source for every agent model and effort.
-- [ ] Generate ignored Claude, Codex, and Cursor runtime packets from tracked templates.
-- [ ] Freeze delegated-role model and effort with each feature workflow snapshot.
+- [x] Make local `.my-workflow.toml` the only manually edited source for every agent model and effort.
+- [x] Generate ignored Claude, Codex, and Cursor runtime packets from tracked templates.
+- [x] Freeze delegated-role model and effort with each feature workflow snapshot.
 
 ## Out of Scope
 
@@ -103,21 +103,21 @@ instruction bytes, and inspect all native model fields.
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| AMR-01 | Configure every agent | Tasks | Implementing |
-| AMR-02 | Configure every agent | Tasks | Implementing |
-| AMR-03 | Configure every agent | Tasks | Implementing |
-| AMR-04 | Configure every agent | Tasks | Implementing |
-| AMR-05 | Freeze execution settings | Tasks | Implementing |
-| AMR-06 | Freeze execution settings | Tasks | Implementing |
-| AMR-07 | Adopt centralized contract | Tasks | Implementing |
-| AMR-08 | Adopt centralized contract | Tasks | Implementing |
-| AMR-09 | Keep operator state unversioned | Tasks | Implementing |
+| AMR-01 | Configure every agent | Tasks | Verified |
+| AMR-02 | Configure every agent | Tasks | Verified |
+| AMR-03 | Configure every agent | Tasks | Verified |
+| AMR-04 | Configure every agent | Tasks | Verified |
+| AMR-05 | Freeze execution settings | Tasks | Verified |
+| AMR-06 | Freeze execution settings | Tasks | Verified |
+| AMR-07 | Adopt centralized contract | Tasks | Verified |
+| AMR-08 | Adopt centralized contract | Tasks | Verified |
+| AMR-09 | Keep operator state unversioned | Tasks | Verified |
 
 **Coverage:** 9 total, 9 mapped to tasks, 0 unmapped.
 
 ## Success Criteria
 
-- [ ] One TOML edit and one sync command update native settings for every provider.
-- [ ] Runtime packets match local config plus tracked templates without appearing in `git status`.
-- [ ] Resume rejects model or effort drift until explicit refresh.
-- [ ] Fresh and repeated adoption preserve the documented ownership boundaries.
+- [x] One TOML edit and one sync command update native settings for every provider.
+- [x] Runtime packets match local config plus tracked templates without appearing in `git status`.
+- [x] Resume rejects model or effort drift until explicit refresh.
+- [x] Fresh and repeated adoption preserve the documented ownership boundaries.

@@ -14,6 +14,18 @@ function readRepositoryFile(relativePath: string): string {
   return readFileSync(join(repositoryRoot, relativePath), "utf8");
 }
 
+function isIgnored(relativePath: string): boolean {
+  try {
+    execFileSync("git", ["check-ignore", "--no-index", "--quiet", "--", relativePath], {
+      cwd: repositoryRoot,
+      stdio: "ignore",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 describe("workflow configuration skill", () => {
   it("defines resolution, resume, refresh, and explicit provider failure", () => {
     const skill = readRepositoryFile(skillPath);
@@ -36,6 +48,40 @@ describe("workflow configuration skill", () => {
         expect(readRepositoryFile(path).trim(), path).not.toBe("");
       }
     }
+  });
+
+  it("keeps local config/runtimes ignored and packages only example/templates", () => {
+    expect(execFileSync("git", ["ls-files", "--", ".my-workflow.toml"], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    }).trim()).toBe("");
+    expect(execFileSync("git", ["ls-files", "--", ".my-workflow.toml.example", "templates/agents"], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    })).toContain(".my-workflow.toml.example");
+    for (const relativePath of [
+      ".my-workflow.toml",
+      ".claude/agents/planner.md",
+      ".codex/agents/planner.toml",
+      ".cursor/agents/planner.md",
+    ]) {
+      expect(isIgnored(relativePath), relativePath).toBe(true);
+    }
+    const packageManifest = JSON.parse(
+      execFileSync("npm", ["pack", "--dry-run", "--json"], {
+        cwd: repositoryRoot,
+        encoding: "utf8",
+      }),
+    ) as Array<{ files: Array<{ path: string }> }>;
+    const packaged = packageManifest[0].files.map(({ path }) => path);
+    expect(packaged).toContain(".my-workflow.toml.example");
+    expect(packaged).toContain("templates/agents/claude/planner.md");
+    expect(packaged).toContain("templates/agents/codex/planner.toml");
+    expect(packaged).toContain("templates/agents/cursor/planner.md");
+    expect(packaged).not.toContain(".my-workflow.toml");
+    expect(packaged.some((path) => path.startsWith(".claude/agents/"))).toBe(false);
+    expect(packaged.some((path) => path.startsWith(".codex/agents/"))).toBe(false);
+    expect(packaged.some((path) => path.startsWith(".cursor/agents/"))).toBe(false);
   });
 
   it("asserts resolver-returned agent files for every non-native provider route", () => {
