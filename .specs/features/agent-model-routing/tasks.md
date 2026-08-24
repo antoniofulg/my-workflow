@@ -195,11 +195,34 @@ all-provider synchronization, snapshot drift, checkout isolation, and target-loc
   isolation, adoption parity, and baseline resolver invariants are discriminated.
 - [x] `python3 tools/test_workflow_config.py`, `python3 scripts/test_adopt.py`, and `npm test` pass.
 
-**Status:** complete — 21 resolver tests, adoption suite, and 108 Vitest tests passed.
+**Status:** complete — 21 resolver tests, adoption suite, and 108 Vitest tests passed at T6 completion.
 
 **Tests**: unit and integration, `UT-001`, `UT-002`, `UT-003`, `UT-004`, `UT-005`, `UT-006`, `UT-007`, `UT-008`, `UT-009`, `UT-010`, `UT-011`, `IT-001`, `IT-002`, `IT-003`
 **Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
 **Commit**: `fix(config): restore resolver and adoption verification coverage`
+
+### T7: Restore final baseline resolver contracts
+
+**What**: Restore exhaustive cadence coverage, frozen agent-path validation cases, and the public
+`--sync-agents` argument-conflict CLI assertion.
+**Where**: `tools/test_workflow_config.py`
+**Depends on**: T6
+**Requirement**: AMR-01, AMR-05, AMR-06
+
+**Done when**:
+
+- [x] Schema-v2 resume rejects both an agent path belonging to another role and a missing path with
+  exit 2, empty stdout, and unchanged snapshot bytes.
+- [x] Slice, feature, and grouped cadence matrices plus slice-count bounds are covered.
+- [x] `--sync-agents` combined with resolution arguments exits 2 with the exact public diagnostic
+  and no writes.
+- [x] Resolver, adoption, and Vitest gates pass.
+
+**Status:** complete — 22 resolver tests, adoption suite, and 108 Vitest tests passed.
+
+**Tests**: unit and CLI/manual, `UT-002`, `UT-008`, `UT-009`
+**Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
+**Commit**: `fix(config): restore final resolver contracts`
 
 ## Phase Execution Map
 
@@ -207,7 +230,7 @@ all-provider synchronization, snapshot drift, checkout isolation, and target-loc
 Phase 1 -> Phase 2
 
 Phase 1: T1 -> T2 -> T3
-Phase 2: T3 -> T4 -> T5 -> T6
+Phase 2: T3 -> T4 -> T5 -> T6 -> T7
 ```
 
 ## Task Granularity Check
@@ -220,6 +243,7 @@ Phase 2: T3 -> T4 -> T5 -> T6
 | T4 | One adoption integration | PASS |
 | T5 | One public contract publication | PASS |
 | T6 | Verification remediation | PASS |
+| T7 | Final resolver contract restoration | PASS |
 
 ## Diagram-Definition Cross-Check
 
@@ -231,6 +255,7 @@ Phase 2: T3 -> T4 -> T5 -> T6
 | T4 | T3 | T3 -> T4 | PASS |
 | T5 | T4 | T4 -> T5 | PASS |
 | T6 | T5 | T5 -> T6 | PASS |
+| T7 | T6 | T6 -> T7 | PASS |
 
 ## Test Co-location Validation
 
@@ -242,3 +267,4 @@ Phase 2: T3 -> T4 -> T5 -> T6
 | T4 | Adoption integration | integration | integration | PASS |
 | T5 | Contract/docs | unit + CLI/manual | unit + CLI/manual | PASS |
 | T6 | Resolver/adoption regression coverage | unit + integration | unit + integration | PASS |
+| T7 | Resolver contract restoration | unit + CLI/manual | unit + CLI/manual | PASS |

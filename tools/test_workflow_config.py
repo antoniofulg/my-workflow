@@ -273,6 +273,14 @@ def test_cli_errors_use_public_prefix_exit_two_and_empty_stdout() -> None:
         assert invalid.returncode == 2
         assert invalid.stdout == ""
         assert invalid.stderr.startswith("workflow-config:")
+
+        conflict = subprocess.run(
+            [sys.executable, str(resolver), "--root", str(root), "--sync-agents", "--feature", "conflict", "--slices", "1", "--native-provider", "codex"],
+            text=True, capture_output=True, check=False,
+        )
+        assert conflict.returncode == 2
+        assert conflict.stdout == ""
+        assert conflict.stderr == "workflow-config: --sync-agents cannot be combined with feature-resolution arguments\n"
     finally:
         shutil.rmtree(root)
 
@@ -387,13 +395,34 @@ def test_resume_rejects_effort_drift_after_sync() -> None:
 
 def test_cadence_modes_and_balancing() -> None:
     expected = {
-        "slice": [[1], [2], [3], [4]],
-        "feature": [[1, 2, 3, 4]],
-        "grouped.3": [[1, 2], [3, 4]],
+        "slice": {
+            1: [[1]], 2: [[1], [2]], 3: [[1], [2], [3]], 4: [[1], [2], [3], [4]],
+            5: [[1], [2], [3], [4], [5]], 6: [[1], [2], [3], [4], [5], [6]],
+            7: [[1], [2], [3], [4], [5], [6], [7]], 8: [[1], [2], [3], [4], [5], [6], [7], [8]],
+        },
+        "feature": {
+            1: [[1]], 2: [[1, 2]], 3: [[1, 2, 3]], 4: [[1, 2, 3, 4]],
+            5: [[1, 2, 3, 4, 5]], 6: [[1, 2, 3, 4, 5, 6]],
+            7: [[1, 2, 3, 4, 5, 6, 7]], 8: [[1, 2, 3, 4, 5, 6, 7, 8]],
+        },
+        "grouped.3": {
+            1: [[1]], 2: [[1, 2]], 3: [[1, 2, 3]], 4: [[1, 2], [3, 4]],
+            5: [[1, 2, 3], [4, 5]], 6: [[1, 2, 3], [4, 5, 6]],
+            7: [[1, 2, 3], [4, 5], [6, 7]], 8: [[1, 2, 3], [4, 5, 6], [7, 8]],
+        },
     }
-    for cadence, groups in expected.items():
-        assert workflow_config.balanced_groups(4, cadence) == groups
+    for cadence, cases in expected.items():
+        for slice_count, groups in cases.items():
+            assert workflow_config.balanced_groups(slice_count, cadence) == groups
+    assert workflow_config.balanced_groups(6, "grouped.2") == [[1, 2], [3, 4], [5, 6]]
     assert workflow_config.balanced_groups(7, "grouped.3") == [[1, 2, 3], [4, 5], [6, 7]]
+    assert workflow_config.balanced_groups(8, "grouped.4") == [[1, 2, 3, 4], [5, 6, 7, 8]]
+    try:
+        workflow_config.balanced_groups(0, "feature")
+    except workflow_config.ConfigError as exc:
+        assert "at least 1" in str(exc)
+    else:
+        raise AssertionError("expected invalid slice count")
     for cadence in ("grouped", "grouped.0", "grouped.x", "other"):
         try:
             workflow_config.balanced_groups(2, cadence)
@@ -549,6 +578,33 @@ def test_resume_is_stable_and_preserves_frozen_fallback_agent_path() -> None:
         preferred.write_text(fallback.read_text(encoding="utf-8"), encoding="utf-8")
         resumed = workflow_config.resolve(root=root, feature="frozen-route", slice_count=8, native_provider="cursor")
         assert resumed == first
+    finally:
+        shutil.rmtree(root)
+
+
+def test_invalid_frozen_agent_paths_exit_two_without_snapshot_mutation() -> None:
+    root = make_packet_root()
+    try:
+        workflow_config.sync_agents(root)
+        git_root(root)
+        workflow_config.resolve(root=root, feature="invalid-frozen-path", slice_count=1, native_provider="codex")
+        snapshot_path = root / ".specs/features/invalid-frozen-path/workflow.json"
+        original = snapshot_path.read_bytes()
+        resolver = Path(__file__).resolve().parent.parent / ".agents/skills/workflow-config/scripts/workflow_config.py"
+        cases = (".codex/agents/verifier.toml", ".codex/agents/missing.toml")
+        for invalid_path in cases:
+            snapshot = json.loads(original)
+            snapshot["roles"]["implementer"]["agent_file"] = invalid_path
+            snapshot_path.write_text(json.dumps(snapshot, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            before = snapshot_path.read_bytes()
+            result = subprocess.run(
+                [sys.executable, str(resolver), "--root", str(root), "--feature", "invalid-frozen-path", "--slices", "1", "--native-provider", "codex"],
+                text=True, capture_output=True, check=False,
+            )
+            assert result.returncode == 2
+            assert result.stdout == ""
+            assert result.stderr.startswith("workflow-config:")
+            assert snapshot_path.read_bytes() == before
     finally:
         shutil.rmtree(root)
 
