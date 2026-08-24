@@ -11,8 +11,8 @@ bug_ids: BUG-20260822-deep-review-learnings-untrackable; BUG-20260822-feature-sp
 fix_status: fixed
 retest_status: pass
 fix_commits: 0413862; a7397d2; 43e9910; a3fc718; 5b5474e
-evidence: docs/qa/evidence/2026-08-22-preserve-consumer-ad-index/session.md; docs/qa/evidence/2026-08-22-source-only-pack-guide/session.md; docs/qa/evidence/2026-08-22-version-feature-specs-handoff/session.md; docs/qa/evidence/2026-08-22-validate-generated-feature-contracts/session.md; docs/qa/evidence/2026-08-22-ponytail-full-cycle/session.md; docs/qa/evidence/2026-08-22-authoritative-validation-verdict/session.md; docs/qa/evidence/2026-08-22-deep-review-learnings-retest/session.md; docs/qa/evidence/2026-08-22-version-feature-state-by-default/session.md
-last_report: docs/qa/reports/2026-08-22-version-feature-state-by-default.md
+evidence: docs/qa/evidence/2026-08-22-preserve-consumer-ad-index/session.md; docs/qa/evidence/2026-08-22-source-only-pack-guide/session.md; docs/qa/evidence/2026-08-22-version-feature-specs-handoff/session.md; docs/qa/evidence/2026-08-22-validate-generated-feature-contracts/session.md; docs/qa/evidence/2026-08-22-ponytail-full-cycle/session.md; docs/qa/evidence/2026-08-22-authoritative-validation-verdict/session.md; docs/qa/evidence/2026-08-22-deep-review-learnings-retest/session.md; docs/qa/evidence/2026-08-22-version-feature-state-by-default/session.md; docs/qa/evidence/2026-08-24-ai-memory-handoff/session.md
+last_report: docs/qa/reports/2026-08-24-ai-memory-handoff.md
 overlaps:
 ---
 
@@ -55,3 +55,7 @@ entries, preserves unrelated target lines, and does not stage or commit consumer
 
 QA on 2026-08-22 confirmed fresh visibility, exact legacy migration, byte-idempotent re-adoption,
 unchanged `HEAD` and index, and feature-state handoff through a sibling worktree and clean clone.
+
+QA on 2026-08-24 confirmed the ai-memory feature did not change ordinary adoption: fresh adoption
+and re-adoption remained byte-idempotent and installed no ai-memory marker, binary, runtime DB, hook
+tree, shell edit, or handoff file.
