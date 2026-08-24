@@ -301,7 +301,12 @@ def test_sync_invalid_config_and_duplicate_metadata_write_no_packets() -> None:
 
         write_config(root)
         duplicate = root / ".claude/agents/verifier.md"
-        duplicate.write_text(duplicate.read_text(encoding="utf-8") + "model: duplicate\n", encoding="utf-8")
+        duplicate.write_text(
+            duplicate.read_text(encoding="utf-8").replace(
+                "model: old-model\n", "model: old-model\nmodel: duplicate\n", 1
+            ),
+            encoding="utf-8",
+        )
         before_duplicate = {path: path.read_bytes() for path in packet_paths(root)}
         try:
             workflow_config.sync_agents(root)
@@ -310,6 +315,80 @@ def test_sync_invalid_config_and_duplicate_metadata_write_no_packets() -> None:
         else:
             raise AssertionError("expected duplicate metadata failure")
         assert {path: path.read_bytes() for path in before_duplicate} == before_duplicate
+    finally:
+        shutil.rmtree(root)
+
+
+def test_cli_rejects_non_roundtrip_model_identifier_before_writes() -> None:
+    root = make_packet_root()
+    try:
+        before = {path: path.read_bytes() for path in packet_paths(root)}
+        config = root / ".my-workflow.toml"
+        config.write_text(config.read_text(encoding="utf-8").replace('model = "claude-planner"', 'model = "claude planner"', 1), encoding="utf-8")
+        resolver = Path(__file__).resolve().parent.parent / ".agents/skills/workflow-config/scripts/workflow_config.py"
+        result = subprocess.run(
+            [sys.executable, str(resolver), "--root", str(root), "--sync-agents"],
+            text=True, capture_output=True, check=False,
+        )
+        assert result.returncode == 2
+        assert result.stdout == ""
+        assert "models.claude.planner.model must be a valid native model identifier" in result.stderr
+        assert {path: path.read_bytes() for path in before} == before
+    finally:
+        shutil.rmtree(root)
+
+
+def test_sync_requires_native_header_metadata_for_every_provider() -> None:
+    for provider in workflow_config.PROVIDERS:
+        for duplicate in (False, True):
+            root = make_packet_root()
+            try:
+                role = "planner"
+                agent_name = workflow_config.AGENT_NAMES.get(role, role)
+                extension = "toml" if provider == "codex" else "md"
+                packet = root / f".{provider}/agents/{agent_name}.{extension}"
+                text = packet.read_text(encoding="utf-8")
+                if provider == "claude":
+                    if duplicate:
+                        text = text.replace("model: old-model\n", "model: old-model\nmodel: duplicate\n", 1)
+                    else:
+                        text = text.replace("model: old-model\n", "", 1).replace("---\nInstructions", "---\nmodel: body-model\neffort: low\nInstructions", 1)
+                elif provider == "cursor":
+                    if duplicate:
+                        text = text.replace("model: old-model[effort=low]\n", "model: old-model[effort=low]\nmodel: duplicate[effort=low]\n", 1)
+                    else:
+                        text = text.replace("model: old-model[effort=low]\n", "", 1).replace("---\nInstructions", "---\nmodel: body-model[effort=low]\nInstructions", 1)
+                else:
+                    if duplicate:
+                        text = text.replace('model = "old-model"\n', 'model = "old-model"\nmodel = "duplicate"\n', 1)
+                    else:
+                        text = text.replace('model = "old-model"\n', "", 1).replace('developer_instructions = "Instructions', 'model = "body-model"\nmodel_reasoning_effort = "low"\ndeveloper_instructions = "Instructions', 1)
+                packet.write_text(text, encoding="utf-8")
+                before = {path: path.read_bytes() for path in packet_paths(root)}
+                try:
+                    workflow_config.sync_agents(root)
+                except workflow_config.ConfigError as exc:
+                    assert agent_name in str(exc)
+                else:
+                    raise AssertionError(f"expected native-header rejection: {provider}, duplicate={duplicate}")
+                assert {path: path.read_bytes() for path in before} == before
+            finally:
+                shutil.rmtree(root)
+
+
+def test_sync_preserves_crlf_packet_bytes_for_all_providers() -> None:
+    root = make_packet_root()
+    try:
+        for path in packet_paths(root):
+            path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
+        before = {path: path.read_bytes() for path in packet_paths(root)}
+        workflow_config.sync_agents(root)
+        for path, original in before.items():
+            provider = path.parts[-3][1:]
+            current = path.read_bytes()
+            assert b"\r\n" in current
+            assert b"\n" not in current.replace(b"\r\n", b"")
+            assert strip_metadata(provider, original) == strip_metadata(provider, current)
     finally:
         shutil.rmtree(root)
 

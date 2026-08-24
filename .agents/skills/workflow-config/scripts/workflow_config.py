@@ -31,14 +31,30 @@ CONFIG_KEYS = {"version", "deep_review", "profiles", "models"}
 DEEP_REVIEW_KEYS = {"cadence"}
 MODEL_PROVIDERS = set(PROVIDERS)
 MODEL_KEYS = {"model", "effort"}
-CLAUDE_MODEL_RE = re.compile(r"^model:[ \t]*(?P<model>\S+)[ \t]*$", re.MULTILINE)
-CLAUDE_EFFORT_RE = re.compile(r"^effort:[ \t]*(?P<effort>\S+)[ \t]*$", re.MULTILINE)
-CODEX_MODEL_RE = re.compile(r'^model[ \t]*=[ \t]*"(?P<model>[^"]+)"[ \t]*$', re.MULTILINE)
+MODEL_IDENTIFIER_RE = re.compile(r"^[^\s\[\]\"\r\n]+$")
+FRONTMATTER_RE = re.compile(
+    r"\A---(?P<open_newline>\r\n|\n)(?P<header>.*?)(?P<close_newline>\r\n|\n)---(?P<after_newline>\r\n|\n|\Z)",
+    re.DOTALL,
+)
+CLAUDE_MODEL_RE = re.compile(
+    r"^model:[ \t]*(?P<model>[^\r\n]+?)(?P<suffix>[ \t]*)(?P<newline>\r\n|\n|\Z)",
+    re.MULTILINE,
+)
+CLAUDE_EFFORT_RE = re.compile(
+    r"^effort:[ \t]*(?P<effort>[^\r\n]+?)(?P<suffix>[ \t]*)(?P<newline>\r\n|\n|\Z)",
+    re.MULTILINE,
+)
+CODEX_MODEL_RE = re.compile(
+    r'^model[ \t]*=[ \t]*"(?P<model>[^"]+)"(?P<suffix>[ \t]*)(?P<newline>\r\n|\n|\Z)',
+    re.MULTILINE,
+)
 CODEX_EFFORT_RE = re.compile(
-    r'^model_reasoning_effort[ \t]*=[ \t]*"(?P<effort>[^"]+)"[ \t]*$', re.MULTILINE
+    r'^model_reasoning_effort[ \t]*=[ \t]*"(?P<effort>[^"]+)"(?P<suffix>[ \t]*)(?P<newline>\r\n|\n|\Z)',
+    re.MULTILINE,
 )
 CURSOR_MODEL_RE = re.compile(
-    r"^model:[ \t]*(?P<model>\S+)\[effort=(?P<effort>[^\]]+)\][ \t]*$", re.MULTILINE
+    r"^model:[ \t]*(?P<model>[^\r\n\[]+)\[effort=(?P<effort>[^\]\r\n]+)\](?P<suffix>[ \t]*)(?P<newline>\r\n|\n|\Z)",
+    re.MULTILINE,
 )
 
 
@@ -183,6 +199,8 @@ def _validate_config_schema(config: dict[str, Any]) -> None:
             model = setting["model"]
             if not isinstance(model, str) or not model.strip():
                 raise _error(f"{path}.model must be a non-empty string")
+            if not MODEL_IDENTIFIER_RE.fullmatch(model):
+                raise _error(f"{path}.model must be a valid native model identifier")
             if "effort" not in setting:
                 raise _error(f"{path}.effort is required")
             effort = setting["effort"]
@@ -212,45 +230,92 @@ def _one_match(pattern: re.Pattern[str], content: str, path: Path, label: str) -
     return matches[0]
 
 
-def packet_setting(provider: str, content: str, path: Path) -> dict[str, str]:
+def _header(provider: str, content: str, path: Path) -> tuple[str, int]:
+    if provider in ("claude", "cursor"):
+        match = FRONTMATTER_RE.match(content)
+        if not match:
+            raise _error(f"{path.as_posix()} must contain a native YAML frontmatter header")
+        return match.group("header"), match.start("header")
+    boundary = re.search(r"^developer_instructions[ \t]*=", content, re.MULTILINE)
+    end = boundary.start() if boundary else len(content)
+    return content[:end], 0
+
+
+def _coerce_content(content: str | bytes) -> tuple[str, bool]:
+    if isinstance(content, bytes):
+        return content.decode("utf-8"), True
+    return content, False
+
+
+def packet_setting(provider: str, content: str | bytes, path: Path) -> dict[str, str]:
     """Parse the native model and effort metadata from one packet."""
+    text, _ = _coerce_content(content)
+    header, _ = _header(provider, text, path)
     if provider == "claude":
-        model = _one_match(CLAUDE_MODEL_RE, content, path, "model").group("model")
-        effort = _one_match(CLAUDE_EFFORT_RE, content, path, "effort").group("effort")
+        model = _one_match(CLAUDE_MODEL_RE, header, path, "model").group("model").strip()
+        effort = _one_match(CLAUDE_EFFORT_RE, header, path, "effort").group("effort").strip()
     elif provider == "codex":
-        model = _one_match(CODEX_MODEL_RE, content, path, "model").group("model")
-        effort = _one_match(CODEX_EFFORT_RE, content, path, "model_reasoning_effort").group("effort")
+        model = _one_match(CODEX_MODEL_RE, header, path, "model").group("model")
+        effort = _one_match(CODEX_EFFORT_RE, header, path, "model_reasoning_effort").group("effort")
     else:
-        match = _one_match(CURSOR_MODEL_RE, content, path, "model/effort").groupdict()
-        model, effort = match["model"], match["effort"]
+        match = _one_match(CURSOR_MODEL_RE, header, path, "model/effort").groupdict()
+        model, effort = match["model"].strip(), match["effort"].strip()
+    if not MODEL_IDENTIFIER_RE.fullmatch(model):
+        raise _error(f"{path.as_posix()} contains an invalid model identifier")
     return {"model": model, "effort": effort}
 
 
-def render_agent_packet(provider: str, content: str, setting: dict[str, str], path: Path | None = None) -> str:
+def render_agent_packet(
+    provider: str, content: str | bytes, setting: dict[str, str], path: Path | None = None
+) -> str | bytes:
     """Replace only provider-native model metadata in an agent packet."""
     packet_path = path or Path("agent packet")
+    text, as_bytes = _coerce_content(content)
+    header, header_offset = _header(provider, text, packet_path)
     if provider == "claude":
-        model_match = _one_match(CLAUDE_MODEL_RE, content, packet_path, "model")
-        effort_match = _one_match(CLAUDE_EFFORT_RE, content, packet_path, "effort")
-        content = content[:model_match.start()] + f"model: {setting['model']}" + content[model_match.end():]
-        # Re-find after model replacement because offsets may change.
-        effort_match = _one_match(CLAUDE_EFFORT_RE, content, packet_path, "effort")
-        return content[:effort_match.start()] + f"effort: {setting['effort']}" + content[effort_match.end():]
-    if provider == "codex":
-        model_match = _one_match(CODEX_MODEL_RE, content, packet_path, "model")
-        content = content[:model_match.start()] + f'model = "{setting["model"]}"' + content[model_match.end():]
-        effort_match = _one_match(CODEX_EFFORT_RE, content, packet_path, "model_reasoning_effort")
-        return content[:effort_match.start()] + f'model_reasoning_effort = "{setting["effort"]}"' + content[effort_match.end():]
-    match = _one_match(CURSOR_MODEL_RE, content, packet_path, "model/effort")
-    return content[:match.start()] + f"model: {setting['model']}[effort={setting['effort']}]" + content[match.end():]
+        model_pattern, effort_pattern = CLAUDE_MODEL_RE, CLAUDE_EFFORT_RE
+    elif provider == "codex":
+        model_pattern, effort_pattern = CODEX_MODEL_RE, CODEX_EFFORT_RE
+    else:
+        model_pattern, effort_pattern = CURSOR_MODEL_RE, None
+
+    model_match = _one_match(model_pattern, header, packet_path, "model")
+    if provider == "cursor":
+        replacement = (
+            f"model: {setting['model']}[effort={setting['effort']}]"
+            f"{model_match.group('suffix')}{model_match.group('newline')}"
+        )
+        start = header_offset + model_match.start()
+        end = header_offset + model_match.end()
+        rendered = text[:start] + replacement + text[end:]
+    else:
+        effort_match = _one_match(effort_pattern, header, packet_path, "effort")
+        model_value = (
+            f"model: {setting['model']}" if provider == "claude"
+            else f'model = "{setting["model"]}"'
+        )
+        model_replacement = model_value + model_match.group("suffix") + model_match.group("newline")
+        start = header_offset + model_match.start()
+        end = header_offset + model_match.end()
+        rendered = text[:start] + model_replacement + text[end:]
+        # Re-find the effort field after replacing the model so offsets remain valid.
+        new_header, new_header_offset = _header(provider, rendered, packet_path)
+        effort_match = _one_match(effort_pattern, new_header, packet_path, "effort")
+        effort_value = (
+            f"effort: {setting['effort']}" if provider == "claude"
+            else f'model_reasoning_effort = "{setting["effort"]}"'
+        )
+        effort_replacement = effort_value + effort_match.group("suffix") + effort_match.group("newline")
+        start = new_header_offset + effort_match.start()
+        end = new_header_offset + effort_match.end()
+        rendered = rendered[:start] + effort_replacement + rendered[end:]
+    return rendered.encode("utf-8") if as_bytes else rendered
 
 
-def _write_text_atomic(path: Path, content: str) -> None:
+def _write_bytes_atomic(path: Path, content: bytes) -> None:
     temporary: str | None = None
     try:
-        with tempfile.NamedTemporaryFile(
-            mode="w", encoding="utf-8", dir=path.parent, prefix=f".{path.name}.", delete=False
-        ) as stream:
+        with tempfile.NamedTemporaryFile(mode="wb", dir=path.parent, prefix=f".{path.name}.", delete=False) as stream:
             temporary = stream.name
             stream.write(content)
             stream.flush()
@@ -269,24 +334,25 @@ def sync_agents(root: Path) -> dict[str, list[str]]:
     """Validate and synchronize all provider packets from the central matrix."""
     root = root.resolve()
     config = _read_config(root)
-    plans: list[tuple[Path, str]] = []
+    plans: list[tuple[Path, bytes]] = []
     for provider in PROVIDERS:
         for role in ROLES:
             relative = Path(_agent_file(root, provider, role))
             path = root / relative
-            content = path.read_text(encoding="utf-8")
+            content = path.read_bytes()
             packet_setting(provider, content, relative)
             rendered = render_agent_packet(provider, content, model_setting(config, provider, role), relative)
+            assert isinstance(rendered, bytes)
             plans.append((relative, rendered))
     changed: list[str] = []
     unchanged: list[str] = []
     for relative, rendered in plans:
         path = root / relative
-        current = path.read_text(encoding="utf-8")
+        current = path.read_bytes()
         if current == rendered:
             unchanged.append(relative.as_posix())
         else:
-            _write_text_atomic(path, rendered)
+            _write_bytes_atomic(path, rendered)
             changed.append(relative.as_posix())
     return {"changed": changed, "unchanged": unchanged}
 
@@ -407,7 +473,7 @@ def _validate_snapshot(root: Path, feature: str, snapshot: Any) -> dict[str, Any
         effort = route["effort"]
         if not isinstance(effort, str) or effort not in EFFORTS:
             raise _error(f"existing snapshot role {role!r} effort is invalid")
-        current = packet_setting(provider, (root / agent_file).read_text(encoding="utf-8"), Path(agent_file))
+        current = packet_setting(provider, (root / agent_file).read_bytes(), Path(agent_file))
         if current != {"model": model, "effort": effort}:
             raise _error(
                 f"role {role!r} packet metadata differs from frozen snapshot; "
@@ -475,9 +541,7 @@ def resolve(
     for provider in PROVIDERS:
         for role in ROLES:
             agent_file = _agent_file(root, provider, role)
-            current = packet_setting(
-                provider, (root / agent_file).read_text(encoding="utf-8"), Path(agent_file)
-            )
+            current = packet_setting(provider, (root / agent_file).read_bytes(), Path(agent_file))
             expected = model_setting(config, provider, role)
             if current != expected:
                 raise _error(
@@ -488,7 +552,7 @@ def resolve(
     for role in DELEGATED_ROLES:
         provider = providers[role]
         agent_file = _agent_file(root, provider, role)
-        current = packet_setting(provider, (root / agent_file).read_text(encoding="utf-8"), Path(agent_file))
+        current = packet_setting(provider, (root / agent_file).read_bytes(), Path(agent_file))
         expected = model_setting(config, provider, role)
         if current != expected:
             raise _error(

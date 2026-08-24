@@ -6,13 +6,13 @@ persona: Workflow adopter
 journey: J-configure-feature-workflow
 expected: The resolver reports the configured cadence and consecutive balanced review groups, rejects invalid inputs precisely, and leaves final review before QA.
 entry_points: .my-workflow.toml; .agents/skills/workflow-config/scripts/workflow_config.py; .agents/skills/workflow-config/SKILL.md; docs/guidelines/REVIEW-ROUNDS.md
-qa_status: pass
+qa_status: untested
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-21-configurable-workflow/resolver-session.md
-last_report: docs/qa/reports/2026-08-21-configurable-workflow.md
+evidence:
+last_report:
 overlaps:
 ---
 

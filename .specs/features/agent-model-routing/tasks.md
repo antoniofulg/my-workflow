@@ -269,13 +269,38 @@ feature snapshot, preserving direct `balanced_groups()` coverage.
 **Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
 **Commit**: `test(config): restore configured cadence integration`
 
+### T10: Harden packet grammar and reset stale QA evidence
+
+**What**: Validate native model round-trips, scope metadata to native headers, preserve packet bytes
+including CRLF, and remove premature public QA claims. Refresh the always-loaded ownership pointers.
+**Where**: `.agents/skills/workflow-config/scripts/workflow_config.py`,
+`tools/test_workflow_config.py`, `AGENTS.md`, `docs/workflow/ai-memory.md`, `docs/qa/`
+**Depends on**: T9
+**Requirement**: AMR-01, AMR-03, AMR-04, AMR-08
+
+**Done when**:
+
+- [x] Invalid whitespace model identifiers fail before writes.
+- [x] Claude/Cursor frontmatter and Codex native headers are the only metadata sources; body-only,
+  duplicate, and missing header fields fail without packet writes.
+- [x] CRLF packet bytes and non-model content survive synchronization.
+- [x] The changed public scenarios are `untested` and the premature feature QA report is removed.
+- [x] Central config ownership is stated compactly in `AGENTS.md` and accurately in ai-memory docs.
+- [x] Resolver, adoption, Vitest, validator, and diff gates pass.
+
+**Status:** complete — 26 resolver tests, adoption suite, and 108 Vitest tests passed; QA reset for fresh planning/execution.
+
+**Tests**: unit and CLI/manual, `UT-002`, `UT-003`, `UT-006`, `UT-007`
+**Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
+**Commit**: `fix(config): harden packet grammar and byte preservation`
+
 ## Phase Execution Map
 
 ```text
 Phase 1 -> Phase 2
 
 Phase 1: T1 -> T2 -> T3
-Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9
+Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10
 ```
 
 ## Task Granularity Check
@@ -291,6 +316,7 @@ Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9
 | T7 | Final resolver contract restoration | PASS |
 | T8 | Frozen agent ownership discrimination | PASS |
 | T9 | Configured cadence integration | PASS |
+| T10 | Packet grammar, bytes, and QA evidence | PASS |
 
 ## Diagram-Definition Cross-Check
 
@@ -305,6 +331,7 @@ Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9
 | T7 | T6 | T6 -> T7 | PASS |
 | T8 | T7 | T7 -> T8 | PASS |
 | T9 | T8 | T8 -> T9 | PASS |
+| T10 | T9 | T9 -> T10 | PASS |
 
 ## Test Co-location Validation
 
@@ -319,3 +346,4 @@ Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9
 | T7 | Resolver contract restoration | unit + CLI/manual | unit + CLI/manual | PASS |
 | T8 | Frozen path ownership | unit + CLI/manual | unit + CLI/manual | PASS |
 | T9 | Configured cadence integration | unit + CLI/manual | unit + CLI/manual | PASS |
+| T10 | Packet grammar and public QA reset | unit + CLI/manual | unit + CLI/manual | PASS |

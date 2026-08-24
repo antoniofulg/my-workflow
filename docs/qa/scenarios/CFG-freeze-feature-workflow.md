@@ -6,13 +6,13 @@ persona: Workflow adopter
 journey: J-configure-feature-workflow
 expected: Resolution atomically produces matching JSON output with frozen delegated model and effort, and resume rejects packet drift until an explicit refresh.
 entry_points: .agents/skills/workflow-config/scripts/workflow_config.py; .specs/features/<slug>/workflow.json; .agents/skills/workflow-config/SKILL.md
-qa_status: pass
+qa_status: untested
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-24-agent-model-routing/session.md
-last_report: docs/qa/reports/2026-08-24-agent-model-routing.md
+evidence:
+last_report:
 overlaps:
 ---
 
