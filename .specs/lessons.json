@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 20,
+  "next_id": 21,
   "lessons": [
     {
       "id": "L-001",
@@ -346,6 +346,24 @@
       ],
       "created": "2026-08-24T15:54:47Z",
       "last_seen": "2026-08-24T15:54:47Z"
+    },
+    {
+      "id": "L-020",
+      "key": "surviving_mutant::exercise every persisted lane state through checkpoint revalidation before permitting follow up",
+      "text": "Exercise every persisted lane state through checkpoint revalidation before permitting follow-up",
+      "signal": "surviving_mutant",
+      "scope": "workflow-executor",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-executor"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md:Slice-C-R1-waiting-follow-up (workflow-executor)"
+      ],
+      "created": "2026-08-24T18:42:24Z",
+      "last_seen": "2026-08-24T18:42:24Z"
     }
   ]
 }

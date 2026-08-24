@@ -30,7 +30,7 @@ TRANSITIONS: dict[str, set[str]] = {
     "waiting": {"needs_sync", "running", "invalidated", "failed", "serial"},
     "needs_sync": {"running", "serial", "failed"},
     "invalidated": {"gate_required", "serial", "failed"},
-    "gate_required": {"ready", "running", "serial", "failed"},
+    "gate_required": {"ready", "running", "waiting", "serial", "failed"},
     "complete": set(),
     "failed": set(),
     "serial": set(),
@@ -580,7 +580,10 @@ class Coordinator:
         lane["invalidated_evidence"] = [item for item in invalidated if item != "gate"]
         lane.pop("gate_error", None)
         if lane["state"] == "gate_required":
-            transition_lane(state, lane_id, "ready", expected="gate_required")
+            resume_state = lane.get("checkpoint_previous_state", "ready")
+            if resume_state not in {"ready", "running", "waiting"}:
+                resume_state = "ready"
+            transition_lane(state, lane_id, resume_state, expected="gate_required")
         self._save(state)
         return True
 
@@ -638,6 +641,7 @@ class Coordinator:
             if evidence != ["gate", "technical_verifier", "deep_review"]:
                 raise ExecutorError("checkpoint receipt omitted evidence invalidation")
             lane["invalidated_evidence"] = list(evidence)
+            lane["checkpoint_previous_state"] = lane["state"]
             if lane["state"] in {"ready", "running", "waiting"}:
                 transition_lane(state, lane_id, "invalidated", expected=lane["state"])
                 transition_lane(state, lane_id, "gate_required", expected="invalidated")

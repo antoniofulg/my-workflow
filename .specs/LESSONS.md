@@ -128,6 +128,12 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: validation.md:Slice-B-waiter-secret (workflow-executor)
 - last seen: 2026-08-24T15:54:47Z
 
+### L-020 - Exercise every persisted lane state through checkpoint revalidation before permitting follow-up
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `workflow-executor` · harmful: 0
+- features: parallel-slice-executor
+- evidence: validation.md:Slice-C-R1-waiting-follow-up (workflow-executor)
+- last seen: 2026-08-24T18:42:24Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

@@ -982,6 +982,84 @@ def test_executor_waiter_persists_end_before_restart_follow_up_on_same_terminal(
         shutil.rmtree(root)
 
 
+def test_waiting_dependency_checkpoint_blocks_then_follows_up_once_after_correlated_gate() -> None:
+    root = make_repo()
+    original_plan = parallel_execute.Coordinator._plan
+    try:
+        first = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter())
+        first._plan = lambda: lane_plan(resources=[])  # type: ignore[method-assign]
+        first.start()
+        state = json.loads(first.state_path.read_text(encoding="utf-8"))
+        lane = state["lanes"]["slice-A"]
+        lane["state"] = "waiting"
+        lane["waiter"] = {"event": "waiting", "status": "clean", "dependency": "producer-A", "ended": True}
+        state["lanes"]["producer"] = {
+            "slice": "P", "task": "T0", "state": "complete", "resources": [], "current_head": state["source_git_head"]
+        }
+        parallel_execute.atomic_write_json(first.state_path, state)
+        plan = {
+            "fallback": False,
+            "lanes": [{"id": "slice-A", "slice": "A", "task": "T1", "status": "follow_up", "sync_after": ["T0"], "resources": []}],
+        }
+
+        class WaitingCheckpointAdapter(RecordingAdapter):
+            def __init__(self, state_path: Path) -> None:
+                super().__init__()
+                self.state_path = state_path
+                self.calls: list[tuple[str, str]] = []
+
+            def sync_checkpoint(self, consumer: Path, producer: str, *, declared_paths: list[str] | None = None) -> dict[str, object]:
+                current = json.loads(self.state_path.read_text(encoding="utf-8"))["source_git_head"]
+                return {
+                    "status": "synced", "changed": True, "pre_head": current, "post_head": "waiting-checkpoint-head",
+                    "changed_paths": ["producer.txt"], "invalidated_evidence": ["gate", "technical_verifier", "deep_review"],
+                }
+
+            def wait_events(self, receipt: dict[str, object], *, timeout: float = 30) -> dict[str, object]:
+                self.calls.append(("wait", str(receipt["terminal_handle"])))
+                return {"event": "dependency", "status": "complete", "dependency": "producer-A"}
+
+            def follow_up(self, receipt: dict[str, object], waiter: dict[str, object], dependency: dict[str, object], *, idempotency_key: str | None = None) -> dict[str, object]:
+                self.calls.append(("follow_up", str(receipt["terminal_handle"])))
+                return {
+                    "feature": "fixture", "slice": "A", "worktree_id": receipt["worktree_id"],
+                    "worktree_path": receipt["worktree_path"], "branch": receipt["branch"], "pre_head": receipt["pre_head"],
+                    "run_id": receipt["run_id"], "orchestration_task_id": receipt["orchestration_task_id"], "task": receipt["task"],
+                    "dispatch_id": "dispatch-follow-up", "terminal_handle": receipt["terminal_handle"],
+                    "idempotency_key": idempotency_key, "status": "running",
+                }
+
+        adapter = WaitingCheckpointAdapter(first.state_path)
+        blocked = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: adapter, git_adapter_factory=lambda: adapter)
+        blocked._plan = lambda: plan  # type: ignore[method-assign]
+        blocked_result = blocked.start(resume=True)
+        blocked_lane = blocked_result["state"]["lanes"]["slice-A"]
+        assert blocked_lane["state"] == "gate_required"
+        assert blocked_lane["current_head"] == "waiting-checkpoint-head"
+        assert adapter.calls == []
+
+        waiting = parallel_execute.Coordinator(
+            root, "fixture", adapter_factory=lambda: adapter,
+            git_adapter_factory=lambda: (_ for _ in ()).throw(AssertionError("waiting restart must reuse sync receipt")),
+            gate_receipt_factory=lambda _: {"passed": True, "current_head": "waiting-checkpoint-head", "lane": "slice-A", "gate": "gate"},
+        )
+        waiting._plan = lambda: plan  # type: ignore[method-assign]
+        resumed = waiting.start(resume=True)
+        assert resumed["state"]["lanes"]["slice-A"]["state"] == "running"
+        assert adapter.calls == [("wait", "terminal-A"), ("follow_up", "terminal-A")]
+
+        again = parallel_execute.Coordinator(
+            root, "fixture", adapter_factory=lambda: adapter,
+            git_adapter_factory=lambda: (_ for _ in ()).throw(AssertionError("restarted follow-up must not resync")),
+        )
+        again._plan = lambda: plan  # type: ignore[method-assign]
+        again.start(resume=True)
+        assert adapter.calls == [("wait", "terminal-A"), ("follow_up", "terminal-A"), ("wait", "terminal-A")]
+    finally:
+        parallel_execute.Coordinator._plan = original_plan  # type: ignore[method-assign]
+        shutil.rmtree(root)
+
+
 def test_disabled_start_short_circuits_planner_git_and_adapter() -> None:
     root = make_repo(mode="disabled")
     original_root = parallel_execute._repository_root

@@ -397,6 +397,26 @@ remain blocked only until Slice A passes its Technical Verifier.
 **Remediation gate:** Git adapter, executor, and Orca suites; strict spec/tasks/index; compile; diff check; adequacy review.
 **Remediation commit:** `fix(workflow): enforce checkpoint revalidation`.
 
+### T4R2: Gate waiting-lane checkpoint follow-up
+
+**Remediation status:** complete
+**Slice:** C
+**Remediation resources:** none
+**Observable behaviour:** A persisted waiting lane consumes its changed checkpoint before dependency follow-up, remains gate-required across restart, and sends exactly one same-terminal follow-up only after a correlated gate receipt.
+**Where:** `.agents/skills/autonomous/scripts/parallel_execute.py`
+**Remediation depends on:** T4R1
+**Remediation requirements:** EXE-15
+**Remediation done when:**
+
+- [x] Waiting/dependency resume consumes `sync_after` before `wait_events` or `follow_up`.
+- [x] Changed checkpoint persists `gate_required`, `current_head`, and all evidence invalidations; no adapter follow-up/start occurs before gate acceptance.
+- [x] Gate acceptance restores the persisted waiting state and exact terminal identity; follow-up occurs once and restart does not duplicate it.
+- [x] The surviving waiting-lane invalidation mutant is killed by the canonical executor test.
+
+**Remediation tests:** `tools/test_parallel_executor.py` (35 cases), Git 7, Orca 20.
+**Remediation gate:** Git/executor/Orca regressions; strict spec/tasks/index; compile; diff check; adequacy review.
+**Remediation commit:** `fix(workflow): gate waiting checkpoint follow-up`.
+
 ## Phase Execution Map
 
 ```text
