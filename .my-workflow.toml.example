@@ -3,6 +3,12 @@ version = 2
 [deep_review]
 cadence = "grouped.3"
 
+[profiles.mixed]
+implementer = "claude"
+verifier = "codex"
+explorer = "cursor"
+deep_reviewer = "codex"
+
 [models.claude.planner]
 model = "opus"
 effort = "high"

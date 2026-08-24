@@ -8,8 +8,8 @@ runtime packets drift apart.
 
 ## Goals
 
-- [ ] Make `.my-workflow.toml` the only manually edited source for every bundled agent model and effort.
-- [ ] Materialize valid native metadata for Claude, Codex, and Cursor without changing packet instructions.
+- [ ] Make local `.my-workflow.toml` the only manually edited source for every agent model and effort.
+- [ ] Generate ignored Claude, Codex, and Cursor runtime packets from tracked templates.
 - [ ] Freeze delegated-role model and effort with each feature workflow snapshot.
 
 ## Out of Scope
@@ -25,13 +25,14 @@ runtime packets drift apart.
 
 | Assumption / decision | Chosen default | Rationale | Confirmed? |
 | --- | --- | --- | --- |
-| Native packets still require model metadata | Generate metadata from `.my-workflow.toml` | All three runtimes consume native agent definitions. | yes |
+| Native packets still require model metadata | Generate ignored runtime packets from tracked templates plus local `.my-workflow.toml` | All three runtimes consume native agent definitions, but operator choices must not dirty Git. | yes |
 | Sync timing | Explicit `--sync-agents`; adoption invokes it after installing packets | Resolution and resume remain read-only unless the operator requests refresh. | yes |
 | Configuration coverage | Three providers and five roles, including planner | Every bundled packet becomes centrally configurable. | yes |
 | Compatibility | Version 2 replaces version 1 with no fallback | Project policy requires hard cuts instead of compatibility layers. | yes |
 | Snapshot scope | Freeze model and effort for delegated roles only | Planner is the current top-level session, not a delegated route. | yes |
 | Effort validation | Validate the workflow effort vocabulary, then let runtimes enforce model compatibility | Availability varies by provider model and changes independently. | yes |
 | Remaining implicit dimensions | Auth, rate limits, expiry, and external failures are N/A | The feature is a local deterministic file transformation with no network or identity boundary. | yes |
+| Repository ownership | Track `.my-workflow.toml.example` and `templates/agents/`; ignore `.my-workflow.toml` and runtime packet trees | Provider access, quotas, profiles, models, and efforts are operator-local. | yes |
 
 **Open questions:** none.
 
@@ -46,11 +47,11 @@ I do not edit three provider-specific packet trees.
 
 **Acceptance Criteria**:
 
-1. The workflow SHALL define one model and one effort for each Claude, Codex, and Cursor combination of planner, implementer, verifier, explorer, and deep reviewer in `.my-workflow.toml`.
-2. WHEN the operator runs `workflow_config.py --root <path> --sync-agents` THEN the workflow SHALL render each configured value in that provider's native packet syntax.
-3. WHEN sync changes native metadata THEN the workflow SHALL preserve every non-model packet byte.
-4. WHEN sync runs twice without a config change THEN the workflow SHALL leave every native packet byte-identical on the second run.
-5. IF the model matrix, effort value, or native packet metadata is invalid THEN the workflow SHALL exit non-zero before changing any packet.
+1. The workflow SHALL ship a tracked `.my-workflow.toml.example` with one model and effort for every provider-role pair and the documented `mixed` profile.
+2. WHEN the operator runs `workflow_config.py --root <path> --sync-agents` THEN the workflow SHALL initialize a missing local `.my-workflow.toml` from the example and generate all runtime packets from tracked templates using provider-native syntax.
+3. WHEN sync generates runtime packets THEN the workflow SHALL leave every tracked template byte unchanged.
+4. WHEN sync runs twice without a config or template change THEN the workflow SHALL leave every runtime packet byte-identical on the second run.
+5. IF the local config, model matrix, effort value, or tracked template is invalid THEN the workflow SHALL exit non-zero before changing any runtime packet.
 6. WHEN sync completes THEN the workflow SHALL report which packet paths changed and which were already current.
 
 **Independent Test**: Change one entry for each provider in a disposable checkout, run sync twice,
@@ -82,10 +83,10 @@ without overwriting my existing choices or packet instructions.
 
 **Acceptance Criteria**:
 
-1. WHEN adoption targets a project without `.my-workflow.toml` THEN the workflow SHALL install the bundled version 2 config and synchronize all installed agent packets.
-2. WHEN adoption targets a project with `.my-workflow.toml` THEN the workflow SHALL preserve that file byte-for-byte and synchronize only model metadata in existing packets.
-3. IF adoption cannot synchronize a consumer packet THEN the workflow SHALL exit non-zero and name the invalid packet.
-4. The published workflow documentation SHALL describe `.my-workflow.toml` as the source of truth and the native model fields as generated metadata.
+1. WHEN adoption targets a project without `.my-workflow.toml` THEN the workflow SHALL install tracked templates and the example, initialize the ignored local config, and generate all ignored runtime packets.
+2. WHEN adoption targets a project with `.my-workflow.toml` THEN the workflow SHALL preserve that file byte-for-byte and regenerate runtime packets from tracked templates plus that local config.
+3. IF adoption cannot load a local config or tracked template THEN the workflow SHALL exit non-zero and name the invalid source.
+4. The published workflow documentation SHALL describe the example/templates as tracked sources and the local config/runtime packets as ignored operator state.
 
 **Independent Test**: Adopt into empty and pre-populated disposable targets, compare config and
 instruction bytes, and inspect all native model fields.
@@ -96,25 +97,27 @@ instruction bytes, and inspect all native model fields.
 - IF an unknown key exists in the model matrix THEN sync SHALL fail with its TOML path.
 - IF a packet contains duplicate or missing model metadata THEN sync SHALL fail before packet writes.
 - WHEN distinct checkouts use distinct configs THEN each checkout SHALL synchronize only its own packets.
+- The workflow SHALL keep `.my-workflow.toml` and all three runtime agent directories ignored while keeping `.my-workflow.toml.example` and `templates/agents/` tracked and packaged.
 
 ## Requirement Traceability
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| AMR-01 | Configure every agent | Validation | Verified |
-| AMR-02 | Configure every agent | Validation | Verified |
-| AMR-03 | Configure every agent | Validation | Verified |
-| AMR-04 | Configure every agent | Validation | Verified |
-| AMR-05 | Freeze execution settings | Validation | Verified |
-| AMR-06 | Freeze execution settings | Validation | Verified |
-| AMR-07 | Adopt centralized contract | Validation | Verified |
-| AMR-08 | Adopt centralized contract | Validation | Verified |
+| AMR-01 | Configure every agent | Tasks | Implementing |
+| AMR-02 | Configure every agent | Tasks | Implementing |
+| AMR-03 | Configure every agent | Tasks | Implementing |
+| AMR-04 | Configure every agent | Tasks | Implementing |
+| AMR-05 | Freeze execution settings | Tasks | Implementing |
+| AMR-06 | Freeze execution settings | Tasks | Implementing |
+| AMR-07 | Adopt centralized contract | Tasks | Implementing |
+| AMR-08 | Adopt centralized contract | Tasks | Implementing |
+| AMR-09 | Keep operator state unversioned | Tasks | Implementing |
 
-**Coverage:** 8 total, 8 mapped to tasks, 0 unmapped.
+**Coverage:** 9 total, 9 mapped to tasks, 0 unmapped.
 
 ## Success Criteria
 
 - [ ] One TOML edit and one sync command update native settings for every provider.
-- [ ] All provider packets match the central matrix after the full gate.
+- [ ] Runtime packets match local config plus tracked templates without appearing in `git status`.
 - [ ] Resume rejects model or effort drift until explicit refresh.
 - [ ] Fresh and repeated adoption preserve the documented ownership boundaries.

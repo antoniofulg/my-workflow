@@ -5,14 +5,16 @@
 
 ## Architecture Overview
 
-The existing workflow resolver gains a strict version 2 model matrix and an explicit materializer.
-It validates the complete config and every packet before replacing any packet. Provider adapters
-rewrite only native model metadata. Resolution reads synchronized metadata into the existing
-feature snapshot; resume compares the packet metadata with the frozen values.
+The resolver reads an ignored local version 2 config and tracked provider templates. Explicit sync
+initializes missing local config from the tracked example, renders complete ignored runtime packets,
+and atomically replaces them only after every source validates. Resolution reads runtime metadata
+into the feature snapshot; resume compares it with frozen values.
 
 ```mermaid
 flowchart LR
-    C[.my-workflow.toml] --> V[Strict config parser]
+    E[.my-workflow.toml.example] --> C[local .my-workflow.toml]
+    T[templates/agents] --> S[--sync-agents]
+    C --> V[Strict config parser]
     V --> S[--sync-agents]
     S --> A[Claude packet metadata]
     S --> B[Codex packet metadata]
@@ -27,7 +29,7 @@ flowchart LR
 
 | Approach | Verdict | Reason |
 | --- | --- | --- |
-| Explicit native-packet materialization | Selected | Supports all runtimes, keeps one editable source, and makes tracked changes visible. |
+| Ignored runtime generation from tracked templates | Selected | Supports all runtimes without turning operator model changes into repository diffs. |
 | Per-spawn overrides only | Rejected | Cursor does not provide a proven portable override path and agents could omit the override. |
 | Automatic materialization during every resolve | Rejected | Ordinary resolve and resume would gain hidden tracked-file writes. |
 
@@ -39,7 +41,7 @@ flowchart LR
 | --- | --- | --- |
 | Strict TOML loader | `.agents/skills/workflow-config/scripts/workflow_config.py` | Extend its allowed-key validation and error shape. |
 | Atomic snapshot writer | `.agents/skills/workflow-config/scripts/workflow_config.py` | Reuse its temporary-file and replacement pattern for packets. |
-| Missing-only adoption | `scripts/adopt.py` | Preserve consumer config and instructions before metadata synchronization. |
+| Missing-only adoption | `scripts/adopt.py` | Preserve local config, install tracked templates, then regenerate runtime packets. |
 | Resolver tests | `tools/test_workflow_config.py` | Extend existing disposable-repository fixtures. |
 | Adoption smoke tests | `scripts/test_adopt.py` | Extend empty and pre-populated target journeys. |
 
@@ -66,7 +68,7 @@ flowchart LR
 
 ### Native packet materializer
 
-- **Purpose**: Render provider-native model metadata without touching packet instructions.
+- **Purpose**: Render complete provider-native runtime packets from tracked templates and local settings.
 - **Location**: `.agents/skills/workflow-config/scripts/workflow_config.py`
 - **Interfaces**:
   - `render_agent_packet(provider, content, setting) -> str`
@@ -86,11 +88,11 @@ flowchart LR
 
 ### Adoption integration
 
-- **Purpose**: Install missing central config and synchronize metadata after packet installation.
+- **Purpose**: Install example/templates, initialize missing local config, and generate ignored runtime packets.
 - **Location**: `scripts/adopt.py`
 - **Interfaces**:
-  - Preserve an existing `.my-workflow.toml` byte-for-byte.
-  - Invoke the installed resolver's sync operation after managed assets exist.
+  - Preserve an existing local `.my-workflow.toml` byte-for-byte.
+  - Install missing tracked sources and invoke sync after managed assets exist.
 - **Dependencies**: Materializer and current missing-only copy behavior.
 - **Reuses**: Existing adoption error reporting and disposable tests.
 
@@ -141,8 +143,8 @@ runtime concern.
 
 | Decision | Choice | Rationale |
 | --- | --- | --- |
-| Sync trigger | Explicit CLI, plus adoption after installation | Visible during normal development and automatic at the adoption boundary. |
-| Source config | Track `.my-workflow.toml`; remove the example indirection | The requested source must be immediately editable. |
-| Packet ownership | Generate model metadata only | Provider-specific instructions remain independently authored. |
+| Sync trigger | Explicit CLI, plus adoption after installation | Operator-local writes happen only at explicit setup/sync boundaries. |
+| Source config | Track `.my-workflow.toml.example`; ignore `.my-workflow.toml` | Personal provider access and quota-driven choices do not belong in Git. |
+| Packet ownership | Track `templates/agents/`; ignore generated runtime directories | Instructions stay reviewable while runtime metadata remains local. |
 | Resume drift | Compare model and effort, not whole-file hashes | Freeze requested execution settings without blocking instruction-only fixes. |
 | Snapshot migration | None | The repository forbids backward-compatibility layers. |

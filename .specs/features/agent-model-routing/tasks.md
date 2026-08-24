@@ -6,7 +6,7 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 flow and Critical Rules.** If the skill cannot be activated, stop without implementation.
 
 **Design**: `.specs/features/agent-model-routing/design.md`
-**Status**: Done
+**Status**: In Progress
 
 ## Test Coverage Matrix
 
@@ -41,6 +41,12 @@ T1 -> T2 -> T3
 
 ```text
 T3 -> T4 -> T5
+```
+
+### Phase 3: Local operator state
+
+```text
+T15 -> T16 -> T17 -> T18
 ```
 
 ## Task Breakdown
@@ -394,13 +400,70 @@ tests.
 **Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
 **Commit**: `fix(config): replace Codex lexer with TOML-backed parsing`
 
+### T15: Move versioned defaults to example and templates
+
+**What**: Restore the tracked example with `profiles.mixed`, move canonical packets to templates, and ignore local config/runtime paths.
+**Where**: `templates/agents/`
+**Depends on**: T14
+**Requirement**: AMR-01, AMR-09
+
+**Done when**:
+
+- [x] The complete v2 matrix and `profiles.mixed` live in tracked `.my-workflow.toml.example`.
+- [x] All fifteen canonical instruction bodies moved byte-for-byte to tracked provider templates.
+- [x] The local config and all three generated runtime trees are untracked and ignored while the
+  current checkout retains usable runtime copies.
+- [x] `git ls-files`, `git check-ignore`, and `npm pack --dry-run` prove the ownership and packaging
+  boundaries.
+
+**Status:** complete — tracked sources package correctly; local config/runtime paths are ignored;
+template hashes match the retained runtime copies; Build gate passed.
+
+**Tests**: none — config/artifact layer; Build gate verifies packaging and Git ownership.
+**Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
+**Commit**: `refactor(config): separate agent templates from runtime`
+
+### T16: Generate runtime packets from local state
+
+**What**: Make sync initialize local config from the example and render complete canonical runtime packets from templates.
+**Where**: `.agents/skills/workflow-config/scripts/workflow_config.py`
+**Depends on**: T15
+**Requirement**: AMR-02, AMR-03, AMR-04, AMR-05, AMR-06
+**Done when**: fresh sync generates fifteen ignored packets; repeat sync is byte-identical; resolver uses canonical runtime paths; invalid sources write nothing.
+**Tests**: unit — initialization, generation, idempotence, missing runtime, and snapshot/resume.
+**Gate**: Quick, `python3 tools/test_workflow_config.py`
+**Commit**: `feat(config): generate local provider runtimes`
+
+### T17: Adopt local configuration safely
+
+**What**: Install tracked example/templates, preserve existing local config, merge ignore rules, and generate runtime packets during adoption.
+**Where**: `scripts/adopt.py`
+**Depends on**: T16
+**Requirement**: AMR-07, AMR-09
+**Done when**: fresh/repeated adoption owns no local state in Git, preserves existing config, regenerates runtime packets, and reports invalid sources.
+**Tests**: integration — fresh, repeated, customized, and invalid targets.
+**Gate**: Full, `python3 scripts/test_adopt.py && npm test`
+**Commit**: `feat(adopt): generate local agent runtimes`
+
+### T18: Publish and verify local ownership
+
+**What**: Update instructions, docs, contract/package tests, and QA promises for example/template versus local/runtime ownership.
+**Where**: `README.md`
+**Depends on**: T17
+**Requirement**: AMR-08, AMR-09
+**Done when**: docs describe one setup/sync flow; package includes tracked sources only; Git checks prove local state ignored; public QA is terminal.
+**Tests**: unit and CLI/manual — contract/package tests plus final QA.
+**Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
+**Commit**: `docs(config): publish local agent configuration`
+
 ## Phase Execution Map
 
 ```text
-Phase 1 -> Phase 2
+Phase 1 -> Phase 2 -> Phase 3
 
 Phase 1: T1 -> T2 -> T3
 Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -> T14
+Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18
 ```
 
 ## Task Granularity Check
@@ -421,6 +484,10 @@ Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -> T
 | T12 | Codex header boundary and native round trip | PASS |
 | T13 | Codex comment-aware scanning | PASS |
 | T14 | TOML-backed Codex assignment parsing | PASS |
+| T15 | Repository ownership migration | PASS |
+| T16 | Runtime generator | PASS |
+| T17 | Adoption integration | PASS |
+| T18 | Public contract publication | PASS |
 
 ## Diagram-Definition Cross-Check
 
@@ -440,6 +507,10 @@ Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -> T
 | T12 | T11 | T11 -> T12 | PASS |
 | T13 | T12 | T12 -> T13 | PASS |
 | T14 | T13 | T13 -> T14 | PASS |
+| T15 | T14 | Earlier phase -> T15 | PASS |
+| T16 | T15 | T15 -> T16 | PASS |
+| T17 | T16 | T16 -> T17 | PASS |
+| T18 | T17 | T17 -> T18 | PASS |
 
 ## Test Co-location Validation
 
@@ -459,3 +530,7 @@ Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -> T
 | T12 | Codex native boundary and round trip | unit + CLI/manual | unit + CLI/manual | PASS |
 | T13 | Codex comment-aware scanner | unit + CLI/manual | unit + CLI/manual | PASS |
 | T14 | Codex TOML assignment parser and byte-preserving renderer | unit + CLI/manual | unit + CLI/manual | PASS |
+| T15 | Config/artifact | none | none | PASS |
+| T16 | Resolver/generator | unit | unit | PASS |
+| T17 | Adoption integration | integration | integration | PASS |
+| T18 | Contract/docs | unit + CLI/manual | unit + CLI/manual | PASS |
