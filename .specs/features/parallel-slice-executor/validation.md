@@ -636,3 +636,87 @@ worktree paths. It removes only valid owned Git worktrees, never recursively del
 sibling root, preserves unowned sentinel content, and returns an honest residual error. Prior
 source-HEAD correlation and idempotent retry behavior remain green. Fingerprint `d0a63e2...` stays
 at count 1 pending fresh verifier closure; no ledger count is changed by this remediation.
+
+## Slice D / T7R3 Independent Technical Re-verification
+
+**Date:** 2026-08-24
+**Diff range:** `8e58a8c^..8e58a8c`
+**Verifier:** independent Technical Verifier (author != verifier)
+**Slice verdict:** FAIL. The original broad sibling-deletion blocker is resolved, but cleanup still
+trusts a tampered manifest source HEAD and loses residual failure state on retry. No real Orca pilot
+was executed in this technical phase.
+
+### Spec-Anchored Acceptance Criteria
+
+| Criterion | Spec-defined outcome | `file:line` + assertion/probe | Result |
+| --- | --- | --- | --- |
+| E2E-001 / SEC-008 exact targets | Cleanup removes only the exact manifest-owned `A-T1`/`B-T2` Git worktrees and preserves unowned siblings. | `tools/qa_parallel_pilot.py:127-147`; `tools/test_qa_parallel_pilot.py:72-88` asserts exact `A-T1` removal, non-zero residual, and sentinel survival. Direct probe created both exact Git worktrees; both were removed and an unowned sentinel survived. | PASS |
+| E2E-001 / SEC-008 manifest integrity | Every ownership binding, including the source HEAD, must be valid before cleanup authorizes deletion. | Setup binds `source_git_head` at `tools/qa_parallel_pilot.py:60-63`, but cleanup validation at `:77-80` checks only root, feature, and worktree list. Direct probe changed only `source_git_head` to forty zeroes; cleanup returned success and deleted the fixture and owned worktree. | FAIL |
+| E2E-001 / SEC-008 bounded retry | Retrying cleanup after restart must reproduce owned cleanup evidence without concealing unresolved paths. | `tools/qa_parallel_pilot.py:119-125,148-150` writes unconditional `status: cleaned` and later returns `cleaned: true`. Direct probe's first call returned `cleaned: false` with the preserved sibling root; the restarted call returned `cleaned: true` while the sentinel still existed. | FAIL |
+| E2E-001 / EXE-06 HEAD correlation | Dry-run rejects a frozen or ownership source HEAD different from repository HEAD. | `tools/qa_parallel_pilot.py:83-91`; `tools/test_qa_parallel_pilot.py:32-35,48-58` asserts exact equality and frozen-workflow rejection. Directed harness remained green. | PASS |
+
+**Spec-anchored status:** 2 PASS, 2 FAIL, 0 spec-precision gaps in T7R3 scope.
+
+### Gate Evidence
+
+- Canonical pilot harness: 3 passed, 0 failed.
+- IT-007: 2 passed, 0 failed.
+- Directed Slice D suites: config 18, planner 16, executor 37, Orca 20, Git 7; 98 passed, 0 failed.
+- Full `npm run test:all`: 110 Vitest tests in 9 files plus 148 reported Python cases and contract smoke; 0 failed/skipped.
+- Strict spec/tasks validators: 0 errors, 0 warnings; AD index current.
+- Python compile, T7R3 commit-message validation, commit/working-tree diff checks: exit 0.
+- Real-tree porcelain was empty before sensors and empty after scratch cleanup.
+
+### Adverse Probes and Discrimination Sensor
+
+| Probe / mutation | Behavior | Result |
+| --- | --- | --- |
+| P1 | Exact `A-T1` and `B-T2` are real Git worktrees. | Both removed through `git worktree remove`; cleanup returned no residual. PASS. |
+| P2 | Unowned derived sibling sentinel. | Sentinel survived and first cleanup returned a bounded non-zero residual. PASS. |
+| P3 | Traversal injected into manifest worktree list and arbitrary unmarked root. | Both rejected before deletion; sentinel/path survived. PASS. |
+| P4 | Only manifest `source_git_head` changed to forty zeroes. | Cleanup succeeded and deleted the owned worktree/root. FAIL. |
+| P5 | Retry after P2 from a new process-equivalent call. | Returned `cleaned: true` while the preserved residual sentinel remained. FAIL. |
+| M1 | Remove the manifest root/feature/worktree ownership check. | Canonical pilot suite still reported 3 passed. SURVIVED. |
+| M2 | Reintroduce broad `rglob` discovery plus recursive sibling deletion. | Canonical pilot suite exited 1 at `tools/test_qa_parallel_pilot.py:86`; sentinel case killed it. KILLED. |
+
+**Sensor:** lightweight, 2 mutations, 1 killed, 1 survived. FAIL.
+
+### Fingerprint Accounting
+
+- `d0a63e2380682516b1f6195379bc539f34cfe176f87627fffde63e7d2ee2a3fc` is closed at historical count 1: exact-target cleanup no longer recursively removes the derived sibling root, the sentinel probe passes, and broad-rglob reintroduction dies.
+- `7009c8b0996b20dd6029a94d77596e129bf53efe2f7d99f8bc4d13667616d452` is open at count 1: cleanup does not validate manifest `source_git_head`; a tampered manifest authorizes destructive cleanup.
+- `187464370a08ebbfae594e77e9c7a88f4f66545faf2b46249c62148c07a8c08b` is open at count 1: cleanup attestation discards residual failure state, so retry reports false success.
+
+### Ranked Gaps
+
+1. **Blocker / E2E-001, SEC-008:** Validate the ownership manifest's `source_git_head` against the
+   fixture repository HEAD before any cleanup effect; add a canonical adverse assertion proving a
+   source-HEAD-only tamper preserves the fixture and exact worktrees.
+2. **Major / E2E-001, SEC-008:** Persist bounded residual paths/status in the cleanup attestation and
+   return the same unresolved result on retry until those paths are independently removed; add a
+   restart-style assertion that the second call cannot report clean while a residual sentinel exists.
+
+**Overall:** FAIL for Slice D after T7R3. The prior fingerprint is closed, and these are two new
+root causes at count 1 each. Grouped C-D deep-review, the real Orca pilot, QA, and feature closure
+remain pending after remediation and fresh technical verification.
+
+## T7R4 remediation handoff
+
+T7R4 consumes the two T7R3 FAIL findings without changing their ledger counts. Cleanup now
+correlates the independently derived fixture repository HEAD with the frozen workflow and ownership
+source HEAD before any worktree or fixture deletion. The external tombstone records the exact
+bounded residual paths and status before the fixture root is removed; restart retries re-evaluate
+the derived sibling and remain `cleaned: false` while any unowned sentinel remains. The production
+workflow stays disabled and no real Orca pilot was run by the author.
+
+Canonical coverage is added in `tools/test_qa_parallel_pilot.py` for source-head-only attestation
+tampering and residual retry after root removal. Existing T7R3 sentinel-survival, exact owned
+worktree cleanup, frozen-head dry-run, and arbitrary-root rejection assertions remain intact.
+
+### T7R4 implementation evidence
+
+- `python3 tools/test_qa_parallel_pilot.py`: 5 passed, 0 failed.
+- `python3 tools/test_parallel_executor.py`: 37 passed, 0 failed; IT-007: 2 passed, 0 failed.
+- `npm_config_offline=true npm run test:all`: 110 Vitest tests and all discovered Python suites passed, 0 failed.
+- Strict spec/tasks validation, AD index, Python compile, `git diff --check`, and commit-message validation passed.
+- The two T7R3 fingerprints remain open at historical count 1 pending a fresh Technical Verifier; this remediation does not close or increment them.

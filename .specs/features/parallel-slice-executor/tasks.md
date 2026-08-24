@@ -274,6 +274,26 @@ T3 + T4 + T6 -> T7
 **Remediation gate:** Harness/full gate, strict validators/index, compile, diff check, adequacy review.
 **Remediation commit:** `fix(workflow): attest parallel pilot cleanup`.
 
+### T7R4: Bind parallel pilot cleanup receipts
+
+**Remediation status:** complete
+**Slice:** D
+**Remediation resources:** none
+**Observable behaviour:** Pilot cleanup independently correlates the fixture repository HEAD and frozen workflow before destructive effects, and restart retries preserve and re-evaluate exact residual evidence until the bounded sibling is empty.
+**Where:** `tools/qa_parallel_pilot.py`
+**Remediation depends on:** T7R3
+**Remediation requirements:** E2E-001, SEC-008
+**Remediation done when:**
+
+- [x] Source-head-only manifest tampering is rejected before any worktree or fixture deletion.
+- [x] Cleanup persists an external tombstone with source/workflow correlation, exact residual paths, and a residual status before removing the fixture root.
+- [x] Restarted cleanup remains `cleaned: false` while an unowned sentinel remains, then returns idempotent success only after all bounded residuals are gone.
+- [x] Exact-path ownership, frozen-head dry-run correlation, and production disabled workflow remain intact.
+
+**Remediation tests:** `tools/test_qa_parallel_pilot.py`, full Python discovery, shared IT-007, and directed executor regressions.
+**Remediation gate:** Harness/full gate, strict validators/index, compile, diff check, adequacy review.
+**Remediation commit:** `fix(workflow): bind parallel pilot cleanup`.
+
 ## Review Remediation
 
 The human rejected a slice-global cap because the prior rounds closed different blockers. T2R4

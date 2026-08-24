@@ -23,6 +23,8 @@ dispatch, and terminal receipts active in one run; correlated `worker_done` deli
 ack-before-release ordering; clean waiter end and same-terminal dependency follow-up; deterministic
 checkpoint/gate or no-op evidence; and owned worker/worktree cleanup. Record command output and
 receipt identities without transcripts, environment values, or credentials. Abort the pilot rather
-than substituting a fake result if the capability gate returns serial fallback. Cleanup is
-attested and a repeated cleanup of the same root returns an idempotent success; unmarked roots are
-rejected.
+than substituting a fake result if the capability gate returns serial fallback. Cleanup is attested
+outside the disposable root and independently binds the ownership source HEAD to the fixture
+repository and frozen workflow before deletion. A repeated cleanup returns idempotent success only
+when the bounded derived sibling has no residual paths; an unowned residual returns `cleaned: false`
+with exact paths until it is removed. Unmarked roots and tampered attestations are rejected.

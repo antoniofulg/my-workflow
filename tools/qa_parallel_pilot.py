@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -80,15 +81,55 @@ def _validate_root(value: str) -> Path:
     return root
 
 
-def dry_run(root_value: str) -> dict[str, object]:
-    root = _validate_root(root_value)
+def _validate_fixture(value: str) -> tuple[Path, dict[str, object], dict[str, object], str]:
+    root = _validate_root(value)
+    ownership = json.loads((root / OWNERSHIP).read_text(encoding="utf-8"))
     snapshot_path = root / ".specs/features" / FEATURE / "workflow.json"
     snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
     repository_head = git(root, "rev-parse", "HEAD")
-    if snapshot.get("git_head") != repository_head:
-        raise ValueError("pilot frozen git_head does not match repository HEAD")
-    if json.loads((root / OWNERSHIP).read_text(encoding="utf-8")).get("source_git_head") != repository_head:
+    if snapshot.get("feature") != FEATURE or snapshot.get("git_head") != repository_head:
+        raise ValueError("pilot frozen workflow source HEAD does not match repository HEAD")
+    if ownership.get("source_git_head") != repository_head:
         raise ValueError("pilot ownership source HEAD does not match repository HEAD")
+    return root, ownership, snapshot, repository_head
+
+
+def _residual_paths(worktree_root: Path) -> list[str]:
+    if not worktree_root.exists():
+        return []
+    paths: list[str] = []
+    for current, directories, files in os.walk(worktree_root, followlinks=False):
+        current_path = Path(current)
+        paths.extend(str(current_path / name) for name in sorted(directories + files))
+    return sorted(paths)
+
+
+def _validate_tombstone(root: Path, record: dict[str, object]) -> Path:
+    if record.get("root") != str(root) or record.get("feature") != FEATURE:
+        raise ValueError("pilot cleanup attestation is invalid")
+    if record.get("worktrees") != list(OWNED_WORKTREES):
+        raise ValueError("pilot cleanup attestation is invalid")
+    if record.get("status") not in ("cleaned", "cleaned-with-residual"):
+        raise ValueError("pilot cleanup attestation is invalid")
+    source_git_head = record.get("source_git_head")
+    workflow_git_head = record.get("workflow_git_head")
+    if not isinstance(source_git_head, str) or source_git_head != workflow_git_head or len(source_git_head) != 40:
+        raise ValueError("pilot cleanup attestation source HEAD is invalid")
+    worktree_root = root.parent / f".{root.name}-parallel-slices"
+    residual_paths = record.get("residual_paths", [])
+    if not isinstance(residual_paths, list) or any(not isinstance(path, str) for path in residual_paths):
+        raise ValueError("pilot cleanup attestation residuals are invalid")
+    for value in residual_paths:
+        path = Path(value)
+        try:
+            path.resolve().relative_to(worktree_root.resolve())
+        except ValueError as exc:
+            raise ValueError("pilot cleanup attestation residual escapes worktree boundary") from exc
+    return worktree_root
+
+
+def dry_run(root_value: str) -> dict[str, object]:
+    root, _, snapshot, repository_head = _validate_fixture(root_value)
     planner = ROOT / ".agents/skills/workflow-config/scripts/parallel_plan.py"
     result = subprocess.run(
         ["python3", str(planner), "--root", str(root), "--feature", FEATURE],
@@ -120,10 +161,18 @@ def cleanup(root_value: str) -> dict[str, object]:
         if not attestation.is_file():
             raise ValueError("pilot root is not an attested disposable fixture")
         record = json.loads(attestation.read_text(encoding="utf-8"))
-        if record.get("root") != str(root) or record.get("status") != "cleaned":
-            raise ValueError("pilot cleanup attestation is invalid")
-        return {"cleaned": True, "idempotent": True, "root": root_value}
-    root = _validate_root(root_value)
+        worktree_root = _validate_tombstone(root, record)
+        residual = _residual_paths(worktree_root)
+        if residual:
+            record["status"] = "cleaned-with-residual"
+            record["residual_paths"] = residual
+            attestation.write_text(json.dumps(record, sort_keys=True) + "\n", encoding="utf-8")
+            return {"cleaned": False, "idempotent": True, "residual_paths": residual, "root": root_value}
+        record["status"] = "cleaned"
+        record["residual_paths"] = []
+        attestation.write_text(json.dumps(record, sort_keys=True) + "\n", encoding="utf-8")
+        return {"cleaned": True, "idempotent": True, "residual_paths": [], "root": root_value}
+    root, ownership, snapshot, _ = _validate_fixture(root_value)
     worktree_root = root.parent / f".{root.name}-parallel-slices"
     residual: list[str] = []
     for relative in OWNED_WORKTREES:
@@ -135,7 +184,7 @@ def cleanup(root_value: str) -> dict[str, object]:
             continue
         result = subprocess.run(["git", "worktree", "remove", "--force", str(worktree)], cwd=root, check=False, capture_output=True)
         if result.returncode != 0 or worktree.exists():
-            residual.append(str(worktree))
+            continue
     if worktree_root.exists():
         for entry in (worktree_root / FEATURE, worktree_root):
             if entry.is_dir():
@@ -143,9 +192,17 @@ def cleanup(root_value: str) -> dict[str, object]:
                     entry.rmdir()
                 except OSError:
                     pass
-        if worktree_root.exists():
-            residual.extend(str(path) for path in sorted(worktree_root.iterdir()))
-    attestation.write_text(json.dumps({"root": str(root), "status": "cleaned"}, sort_keys=True) + "\n", encoding="utf-8")
+    residual = _residual_paths(worktree_root)
+    record = {
+        "feature": FEATURE,
+        "root": str(root),
+        "source_git_head": ownership["source_git_head"],
+        "workflow_git_head": snapshot["git_head"],
+        "worktrees": list(OWNED_WORKTREES),
+        "status": "cleaned-with-residual" if residual else "cleaned",
+        "residual_paths": residual,
+    }
+    attestation.write_text(json.dumps(record, sort_keys=True) + "\n", encoding="utf-8")
     shutil.rmtree(root)
     return {"cleaned": not residual, "idempotent": False, "residual_paths": residual, "root": root_value}
 

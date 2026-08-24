@@ -29,3 +29,4 @@
 - T7R1 moves E2E-001 off the disabled/completed feature into a disposable `parallel-pilot` fixture with frozen safe mode, two explicit resource-free lanes, planner dry-run validation, public executor interface, and exact cleanup; Orca start remains fresh-QA-only.
 - T7R2 makes the pilot dry-run prove frozen source HEAD equality and returns both heads, while cleanup uses a bounded attestation for explicit repeat-safe no-op and rejects unmarked roots; no Orca pilot is run by the author.
 - T7R3 binds cleanup to the setup ownership manifest's exact `A-T1`/`B-T2` worktree paths, removes only valid Git worktrees, preserves unowned siblings as residual errors, and never uses broad recursive sibling deletion.
+- T7R4 requires cleanup to independently match repository HEAD, frozen workflow HEAD, and ownership source HEAD before deletion; an external tombstone records exact residual paths and retries remain false until the bounded sibling is empty.

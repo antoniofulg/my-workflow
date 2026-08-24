@@ -102,3 +102,11 @@ complete definition; all other edits are short pointers.
 | --- | --- | --- |
 | Ownership scope | Pass | Setup manifest binds root/source/feature to exact worktree paths; cleanup has no recursive sibling discovery. |
 | Residual handling | Pass | Sentinel-survival test expects non-zero residual cleanup while preserving unowned content; owned Git worktree removal remains green. |
+
+## T7R4 delta
+
+| Item | Result | Evidence |
+| --- | --- | --- |
+| Independent cleanup trust | Pass | Cleanup matches `git rev-parse HEAD`, frozen workflow `git_head`, and ownership `source_git_head` before any destructive action. |
+| Durable residual evidence | Pass | The external tombstone stores exact residual paths and retries re-scan the bounded sibling before reporting idempotent success. |
+| QA boundary | Pass | The handoff remains untested for real Orca; only disposable fixture setup/dry-run/cleanup contracts changed. |
