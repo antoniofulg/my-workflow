@@ -135,11 +135,11 @@ that reduced wall time never weakens readiness.
 | PAR-09 | Plan ready work | Design | Complete |
 | PAR-10 | Plan ready work | Design | Complete |
 | PAR-11 | Plan ready work | Design | Complete |
-| PAR-12 | Preserve workflow evidence | Design | Complete |
-| PAR-13 | Preserve workflow evidence | Design | Complete |
-| PAR-14 | Preserve workflow evidence | Design | Complete |
-| PAR-15 | Preserve workflow evidence | Design | Complete |
-| PAR-16 | Preserve workflow evidence | Design | Complete |
+| PAR-12 | Preserve workflow evidence | Design | Implementing |
+| PAR-13 | Preserve workflow evidence | Design | Implementing |
+| PAR-14 | Preserve workflow evidence | Design | Implementing |
+| PAR-15 | Preserve workflow evidence | Design | Implementing |
+| PAR-16 | Preserve workflow evidence | Design | Implementing |
 
 **Coverage:** 16 total, 16 mapped to design, 0 unmapped.
 

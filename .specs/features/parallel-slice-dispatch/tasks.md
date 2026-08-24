@@ -78,7 +78,7 @@ T3 → T4
 
 ### T4: Record durable dispatch and spec lifecycle decisions
 
-**Status:** pending
+**Status:** complete
 **Observable behaviour:** Future features read the opt-in dispatch policy and versioned spec lifecycle from the decision index without relying on stale `AD-003`.
 **Where:** `.specs/STATE.md`
 **Depends on:** T3

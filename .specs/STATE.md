@@ -46,7 +46,7 @@ Idle.
   checkout owns its planning state until durable knowledge is promoted.
 - **Scope**: `.gitignore`, `AGENTS.md`, TLC workflow guidance, artifact lifecycle and commit evidence.
 - **Date**: 2026-08-20
-- **Status**: active
+- **Status**: superseded by AD-007
 
 ### AD-004
 
@@ -94,4 +94,33 @@ Idle.
 - **Scope**: `README.md`, `docs/guidelines/UI-UX.md`, `docs/guidelines/SECURITY.md`, optional
   integration skills, and feature snapshots.
 - **Date**: 2026-08-23
+- **Status**: active
+
+### AD-007
+
+- **Decision**: `.specs/features/` is versioned, durable workflow state. Completed feature state is
+  retained by default, archived explicitly when needed, and never auto-deleted.
+- **Reason**: Worktrees, gates, handoffs, and audit need the same specs, tasks, snapshots, and
+  validation state across branches and fresh checkouts.
+- **Trade-off**: The repository retains small planning artifacts and maintainers must choose when to
+  archive them.
+- **Scope**: `.specs/features/`, `.gitignore`, `AGENTS.md`, artifact lifecycle guidance, and TLC
+  workflow state handling.
+- **Date**: 2026-08-24
+- **Status**: active
+
+### AD-008
+
+- **Decision**: Parallelization is an opt-in inter-slice orchestration layer above unchanged TLC;
+  `disabled` is the default, `safe` consumes independent or verified cross-slice producers, and
+  `full` consumes completed gated checkpoints with sync and revalidation. Uncertainty falls back to
+  serial execution; waiting turns end and resume by dependency event; sync occurs at checkpoints,
+  and affected evidence is revalidated after integration or remediation.
+- **Reason**: Reduce wall time only when isolation and dependency evidence are proven, while keeping
+  the reliable sequential task contract and every readiness stage.
+- **Trade-off**: Capable orchestrators own worktree/runtime isolation and reconciliation, and full
+  mode can pay rebase and repeated evidence costs; tasks inside a slice never run in parallel.
+- **Scope**: `.my-workflow.toml`, frozen feature workflow snapshots, workflow-config planning,
+  autonomous orchestration, and Verifier/deep-review/QA integration.
+- **Date**: 2026-08-24
 - **Status**: active

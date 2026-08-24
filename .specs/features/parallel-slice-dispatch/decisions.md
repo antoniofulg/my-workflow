@@ -17,3 +17,10 @@
 | Deliver a deterministic plan before a generic executor. | The repository has no provider-independent spawn/runtime API. | Documentation only; unsafe generic worktree executor. | Add a provider-specific executor in a later feature. | Capable orchestrators must perform mutations themselves. |
 | Reuse `tasks.md` with optional `Slice` metadata. | A second manifest would duplicate dependencies and drift. | Separate parallel DAG manifest. | Add a manifest and synchronization validator. | Missing metadata forces serial fallback. |
 | Keep plans ephemeral and workflow snapshots durable. | Plans are point-in-time projections; modes must survive resume. | Commit every ready-set recalculation. | Change storage and cleanup rules. | Operators regenerate plans after task events. |
+
+## Durable project decisions promoted
+
+| Decision | Record |
+| --- | --- |
+| `.specs/features/` remains versioned durable state; completed features are retained and archived explicitly, never auto-deleted. | `AD-007` in `.specs/STATE.md` supersedes stale `AD-003`. |
+| Parallelization is opt-in above unchanged TLC, with disabled default, safe/full checkpoint rules, serial fallback, event follow-up, and evidence revalidation. | `AD-008` in `.specs/STATE.md`. |
