@@ -19,14 +19,18 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.11 is the supported r
     tomllib = None
 
 
-ROLES = ("implementer", "verifier", "explorer", "deep_reviewer")
+ROLES = ("planner", "implementer", "verifier", "explorer", "deep_reviewer")
+DELEGATED_ROLES = ("implementer", "verifier", "explorer", "deep_reviewer")
 PROVIDERS = ("claude", "codex", "cursor")
 AGENT_NAMES = {"deep_reviewer": "deep-reviewer"}
+EFFORTS = ("low", "medium", "high", "xhigh", "max", "ultra")
 CADENCE_DEFAULT = "grouped.3"
 CADENCE_RE = re.compile(r"^grouped\.(\d+)$")
 SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
-CONFIG_KEYS = {"version", "deep_review", "profiles"}
+CONFIG_KEYS = {"version", "deep_review", "profiles", "models"}
 DEEP_REVIEW_KEYS = {"cadence"}
+MODEL_PROVIDERS = set(PROVIDERS)
+MODEL_KEYS = {"model", "effort"}
 
 
 class ConfigError(ValueError):
@@ -67,7 +71,7 @@ def balanced_groups(slice_count: int, cadence: str) -> list[list[int]]:
 def _read_config(root: Path) -> dict[str, Any]:
     path = root / ".my-workflow.toml"
     if not path.exists():
-        return {}
+        raise _error("version must be integer 2; .my-workflow.toml is missing")
     if tomllib is None:  # pragma: no cover
         raise _error("Python 3.11 or newer is required to parse .my-workflow.toml")
     try:
@@ -77,9 +81,9 @@ def _read_config(root: Path) -> dict[str, Any]:
         raise _error(f"invalid .my-workflow.toml: {exc}") from exc
     if not isinstance(config, dict):
         raise _error(".my-workflow.toml must contain a table")
-    version = config.get("version", 1)
-    if type(version) is not int or version != 1:
-        raise _error("version must be integer 1")
+    version = config.get("version")
+    if type(version) is not int or version != 2:
+        raise _error("version must be integer 2")
     _validate_config_schema(config)
     return config
 
@@ -105,6 +109,9 @@ def _validate_role_map(values: dict[str, Any], source: str) -> dict[str, str]:
 
 
 def _validate_config_schema(config: dict[str, Any]) -> None:
+    version = config.get("version")
+    if type(version) is not int or version != 2:
+        raise _error("version must be integer 2")
     unknown = set(config) - CONFIG_KEYS
     if unknown:
         raise _error(f"contains unknown top-level key {sorted(unknown)[0]!r}")
@@ -130,6 +137,63 @@ def _validate_config_schema(config: dict[str, Any]) -> None:
         if not isinstance(name, str) or not isinstance(values, dict):
             raise _error(f"profile {name!r} must be a table")
         _validate_role_map(values, f"profile {name!r}")
+
+    models = config.get("models")
+    if not isinstance(models, dict):
+        raise _error("models must be a table containing every provider")
+    missing_providers = MODEL_PROVIDERS - set(models)
+    if missing_providers:
+        provider = sorted(missing_providers)[0]
+        raise _error(f"models.{provider} is required")
+    unknown_provider = set(models) - MODEL_PROVIDERS
+    if unknown_provider:
+        provider = sorted(unknown_provider)[0]
+        raise _error(f"models contains unknown provider {provider!r}")
+    for provider in PROVIDERS:
+        provider_values = models[provider]
+        if not isinstance(provider_values, dict):
+            raise _error(f"models.{provider} must be a table")
+        missing_roles = set(ROLES) - set(provider_values)
+        if missing_roles:
+            role = sorted(missing_roles)[0]
+            raise _error(f"models.{provider}.{role} is required")
+        unknown_roles = set(provider_values) - set(ROLES)
+        if unknown_roles:
+            role = sorted(unknown_roles)[0]
+            raise _error(f"models.{provider} contains unknown role {role!r}")
+        for role in ROLES:
+            setting = provider_values[role]
+            path = f"models.{provider}.{role}"
+            if not isinstance(setting, dict):
+                raise _error(f"{path} must be a table")
+            unknown = set(setting) - MODEL_KEYS
+            if unknown:
+                raise _error(f"{path} contains unknown key {sorted(unknown)[0]!r}")
+            if "model" not in setting:
+                raise _error(f"{path}.model is required")
+            model = setting["model"]
+            if not isinstance(model, str) or not model.strip():
+                raise _error(f"{path}.model must be a non-empty string")
+            if "effort" not in setting:
+                raise _error(f"{path}.effort is required")
+            effort = setting["effort"]
+            if not isinstance(effort, str) or effort not in EFFORTS:
+                allowed = ", ".join(EFFORTS)
+                raise _error(f"{path}.effort must be one of: {allowed}")
+            if provider == "claude" and effort == "ultra":
+                raise _error(f"{path}.effort 'ultra' is not supported by claude")
+
+
+def _models(config: dict[str, Any]) -> dict[str, dict[str, dict[str, str]]]:
+    return config["models"]
+
+
+def model_setting(config: dict[str, Any], provider: str, role: str) -> dict[str, str]:
+    """Return one validated provider-role model setting."""
+    try:
+        return _models(config)[provider][role]
+    except KeyError as exc:  # pragma: no cover - callers load validated config.
+        raise _error(f"models.{provider}.{role} is required") from exc
 
 
 def _parse_overrides(values: list[str]) -> dict[str, str]:

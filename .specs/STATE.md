@@ -116,3 +116,19 @@ Idle.
   threat model, and this decision record.
 - **Date**: 2026-08-23
 - **Status**: active
+
+### AD-009
+
+- **Decision**: `.my-workflow.toml` is the single editable source for bundled Claude, Codex, and
+  Cursor agent models and efforts. Provider packet metadata is generated through explicit sync, and
+  delegated model settings freeze in each feature workflow snapshot.
+- **Reason**: Provider-specific model pins duplicate one operator choice across three syntaxes and
+  can silently diverge. The native runtimes still require those fields, so generated metadata keeps
+  their contracts while centralizing ownership.
+- **Trade-off**: Native packet files remain materialized tracked output, and an active feature needs
+  explicit refresh after a deliberate model change. Provider runtimes still decide whether a model
+  supports a selected effort.
+- **Scope**: `.my-workflow.toml`, provider agent packets, workflow configuration and snapshots,
+  adoption, tests, and public workflow documentation.
+- **Date**: 2026-08-24
+- **Status**: active
