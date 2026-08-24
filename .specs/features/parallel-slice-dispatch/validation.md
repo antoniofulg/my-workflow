@@ -553,9 +553,9 @@ Historical verdict: FAIL
 **Diff range:** `6675d5574e692a7534b676519e89fbc484289b46..382acbf`
 **Remediation commit:** `382acbf`
 **Verifier:** fresh independent Verifier (author != verifier)
-**Feature status:** COMPLETE
+**Feature status:** TECHNICALLY VERIFIED
 
-This result preserves the earlier PASS and FAIL records above. It supersedes the current readiness
+This result preserves the earlier PASS and FAIL records above. It supersedes the current technical
 verdict after independently rechecking every PAR requirement, every Round 1 Critical/Major finding,
 the final gates, and six behavior-level mutations.
 
@@ -642,3 +642,66 @@ This clean PASS has no surviving mutant, AC gap, spec-precision gap, gate failur
 - Remaining gaps: none.
 
 Verdict: PASS
+
+## Deep Review Round 2 Remediation Re-Verification
+
+**Date:** 2026-08-24
+**Diff range:** `6675d5574e692a7534b676519e89fbc484289b46..beca0d2`
+**Remediation commit:** `beca0d2`
+**Verifier:** fresh independent Verifier (author != verifier)
+**Feature status:** TECHNICALLY VERIFIED
+**Delivery status:** IN PROGRESS
+
+This result preserves all earlier PASS and FAIL records. Deep-review Round 2 remediation and its
+scoped gate are complete. The feature is not delivery-complete: fresh QA Plan, fresh QA Execute, and
+the final delivery gate on the resulting tree remain pending.
+
+### Round 2 closure
+
+| Finding | Current evidence | Result |
+| --- | --- | --- |
+| Malformed object/list modes can raise a traceback instead of the stable snapshot error. | `.agents/skills/workflow-config/scripts/parallel_plan.py:46-53` validates that mode is a string before set membership; `tools/test_parallel_plan.py:292-313` supplies `{}` and `[]` independently through the CLI and requires exit 1, empty stdout, and exact `parallel plan: invalid workflow snapshot` stderr. Both targeted type-order mutations were killed. | PASS |
+| UT-008 lacks canonical ownership. | `.specs/features/parallel-slice-dispatch/tests.md:14` defines UT-008 once; `.specs/features/parallel-slice-dispatch/tests.md:41` assigns it to T2/TDR1; `.specs/features/parallel-slice-dispatch/tasks.md:95,97` cites that canonical ID instead of inventing a parallel test contract. | PASS |
+| Review-remediation gates are prose labels rather than executable commands. | `.specs/features/parallel-slice-dispatch/tasks.md:95-97` records executable commands for TDR1, TDR1R1, and TDR2; the current fail-fast Python loop, full Vitest run, validators, AD check, and diff checks all pass. | PASS |
+
+### Spec traceability
+
+PAR-10 remains `Verified` in `.specs/features/parallel-slice-dispatch/spec.md:138`: malformed snapshot
+mode types fail closed with the exact CLI outcome, and the canonical owning suite discriminates both
+object and list regressions. PAR-01–PAR-09 and PAR-11–PAR-16 retain their previously verified evidence;
+the full suites report no regression.
+
+### Fresh gates
+
+| Command | Result |
+| --- | --- |
+| `npm_config_offline=true npm test` | PASS — 9 files, 109 tests passed, 0 failed, 0 skipped. |
+| `for test_file in tools/test_*.py; do python3 "$test_file" || exit 1; done` | PASS — ad-index `ok`; numbered suites 8 + 5 + 19 + 14 + 9 + 15 = 70 passed, 0 failed, 0 skipped. |
+| `python3 .agents/skills/tlc-spec-driven/scripts/validate_spec.py .specs/features/parallel-slice-dispatch/spec.md` | PASS — 0 errors, 0 warnings. |
+| `python3 .agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/parallel-slice-dispatch/tasks.md` | PASS — 0 errors, 0 warnings. |
+| `python3 tools/ad-index.py --check` | PASS — `AD-INDEX.md up to date`. |
+| `git diff --check 6675d5574e692a7534b676519e89fbc484289b46..beca0d2` and `git diff --check` | PASS — no output. |
+
+### Fresh discrimination sensor
+
+Both mutations ran only in a detached temporary worktree at `beca0d2`. The scratch was recreated
+between attempts and removed afterward; real-tree porcelain matched its empty pre-sensor baseline.
+
+| Mutation | Expected regression | Result |
+| --- | --- | --- |
+| Permit list modes to fail cleanly but evaluate an object mode through set membership. | `{}` must still produce the exact stable invalid-snapshot CLI error without traceback. | KILLED at `tools/test_parallel_plan.py:292-313`. |
+| Permit object modes to fail cleanly but evaluate a list mode through set membership. | `[]` must still produce the exact stable invalid-snapshot CLI error without traceback. | KILLED at `tools/test_parallel_plan.py:292-313`. |
+
+**Sensor depth:** lightweight, two targeted behavior mutations for the Round 2 type-safety defect.
+**Sensor result:** PASS — 2/2 killed, 0 survived.
+
+### Lessons and remaining delivery work
+
+This clean technical PASS has no surviving mutant, failed AC, spec-precision gap, gate failure, or
+`SPEC_DEVIATION`; no lesson was added.
+
+Deep-review Round 2 remediation and scoped verification are complete. Delivery remains pending until
+a fresh QA Plan Verifier defines the public configuration/CLI journeys, a separate fresh QA Execute
+Verifier walks them, and the final delivery gate passes on the resulting final tree.
+
+**Overall technical verdict:** PASS
