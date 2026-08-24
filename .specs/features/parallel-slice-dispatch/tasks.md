@@ -91,6 +91,7 @@ T3 → T4
 | Task | Depends on | Status | Observable behaviour | Tests | Gate | Commit |
 | --- | --- | --- | --- | --- | --- | --- |
 | T2R1 | T2 | complete | Dependency eligibility precedes write-conflict evaluation; incomplete dependencies remain blocked; `in_progress` is never redispatched; `waiting` becomes `follow_up` only after dependencies complete. | Regression cases in `tools/test_parallel_plan.py` | `python3 tools/test_parallel_plan.py`, `python3 tools/test_workflow_config.py`, `git diff --check`, task validator | `fix(workflow): harden parallel planner readiness` |
+| T3R1 | T3 | complete | IT-006 proves exact dependency/head reporting, dirty-worker refusal, gate reruns after checkpoint and invalidation, affected evidence invalidation, and final reconciliation no-op. | Existing `tools/shared/tests/autonomous-parallelization.test.ts` IT-006 | Targeted Vitest, full npm/Python suites, validators, `git diff --check` | `test(workflow): enforce parallel orchestration safety` |
 
 ## Diagram-Definition Cross-Check
 

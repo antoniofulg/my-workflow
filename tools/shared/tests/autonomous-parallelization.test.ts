@@ -31,13 +31,25 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(policy).toContain("without creating a worker or worktree");
     expect(policy).toContain("one worker per slice");
     expect(policy).toContain("Tasks inside a slice remain sequential");
+    expect(policy).toContain("report the exact dependency and current head");
     expect(policy).toContain("end the clean worker turn");
     expect(policy).toContain("dependency completion event");
     expect(policy).toContain("does not poll");
+    expect(policy).toContain("If the worker is dirty");
+    expect(policy).toContain("not a valid waiter");
+    expect(policy).toMatch(/use the existing serial recovery\s+path/i);
     expect(policy).toMatch(/sync(?:hronize)? at declared dependency checkpoints/i);
     expect(policy).toMatch(/do(?:es not| not) rebase after every task/i);
     expect(policy).toContain("final reconciliation");
+    expect(policy).toMatch(
+      /If the consumed checkpoint already equals\s+the final base, final reconciliation is a no-op/,
+    );
+    expect(policy).toContain("Use the exact upstream commit recorded by the dependency event");
+    expect(policy).toMatch(/run the affected gate before\s+continuing/);
     expect(policy).toContain("invalidate every affected gate, Verifier, and deep-review verdict");
+    expect(policy).toContain(
+      "Repeat the affected gate on the resulting tree before the next task or review stage",
+    );
     expect(policy).toContain("one atomic commit and scoped gate per task");
     expect(policy).toContain("one technical Verifier per code-changing slice");
     expect(policy).toContain("deep-review at the frozen groups");
