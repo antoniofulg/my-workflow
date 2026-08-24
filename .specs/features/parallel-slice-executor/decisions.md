@@ -25,4 +25,16 @@
 
 | Decision | Record |
 | --- | --- |
-| Parallel execution policy is provider-neutral; adapters own effects, Orca is first, and missing worktree/resource capability serializes. | `AD-010` in `.specs/STATE.md`. |
+| Parallel execution policy is provider-neutral; Git owns prevalidated worktree creation, Orca owns worker/events, and missing resource capability serializes. | `AD-011` in `.specs/STATE.md` supersedes `AD-010`. |
+
+## Halt report
+
+The autonomous run halted during Slice A after the third Technical Verifier fix round. All 26
+executor tests pass and the final sensor kills pending-worker and recovered-lease regressions, but
+IT-001 exercises public CLI `resume` only in `disabled`. Removing adapter construction from the
+parallel `resume` path still passes the suite.
+
+T3-T7 have not started. Continuing requires a human decision because `docs/guidelines/REVIEW-ROUNDS.md`
+caps this loop. The recommended choice is one exceptional fix limited to safe-mode persisted-state
+`resume`, followed by a fresh Technical Verifier. Accepting the gap or weakening IT-001 conflicts
+with the user's reliability requirement.

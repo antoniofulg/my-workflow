@@ -2,7 +2,14 @@
 
 ## Handoff
 
-Idle.
+- **Feature**: `.specs/features/parallel-slice-executor`
+- **Phase / Task**: Execute / Slice A post-cap technical verification
+- **Completed**: T1, T2, T2R1, T2R2, T2R3
+- **In-progress** (file:line): none
+- **Next step**: Human decides whether to authorize one exceptional, narrowly scoped IT-001 fix and fresh Technical Verifier; do not start T3-T7 first.
+- **Blockers**: Public CLI `resume` is proven only in `disabled`; a safe-mode adapter-removal mutant survives after three fix rounds.
+- **Uncommitted files**: none after the blocker-record commit
+- **Branch**: `feat/parallel-slice-executor`
 
 ## Decisions
 

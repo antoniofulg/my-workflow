@@ -7,7 +7,7 @@ file before every atomic commit, and close every code-changing slice with a fres
 The feature's frozen mode is authoritative; absent a capable executor, use the existing serial path.
 
 **Design:** `.specs/features/parallel-slice-executor/design.md`
-**Status:** Approved
+**Status:** Blocked after Technical Verifier cap
 
 ## Test Coverage Matrix
 
@@ -216,6 +216,11 @@ T3 + T4 + T6 -> T7
 **Gate:** Full. Commit `feat(workflow): execute parallel slices autonomously`.
 
 ## Review Remediation
+
+The Slice A Technical Verifier remains FAIL after T2R1, T2R2, and T2R3. IT-001 does not prove the
+public `resume` verb in `safe` mode against persisted pending state; the adapter-removal mutant
+survives. T3-T7 remain blocked until the human authorizes an exceptional fix/reverify or changes the
+contract. No further remediation is scheduled implicitly.
 
 ### T2R1: Harden resume, disabled-mode, isolation, and lease recovery
 
