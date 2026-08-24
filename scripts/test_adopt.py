@@ -175,7 +175,7 @@ def test_fresh_and_refuse() -> None:
         config = tmp / ".my-workflow.toml"
         sentinel = (
             "# consumer-owned\n"
-            + (ROOT / ".my-workflow.toml").read_text(encoding="utf-8").replace(
+            + (ROOT / ".my-workflow.toml.example").read_text(encoding="utf-8").replace(
                 'cadence = "grouped.3"', 'cadence = "feature"'
             )
         )
@@ -292,26 +292,29 @@ def test_skip_agents_preserves_absent_claude_file() -> None:
         shutil.rmtree(tmp)
 
 
-def test_agent_pins_survive_readopt() -> None:
+def test_runtime_edits_are_overwritten_from_templates_on_readopt() -> None:
     tmp = Path(tempfile.mkdtemp())
     try:
         run(tmp)
-        pin = tmp / ".cursor" / "agents" / "planner.md"
-        pin.write_text(
-            pin.read_text(encoding="utf-8").replace(
-                "You are the **planner**", "Consumer-specific planner instructions"
-            ),
-            encoding="utf-8",
-        )
-        original_model = pin.read_text(encoding="utf-8").splitlines()[4]
+        template = tmp / "templates/agents/cursor/planner.md"
+        template_before = template.read_bytes()
+        pin = tmp / ".cursor/agents/planner.md"
+        pin.write_text("Disposable runtime instructions\n", encoding="utf-8")
         explorer = tmp / ".cursor" / "agents" / "explorer.md"
         explorer.unlink()
         run(tmp)
-        assert "Consumer-specific planner instructions" in pin.read_text(encoding="utf-8")
-        assert pin.read_text(encoding="utf-8").splitlines()[4] == original_model
+        config = workflow_config._read_config(tmp)
+        assert pin.read_bytes() == workflow_config.render_agent_packet(
+            "cursor",
+            template_before,
+            workflow_config.model_setting(config, "cursor", "planner"),
+            Path("templates/agents/cursor/planner.md"),
+        )
+        assert b"Disposable runtime instructions" not in pin.read_bytes()
         assert explorer.read_text(encoding="utf-8") == (
-            ROOT / ".cursor" / "agents" / "explorer.md"
+            ROOT / "templates/agents/cursor/explorer.md"
         ).read_text(encoding="utf-8")
+        assert template.read_bytes() == template_before
         assert (tmp / "CLAUDE.md").read_text(encoding="utf-8") == "@AGENTS.md\n"
         profile = tmp / "docs/qa/README.md"
         profile.write_text("consumer-owned profile\n", encoding="utf-8")
@@ -324,9 +327,24 @@ def test_agent_pins_survive_readopt() -> None:
 def test_adoption_installs_v2_config_and_syncs_fifteen_packets() -> None:
     tmp = Path(tempfile.mkdtemp())
     try:
+        subprocess.run(["git", "init", "-q", str(tmp)], check=True)
         run(tmp)
         config = (tmp / ".my-workflow.toml").read_text(encoding="utf-8")
         assert config.startswith("version = 2\n")
+        assert (tmp / ".my-workflow.toml.example").is_file()
+        assert (tmp / "templates/agents/claude/planner.md").is_file()
+        assert not (tmp / ".my-workflow.toml.example").is_symlink()
+        for relative in (
+            ".my-workflow.toml",
+            ".claude/agents/planner.md",
+            ".codex/agents/planner.toml",
+            ".cursor/agents/planner.md",
+        ):
+            assert subprocess.run(
+                ["git", "check-ignore", "--no-index", "--quiet", "--", relative],
+                cwd=tmp,
+                check=False,
+            ).returncode == 0
         parsed = workflow_config._read_config(tmp)
         for provider in ("claude", "codex", "cursor"):
             for role in workflow_config.ROLES:
@@ -341,12 +359,21 @@ def test_adoption_installs_v2_config_and_syncs_fifteen_packets() -> None:
         shutil.rmtree(tmp)
 
 
-def test_adoption_rejects_invalid_packet_before_sync_writes() -> None:
+def test_adoption_rejects_invalid_template_before_runtime_writes() -> None:
     tmp = Path(tempfile.mkdtemp())
     try:
         run(tmp)
-        packet = tmp / ".cursor/agents/verifier.md"
-        packet.write_text(packet.read_text(encoding="utf-8").replace("model:", "model-old:"), encoding="utf-8")
+        template = tmp / "templates/agents/cursor/verifier.md"
+        template.write_text(
+            template.read_text(encoding="utf-8").replace("model:", "model-old:"),
+            encoding="utf-8",
+        )
+        runtime_before = {
+            path: path.read_bytes()
+            for provider in workflow_config.PROVIDERS
+            for role in workflow_config.ROLES
+            for path in [tmp / workflow_config._runtime_relative(provider, role)]
+        }
         stderr = io.StringIO()
         with contextlib.redirect_stderr(stderr):
             try:
@@ -356,7 +383,8 @@ def test_adoption_rejects_invalid_packet_before_sync_writes() -> None:
             else:
                 raise AssertionError("expected malformed packet rejection")
         assert "verifier" in stderr.getvalue()
-        assert "model-old:" in packet.read_text(encoding="utf-8")
+        assert "model-old:" in template.read_text(encoding="utf-8")
+        assert {path: path.read_bytes() for path in runtime_before} == runtime_before
     finally:
         shutil.rmtree(tmp)
 
@@ -372,14 +400,14 @@ def test_existing_config_drives_all_native_values_and_preserves_non_model_bytes(
         customized = set_model_setting(customized, "cursor", "verifier", "cursor-target", "high")
         config_path.write_text(customized, encoding="utf-8")
         original_config = config_path.read_bytes()
-        original_packets: dict[Path, bytes] = {}
+        original_templates: dict[Path, bytes] = {}
         for provider in workflow_config.PROVIDERS:
             for role in workflow_config.ROLES:
                 agent_name = workflow_config.AGENT_NAMES.get(role, role)
                 extension = "toml" if provider == "codex" else "md"
-                packet = tmp / f".{provider}/agents/{agent_name}.{extension}"
-                packet.write_bytes(packet.read_bytes() + b"\n# consumer instruction sentinel\n")
-                original_packets[packet] = packet.read_bytes()
+                template = tmp / f"templates/agents/{provider}/{agent_name}.{extension}"
+                template.write_bytes(template.read_bytes() + b"\n# consumer instruction sentinel\n")
+                original_templates[template] = template.read_bytes()
 
         run(tmp)
         assert config_path.read_bytes() == original_config
@@ -391,7 +419,8 @@ def test_existing_config_drives_all_native_values_and_preserves_non_model_bytes(
                 packet = tmp / f".{provider}/agents/{agent_name}.{extension}"
                 actual = workflow_config.packet_setting(provider, packet.read_text(encoding="utf-8"), packet)
                 assert actual == workflow_config.model_setting(parsed, provider, role)
-                assert strip_packet_metadata(provider, original_packets[packet]) == strip_packet_metadata(provider, packet.read_bytes())
+                template = tmp / f"templates/agents/{provider}/{agent_name}.{extension}"
+                assert strip_packet_metadata(provider, original_templates[template]) == strip_packet_metadata(provider, packet.read_bytes())
     finally:
         shutil.rmtree(tmp)
 
@@ -576,9 +605,9 @@ if __name__ == "__main__":
     test_consumer_ad_index_is_preserved_on_readopt()
     test_skip_agents_preserves_product_files_and_adopts_rest()
     test_skip_agents_preserves_absent_claude_file()
-    test_agent_pins_survive_readopt()
+    test_runtime_edits_are_overwritten_from_templates_on_readopt()
     test_adoption_installs_v2_config_and_syncs_fifteen_packets()
-    test_adoption_rejects_invalid_packet_before_sync_writes()
+    test_adoption_rejects_invalid_template_before_runtime_writes()
     test_gitignore_rules_merge_without_overwrite()
     test_deep_review_learnings_survive_consumer_parent_ignore()
     test_feature_specs_are_versioned_and_legacy_ignore_is_removed()

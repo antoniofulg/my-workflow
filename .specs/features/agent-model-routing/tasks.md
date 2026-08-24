@@ -451,7 +451,19 @@ regeneration, canonical-path rejection, and validation-before-write coverage.
 **Where**: `scripts/adopt.py`
 **Depends on**: T16
 **Requirement**: AMR-07, AMR-09
-**Done when**: fresh/repeated adoption owns no local state in Git, preserves existing config, regenerates runtime packets, and reports invalid sources.
+
+**Done when**:
+
+- [x] Fresh adoption installs the example/templates, initializes local config, and generates all
+  canonical runtime packets without copying runtime trees as managed sources.
+- [x] Re-adoption preserves local config byte-for-byte, merges all four local ignore rules, and
+  regenerates runtime packets from templates.
+- [x] Runtime edits are disposable; invalid templates fail adoption without changing runtime bytes.
+- [x] Fresh and repeated adoption tests pass with the full adoption gate.
+
+**Status:** complete — adoption suite passes, including fresh/repeated/customized/invalid targets,
+template-driven regeneration, local-config preservation, and ignore ownership.
+
 **Tests**: integration — fresh, repeated, customized, and invalid targets.
 **Gate**: Full, `python3 scripts/test_adopt.py && npm test`
 **Commit**: `feat(adopt): generate local agent runtimes`

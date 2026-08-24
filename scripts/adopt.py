@@ -13,6 +13,10 @@ from pathlib import Path
 STENCIL = "<!-- product-stencil:"
 
 WORKFLOW_GITIGNORE_ENTRIES = (
+    ".my-workflow.toml",
+    ".claude/agents/",
+    ".codex/agents/",
+    ".cursor/agents/",
     "!.deep-review/",
     ".deep-review/*",
     "!.deep-review/learnings.md",
@@ -61,12 +65,11 @@ COPY_PATHS = [
 
 # The profile is a template. A consuming project's existing profile is product-owned and must
 # survive re-adoption.
-COPY_MISSING_PATHS = ["docs/qa/README.md", "tools/ad-index.py", ".my-workflow.toml"]
-
-AGENT_PATHS = [
-    ".cursor/agents",
-    ".claude/agents",
-    ".codex/agents",
+COPY_MISSING_PATHS = [
+    "docs/qa/README.md",
+    "tools/ad-index.py",
+    ".my-workflow.toml.example",
+    "templates/agents",
 ]
 
 
@@ -141,15 +144,6 @@ def write_claude(dest: Path) -> None:
     if link.exists() or link.is_symlink():
         link.unlink()
     link.write_text("@AGENTS.md\n", encoding="utf-8")
-
-
-def copy_agents(src: Path, dest: Path) -> None:
-    for rel in AGENT_PATHS:
-        origin = src / rel
-        target = dest / rel
-        if not origin.exists():
-            continue
-        copy_missing(origin, target)
 
 
 def remove_source_only_pack_link(dest: Path) -> None:
@@ -247,7 +241,6 @@ def main(argv: list[str]) -> None:
         if not origin.exists():
             continue
         copy_missing(origin, dest / rel)
-    copy_agents(src, dest)
     remove_legacy_managed_ignore(
         dest, ".gitignore", LEGACY_WORKFLOW_GITIGNORE_ENTRIES
     )

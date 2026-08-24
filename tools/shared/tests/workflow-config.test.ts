@@ -41,14 +41,8 @@ describe("workflow configuration skill", () => {
   it("asserts resolver-returned agent files for every non-native provider route", () => {
     const temporaryRoot = mkdtempSync(join(tmpdir(), "workflow-config-"));
     try {
-      for (const provider of providers) {
-        cpSync(
-          join(repositoryRoot, `.${provider}`),
-          join(temporaryRoot, `.${provider}`),
-          { recursive: true },
-        );
-      }
-      cpSync(join(repositoryRoot, ".my-workflow.toml"), join(temporaryRoot, ".my-workflow.toml"));
+      cpSync(join(repositoryRoot, "templates"), join(temporaryRoot, "templates"), { recursive: true });
+      cpSync(join(repositoryRoot, ".my-workflow.toml.example"), join(temporaryRoot, ".my-workflow.toml.example"));
       execFileSync("git", ["init", "-q"], { cwd: temporaryRoot });
       execFileSync(
         "git",
