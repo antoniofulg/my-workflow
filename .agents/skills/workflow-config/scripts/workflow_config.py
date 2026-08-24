@@ -109,7 +109,7 @@ def _profiles(config: dict[str, Any]) -> dict[str, dict[str, str]]:
 def _validate_role_map(values: dict[str, Any], source: str) -> dict[str, str]:
     result: dict[str, str] = {}
     for role, provider in values.items():
-        if role not in ROLES:
+        if role not in DELEGATED_ROLES:
             raise _error(f"{source} contains invalid role {role!r}")
         if not isinstance(provider, str) or provider not in PROVIDERS:
             raise _error(f"{source} role {role!r} has invalid provider {provider!r}")

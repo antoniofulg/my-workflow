@@ -253,6 +253,114 @@ def test_resume_rejects_drift_and_refresh_freezes_new_settings() -> None:
         shutil.rmtree(root)
 
 
+def test_cadence_modes_and_balancing() -> None:
+    expected = {
+        "slice": [[1], [2], [3], [4]],
+        "feature": [[1, 2, 3, 4]],
+        "grouped.3": [[1, 2], [3, 4]],
+    }
+    for cadence, groups in expected.items():
+        assert workflow_config.balanced_groups(4, cadence) == groups
+    assert workflow_config.balanced_groups(7, "grouped.3") == [[1, 2, 3], [4, 5], [6, 7]]
+    for cadence in ("grouped", "grouped.0", "grouped.x", "other"):
+        try:
+            workflow_config.balanced_groups(2, cadence)
+        except workflow_config.ConfigError:
+            pass
+        else:
+            raise AssertionError(f"expected invalid cadence: {cadence}")
+
+
+def test_profile_precedence_and_partial_defaults() -> None:
+    root = make_packet_root()
+    try:
+        path = root / ".my-workflow.toml"
+        contents = path.read_text(encoding="utf-8")
+        marker = "[models.claude.planner]"
+        path.write_text(
+            contents.replace(
+                marker,
+                "[profiles.mixed]\nimplementer = 'claude'\nverifier = 'codex'\n\n" + marker,
+                1,
+            ),
+            encoding="utf-8",
+        )
+        workflow_config.sync_agents(root)
+        git_root(root)
+        snapshot = workflow_config.resolve(
+            root=root, feature="mixed", slice_count=1, native_provider="cursor",
+            profile="mixed", overrides=["verifier=claude"],
+        )
+        assert snapshot["roles"]["implementer"]["provider"] == "claude"
+        assert snapshot["roles"]["verifier"]["provider"] == "claude"
+        assert snapshot["roles"]["explorer"]["provider"] == "cursor"
+    finally:
+        shutil.rmtree(root)
+
+
+def test_invalid_routing_has_no_fallback() -> None:
+    root = make_packet_root()
+    try:
+        workflow_config.sync_agents(root)
+        git_root(root)
+        for kwargs, message in (
+            ({"profile": "missing"}, "unknown profile"),
+            ({"overrides": ["planner=codex"]}, "invalid role"),
+            ({"overrides": ["verifier=unknown"]}, "invalid provider"),
+        ):
+            try:
+                workflow_config.resolve(root=root, feature="invalid", slice_count=1, native_provider="codex", **kwargs)
+            except workflow_config.ConfigError as exc:
+                assert message in str(exc)
+            else:
+                raise AssertionError(f"expected {message}")
+    finally:
+        shutil.rmtree(root)
+
+
+def test_snapshot_write_failure_preserves_previous_snapshot() -> None:
+    root = make_packet_root()
+    try:
+        workflow_config.sync_agents(root)
+        git_root(root)
+        first = workflow_config.resolve(root=root, feature="atomic", slice_count=2, native_provider="codex")
+        path = root / ".specs/features/atomic/workflow.json"
+        original = path.read_text(encoding="utf-8")
+        real_replace = workflow_config.os.replace
+        workflow_config.os.replace = lambda *_args: (_ for _ in ()).throw(OSError("injected"))
+        try:
+            try:
+                workflow_config.resolve(root=root, feature="atomic", slice_count=3, native_provider="codex", refresh=True)
+            except OSError as exc:
+                assert str(exc) == "injected"
+            else:
+                raise AssertionError("expected atomic write failure")
+        finally:
+            workflow_config.os.replace = real_replace
+        assert path.read_text(encoding="utf-8") == original
+        assert first["version"] == 2
+    finally:
+        shutil.rmtree(root)
+
+
+def test_invalid_existing_snapshot_fails_without_mutation() -> None:
+    root = make_packet_root()
+    try:
+        path = root / ".specs/features/truncated/workflow.json"
+        path.parent.mkdir(parents=True)
+        path.write_text("{}", encoding="utf-8")
+        before = path.read_bytes()
+        try:
+            workflow_config.resolve(root=root, feature="truncated", slice_count=2, native_provider="codex")
+        except workflow_config.ConfigError as exc:
+            assert "existing snapshot" in str(exc)
+        else:
+            raise AssertionError("expected malformed snapshot failure")
+        assert path.read_bytes() == before
+    finally:
+        shutil.rmtree(root)
+
+
 if __name__ == "__main__":
     tests = [function for name, function in sorted(globals().items()) if name.startswith("test_")]
     for function in tests:
