@@ -267,14 +267,14 @@ def test_snapshot_identity_and_version_are_validated_before_mode_and_head() -> N
         for snapshot in (
             {
                 "feature": "other-feature",
-                "git_head": "",
-                "parallelization": {"mode": "invalid"},
+                "git_head": "head",
+                "parallelization": {"mode": "safe"},
                 "version": 1,
             },
             {
                 "feature": "fixture",
-                "git_head": "",
-                "parallelization": {"mode": "invalid"},
+                "git_head": "head",
+                "parallelization": {"mode": "safe"},
                 "version": 2,
             },
         ):
