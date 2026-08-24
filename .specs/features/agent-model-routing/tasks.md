@@ -247,13 +247,35 @@ fails on existence.
 **Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
 **Commit**: `test(config): discriminate frozen agent ownership`
 
+### T9: Restore configured cadence integration discrimination
+
+**What**: Exercise complete v2 cadence settings through the public resolver CLI and persisted
+feature snapshot, preserving direct `balanced_groups()` coverage.
+**Where**: `tools/test_workflow_config.py`
+**Depends on**: T8
+**Requirement**: AMR-01
+
+**Done when**:
+
+- [x] Complete v2 configs using `slice`, `feature`, `grouped.2`, and `grouped.4` produce exact CLI
+  JSON and persisted `workflow.json` cadence/groups.
+- [x] The `_cadence()` defaulting mutation is red in a disposable worktree while direct grouping
+  assertions remain intact.
+- [x] Resolver, adoption, Vitest, task-validator, and diff gates pass.
+
+**Status:** complete — cadence mutation red; real tree 23 resolver tests, adoption suite, and 108 Vitest tests passed.
+
+**Tests**: unit and CLI/manual, `UT-001`
+**Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
+**Commit**: `test(config): restore configured cadence integration`
+
 ## Phase Execution Map
 
 ```text
 Phase 1 -> Phase 2
 
 Phase 1: T1 -> T2 -> T3
-Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8
+Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9
 ```
 
 ## Task Granularity Check
@@ -268,6 +290,7 @@ Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8
 | T6 | Verification remediation | PASS |
 | T7 | Final resolver contract restoration | PASS |
 | T8 | Frozen agent ownership discrimination | PASS |
+| T9 | Configured cadence integration | PASS |
 
 ## Diagram-Definition Cross-Check
 
@@ -281,6 +304,7 @@ Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8
 | T6 | T5 | T5 -> T6 | PASS |
 | T7 | T6 | T6 -> T7 | PASS |
 | T8 | T7 | T7 -> T8 | PASS |
+| T9 | T8 | T8 -> T9 | PASS |
 
 ## Test Co-location Validation
 
@@ -294,3 +318,4 @@ Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8
 | T6 | Resolver/adoption regression coverage | unit + integration | unit + integration | PASS |
 | T7 | Resolver contract restoration | unit + CLI/manual | unit + CLI/manual | PASS |
 | T8 | Frozen path ownership | unit + CLI/manual | unit + CLI/manual | PASS |
+| T9 | Configured cadence integration | unit + CLI/manual | unit + CLI/manual | PASS |

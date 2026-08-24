@@ -23,8 +23,8 @@ MODELS = {
 }
 
 
-def write_config(root: Path, *, models: dict | None = None, extra: str = "") -> None:
-    lines = ["version = 2", "", "[deep_review]", 'cadence = "grouped.3"', ""]
+def write_config(root: Path, *, models: dict | None = None, cadence: str = "grouped.3", extra: str = "") -> None:
+    lines = ["version = 2", "", "[deep_review]", f'cadence = "{cadence}"', ""]
     for provider in workflow_config.PROVIDERS:
         for role in workflow_config.ROLES:
             setting = (models or MODELS)[provider][role]
@@ -544,6 +544,36 @@ def test_cli_adapter_and_invalid_slice_count() -> None:
         assert invalid.returncode == 2
         assert invalid.stdout == ""
         assert "workflow-config: slice count must be at least 1" in invalid.stderr
+    finally:
+        shutil.rmtree(root)
+
+
+def test_cli_loads_configured_cadence_into_json_and_snapshot() -> None:
+    root = make_packet_root()
+    try:
+        workflow_config.sync_agents(root)
+        git_root(root)
+        resolver = Path(__file__).resolve().parent.parent / ".agents/skills/workflow-config/scripts/workflow_config.py"
+        cases = (
+            ("slice", 4, [[1], [2], [3], [4]]),
+            ("feature", 4, [[1, 2, 3, 4]]),
+            ("grouped.2", 6, [[1, 2], [3, 4], [5, 6]]),
+            ("grouped.4", 8, [[1, 2, 3, 4], [5, 6, 7, 8]]),
+        )
+        for index, (cadence, slice_count, groups) in enumerate(cases):
+            write_config(root, cadence=cadence)
+            feature = f"configured-cadence-{index}"
+            result = subprocess.run(
+                [sys.executable, str(resolver), "--root", str(root), "--feature", feature, "--slices", str(slice_count), "--native-provider", "codex"],
+                text=True, capture_output=True, check=False,
+            )
+            assert result.returncode == 0
+            assert result.stderr == ""
+            expected = {"cadence": cadence, "groups": groups}
+            payload = json.loads(result.stdout)
+            assert payload["deep_review"] == expected
+            snapshot = json.loads((root / f".specs/features/{feature}/workflow.json").read_text(encoding="utf-8"))
+            assert snapshot["deep_review"] == expected
     finally:
         shutil.rmtree(root)
 
