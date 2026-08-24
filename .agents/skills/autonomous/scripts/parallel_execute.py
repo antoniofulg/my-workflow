@@ -22,13 +22,15 @@ from typing import Any, Callable, Mapping, Sequence
 
 
 MODES = {"disabled", "safe", "full"}
-LANE_STATES = {"ready", "needs_resources", "running", "waiting", "needs_sync", "complete", "failed", "serial"}
+LANE_STATES = {"ready", "needs_resources", "running", "waiting", "needs_sync", "invalidated", "gate_required", "complete", "failed", "serial"}
 TRANSITIONS: dict[str, set[str]] = {
-    "ready": {"needs_resources", "running", "serial", "failed"},
-    "needs_resources": {"running", "serial", "failed"},
-    "running": {"waiting", "needs_sync", "complete", "failed", "serial"},
-    "waiting": {"needs_sync", "running", "failed", "serial"},
+    "ready": {"needs_resources", "running", "invalidated", "serial", "failed"},
+    "needs_resources": {"running", "invalidated", "serial", "failed"},
+    "running": {"waiting", "needs_sync", "invalidated", "complete", "failed", "serial"},
+    "waiting": {"needs_sync", "running", "invalidated", "failed", "serial"},
     "needs_sync": {"running", "serial", "failed"},
+    "invalidated": {"gate_required", "serial", "failed"},
+    "gate_required": {"ready", "running", "serial", "failed"},
     "complete": set(),
     "failed": set(),
     "serial": set(),
@@ -101,7 +103,7 @@ def validate_runtime_state(
         state_name = lane.get("state")
         if state_name not in LANE_STATES:
             raise StateError(f"invalid lane state: {lane_id}")
-        if state_name in {"needs_resources", "running", "waiting", "needs_sync"}:
+        if state_name in {"needs_resources", "running", "waiting", "needs_sync", "invalidated", "gate_required"}:
             if slice_id in active_slices:
                 raise StateError(f"duplicate active lane slice: {slice_id}")
             active_slices.add(slice_id)
@@ -143,7 +145,7 @@ def validate_runtime_state(
         if not isinstance(key, str) or not _ID.fullmatch(key) or not isinstance(action, Mapping):
             raise StateError("invalid action receipt")
         if action.get("key") != key or action.get("action") not in {
-            "worktree", "worker", "follow_up", "acquire", "release", "worker_ack", "worker_release"
+            "worktree", "worker", "follow_up", "acquire", "release", "worker_ack", "worker_release", "sync", "gate"
         }:
             raise StateError("invalid action receipt")
         if action.get("status") not in {"pending", "accepted", "released", "failed"}:
@@ -419,12 +421,16 @@ class Coordinator:
         feature: str,
         *,
         adapter_factory: Callable[[], Any] | None = None,
+        git_adapter_factory: Callable[[], Any] | None = None,
+        gate_receipt_factory: Callable[[Mapping[str, Any]], Mapping[str, Any] | None] | None = None,
         provider_factory: Callable[[Path], ResourceProvider] | None = None,
         worktree_creator: Callable[[Path, str], Mapping[str, Any]] | None = None,
     ):
         self.root = Path(root).resolve()
         self.feature = feature
         self.adapter_factory = adapter_factory
+        self.git_adapter_factory = git_adapter_factory
+        self.gate_receipt_factory = gate_receipt_factory
         self.provider_factory = provider_factory
         self.worktree_creator = worktree_creator
         self.state_path: Path | None = None
@@ -518,6 +524,127 @@ class Coordinator:
         if self.provider_factory is not None:
             return self.provider_factory(executable)
         return ResourceProvider(self.root, executable)
+
+    def _git_adapter(self) -> Any:
+        if self.git_adapter_factory is not None:
+            return self.git_adapter_factory()
+        scripts = Path(__file__).resolve().parent
+        if str(scripts) not in sys.path:
+            sys.path.insert(0, str(scripts))
+        import git_adapter
+
+        return git_adapter.GitAdapter(self.root)
+
+    def _checkpoint_lanes(self, state: Mapping[str, Any], plan_lane: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+        dependencies = plan_lane.get("sync_after", [])
+        if not isinstance(dependencies, list):
+            raise ExecutorError("malformed checkpoint dependencies")
+        lanes = state.get("lanes", {})
+        result: list[Mapping[str, Any]] = []
+        for dependency in dependencies:
+            matches = [lane for lane in lanes.values() if isinstance(lane, Mapping) and lane.get("task") == dependency]
+            if len(matches) != 1 or not isinstance(matches[0].get("current_head"), str):
+                raise ExecutorError("missing exact producer checkpoint receipt")
+            result.append(matches[0])
+        return result
+
+    def _consume_gate(self, state: dict[str, Any], lane_id: str, lane: dict[str, Any]) -> bool:
+        if lane.get("state") not in {"invalidated", "gate_required"}:
+            return True
+        if lane.get("state") == "invalidated":
+            transition_lane(state, lane_id, "gate_required", expected="invalidated")
+        key, action, created = self._record_action(state, lane_id, lane, "gate")
+        self._save(state)
+        if action.get("status") in {"accepted", "released"}:
+            return True
+        if self.gate_receipt_factory is None:
+            lane["gate_error"] = "gate receipt unavailable"
+            self._save(state)
+            return False
+        receipt = self.gate_receipt_factory({"lane": lane_id, "current_head": lane.get("current_head"), "gate": "gate"})
+        valid = (
+            isinstance(receipt, Mapping)
+            and receipt.get("passed") is True
+            and receipt.get("current_head") == lane.get("current_head")
+            and receipt.get("lane") == lane_id
+            and receipt.get("gate") == "gate"
+        )
+        if not valid:
+            lane["gate_error"] = "invalid gate receipt"
+            self._save(state)
+            return False
+        self._accept(action, external_id="gate:" + str(lane.get("current_head")), receipt=dict(receipt))
+        invalidated = lane.get("invalidated_evidence", [])
+        if not isinstance(invalidated, list):
+            raise StateError("invalidated evidence is malformed")
+        lane["invalidated_evidence"] = [item for item in invalidated if item != "gate"]
+        lane.pop("gate_error", None)
+        if lane["state"] == "gate_required":
+            transition_lane(state, lane_id, "ready", expected="gate_required")
+        self._save(state)
+        return True
+
+    def _sync_lane(self, state: dict[str, Any], lane_id: str, plan_lane: Mapping[str, Any], lane: dict[str, Any]) -> str:
+        dependencies = plan_lane.get("sync_after", [])
+        if not dependencies:
+            return "ready"
+        producers = self._checkpoint_lanes(state, plan_lane)
+        checkpoints = [str(producer["current_head"]) for producer in producers]
+        key, action, created = self._record_action(state, lane_id, lane, "sync")
+        replayed = action.get("status") in {"accepted", "released"}
+        if replayed and action.get("producer_commits") != checkpoints:
+            raise ExecutorError("checkpoint receipt does not match declared producers")
+        if not replayed:
+            action["producer_commits"] = checkpoints
+            action["pre_head"] = lane.get("current_head") or lane.get("pre_head")
+        self._save(state)
+        if action.get("status") in {"accepted", "released"}:
+            receipt = action.get("receipt")
+        else:
+            adapter = self._git_adapter()
+            declared = plan_lane.get("declared_paths")
+            receipt = adapter.sync_checkpoint(
+                lane["worktree_path"], checkpoints[0] if len(checkpoints) == 1 else checkpoints,
+                declared_paths=declared if isinstance(declared, list) else None,
+            )
+            if not isinstance(receipt, Mapping):
+                raise ExecutorError("malformed checkpoint receipt")
+            self._accept(action, external_id=receipt.get("post_head"), receipt=dict(receipt))
+            action["producer_commits"] = checkpoints
+            self._save(state)
+        if not isinstance(receipt, Mapping):
+            raise ExecutorError("missing checkpoint receipt")
+        status = receipt.get("status")
+        if status == "serial":
+            if lane["state"] in {"ready", "running", "waiting"}:
+                transition_lane(state, lane_id, "serial", expected=lane["state"])
+            lane["fallback_reason"] = str(receipt.get("reason", "checkpoint-failed"))
+            self._save(state)
+            return "serial"
+        if status not in {"noop", "synced"} or not isinstance(receipt.get("post_head"), str):
+            raise ExecutorError("invalid checkpoint receipt")
+        pre_head = receipt.get("pre_head")
+        post_head = receipt["post_head"]
+        if not replayed and pre_head != action.get("pre_head"):
+            raise ExecutorError("checkpoint receipt pre-head is uncorrelated")
+        lane["current_head"] = post_head
+        lane["checkpoint_receipt"] = dict(receipt)
+        changed = receipt.get("changed") if isinstance(receipt.get("changed"), bool) else pre_head != post_head
+        if changed:
+            if replayed:
+                self._save(state)
+                return "ready"
+            evidence = receipt.get("invalidated_evidence")
+            if evidence != ["gate", "technical_verifier", "deep_review"]:
+                raise ExecutorError("checkpoint receipt omitted evidence invalidation")
+            lane["invalidated_evidence"] = list(evidence)
+            if lane["state"] in {"ready", "running", "waiting"}:
+                transition_lane(state, lane_id, "invalidated", expected=lane["state"])
+                transition_lane(state, lane_id, "gate_required", expected="invalidated")
+            self._save(state)
+            return "blocked"
+        self._save(state)
+        return "ready"
 
     def _record_action(
         self, state: dict[str, Any], lane_id: str, lane: Mapping[str, Any], action: str
@@ -833,6 +960,10 @@ class Coordinator:
                 existing = state["lanes"][lane_id]
             elif existing.get("slice") != slice_id or existing.get("task") != task_id:
                 return _serial_result(self.feature, mode, "mismatched-lane-receipt", lanes)
+            if existing.get("state") in {"invalidated", "gate_required"} and not self._consume_gate(state, lane_id, existing):
+                self._save(state)
+                result = {"version": 1, "feature": self.feature, "mode": mode, "fallback": False, "state": state, "actions": []}
+                return result
             release_key = idempotency_key(self.feature, slice_id, task_id, "release", state["source_git_head"])
             if release_key in state["actions"] and state["actions"][release_key].get("status") == "pending":
                 try:
@@ -847,17 +978,6 @@ class Coordinator:
                 continue
             worktree_key, worktree_action, worktree_created = self._record_action(state, lane_id, existing, "worktree")
             self._save(state)
-            if resume and existing.get("state") in {"running", "waiting"}:
-                worker_key = idempotency_key(self.feature, slice_id, task_id, "worker", state["source_git_head"])
-                worker_action = state["actions"].get(worker_key)
-                if isinstance(worker_action, Mapping) and worker_action.get("status") in {"accepted", "released"}:
-                    if not callable(getattr(adapter, "wait_events", None)):
-                        continue
-                    if self._resume_worker_event(snapshot, state, lane_id, plan_lane, existing, adapter, provider, wait_seconds) == "serial":
-                        result = _serial_result(self.feature, mode, existing.get("fallback_reason", "worker-failed"), lanes)
-                        result["state"] = state
-                        return result
-                    continue
             if worktree_action["status"] == "pending":
                 try:
                     if not worktree_created:
@@ -878,6 +998,30 @@ class Coordinator:
                         transition_lane(state, lane_id, "serial", expected=existing["state"])
                     self._save(state)
                     return _serial_result(self.feature, mode, "unreconciled-pending" if not worktree_created else "worktree-failed", lanes)
+            if plan_lane.get("sync_after"):
+                try:
+                    sync_status = self._sync_lane(state, lane_id, plan_lane, existing)
+                except Exception as exc:
+                    existing["fallback_reason"] = "checkpoint:" + str(exc)
+                    if existing["state"] in {"ready", "running", "waiting"}:
+                        transition_lane(state, lane_id, "serial", expected=existing["state"])
+                    self._save(state)
+                    return _serial_result(self.feature, mode, "checkpoint-failed", lanes)
+                if sync_status == "serial":
+                    return _serial_result(self.feature, mode, existing.get("fallback_reason", "checkpoint-failed"), lanes)
+                if sync_status == "blocked":
+                    return {"version": 1, "feature": self.feature, "mode": mode, "fallback": False, "state": state, "actions": []}
+            if resume and existing.get("state") in {"running", "waiting"}:
+                worker_key = idempotency_key(self.feature, slice_id, task_id, "worker", state["source_git_head"])
+                worker_action = state["actions"].get(worker_key)
+                if isinstance(worker_action, Mapping) and worker_action.get("status") in {"accepted", "released"}:
+                    if not callable(getattr(adapter, "wait_events", None)):
+                        continue
+                    if self._resume_worker_event(snapshot, state, lane_id, plan_lane, existing, adapter, provider, wait_seconds) == "serial":
+                        result = _serial_result(self.feature, mode, existing.get("fallback_reason", "worker-failed"), lanes)
+                        result["state"] = state
+                        return result
+                    continue
             if resources:
                 if provider is None:
                     existing["fallback_reason"] = "missing-resource-provider"

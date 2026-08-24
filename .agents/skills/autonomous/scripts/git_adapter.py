@@ -94,7 +94,7 @@ class GitAdapter:
         consumer: Path | str,
         producer_commit: str | Sequence[str],
         *,
-        declared_paths: Sequence[str] = (),
+        declared_paths: Sequence[str] | None = None,
     ) -> dict[str, Any]:
         target = self._validate_worktree(consumer)
         pre_head = self.head(target)
@@ -134,7 +134,7 @@ class GitAdapter:
             return self._serial(pre_head, "rebase-conflict")
         post_head = self.head(target)
         changed_paths = self._changed_paths(target, pre_head, post_head)
-        if not set(changed_paths).issubset(set(declared_paths)) or not self._ancestor(target, producer, post_head):
+        if (declared_paths is not None and not set(changed_paths).issubset(set(declared_paths))) or not self._ancestor(target, producer, post_head):
             self._restore(target, pre_head)
             return self._serial(pre_head, "undeclared-changed-path", changed_paths=changed_paths)
         if not self.is_clean(target):
@@ -193,7 +193,7 @@ class GitAdapter:
         return self.integrate_slices(feature_worktree, verified_slices)
 
 
-def sync_checkpoint(root: Path | str, consumer: Path | str, producer_commit: str | Sequence[str], *, declared_paths: Sequence[str] = ()) -> dict[str, Any]:
+def sync_checkpoint(root: Path | str, consumer: Path | str, producer_commit: str | Sequence[str], *, declared_paths: Sequence[str] | None = None) -> dict[str, Any]:
     return GitAdapter(root).sync_checkpoint(consumer, producer_commit, declared_paths=declared_paths)
 
 

@@ -1028,6 +1028,113 @@ def test_same_slice_tasks_never_start_two_workers_or_reorder_declared_tasks() ->
         shutil.rmtree(root)
 
 
+class CheckpointReceiptAdapter(RecordingAdapter):
+    def __init__(self, state_path: Path, *, changed: bool = True) -> None:
+        super().__init__()
+        self.state_path = state_path
+        self.changed = changed
+        self.sync_calls = 0
+
+    def sync_checkpoint(self, consumer: Path, producer: str, *, declared_paths: list[str] | None = None) -> dict[str, object]:
+        self.sync_calls += 1
+        state = json.loads(self.state_path.read_text(encoding="utf-8"))
+        assert state["actions"]
+        head = state["source_git_head"]
+        return {
+            "status": "synced" if self.changed else "noop",
+            "changed": self.changed,
+            "pre_head": head,
+            "post_head": "checkpoint-head" if self.changed else head,
+            "changed_paths": ["producer.txt"] if self.changed else [],
+            "invalidated_evidence": ["gate", "technical_verifier", "deep_review"] if self.changed else [],
+        }
+
+
+def test_checkpoint_invalidation_blocks_worker_and_persists_exact_receipt_across_restart() -> None:
+    root = make_repo()
+    try:
+        probe = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter())
+        probe._prepare_repository()
+        workflow = json.loads((root / ".specs/features/fixture/workflow.json").read_text(encoding="utf-8"))
+        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "full", workflow["git_head"])
+        state["lanes"]["producer"] = {"slice": "P", "task": "T0", "state": "complete", "resources": [], "current_head": workflow["git_head"]}
+        parallel_execute.atomic_write_json(probe.state_path, state)
+        adapter = CheckpointReceiptAdapter(probe.state_path)
+        plan = {
+            "fallback": False,
+            "lanes": [{"id": "slice-A", "slice": "A", "task": "T1", "status": "ready", "sync_after": ["T0"], "resources": []}],
+        }
+        first = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: adapter, git_adapter_factory=lambda: adapter)
+        first._plan = lambda: plan  # type: ignore[method-assign]
+        result = first.start()
+        lane = result["state"]["lanes"]["slice-A"]
+        assert result["fallback"] is False
+        assert lane["state"] == "gate_required"
+        assert lane["current_head"] == "checkpoint-head"
+        assert lane["invalidated_evidence"] == ["gate", "technical_verifier", "deep_review"]
+        assert not any(effect[0] == "worker" for effect in adapter.effects)
+        calls = adapter.sync_calls
+
+        blocked = parallel_execute.Coordinator(
+            root,
+            "fixture",
+            adapter_factory=lambda: adapter,
+            git_adapter_factory=lambda: (_ for _ in ()).throw(AssertionError("restart must not resync")),
+            gate_receipt_factory=lambda _: {"passed": False, "current_head": "checkpoint-head", "lane": "slice-A", "gate": "gate"},
+        )
+        blocked._plan = lambda: plan  # type: ignore[method-assign]
+        blocked_result = blocked.start(resume=True)
+        assert blocked_result["state"]["lanes"]["slice-A"]["state"] == "gate_required"
+        assert adapter.sync_calls == calls
+        accepted = parallel_execute.Coordinator(
+            root,
+            "fixture",
+            adapter_factory=lambda: adapter,
+            git_adapter_factory=lambda: (_ for _ in ()).throw(AssertionError("accepted gate must replay sync receipt")),
+            gate_receipt_factory=lambda _: {"passed": True, "current_head": "checkpoint-head", "lane": "slice-A", "gate": "gate"},
+        )
+        accepted._plan = lambda: plan  # type: ignore[method-assign]
+        accepted_result = accepted.start(resume=True)
+        assert accepted_result["state"]["lanes"]["slice-A"]["state"] == "running"
+        assert adapter.sync_calls == calls
+        assert any(effect[0] == "worker" for effect in adapter.effects)
+    finally:
+        shutil.rmtree(root)
+
+
+def test_gate_receipt_requires_exact_identity_and_removes_only_gate_invalidation() -> None:
+    root = make_repo()
+    try:
+        probe = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter())
+        probe._prepare_repository()
+        workflow = json.loads((root / ".specs/features/fixture/workflow.json").read_text(encoding="utf-8"))
+        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "full", workflow["git_head"])
+        state["lanes"]["slice-A"] = {
+            "slice": "A", "task": "T1", "state": "gate_required", "resources": [],
+            "current_head": "checkpoint-head", "invalidated_evidence": ["gate", "technical_verifier", "deep_review"],
+        }
+        parallel_execute.atomic_write_json(probe.state_path, state)
+        plan = {"fallback": False, "lanes": [{"id": "slice-A", "slice": "A", "task": "T1", "status": "ready", "sync_after": [], "resources": []}]}
+        wrong = parallel_execute.Coordinator(
+            root, "fixture", adapter_factory=lambda: RecordingAdapter(),
+            gate_receipt_factory=lambda _: {"passed": True, "current_head": "wrong", "lane": "slice-A", "gate": "gate"},
+        )
+        wrong._plan = lambda: plan  # type: ignore[method-assign]
+        wrong_result = wrong.start(resume=True)
+        assert wrong_result["state"]["lanes"]["slice-A"]["state"] == "gate_required"
+        accepted = parallel_execute.Coordinator(
+            root, "fixture", adapter_factory=lambda: RecordingAdapter(),
+            gate_receipt_factory=lambda _: {"passed": True, "current_head": "checkpoint-head", "lane": "slice-A", "gate": "gate"},
+        )
+        accepted._plan = lambda: plan  # type: ignore[method-assign]
+        accepted_result = accepted.start(resume=True)
+        lane = accepted_result["state"]["lanes"]["slice-A"]
+        assert "gate" not in lane["invalidated_evidence"]
+        assert lane["invalidated_evidence"] == ["technical_verifier", "deep_review"]
+    finally:
+        shutil.rmtree(root)
+
+
 class ReconcilingAdapter(RecordingAdapter):
     def __init__(self, state_path: Path) -> None:
         super().__init__()

@@ -376,6 +376,27 @@ remain blocked only until Slice A passes its Technical Verifier.
 **Remediation gate:** `npm run test:all`; strict spec/tasks/state/index validators; Python compile; `git diff --check`; no deep-review round 3.
 **Remediation commit:** `fix(workflow): close final executor review defects`.
 
+### T4R1: Enforce checkpoint revalidation at the coordinator boundary
+
+**Remediation status:** complete
+**Slice:** C
+**Remediation resources:** none
+**Observable behaviour:** A changed checkpoint receipt is persisted and consumed by the coordinator before worker or follow-up effects; the lane remains gate-required until a passing gate receipt matches its exact current head and identity.
+**Where:** `.agents/skills/autonomous/scripts/parallel_execute.py`
+**Remediation depends on:** T4
+**Remediation requirements:** EXE-15
+**Remediation done when:**
+
+- [x] `sync_after` resolves exact producer `current_head` receipts and persists the sync action before the Git effect.
+- [x] Changed sync receipts persist `current_head`, paths, and all three evidence invalidations, then block start/follow-up at `gate_required`.
+- [x] Restart reuses the accepted sync receipt without resync; invalidated lanes cannot advance without a gate receipt.
+- [x] Gate acceptance requires `passed=true`, exact `current_head`, lane, and gate identity and removes only `gate` invalidation.
+- [x] Executor integration tests kill the mutator that ignores coordinator invalidation.
+
+**Remediation tests:** `tools/test_parallel_executor.py` (34 cases) plus Git/Orca regressions.
+**Remediation gate:** Git adapter, executor, and Orca suites; strict spec/tasks/index; compile; diff check; adequacy review.
+**Remediation commit:** `fix(workflow): enforce checkpoint revalidation`.
+
 ## Phase Execution Map
 
 ```text

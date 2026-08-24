@@ -103,6 +103,8 @@ state, survive coordinator restart, and are never committed under `.specs/featur
 ## Exports
 
 The Python coordinator exposes an adapter protocol used by the bundled Orca adapter and test doubles.
+Checkpoint reconciliation is an internal seam: tests may inject a deterministic Git adapter and
+gate-receipt factory, while the public CLI continues to emit the same command JSON contract.
 
 ## Removals
 

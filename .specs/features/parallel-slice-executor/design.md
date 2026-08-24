@@ -97,6 +97,12 @@ post-HEAD, and changed paths. A conflict runs `rebase --abort` and verifies the 
 Verified slice integration uses a merge on the feature branch, preserving reviewed commit IDs. A
 merge conflict runs `merge --abort` and returns serial recovery.
 
+Checkpoint receipts are consumed by the provider-neutral coordinator before worker start or
+follow-up. A changed HEAD persists `current_head`, the exact sync receipt, changed paths, and
+`gate`, `technical_verifier`, and `deep_review` invalidations; the lane remains `gate_required`
+until a correlated passing gate receipt matches its lane and current HEAD. Accepting that receipt
+removes only `gate`; later evidence stages remain invalidated for their own follow-up.
+
 ### Resource provider
 
 - **Purpose:** Let each consuming project allocate its actual runtime, port, and database namespace.
@@ -138,6 +144,7 @@ The core accepts only these states:
 
 ```text
 ready -> needs_resources -> running -> waiting -> needs_sync -> running -> complete
+                                      \\-> invalidated -> gate_required -> ready
    \            \            \          \            \             \
     +------------+------------+----------+------------+-------------> serial|failed
 ```

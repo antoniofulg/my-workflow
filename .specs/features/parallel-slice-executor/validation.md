@@ -3,10 +3,10 @@
 **Verdict**: FAIL
 **Date:** 2026-08-24
 **Phase:** Technical Verification
-**Scope:** Slice A prior PASS retained; Slice B/T3 re-verified after T3R2
+**Scope:** Slice A prior PASS retained; Slice B/T3 PASS retained; Slice C/T4 independently verified
 **Spec:** `.specs/features/parallel-slice-executor/spec.md`
-**Diff range:** `d73071c..591e68e`
-**Incremental remediation:** `f0c3e5d..591e68e`
+**Diff range:** `d73071c..a799eac`
+**Incremental slice:** `b797777..a799eac`
 **Verifier:** independent Verifier, author != verifier
 
 This report retains the prior Slice A PASS and records a Slice B PASS. It does not mark the feature
@@ -249,3 +249,106 @@ there is no review round 3 or real Orca pilot in this remediation.
 - **Directed counts:** Orca adapter 20, executor 32, convergence 6; final-round negative reproductions passed.
 - **Disposition:** grouped deep-review A-B closed by the required post-round-2 remediation and green gate; no round 3 was opened.
 - **Feature status:** incomplete. T4-T7, grouped review C-D, real Orca pilot, final QA, and final full gate remain.
+
+## Slice C / T4 Technical Verification
+
+**Slice verdict:** FAIL. EXE-12–EXE-14 and EXE-16–EXE-17 are directly discriminated at the Git
+adapter layer. EXE-15 is not implemented at its owning coordinator boundary: the adapter returns an
+`invalidated_evidence` list, but no coordinator consumes it, invalidates stored receipts, or blocks
+follow-up until the affected gate reruns. A passing adapter payload assertion is not evidence of that
+state transition.
+
+### Spec-Anchored Acceptance Criteria
+
+| Criterion | Spec-defined outcome | Evidence | Result |
+| --- | --- | --- | --- |
+| EXE-12 | A clean consumer rebases onto the exact recorded producer commit before dependent work. | `.agents/skills/autonomous/scripts/git_adapter.py:99-137`; `tools/test_git_adapter.py:54-65` asserts clean sync, exact producer ancestry, changed HEAD, and exact changed path; `tools/test_git_adapter.py:101-110` rejects a dirty consumer without changing HEAD/content. | PASS |
+| EXE-13 | An already-ancestor producer makes checkpoint sync a byte-stable no-op. | `.agents/skills/autonomous/scripts/git_adapter.py:120-130`; `tools/test_git_adapter.py:67-70` asserts `status == "noop"`, equal pre/post HEAD, and no changed path. Sensor M1 kills reversing the ancestry test. | PASS |
+| EXE-14 | Rebase conflict or undeclared path aborts, restores the clean pre-sync HEAD, and returns serial recovery. | `.agents/skills/autonomous/scripts/git_adapter.py:131-142`; `tools/test_git_adapter.py:76-95` asserts conflict serial recovery, identical pre/post HEAD, and clean status; `tools/test_git_adapter.py:147-157` asserts undeclared-path reason, restored HEAD, exact changed path, and clean status. Sensor M2 kills omitted conflict cleanup. | PASS |
+| EXE-15 | A changed checkpoint HEAD causes the coordinator to invalidate gate, Technical Verifier, and deep-review receipts and require the affected gate before follow-up. | `.agents/skills/autonomous/scripts/git_adapter.py:143-151` only returns three names; `tools/test_git_adapter.py:59-65` only asserts that return value. `rg -n 'GitAdapter|sync_checkpoint|invalidated_evidence' .agents/skills/autonomous/scripts tools` finds no coordinator consumer outside the adapter and its direct test. No assertion proves receipt mutation or follow-up refusal. | FAIL |
+| EXE-16 | Technically verified slice commits merge into the feature branch in deterministic slice order without rewriting them. | `.agents/skills/autonomous/scripts/git_adapter.py:153-190` sorts then merges with `--no-ff`; `tools/test_git_adapter.py:163-183` supplies B then A, asserts merged A/B order, exact paths, and both original commits as HEAD ancestors. | PASS |
+| EXE-17 | Integration conflict aborts, restores the clean pre-operation HEAD, and delegates resolution to serial recovery. | `.agents/skills/autonomous/scripts/git_adapter.py:171-181`; `tools/test_git_adapter.py:188-208` asserts `merge-conflict`, serial status, identical pre/post HEAD, and clean status. | PASS |
+
+**Spec-anchored status:** 5 PASS, 1 FAIL, 0 spec-precision gaps for Slice C.
+
+### Test Contract Disposition
+
+| Case | Contracted outcome | Evidence | Result |
+| --- | --- | --- | --- |
+| UT-004 | Exact producer rebase or byte-stable ancestor no-op. | `tools/test_git_adapter.py:54-70` asserts both branches with exact values; M1 is killed. | PASS |
+| UT-005 | Conflict abort restores pre-sync HEAD and clean state and halts the lane. | `tools/test_git_adapter.py:76-95` asserts serial recovery, identical HEAD, and clean status; M2 is killed. | PASS |
+| UT-006 | Changed-HEAD evidence is invalidated before follow-up; verified merges are stable; conflict aborts cleanly. | Merge and conflict outcomes are asserted at `tools/test_git_adapter.py:163-208`; evidence names are asserted only at `tools/test_git_adapter.py:59-65`. The coordinator transition and required-gate-before-follow-up outcome have no test. Under `docs/guidelines/TEST-CONTRACT.md:45-57`, this boundary behavior needs an integration-layer assertion; existence of the adapter payload alone is hollow for EXE-15. | FAIL |
+
+### Gate Evidence
+
+- `python3 tools/test_git_adapter.py` -> exit 0, `7 passed, 0 failed`; 0 skipped.
+- `python3 tools/test_orca_adapter.py` -> exit 0, `20 passed, 0 failed`; 0 skipped.
+- `python3 tools/test_parallel_executor.py` -> exit 0, `32 passed, 0 failed`; 0 skipped.
+- Scoped total: 59 passed, 0 failed, 0 skipped. Git adapter suite at `b797777`: absent; at `a799eac`: 7 tests; delta +7.
+- `python3 .../tlc-spec-driven/scripts/validate_spec.py .specs/features/parallel-slice-executor/spec.md --strict` -> exit 0, 0 errors, 0 warnings.
+- `python3 .../tlc-spec-driven/scripts/validate_tasks.py .specs/features/parallel-slice-executor/tasks.md --strict` -> exit 0, 0 errors, 0 warnings.
+- `python3 tools/ad-index.py --check` -> exit 0, `AD-INDEX.md up to date`.
+- `git diff --check b797777..a799eac` -> exit 0, no output.
+- `python3 -m py_compile .agents/skills/autonomous/scripts/git_adapter.py tools/test_git_adapter.py .agents/skills/autonomous/scripts/orca_adapter.py tools/test_orca_adapter.py .agents/skills/autonomous/scripts/parallel_execute.py tools/test_parallel_executor.py` -> exit 0.
+- `python3 .../tlc-spec-driven/scripts/check_commit.py --message 'feat(workflow): reconcile slice checkpoints'` -> exit 0, `check_commit: OK`.
+- `git diff --check` after this report edit -> exit 0, no output.
+- `python3 .../tlc-spec-driven/scripts/validate_state.py parallel-slice-executor` -> exit 1 because this report correctly retains verdict `FAIL` and routes the EXE-15 gap; feature completion is blocked.
+
+### Discrimination Sensor
+
+Real-tree porcelain was empty before the sensor. Each mutation ran in its own detached temporary
+worktree at `a799eac`; all scratch worktrees and their parent directory were removed. Real-tree
+porcelain returned to the same empty baseline.
+
+| Mutation | Behavior fault | Directed result | Outcome |
+| --- | --- | --- | --- |
+| M1 | Reverse producer/pre-HEAD ancestry detection, breaking ancestor no-op. | Git suite exit 1 at `tools/test_git_adapter.py:68`, expected `status == "noop"`. | KILLED |
+| M2 | Omit `_restore` after a rebase conflict. | Git suite exit 1 at `tools/test_git_adapter.py:95`, expected clean `git status --porcelain`. | KILLED |
+| M3 | Return no invalidated evidence after a successful changed-HEAD sync. | Git suite exit 1 at `tools/test_git_adapter.py:64`, expected gate/Technical Verifier/deep-review names. | KILLED |
+
+**Sensor:** lightweight, 3 injected, 3 killed, 0 survived. PASS. This proves adapter-level
+discrimination; it does not supply the missing coordinator integration for EXE-15.
+
+### AD-012 Fingerprint Accounting
+
+| Fingerprint | Disposition | Prior failed-remediation count | This verification increment | Resulting count |
+| --- | --- | ---: | ---: | ---: |
+| `EXE-15 + coordinator never consumes Git sync invalidated_evidence + changed-head lane can follow up without rerunning the affected gate` | OPEN; Major fix task required. This is the initial finding, not a failed post-fix re-verification. | 0 | 0 | 0 |
+
+AD-012 and `docs/guidelines/REVIEW-ROUNDS.md:89-91` halt only after the third failed remediation of
+this same fingerprint. No historical fingerprint was renamed, reopened, or incremented by this
+Slice C verification.
+
+### Ranked Gaps
+
+1. **Major / fix task — EXE-15:** Premise: `.agents/skills/autonomous/scripts/git_adapter.py:143-151`
+   emits invalidation labels, while no coordinator code consumes them. Path: checkpoint sync changes
+   HEAD -> adapter returns labels -> coordinator has no persisted receipt invalidation or required-gate
+   transition -> dependent follow-up can proceed on stale gate/Verifier/deep-review evidence. Verdict:
+   implement the coordinator boundary and extend the canonical executor integration suite to assert
+   invalidation plus follow-up refusal until the affected gate passes.
+
+### Slice C Summary
+
+**Overall:** FAIL for Slice C. Five of six ACs match their spec-defined outcomes, 59 scoped
+regression tests pass, and all three adapter mutants die. EXE-15 remains evidence-zero at the
+coordinator layer. This verdict does not close the feature, grouped C-D deep-review, real Orca pilot,
+QA Plan, or QA Execute.
+
+## T4R1 post-remediation
+
+T4R1 closes the EXE-15 coordinator-boundary gap while the feature-level report remains FAIL for
+the still-planned T5–T7 work. `sync_after` now resolves exact producer `current_head` receipts,
+persists the sync action before the Git effect, stores changed-head/current-head evidence, and
+blocks worker start or follow-up at `gate_required`. Restart reuses the accepted sync receipt
+without resync. A gate receipt is accepted only when `passed` is true and lane, gate, and
+`current_head` match; only `gate` invalidation is removed.
+
+Evidence: `tools/test_parallel_executor.py` exercises changed-head blocking, restart-safe receipt
+reuse, exact gate rejection/acceptance, and no worker effect before acceptance; the Git and Orca
+regressions remain green. The persisted fingerprint ledger remains at count 1 for `da76f3...`;
+this successful remediation does not increment it.
+
+The earlier AD-012 table above records the pre-ledger verifier snapshot; the persisted
+`.specs/features/parallel-slice-executor/review-fingerprints.json` is authoritative for this
+remediation and records `failed_remediations: 1` for `da76f3...`.
