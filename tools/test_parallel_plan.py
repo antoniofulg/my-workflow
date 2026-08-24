@@ -51,6 +51,7 @@ def task(
     status: str = "pending",
     depends_on: str = "None",
     where: str | None = None,
+    resources: str | None = "none",
 ) -> str:
     slice_field = f"**Slice:** {slice_id}\n" if slice_id is not None else ""
     where = where or f"src/{task_id.lower()}.py"
@@ -59,7 +60,9 @@ def task(
         f"**Status:** {status}\n"
         f"{slice_field}"
         f"**Where:** {where}\n"
-        f"**Depends on:** {depends_on}\n\n"
+        f"**Depends on:** {depends_on}\n"
+        + (f"**Resources:** {resources}\n" if resources is not None else "")
+        + "\n"
     )
 
 
@@ -87,7 +90,7 @@ def test_disabled_mode_returns_one_serial_lane_in_declared_order() -> None:
         plan = parallel_plan.plan(root=root, feature="fixture")
         assert plan["fallback"] is False
         assert plan["lanes"] == [
-            {"id": "serial", "slice": "A", "task": "T1", "status": "ready", "sync_after": []}
+            {"id": "serial", "slice": "A", "task": "T1", "status": "ready", "sync_after": [], "resources": []}
         ]
         assert blocked_task(plan, "T2")["reasons"] == ["disabled-mode"]
     finally:
@@ -224,6 +227,7 @@ def test_in_progress_is_blocked_and_waiting_follows_up_after_dependencies() -> N
                 "task": "T1",
                 "status": "follow_up",
                 "sync_after": ["T2"],
+                "resources": [],
             }
         ]
     finally:
@@ -341,6 +345,7 @@ def test_cli_emits_the_point_in_time_plan() -> None:
                     "slice": "B",
                     "status": "ready",
                     "sync_after": ["T1"],
+                    "resources": [],
                     "task": "T2",
                 }
             ],
@@ -351,6 +356,40 @@ def test_cli_emits_the_point_in_time_plan() -> None:
         }
     finally:
         shutil.rmtree(root)
+
+
+def test_resources_normalize_to_sorted_stable_lane_arrays() -> None:
+    root = make_repo(task("T1", "A", resources="Port, Runtime") + task("T2", "B", resources="none"))
+    try:
+        first = parallel_plan.plan(root=root, feature="fixture")
+        second = parallel_plan.plan(root=root, feature="fixture")
+        assert first["lanes"][0]["resources"] == ["port", "runtime"]
+        assert first["lanes"][1]["resources"] == []
+        assert json.dumps(first, sort_keys=True) == json.dumps(second, sort_keys=True)
+    finally:
+        shutil.rmtree(root)
+
+
+def test_invalid_resource_metadata_selects_serial_fallback_before_execution() -> None:
+    cases = (
+        (None, "missing-resources:T1"),
+        ("", "invalid-resources:T1"),
+        ("none, runtime", "mixed-none-resources:T1"),
+        ("runtime, runtime", "duplicate-resources:T1:runtime"),
+        ("runtime,,port", "invalid-resources:T1"),
+        ("runtime and port", "invalid-resources:T1"),
+        ("runtime/port", "invalid-resources:T1"),
+    )
+    for resources, expected in cases:
+        root = make_repo(task("T1", "A", resources=resources))
+        try:
+            plan = parallel_plan.plan(root=root, feature="fixture")
+            assert plan["fallback"] is True
+            assert plan["reasons"] == [expected]
+            assert plan["lanes"][0]["id"] == "serial"
+            assert plan["lanes"][0]["resources"] == []
+        finally:
+            shutil.rmtree(root)
 
 
 if __name__ == "__main__":

@@ -174,7 +174,7 @@ T3 + T4 + T6 -> T7
 
 ### T6: Plan explicit lane resources
 
-**Status:** pending
+**Status:** complete
 **Slice:** D
 **Resources:** none
 **Observable behaviour:** The deterministic plan carries normalized resource names, permits explicit `none`, and serializes missing or ambiguous resource metadata before the executor can act.
@@ -185,12 +185,12 @@ T3 + T4 + T6 -> T7
 **Tools:** Skill `ponytail`; no documentation lookup.
 **Done when:**
 
-- [ ] Each lane contains a stable `resources` array; `none` becomes an empty array.
-- [ ] Missing, mixed-`none`, duplicated, or malformed resource names produce exact serial reasons.
-- [ ] Existing mode, dependency, waiting, and conflict behavior remains green.
-- [ ] `python3 tools/test_parallel_plan.py` reports all existing and IT-006 cases passing with zero failures.
+- [x] Each lane contains a stable `resources` array; `none` becomes an empty array.
+- [x] Missing, mixed-`none`, duplicated, or malformed resource names produce exact serial reasons.
+- [x] Existing mode, dependency, waiting, and conflict behavior remains green.
+- [x] `python3 tools/test_parallel_plan.py` reports all existing and IT-006 cases passing with zero failures.
 
-**Tests:** IT-006 in `tools/test_parallel_plan.py`
+**Tests:** IT-006 in `tools/test_parallel_plan.py` (16 cases)
 **Gate:** Quick. Commit `feat(workflow): plan isolated lane resources`.
 
 ### T7: Bind autonomous execution and prove Orca concurrency

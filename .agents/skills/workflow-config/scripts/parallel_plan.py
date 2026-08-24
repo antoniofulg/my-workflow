@@ -16,6 +16,7 @@ MODES = {"disabled", "safe", "full"}
 STATUS_VALUES = {"pending", "in_progress", "waiting", "complete"}
 TASK_HEADING = re.compile(r"^###\s+(T\d+)\s*:")
 FIELD = re.compile(r"^\*\*([^*]+):\*\*\s*(.*?)\s*$")
+RESOURCE_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 
 
 @dataclass(frozen=True)
@@ -26,6 +27,7 @@ class Task:
     slice_id: str | None
     where: str | None
     depends_on: tuple[str, ...]
+    resources: tuple[str, ...] | None
 
     @property
     def complete(self) -> bool:
@@ -64,6 +66,27 @@ def _ambiguous_where(value: str | None) -> bool:
     if not value:
         return True
     return "," in value or ";" in value or " and " in value.lower()
+
+
+def _resources(value: str | None) -> tuple[tuple[str, ...] | None, str | None]:
+    if value is None:
+        return None, "missing-resources"
+    if not value.strip():
+        return None, "invalid-resources"
+    parts = [part.strip().lower() for part in value.split(",")]
+    if any(not part for part in parts):
+        return None, "invalid-resources"
+    if "none" in parts:
+        if len(parts) == 1:
+            return (), None
+        return None, "mixed-none-resources"
+    for part in parts:
+        if not RESOURCE_RE.fullmatch(part):
+            return None, "invalid-resources"
+    if len(set(parts)) != len(parts):
+        duplicate = next(part for part in parts if parts.count(part) > 1)
+        return None, f"duplicate-resources:{duplicate}"
+    return tuple(sorted(parts)), None
 
 
 def _parse_tasks(path: Path) -> tuple[list[Task], list[str]]:
@@ -105,6 +128,13 @@ def _parse_tasks(path: Path) -> tuple[list[Task], list[str]]:
             reasons.append(f"missing-slice:{task_id}")
         if _ambiguous_where(where):
             reasons.append(f"ambiguous-where:{task_id}")
+        resources, resource_reason = _resources(fields.get("resources"))
+        if resource_reason:
+            if resource_reason.startswith("duplicate-resources:"):
+                resource_reason = f"duplicate-resources:{task_id}:{resource_reason.split(':', 1)[1]}"
+            else:
+                resource_reason = f"{resource_reason}:{task_id}"
+            reasons.append(resource_reason)
         tasks.append(
             Task(
                 id=task_id,
@@ -113,6 +143,7 @@ def _parse_tasks(path: Path) -> tuple[list[Task], list[str]]:
                 slice_id=slice_id,
                 where=where,
                 depends_on=_dependencies(fields.get("depends on")),
+                resources=resources,
             )
         )
     if not tasks:
@@ -167,6 +198,7 @@ def _serial_lane(task: Task | None) -> list[dict[str, Any]]:
             "task": task.id,
             "status": "ready",
             "sync_after": [],
+            "resources": list(task.resources or []),
         }
     ]
 
@@ -270,6 +302,7 @@ def plan(
                 "task": task.id,
                 "status": "follow_up" if task.status == "waiting" else "ready",
                 "sync_after": sync_after,
+                "resources": list(task.resources or []),
             }
         )
 
