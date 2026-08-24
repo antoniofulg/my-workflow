@@ -162,9 +162,13 @@ def bounded_path(root: Path, candidate: Path | str, *, must_exist: bool = False)
     target = target.absolute()
     try:
         target.relative_to(root)
-    except ValueError as exc:
-        raise PathBoundaryError("path leaves declared root") from exc
-    _reject_symlink_components(root, target)
+    except ValueError:
+        # macOS commonly exposes /var as a symlink to /private/var; validate the
+        # resolved destination below while still checking lexical components
+        # whenever the candidate is visibly inside the declared root.
+        pass
+    else:
+        _reject_symlink_components(root, target)
     resolved = target.resolve(strict=False)
     try:
         resolved.relative_to(root)
@@ -431,9 +435,9 @@ class Coordinator:
             raise ExecutorError(f"unreconciled pending action: {action}")
         return key, receipt
 
-    def _accept(self, receipt: dict[str, Any], **fields: Any) -> None:
-        receipt.update(fields)
-        receipt["status"] = "accepted"
+    def _accept(self, action_receipt: dict[str, Any], **fields: Any) -> None:
+        action_receipt.update(fields)
+        action_receipt["status"] = "accepted"
 
     def start(self, *, resume: bool = False) -> dict[str, Any]:
         snapshot = self._workflow()
@@ -549,8 +553,13 @@ class Coordinator:
         lease = lane.get("lease")
         if not isinstance(lease, dict) or not isinstance(lease.get("lease_id"), str):
             return {"released": False, "reason": "no-lease"}
+        lease_id = lease["lease_id"]
+        for other_lane_id, other_lane in state["lanes"].items():
+            other_lease = other_lane.get("lease")
+            if other_lane_id != lane_id and isinstance(other_lease, Mapping) and other_lease.get("lease_id") == lease_id:
+                raise ExecutorError("foreign lease cleanup")
         if lease.get("released") is True:
-            return {"released": True, "lease_id": lease["lease_id"], "idempotent": True}
+            return {"released": True, "lease_id": lease_id, "idempotent": True}
         provider = self._provider(snapshot)
         if provider is None:
             raise ExecutorError("missing resource provider")
@@ -569,7 +578,13 @@ class Coordinator:
             "idempotency_key": key,
             "resources": lane.get("resources", []),
         }
-        receipt = provider.release(request, lease["lease_id"])
+        try:
+            receipt = provider.release(request, lease_id)
+        except ExecutorError as exc:
+            action["status"] = "failed"
+            lane["fallback_reason"] = "cleanup-failed"
+            self._save(state)
+            raise ExecutorError("resource cleanup failed") from exc
         lease["released"] = True
         self._accept(action, external_id=receipt["lease_id"], receipt=receipt)
         action["status"] = "released"

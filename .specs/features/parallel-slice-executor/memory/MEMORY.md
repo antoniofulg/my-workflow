@@ -9,3 +9,4 @@
 ## Open risks
 
 - Adapter effects are intentionally absent from T1; disabled or unsupported execution must return serial fallback before adapter construction.
+- T2 persists action receipts before effects, redacts provider environment values, and rejects cross-lane lease cleanup.

@@ -86,7 +86,7 @@ T3 + T4 + T6 -> T7
 
 ### T2: Drive idempotent lanes and resource leases
 
-**Status:** pending
+**Status:** complete
 **Slice:** A
 **Resources:** none
 **Observable behaviour:** `start`, `resume`, and `status` reconcile one effect per idempotency key, acquire/release declared resources, and emit serial fallback without constructing adapters when capability is absent.

@@ -159,8 +159,8 @@ so that one checkout cannot silently test another checkout's runtime or data.
 | --- | --- | --- | --- |
 | EXE-01 | Coordinator state and receipts | A | Complete |
 | EXE-02 | Coordinator state and receipts | A | Complete |
-| EXE-03 | Coordinator state and receipts | A | Planned |
-| EXE-04 | Coordinator state and receipts | A | Planned |
+| EXE-03 | Coordinator state and receipts | A | Complete |
+| EXE-04 | Coordinator state and receipts | A | Complete |
 | EXE-05 | Coordinator state and receipts | A | Complete |
 | EXE-06 | Orca adapter | B | Planned |
 | EXE-07 | Orca adapter | B | Planned |
@@ -174,19 +174,19 @@ so that one checkout cannot silently test another checkout's runtime or data.
 | EXE-15 | Git checkpoint and integration adapter | C | Planned |
 | EXE-16 | Git checkpoint and integration adapter | C | Planned |
 | EXE-17 | Git checkpoint and integration adapter | C | Planned |
-| EXE-18 | Resource provider and autonomous integration | D | Planned |
-| EXE-19 | Resource provider and autonomous integration | D | Planned |
-| EXE-20 | Resource provider and autonomous integration | D | Planned |
-| EXE-21 | Resource provider and autonomous integration | D | Planned |
-| EXE-22 | Resource provider and autonomous integration | D | Planned |
+| EXE-18 | Resource provider and autonomous integration | D | Complete |
+| EXE-19 | Resource provider and autonomous integration | D | Complete |
+| EXE-20 | Resource provider and autonomous integration | D | Complete |
+| EXE-21 | Resource provider and autonomous integration | D | Complete |
+| EXE-22 | Resource provider and autonomous integration | D | Complete |
 | SEC-001 | Coordinator state and receipts | A | Complete |
 | SEC-002 | Coordinator state and receipts | A | Complete |
 | SEC-003 | Safe process and path boundary | A | Complete |
 | SEC-004 | Safe process and path boundary | A | Complete |
 | SEC-005 | Orca adapter | B | Planned |
 | SEC-006 | Orca adapter | B | Planned |
-| SEC-007 | Resource provider | D | Planned |
-| SEC-008 | Resource provider | D | Planned |
+| SEC-007 | Resource provider | D | Complete |
+| SEC-008 | Resource provider | D | Complete |
 
 **Coverage:** 30 total requirements, 30 mapped, 0 unmapped.
 

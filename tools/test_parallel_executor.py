@@ -163,6 +163,240 @@ def test_disabled_coordinator_returns_serial_without_constructing_adapter() -> N
         shutil.rmtree(root)
 
 
+class RecordingAdapter:
+    def __init__(self) -> None:
+        self.effects: list[tuple[str, str]] = []
+
+    def create_worktree(self, lane: dict[str, object], *, idempotency_key: str) -> dict[str, str]:
+        self.effects.append(("worktree", idempotency_key))
+        return {
+            "worktree_id": "wt-A",
+            "worktree_path": "/tmp/parallel-executor-wt-A",
+            "branch": "slice/A",
+            "pre_head": "head",
+        }
+
+    def start_worker(self, lane: dict[str, object], receipt: dict[str, object], *, idempotency_key: str) -> dict[str, str]:
+        self.effects.append(("worker", idempotency_key))
+        return {
+            "run_id": "run-A",
+            "orchestration_task_id": "task-A",
+            "dispatch_id": "dispatch-A",
+            "terminal_handle": "terminal-A",
+        }
+
+
+def lane_plan(*, resources: list[str]) -> dict[str, object]:
+    return {
+        "fallback": False,
+        "lanes": [
+            {
+                "id": "slice-A",
+                "slice": "A",
+                "task": "T1",
+                "status": "ready",
+                "sync_after": [],
+                "resources": resources,
+            }
+        ],
+    }
+
+
+def test_restart_reconciles_accepted_effects_without_duplicate_keys_or_workers() -> None:
+    root = make_repo()
+    try:
+        adapters: list[RecordingAdapter] = []
+
+        def factory() -> RecordingAdapter:
+            adapter = RecordingAdapter()
+            adapters.append(adapter)
+            return adapter
+
+        first = parallel_execute.Coordinator(root, "fixture", adapter_factory=factory)
+        first._plan = lambda: lane_plan(resources=[])  # type: ignore[method-assign]
+        first_result = first.start()
+        second = parallel_execute.Coordinator(root, "fixture", adapter_factory=factory)
+        second._plan = lambda: lane_plan(resources=[])  # type: ignore[method-assign]
+        second_result = second.start(resume=True)
+        assert len(adapters[0].effects) == 2
+        assert adapters[1].effects == []
+        assert len(first_result["state"]["actions"]) == 2  # type: ignore[index]
+        assert second_result["state"]["actions"] == first_result["state"]["actions"]  # type: ignore[index]
+    finally:
+        shutil.rmtree(root)
+
+
+class RecordingProvider:
+    def __init__(self, *, lease_id: str = "lease-A") -> None:
+        self.lease_id = lease_id
+        self.acquires = 0
+        self.releases = 0
+
+    def acquire(self, request: dict[str, object], live_lease_ids: set[str]) -> dict[str, object]:
+        self.acquires += 1
+        assert request["resources"] == ["port"]
+        assert request["idempotency_key"] not in live_lease_ids
+        return {
+            "lease_id": self.lease_id,
+            "resources": ["port"],
+            "prepared_worktree": True,
+            "environment_keys": ["PORT"],
+            "environment": {"PORT": "<redacted>"},
+            "released": False,
+        }
+
+    def release(self, request: dict[str, object], lease_id: str) -> dict[str, object]:
+        self.releases += 1
+        assert lease_id == self.lease_id
+        return {"lease_id": lease_id, "released": True}
+
+
+def test_none_resources_bypass_provider_and_resource_lane_requires_correlated_lease() -> None:
+    root = make_repo()
+    try:
+        adapter = RecordingAdapter()
+        provider_calls = 0
+
+        def provider_factory(_: Path) -> RecordingProvider:
+            nonlocal provider_calls
+            provider_calls += 1
+            return RecordingProvider()
+
+        coordinator = parallel_execute.Coordinator(
+            root, "fixture", adapter_factory=lambda: adapter, provider_factory=provider_factory
+        )
+        coordinator._plan = lambda: lane_plan(resources=[])  # type: ignore[method-assign]
+        result = coordinator.start()
+        assert result["fallback"] is False
+        assert provider_calls == 0
+        assert [effect[0] for effect in adapter.effects] == ["worktree", "worker"]
+
+        provider_executable = root / "provider"
+        provider_executable.write_text("#!/bin/sh\n", encoding="utf-8")
+        provider_executable.chmod(0o755)
+        workflow = json.loads((root / ".specs/features/fixture/workflow.json").read_text(encoding="utf-8"))
+        workflow["parallelization"]["resource_provider"] = "provider"
+        (root / ".specs/features/fixture/workflow.json").write_text(json.dumps(workflow), encoding="utf-8")
+        resource_provider = RecordingProvider()
+        resource_coordinator = parallel_execute.Coordinator(
+            root,
+            "fixture",
+            adapter_factory=lambda: RecordingAdapter(),
+            provider_factory=lambda _: resource_provider,
+        )
+        resource_coordinator._plan = lambda: lane_plan(resources=["port"])  # type: ignore[method-assign]
+        resource_result = resource_coordinator.start()
+        assert resource_result["fallback"] is False
+        assert resource_provider.acquires == 1
+        lane = resource_result["state"]["lanes"]["slice-A"]  # type: ignore[index]
+        assert lane["lease"]["prepared_worktree"] is True  # type: ignore[index]
+        assert lane["lease"]["environment"]["PORT"] == "<redacted>"  # type: ignore[index]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_resource_cleanup_is_owned_and_idempotent() -> None:
+    root = make_repo()
+    try:
+        provider_executable = root / "provider"
+        provider_executable.write_text("#!/bin/sh\n", encoding="utf-8")
+        provider_executable.chmod(0o755)
+        workflow = json.loads((root / ".specs/features/fixture/workflow.json").read_text(encoding="utf-8"))
+        workflow["parallelization"]["resource_provider"] = "provider"
+        (root / ".specs/features/fixture/workflow.json").write_text(json.dumps(workflow), encoding="utf-8")
+        provider = RecordingProvider()
+        coordinator = parallel_execute.Coordinator(
+            root, "fixture", adapter_factory=lambda: RecordingAdapter(), provider_factory=lambda _: provider
+        )
+        coordinator._plan = lambda: lane_plan(resources=["port"])  # type: ignore[method-assign]
+        coordinator.start()
+        state = json.loads(coordinator.state_path.read_text(encoding="utf-8"))
+        state["lanes"]["slice-B"] = {
+            "slice": "B",
+            "task": "T2",
+            "state": "running",
+            "resources": ["port"],
+            "lease": dict(state["lanes"]["slice-A"]["lease"]),
+        }
+        parallel_execute.atomic_write_json(coordinator.state_path, state)
+        try:
+            coordinator.release_lane("slice-A")
+        except parallel_execute.ExecutorError as exc:
+            assert "foreign" in str(exc)
+        else:
+            raise AssertionError("foreign lease cleanup must be rejected")
+        state["lanes"].pop("slice-B")
+        parallel_execute.atomic_write_json(coordinator.state_path, state)
+        first = coordinator.release_lane("slice-A")
+        second = coordinator.release_lane("slice-A")
+        assert first["released"] is True
+        assert second["idempotent"] is True
+        assert provider.releases == 1
+    finally:
+        shutil.rmtree(root)
+
+
+def test_resource_provider_rejects_malformed_duplicate_and_foreign_receipts() -> None:
+    root = Path(tempfile.mkdtemp())
+    try:
+        provider_path = root / "provider"
+        provider_path.write_text("#!/bin/sh\n", encoding="utf-8")
+        provider_path.chmod(0o755)
+        request = {"idempotency_key": "key-A", "resources": ["port"]}
+        for payload in (
+            {"lease_id": "lease-A", "resources": ["database"], "prepared_worktree": True, "environment": {}, "idempotency_key": "key-A"},
+            {"lease_id": "lease-A", "resources": ["port"], "prepared_worktree": False, "environment": {}, "idempotency_key": "key-A"},
+            {"lease_id": "lease-A", "resources": ["port"], "prepared_worktree": True, "environment": {}, "idempotency_key": "other"},
+        ):
+            class Completed:
+                stdout = json.dumps(payload)
+
+            provider = parallel_execute.ResourceProvider(
+                root, provider_path, runner=lambda *args, **kwargs: Completed()
+            )
+            try:
+                provider.acquire(request, set())
+            except parallel_execute.ExecutorError as exc:
+                assert "receipt" in str(exc)
+            else:
+                raise AssertionError("invalid provider receipt must be rejected")
+        class CompletedMalformed:
+            stdout = "not-json"
+
+        provider = parallel_execute.ResourceProvider(
+            root, provider_path, runner=lambda *args, **kwargs: CompletedMalformed()
+        )
+        try:
+            provider.acquire(request, {"lease-A"})
+        except parallel_execute.ExecutorError as exc:
+            assert "malformed" in str(exc)
+        else:
+            raise AssertionError("malformed provider output must be rejected")
+    finally:
+        shutil.rmtree(root)
+
+
+def test_executor_cli_start_resume_status_emit_one_json_object_and_status_has_no_effect() -> None:
+    root = make_repo(mode="disabled")
+    try:
+        script = Path(__file__).resolve().parent.parent / ".agents/skills/autonomous/scripts/parallel_execute.py"
+        command = [sys.executable, str(script), "status", "--root", str(root), "--feature", "fixture"]
+        status = subprocess.run(command, text=True, capture_output=True, check=True)
+        assert len(status.stdout.splitlines()) == 1
+        assert json.loads(status.stdout)["state"] is None
+        assert list((root / ".git").glob("parallel-slice-executor/*")) == []
+        start = subprocess.run(
+            [sys.executable, str(script), "start", "--root", str(root), "--feature", "fixture"],
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        assert json.loads(start.stdout)["reason"] == "disabled-mode"
+        assert start.stderr == ""
+    finally:
+        shutil.rmtree(root)
+
+
 if __name__ == "__main__":
     tests = [function for name, function in sorted(globals().items()) if name.startswith("test_")]
     for function in tests:
