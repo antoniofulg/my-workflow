@@ -350,8 +350,8 @@ def _validate_snapshot(root: Path, feature: str, snapshot: Any) -> dict[str, Any
     }
     if set(snapshot) != required:
         raise _error("existing snapshot has an incomplete schema")
-    if type(snapshot["version"]) is not int or snapshot["version"] != 1:
-        raise _error("existing snapshot version must be integer 1")
+    if type(snapshot["version"]) is not int or snapshot["version"] != 2:
+        raise _error("existing snapshot version must be integer 2")
     if snapshot["feature"] != feature or not isinstance(snapshot["feature"], str):
         raise _error("existing snapshot feature does not match the requested feature")
     if not isinstance(snapshot["git_head"], str) or not snapshot["git_head"]:
@@ -384,11 +384,11 @@ def _validate_snapshot(root: Path, feature: str, snapshot: Any) -> dict[str, Any
         raise _error("existing snapshot deep_review.groups do not match cadence")
 
     roles = snapshot["roles"]
-    if not isinstance(roles, dict) or set(roles) != set(ROLES):
-        raise _error("existing snapshot roles must contain every workflow role")
-    for role in ROLES:
+    if not isinstance(roles, dict) or set(roles) != set(DELEGATED_ROLES):
+        raise _error("existing snapshot roles must contain every delegated workflow role")
+    for role in DELEGATED_ROLES:
         route = roles[role]
-        if not isinstance(route, dict) or set(route) != {"provider", "agent_file"}:
+        if not isinstance(route, dict) or set(route) != {"provider", "agent_file", "model", "effort"}:
             raise _error(f"existing snapshot role {role!r} has an incomplete schema")
         provider = route["provider"]
         if not isinstance(provider, str) or provider not in PROVIDERS:
@@ -401,6 +401,18 @@ def _validate_snapshot(root: Path, feature: str, snapshot: Any) -> dict[str, Any
             raise _error(f"existing snapshot role {role!r} has an invalid agent_file")
         if not (root / agent_file).is_file():
             raise _error(f"existing snapshot role {role!r} agent_file is missing")
+        model = route["model"]
+        if not isinstance(model, str) or not model:
+            raise _error(f"existing snapshot role {role!r} model must be a non-empty string")
+        effort = route["effort"]
+        if not isinstance(effort, str) or effort not in EFFORTS:
+            raise _error(f"existing snapshot role {role!r} effort is invalid")
+        current = packet_setting(provider, (root / agent_file).read_text(encoding="utf-8"), Path(agent_file))
+        if current != {"model": model, "effort": effort}:
+            raise _error(
+                f"role {role!r} packet metadata differs from frozen snapshot; "
+                "run --sync-agents, then explicitly use --refresh"
+            )
     return snapshot
 
 
@@ -460,12 +472,37 @@ def resolve(
     selected = profiles.get(profile, {})
     parsed_overrides = _parse_overrides(overrides or [])
     providers = {role: parsed_overrides.get(role, selected.get(role, native_provider)) for role in ROLES}
-    roles = {
-        role: {"provider": provider, "agent_file": _agent_file(root, provider, role)}
-        for role, provider in providers.items()
-    }
+    for provider in PROVIDERS:
+        for role in ROLES:
+            agent_file = _agent_file(root, provider, role)
+            current = packet_setting(
+                provider, (root / agent_file).read_text(encoding="utf-8"), Path(agent_file)
+            )
+            expected = model_setting(config, provider, role)
+            if current != expected:
+                raise _error(
+                    f"{agent_file} is not synchronized with models.{provider}.{role}; "
+                    "run --sync-agents before resolving"
+                )
+    roles = {}
+    for role in DELEGATED_ROLES:
+        provider = providers[role]
+        agent_file = _agent_file(root, provider, role)
+        current = packet_setting(provider, (root / agent_file).read_text(encoding="utf-8"), Path(agent_file))
+        expected = model_setting(config, provider, role)
+        if current != expected:
+            raise _error(
+                f"{agent_file} is not synchronized with models.{provider}.{role}; "
+                "run --sync-agents before resolving"
+            )
+        roles[role] = {
+            "provider": provider,
+            "agent_file": agent_file,
+            "model": expected["model"],
+            "effort": expected["effort"],
+        }
     snapshot = {
-        "version": 1,
+        "version": 2,
         "feature": feature,
         "git_head": _git_head(root),
         "profile": profile,

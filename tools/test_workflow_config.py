@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import shutil
+import subprocess
 import tempfile
 from pathlib import Path
 import sys
@@ -62,6 +63,14 @@ def make_packet_root() -> Path:
     write_config(root)
     write_packets(root)
     return root
+
+
+def git_root(root: Path) -> None:
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=root, check=True)
+    subprocess.run(["git", "add", "."], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "seed"], cwd=root, check=True)
 
 
 def test_parses_complete_v2_matrix() -> None:
@@ -196,6 +205,50 @@ def test_sync_rejects_malformed_packet_before_any_write() -> None:
         else:
             raise AssertionError("expected malformed packet failure")
         assert {path: path.read_bytes() for path in before} == before
+    finally:
+        shutil.rmtree(root)
+
+
+def test_resolve_freezes_delegated_settings_and_omits_planner() -> None:
+    root = make_packet_root()
+    try:
+        workflow_config.sync_agents(root)
+        git_root(root)
+        snapshot = workflow_config.resolve(root=root, feature="freeze", slice_count=2, native_provider="codex")
+        assert snapshot["version"] == 2
+        assert set(snapshot["roles"]) == set(workflow_config.DELEGATED_ROLES)
+        for role in workflow_config.DELEGATED_ROLES:
+            assert snapshot["roles"][role] == {
+                "provider": "codex",
+                "agent_file": f".codex/agents/{workflow_config.AGENT_NAMES.get(role, role)}.toml",
+                "model": f"codex-{role}",
+                "effort": "high",
+            }
+    finally:
+        shutil.rmtree(root)
+
+
+def test_resume_rejects_drift_and_refresh_freezes_new_settings() -> None:
+    root = make_packet_root()
+    try:
+        workflow_config.sync_agents(root)
+        git_root(root)
+        first = workflow_config.resolve(root=root, feature="drift", slice_count=1, native_provider="codex")
+        models = {provider: {role: dict(setting) for role, setting in values.items()} for provider, values in MODELS.items()}
+        models["codex"]["implementer"]["model"] = "codex-implementer-v2"
+        write_config(root, models=models)
+        workflow_config.sync_agents(root)
+        try:
+            workflow_config.resolve(root=root, feature="drift", slice_count=1, native_provider="codex")
+        except workflow_config.ConfigError as exc:
+            assert "run --sync-agents, then explicitly use --refresh" in str(exc)
+        else:
+            raise AssertionError("expected resume drift failure")
+        refreshed = workflow_config.resolve(
+            root=root, feature="drift", slice_count=1, native_provider="codex", refresh=True
+        )
+        assert refreshed["roles"]["implementer"]["model"] == "codex-implementer-v2"
+        assert refreshed["roles"]["implementer"]["effort"] == first["roles"]["implementer"]["effort"]
     finally:
         shutil.rmtree(root)
 

@@ -113,11 +113,13 @@ T3 -> T4 -> T5
 
 **Done when**:
 
-- [ ] New and refreshed delegated role entries include model and effort.
-- [ ] Resume returns frozen values and rejects packet metadata drift.
-- [ ] Planner remains outside delegated snapshot roles.
-- [ ] `UT-008`, `UT-009`, and `UT-010` pass.
-- [ ] Quick gate passes with zero failures.
+- [x] New and refreshed delegated role entries include model and effort.
+- [x] Resume returns frozen values and rejects packet metadata drift.
+- [x] Planner remains outside delegated snapshot roles.
+- [x] `UT-008`, `UT-009`, and `UT-010` pass.
+- [x] Quick gate passes with zero failures.
+
+**Status:** complete — `python3 tools/test_workflow_config.py` (8 passed, 0 failed); feature snapshot refreshed to schema v2.
 
 **Tests**: unit, `UT-008`, `UT-009`, `UT-010`
 **Gate**: Quick, `python3 tools/test_workflow_config.py`
