@@ -341,13 +341,37 @@ reject backslash/control identifiers that cannot round-trip through generated TO
 **Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
 **Commit**: `fix(config): enforce Codex native header boundaries`
 
+### T13: Ignore comment delimiters in the Codex scanner
+
+**What**: Strip TOML comments outside quoted strings before tracking triple-quoted string state,
+while preserving inline comments after real assignments.
+**Where**: `.agents/skills/workflow-config/scripts/workflow_config.py`,
+`tools/test_workflow_config.py`
+**Depends on**: T12
+**Requirement**: AMR-03
+
+**Done when**:
+
+- [x] Triple-double and triple-single quote text in valid comments does not enter multiline state.
+- [x] Inline comments after real top-level model/effort assignments remain byte-preserved and do
+  not prevent metadata parsing/rendering.
+- [x] The previous scanner is red against the valid-comment regression and the corrected tree is
+  green with CRLF/instruction/comment bytes preserved.
+- [x] Resolver, adoption, Vitest, validators, and diff gates pass.
+
+**Status:** complete — previous scanner red; corrected tree 28 resolver tests, adoption suite, and 108 Vitest tests passed.
+
+**Tests**: unit and CLI/manual, `UT-003`, `UT-006`
+**Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
+**Commit**: `fix(config): ignore comment delimiters in Codex scanner`
+
 ## Phase Execution Map
 
 ```text
 Phase 1 -> Phase 2
 
 Phase 1: T1 -> T2 -> T3
-Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12
+Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13
 ```
 
 ## Task Granularity Check
@@ -366,6 +390,7 @@ Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12
 | T10 | Packet grammar, bytes, and QA evidence | PASS |
 | T11 | Codex top-level metadata parsing | PASS |
 | T12 | Codex header boundary and native round trip | PASS |
+| T13 | Codex comment-aware scanning | PASS |
 
 ## Diagram-Definition Cross-Check
 
@@ -383,6 +408,7 @@ Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12
 | T10 | T9 | T9 -> T10 | PASS |
 | T11 | T10 | T10 -> T11 | PASS |
 | T12 | T11 | T11 -> T12 | PASS |
+| T13 | T12 | T12 -> T13 | PASS |
 
 ## Test Co-location Validation
 
@@ -400,3 +426,4 @@ Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12
 | T10 | Packet grammar and public QA reset | unit + CLI/manual | unit + CLI/manual | PASS |
 | T11 | Codex top-level metadata | unit + CLI/manual | unit + CLI/manual | PASS |
 | T12 | Codex native boundary and round trip | unit + CLI/manual | unit + CLI/manual | PASS |
+| T13 | Codex comment-aware scanner | unit + CLI/manual | unit + CLI/manual | PASS |

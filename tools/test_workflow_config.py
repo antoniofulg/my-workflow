@@ -424,11 +424,13 @@ def test_codex_ignores_model_like_lines_inside_multiline_toml_text() -> None:
         packet.write_bytes(
             (
                 'name = "planner"\n'
+                '# """ harmless comment\n'
+                "# ''' harmless comment\n"
                 'description = """\n'
                 'model = "body-model"\n'
                 '"""\n'
                 'model = "old-model"\n'
-                'model_reasoning_effort = "low"\n'
+                'model_reasoning_effort = "low" # effort comment\n'
                 'developer_instructions = "Instructions for planner."\n'
             ).replace("\n", "\r\n").encode("utf-8")
         )

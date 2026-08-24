@@ -255,6 +255,42 @@ def _coerce_content(content: str | bytes) -> tuple[str, bool]:
     return content, False
 
 
+def _strip_toml_comment(line: str) -> str:
+    quote: str | None = None
+    triple = False
+    escaped = False
+    index = 0
+    while index < len(line):
+        if quote:
+            delimiter = quote * 3 if triple else quote
+            if line.startswith(delimiter, index) and not escaped:
+                index += len(delimiter)
+                quote = None
+                triple = False
+                escaped = False
+                continue
+            if quote == '"' and line[index] == "\\" and not escaped:
+                escaped = True
+            else:
+                escaped = False
+            index += 1
+            continue
+        if line.startswith('"""', index) or line.startswith("'''", index):
+            quote = line[index]
+            triple = True
+            index += 3
+            continue
+        if line[index] in ('"', "'"):
+            quote = line[index]
+            triple = False
+            index += 1
+            continue
+        if line[index] == "#":
+            return line[:index]
+        index += 1
+    return line
+
+
 def _codex_fields(content: str, path: Path) -> dict[str, list[tuple[int, int, re.Match[str]]]]:
     if tomllib is None:  # pragma: no cover
         raise _error("Python 3.11 or newer is required to parse Codex agent packets")
@@ -273,11 +309,12 @@ def _codex_fields(content: str, path: Path) -> dict[str, list[tuple[int, int, re
             if multiline_delimiter in body:
                 multiline_delimiter = None
             continue
-        table = re.match(r"^[ \t]*\[(.+)\][ \t]*(?:#.*)?$", body)
+        syntax_body = _strip_toml_comment(body)
+        table = re.match(r"^[ \t]*\[(.+)\][ \t]*$", syntax_body)
         if table:
             current_table = table.group(1)
             continue
-        if current_table is None and re.match(r"^[ \t]*developer_instructions[ \t]*=", body):
+        if current_table is None and re.match(r"^[ \t]*developer_instructions[ \t]*=", syntax_body):
             break
         if current_table is None:
             model_match = CODEX_MODEL_ASSIGNMENT_RE.match(content, line_match.start())
@@ -286,12 +323,12 @@ def _codex_fields(content: str, path: Path) -> dict[str, list[tuple[int, int, re
             effort_match = CODEX_EFFORT_ASSIGNMENT_RE.match(content, line_match.start())
             if effort_match:
                 fields["effort"].append((line_match.start(), line_match.end(), effort_match))
-        if '"""' in body:
-            occurrences = body.count('"""')
+        if '"""' in syntax_body:
+            occurrences = syntax_body.count('"""')
             if occurrences % 2:
                 multiline_delimiter = '"""'
-        if "'''" in body:
-            occurrences = body.count("'''")
+        if "'''" in syntax_body:
+            occurrences = syntax_body.count("'''")
             if occurrences % 2:
                 multiline_delimiter = "'''"
     return fields
