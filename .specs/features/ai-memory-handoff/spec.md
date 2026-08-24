@@ -64,6 +64,7 @@ Acceptance criteria:
 - **AIM-07:** The workflow SHALL keep ai-memory runtime data outside the consuming repository and identify Git plus the documented workflow artifacts as authoritative.
 - **AIM-08:** WHERE capture hooks are enabled, the setup SHALL document local-loopback operation, bounded capture, secret-path exclusions, and the residual that free-form prompts or shell output are not complete DLP boundaries.
 - **AIM-09:** WHERE a Verifier or Deep Reviewer is dispatched as an internal named subagent, the workflow SHALL deliver an explicit role packet and SHALL NOT consume an Implementer ai-memory handoff; a top-level reviewer MAY consume an ai-memory handoff only when no pending Implementer handoff can be consumed.
+- **AIM-10:** WHERE an operator controls ai-memory, the workflow SHALL document enablement, hook-only disablement without data deletion, re-enablement, and a separately labeled destructive purge; it SHALL provide no `.my-workflow.toml` toggle and SHALL identify `.ai-memory.toml` as scope/capture configuration only.
 
 Independent test: inspect the opt-in integration contract and run repository gates without an
 ai-memory server; normal adoption remains unchanged and produces no ai-memory runtime state.
@@ -78,7 +79,7 @@ ai-memory server; normal adoption remains unchanged and produces no ai-memory ru
 
 | ID | Surface | Control | Requirements |
 | --- | --- | --- | --- |
-| S1 | Optional runtime dependency and local configuration | Explicit opt-in, pinned release, repository-independent setup | AIM-05, AIM-06, AIM-07 |
+| S1 | Optional runtime dependency and local configuration | Explicit opt-in, pinned release, repository-independent setup, and separate lifecycle controls | AIM-05, AIM-06, AIM-07, AIM-10 |
 | S6 | zsh wrapper and filesystem capture | Argument-safe wrapper, bounded hooks, documented exclusions and residual | AIM-02, AIM-03, AIM-08 |
 | S8 | User prompts and tool output may contain sensitive content | Loopback-only server, no cloud LLM, secret-path exclusions | AIM-06, AIM-08 |
 | S9 | External ai-memory process and hooks | Fail-visible finalization; upstream kept outside package dependencies | AIM-03, AIM-05 |
@@ -98,6 +99,7 @@ ai-memory server; normal adoption remains unchanged and produces no ai-memory ru
 | AIM-07 | Preserve workflow authority and privacy | Specify | Complete |
 | AIM-08 | Preserve workflow authority and privacy | Specify | Complete |
 | AIM-09 | Preserve workflow authority and privacy | Specify | Complete |
+| AIM-10 | Preserve workflow authority and privacy | Specify | Complete |
 
 ## Success Criteria
 
@@ -105,3 +107,4 @@ ai-memory server; normal adoption remains unchanged and produces no ai-memory ru
 - Claude Code, Codex, and Cursor can exchange one pending handoff without enabling recurring briefing.
 - Repository adoption and full gates pass without ai-memory installed or running.
 - Internal reviewer context stays packet-defined and does not consume Implementer handoff context.
+- Operators can enable, disable without deleting data, re-enable, or deliberately purge ai-memory without a repository toggle.

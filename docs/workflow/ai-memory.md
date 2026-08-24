@@ -7,7 +7,13 @@ Git, `.specs/`, `tasks.md`, architecture documentation, and `knowledge/` remain 
 ai-memory runtime and its SQLite/FTS data stay outside the checkout, under the operator's home data
 directory. Do not commit `.ai-memory.toml`, hook files, handoffs, or runtime databases here.
 
-## Pinned workstation setup
+## Enable
+
+Enablement is operator-only: it changes agent hooks, the local ai-memory service, and the shell that
+launches Codex. It does not add a repository toggle or runtime dependency. Complete the steps below,
+source the helper in a new shell, and restart Claude Code, Codex, and Cursor after hook installation.
+
+### Pinned workstation setup
 
 Use upstream release `1.31.0`, not `main` or `latest`. On macOS/Linux, a tagged release binary or
 the upstream `mise` GitHub backend is supported. Pin the exact release outside this repository:
@@ -68,6 +74,11 @@ briefing off. Do not run `ai-memory bootstrap`, `ai-memory embed`, `ai-memory au
 `ai-memory run` for this integration. `ai-memory run` is the managed-workstream mode and is outside
 the contract.
 
+There is intentionally no `.my-workflow.toml` toggle: that file configures workflow cadence and
+role routing, while ai-memory is an operator-local optional capability. `.ai-memory.toml` only
+declares workspace/project scope and capture exclusions; its presence does not enable or disable
+ai-memory.
+
 ## Install lifecycle hooks
 
 Install only lifecycle hooks for the three supported agents. `--project-strategy repo-root` makes
@@ -86,6 +97,9 @@ done
 Do not run `install-mcp`, `install-instructions`, or `install-skills`. No MCP tools, routing skill,
 managed skill, or instruction block is part of this handoff-only setup. The hook installer is
 idempotent and changes only ai-memory-owned entries in the agent configuration.
+
+After installing hooks, restart the three agent processes and open a new shell after sourcing
+`scripts/ai-memory.zsh` so Codex uses the wrapper.
 
 For recognized file-tool events, add a nearest, operator-owned `.ai-memory.toml` marker with
 explicit exclusions, for example:
@@ -152,7 +166,46 @@ ai-memory finalize-session --session-id <uuid>
 The handoff is a concise baton, not a transcript, project briefing, wiki recall, or second task
 ledger. Once consumed, it is not injected again. Continue from the repository files and Git state.
 
-## Upgrade and uninstall
+## Disable without deleting data
+
+First inspect the upstream dry-run. It changes nothing without `--apply`:
+
+```bash
+ai-memory uninstall --only hooks
+```
+
+Disable lifecycle wiring without deleting handoffs or runtime data:
+
+```bash
+ai-memory uninstall --only hooks --apply --yes
+```
+
+Stop the service separately with the manager that launched it. Generic examples:
+
+```bash
+systemctl --user stop ai-memory.service       # systemd user service
+docker stop ai-memory                          # Docker deployment
+```
+
+On the current macOS LaunchAgent setup, inspect and stop the labeled service with:
+
+```bash
+launchctl print "gui/$(id -u)/com.akitaonrails.ai-memory"
+launchctl bootout "gui/$(id -u)/com.akitaonrails.ai-memory"
+```
+
+Remove or comment the `source /path/to/my-workflow/scripts/ai-memory.zsh` line from the operator's
+shell startup file, then restart the agent processes and open a new shell. This workflow never edits
+that file automatically. The disable command removes only ai-memory-owned hooks; it does not delete
+`~/.local/share/ai-memory`, `~/.config/ai-memory`, handoffs, or runtime databases.
+
+## Re-enable
+
+Start the same local service again, reinstall the three hooks with the enable commands above, source
+the helper in a new shell, and restart the agent processes. Existing runtime data remains available;
+re-enable does not require a purge or repository change.
+
+## Upgrade
 
 Pin upgrades explicitly. After upgrading the binary, refresh each lifecycle hook and re-check the
 configuration:
@@ -164,15 +217,18 @@ for agent in claude-code codex cursor; do
 done
 ```
 
-Run the upstream uninstall command from the same host environment when removing the integration:
+## Destructive data purge
+
+Only when intentionally discarding all ai-memory runtime data, first stop the service and then run
+the upstream destructive path:
 
 ```bash
-ai-memory uninstall --apply
+ai-memory uninstall --apply --purge-data --yes
 ```
 
-It removes only ai-memory-owned hook entries. Stop the local server separately and delete
-`~/.local/share/ai-memory` and `~/.config/ai-memory` only when intentionally discarding stored
-handoffs. This repository does not remove those operator-owned files.
+This removes wiring and permanently wipes `wiki/`, `db/`, and `raw/` under the configured data
+directory. It is separate from disabling hooks and cannot be undone from this workflow. This
+repository does not remove operator-owned files.
 
 ## Upstream references
 

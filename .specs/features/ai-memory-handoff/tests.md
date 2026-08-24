@@ -21,6 +21,7 @@
 | IT-001 | Workflow adoption remains independent | Run `python3 scripts/test_adopt.py` without ai-memory installed or running | Existing adoption scenarios pass and create no ai-memory runtime files |
 | IT-002 | Decision index remains canonical | Run the AD index generator/check after recording the integration decision | `AD-008` appears once and index verification exits 0 |
 | IT-003 | Repository gate remains green | Run the repository's full offline gate | Command exits 0 with no failed or skipped tests |
+| IT-004 | Lifecycle controls are explicit and reversible | Read the guide, inspect `ai-memory uninstall --help`, and run hook-only uninstall dry-run without `--apply` | Enable/re-enable steps, exact hook-only disablement, separate service stop, no-data-deletion boundary, no repository toggle, and irreversible purge are each explicit |
 
 ## End-to-end
 

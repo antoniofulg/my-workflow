@@ -32,7 +32,7 @@ Commit. The last code-changing task is followed by a fresh Verifier.
 One vertical slice, executed sequentially:
 
 ```text
-T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9
+T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9 → T10
 ```
 
 ## Task Breakdown
@@ -150,6 +150,20 @@ T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9
 **Gate:** Guideline-size/context check, validators, AD/knowledge/full gates, and `git diff --check`.
 **Commit:** `docs(workflow): isolate reviewers from ai-memory handoffs`
 
+### T10: Document ai-memory lifecycle controls
+
+**Status:** complete
+**What:** Document operator-only enable, reversible hook-only disablement, re-enable, and separately destructive data purge, with no repository toggle and explicit reviewer continuity boundaries.
+**Where:** `README.md`
+**Contract updates:** `docs/workflow/ai-memory.md`, `.specs/features/ai-memory-handoff/spec.md`, `.specs/features/ai-memory-handoff/tests.md`
+**Depends on:** T9
+**Reuses:** Existing pinned setup, upstream uninstall help, and reviewer-isolation rule.
+**Requirement:** AIM-10.
+**Tests:** IT-004 manual lifecycle-control contract.
+**QA:** Existing WFL promise already walked and unchanged; no scenario reset required.
+**Gate:** Local ai-memory help/dry-run, validators, context/README checks, AD/knowledge/full gates, and `git diff --check`.
+**Commit:** `docs(readme): document ai-memory lifecycle controls`
+
 ## Diagram-Definition Cross-Check
 
 | Task | Depends On | Diagram Shows | Status |
@@ -160,6 +174,7 @@ T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9
 | T4 | T3 | T3 → T4 | match |
 | T5 | T4 | T4 → T5 | match |
 | T9 | T8 | T8 → T9 | match |
+| T10 | T9 | T9 → T10 | match |
 
 ## Test Co-location Validation
 
@@ -171,3 +186,4 @@ T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9
 | T4 | documentation/config contract | none | manual QA scenario contract | match |
 | T5 | decision index | integration | IT-002 | match |
 | T9 | reviewer context and threat model | contract review | SEC-003 | match |
+| T10 | lifecycle documentation | manual contract review | IT-004 | match |

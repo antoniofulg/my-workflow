@@ -5,6 +5,7 @@
 **Spec**: `.specs/features/ai-memory-handoff/spec.md`
 **Feature diff range**: `6675d55..42d8ceb`
 **T9 slice range**: `065f50a..42d8ceb`
+**T10 documentation scope**: `README.md`, `docs/workflow/ai-memory.md`, and the AIM-10 feature contract
 **Verifier**: independent Technical Verifier, author != verifier
 
 ## Task Completion
@@ -13,35 +14,50 @@
 | --- | --- | --- |
 | T1-T8 implementation and prior remediation | Done | `scripts/ai-memory.zsh:3`, `scripts/test_ai_memory.py:88`, `docs/workflow/ai-memory.md:1` |
 | T9 reviewer-isolation contract | Done | `docs/guidelines/REVIEW-ROUNDS.md:75`, `.specs/features/ai-memory-handoff/tasks.md:139` |
+| T10 lifecycle-control documentation | Done | `README.md:144`, `docs/workflow/ai-memory.md:10`, `.specs/features/ai-memory-handoff/spec.md:67` |
 
 ## Spec-Anchored Acceptance Criteria
 
 | Criterion | Spec-defined outcome | `file:line` evidence and assertion | Result |
 | --- | --- | --- | --- |
-| AIM-01 | Normal Claude Code or Cursor end creates one project/cwd-compatible pending handoff. | `docs/workflow/ai-memory.md:73` installs only lifecycle hooks for all three agents; `docs/workflow/ai-memory.md:78` enumerates `claude-code`, `codex`, and `cursor`; `docs/workflow/ai-memory.md:81` requires `repo-root`. Live provider behavior remains owned by the durable QA scenario. | PASS |
+| AIM-01 | Normal Claude Code or Cursor end creates one project/cwd-compatible pending handoff. | `docs/workflow/ai-memory.md:84`-`94` installs only lifecycle hooks for all three agents with `repo-root`. Live provider behavior remains owned by the durable QA scenario. | PASS |
 | AIM-02 | Interactive Codex exit finalizes exactly once and preserves Codex status. | `scripts/test_ai_memory.py:90` — `assert result.returncode == 42`; `scripts/test_ai_memory.py:91` — `assert calls == ["finalize-session"]`; `scripts/test_ai_memory.py:181`-`184` assert interactive launch modes preserve status/argv and finalize once. | PASS |
 | AIM-03 | Failed automatic finalization emits a visible error and leaves a working fallback. | `scripts/test_ai_memory.py:97` — `assert result.returncode == 42`; `scripts/test_ai_memory.py:98` — exact error assertion; `scripts/test_ai_memory.py:134`-`135` assert `handoff` returns ai-memory status and calls `finalize-session`. | PASS |
-| AIM-04 | Compatible next agent receives at most one single-use handoff, never briefing or managed transcript. | `docs/workflow/ai-memory.md:55`-`69` disables briefing and managed context; `docs/workflow/ai-memory.md:149`-`153` defines zero-or-one delivery and single consumption. Live provider behavior remains owned by the durable QA scenario. | PASS |
-| AIM-05 | Claude Code, Codex, and Cursor hooks use repo-root and sticky routing. | `docs/workflow/ai-memory.md:52`-`53` configures sticky routing; `docs/workflow/ai-memory.md:78`-`82` installs all three hooks with `--project-strategy repo-root`. | PASS |
-| AIM-06 | Briefing, MCP, routing skills, managed workstreams, LLMs, embeddings, consolidation, and auto-improvement remain disabled. | `docs/workflow/ai-memory.md:48`-`69` omits providers and disables briefing, auto-improvement, consolidation, embeddings, and managed mode; `docs/workflow/ai-memory.md:86`-`88` excludes MCP, instructions, and skills. | PASS |
+| AIM-04 | Compatible next agent receives at most one single-use handoff, never briefing or managed transcript. | `docs/workflow/ai-memory.md:61`-`75` disables briefing and managed context; `docs/workflow/ai-memory.md:163`-`167` defines zero-or-one delivery and single consumption. Live provider behavior remains owned by the durable QA scenario. | PASS |
+| AIM-05 | Claude Code, Codex, and Cursor hooks use repo-root and sticky routing. | `docs/workflow/ai-memory.md:58`-`59` configures sticky routing; `docs/workflow/ai-memory.md:84`-`93` installs all three hooks with `--project-strategy repo-root`. | PASS |
+| AIM-06 | Briefing, MCP, routing skills, managed workstreams, LLMs, embeddings, consolidation, and auto-improvement remain disabled. | `docs/workflow/ai-memory.md:54`-`75` omits providers and disables briefing, auto-improvement, consolidation, embeddings, and managed mode; `docs/workflow/ai-memory.md:97`-`99` excludes MCP, instructions, and skills. | PASS |
 | AIM-07 | Runtime data remains outside the repository; repository artifacts stay authoritative. | `docs/workflow/ai-memory.md:6`-`8` names repository authority and external runtime paths; `README.md:144`-`147` exposes the integration as optional and non-authoritative. | PASS |
-| AIM-08 | Setup documents loopback, bounded capture, exclusions, and incomplete-DLP residual. | `docs/workflow/ai-memory.md:39`-`44` requires loopback; `docs/workflow/ai-memory.md:96`-`104` defines exclusions, bounded lexical behavior, and incomplete-DLP residual. | PASS |
-| AIM-09 / S10 / SEC-003 | Internal named Verifier and Deep Reviewer receive explicit role packets and never consume an Implementer handoff; a top-level reviewer may consume only when no pending Implementer handoff can be consumed; capture dropping is not role isolation. | Canonical rule: `docs/guidelines/REVIEW-ROUNDS.md:75`-`80`. Explicit provider packets: `.claude/agents/verifier.md:9`-`19`, `.codex/agents/verifier.toml:7`-`17`, `.cursor/agents/verifier.md:9`-`19`; Deep Reviewer packets: `.claude/agents/deep-reviewer.md:10`-`22`, `.codex/agents/deep-reviewer.toml:7`-`20`, `.cursor/agents/deep-reviewer.md:9`-`21`. Storage/noise distinction and canonical pointer: `docs/workflow/ai-memory.md:107`-`110`. Exact abuse case: `.specs/features/ai-memory-handoff/tests.md:36`. | PASS |
+| AIM-08 | Setup documents loopback, bounded capture, exclusions, and incomplete-DLP residual. | `docs/workflow/ai-memory.md:39`-`50` requires loopback; `docs/workflow/ai-memory.md:116`-`124` defines exclusions, bounded lexical behavior, and incomplete-DLP residual. | PASS |
+| AIM-09 / S10 / SEC-003 | Internal named Verifier and Deep Reviewer receive explicit role packets and never consume an Implementer handoff; a top-level reviewer may consume only when no pending Implementer handoff can be consumed; capture dropping is not role isolation. | Canonical rule: `docs/guidelines/REVIEW-ROUNDS.md:75`-`80`. Explicit provider packets remain unchanged. Storage/noise distinction and canonical pointer: `docs/workflow/ai-memory.md:121`-`124`. Exact abuse case: `.specs/features/ai-memory-handoff/tests.md:36`. | PASS |
+| AIM-10 | Operators can enable, disable hooks without deleting data, re-enable, or deliberately purge without a repository toggle. | Enable/restart guidance: `docs/workflow/ai-memory.md:10`-`14`, `:82`-`102`; no-toggle and marker boundary: `:77`-`80`; dry-run and hook-only disablement: `:169`-`200`; re-enable: `:202`-`206`; destructive purge: `:220`-`231`; concise public pointer: `README.md:144`-`147`. | PASS |
 
-**Spec-anchored status**: 9/9 outcomes matched; 0 spec-precision gaps.
+**Spec-anchored status**: 10/10 outcomes matched; 0 spec-precision gaps.
 
 ## AIM-09 Contract and Security Parity
 
 | Artifact | Required statement | Evidence | Result |
 | --- | --- | --- | --- |
 | Canonical instruction home | Reviewer role isolation is owned once by the reviewer-independence rule. | `docs/guidelines/REVIEW-ROUNDS.md:75`-`80`; exact imperative `must not consume an Implementer` occurs once in that guideline. | PASS |
-| Integration guide | `drop_subagent_captures` controls storage/noise, not role isolation, and points to the canonical rule. | `docs/workflow/ai-memory.md:107`-`110` | PASS |
+| Integration guide | `drop_subagent_captures` controls storage/noise, not role isolation, and points to the canonical rule. | `docs/workflow/ai-memory.md:121`-`124` | PASS |
 | Decision | Reviewer continuity is packet-defined; capture dropping does not protect top-level review. | `.specs/STATE.md:101`-`116` (AD-008) | PASS |
 | Specification | AIM-09, S10, traceability, and success criterion agree. | `.specs/features/ai-memory-handoff/spec.md:66`, `:86`, `:100`, `:107` | PASS |
 | Threat model | TM-005 carries the same control, top-level condition, capture distinction, and operational residual. | `.specs/features/ai-memory-handoff/threat-model.md:20`-`21`, `:31` | PASS |
 | Security case | SEC-003 supplies exact attempt and expected result. | `.specs/features/ai-memory-handoff/tests.md:36` | PASS |
 
 `docs/guidelines/TEST-CONTRACT.md:71`-`85` permits a prose assertion only when the artifact is the product contract and no stronger gate owns it. That exception applies here: reviewer dispatch is an agent-instruction contract, not repository runtime code. The permanent case is therefore a manual contract review; the discrimination sensor below executes the exact contract in a detached scratch. Provider packet handling remains the operational residual named at `.specs/features/ai-memory-handoff/threat-model.md:31`.
+
+## AIM-10 Lifecycle Control Parity
+
+| Control | Required outcome | Evidence | Result |
+| --- | --- | --- | --- |
+| Enable | Operator can install the pinned local service/hooks, source the helper, and restart agents without a repository toggle. | `docs/workflow/ai-memory.md:10`-`14`, `:18`-`46`, `:82`-`102`; `README.md:144`-`147` | PASS |
+| Disable | Hook-only uninstall is exact, dry-run is explicit, service stop/source removal/restart are separate, and data remains. | `docs/workflow/ai-memory.md:169`-`200`; local `ai-memory uninstall --only hooks` dry-run output and `ai-memory uninstall --help` | PASS |
+| Re-enable | Existing runtime data remains available after service/hooks/source restart. | `docs/workflow/ai-memory.md:202`-`206` | PASS |
+| Purge | Destructive data deletion is separate, labeled irreversible, and uses upstream `--purge-data`. | `docs/workflow/ai-memory.md:220`-`231`; `ai-memory uninstall --help` | PASS |
+| Scope boundary | `.my-workflow.toml` is not a toggle; `.ai-memory.toml` only controls scope/capture. | `docs/workflow/ai-memory.md:77`-`80`; `.specs/features/ai-memory-handoff/tests.md:24` | PASS |
+
+The existing WFL scenario was already walked and its observable handoff promise is unchanged; T10
+adds operator lifecycle controls and does not reset QA status.
 
 ## Discrimination Sensor
 
@@ -78,14 +94,14 @@ spec, test contract, threat model, and AD-008.
 | T9 changes no public behavior through UI, API, CLI, mobile, public configuration, adoption, or docs-as-interface | PASS — Technical only; no QA dispatch |
 
 Existing QA records and statuses were not changed. Prior provider-lifecycle QA remains recorded in
-`docs/qa/reports/2026-08-24-ai-memory-handoff.md`; T9 is an internal reviewer-context rule and does
-not invalidate that public journey.
+`docs/qa/reports/2026-08-24-ai-memory-handoff.md`; T9 is an internal reviewer-context rule and T10
+adds operator documentation without invalidating that public journey.
 
 ## Summary
 
 **Overall**: PASS.
 
-- **Spec-anchored check**: 9/9 outcomes matched; 0 precision gaps.
+- **Spec-anchored check**: 10/10 outcomes matched; 0 precision gaps.
 - **Gate**: 133 counted tests/functions passed; 0 failed; 0 skipped.
 - **Sensor**: 3/3 reviewer-isolation mutants killed.
 - **Ranked gaps**: none.
