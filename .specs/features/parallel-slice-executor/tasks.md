@@ -255,6 +255,25 @@ T3 + T4 + T6 -> T7
 **Remediation gate:** Quick plus strict spec/tasks/index/diff gates.
 **Remediation commit:** `fix(workflow): close executor crash windows`.
 
+### T2R3: Close executor verification gaps
+
+**Remediation status:** complete
+**Slice:** A
+**Remediation resources:** none
+**Observable behaviour:** Pending worker receipts reconcile without a second worker effect; recovered leases use the same strict correlation/redaction validator as fresh leases; the core owns all Git worktree creation; and the public `resume` verb emits an observable transition result.
+**Remediation depends on:** T2R2
+**Remediation requirements:** EXE-04, EXE-05, EXE-20, IT-001, SEC-001
+**Remediation done when:**
+
+- [x] A real pending worker action is reconciled and no new `start_worker` effect occurs.
+- [x] Recovered acquire receipts require the current idempotency key, resource names, prepared-worktree flag, unique lease ID, and redacted environment before acceptance; nested state receipts are rejected before effects.
+- [x] The adapter worktree-creator compatibility path is removed; only the core Git creator and existing-worktree worker attachment remain.
+- [x] CLI `resume` is exercised end-to-end and emits its own command/transition result rather than status output.
+
+**Remediation tests:** `python3 tools/test_parallel_executor.py` (26 cases), including T2R3 pending-worker, nested-receipt, contract, and CLI-resume cases.
+**Remediation gate:** Executor tests, strict spec/tasks, AD index check, diff check, and compile.
+**Remediation commit:** `fix(workflow): close executor verification gaps`.
+
 ## Phase Execution Map
 
 ```text

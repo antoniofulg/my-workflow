@@ -17,7 +17,7 @@
 
 | ID | Requirement | Behaviour | Given / When | Expected |
 | --- | --- | --- | --- | --- |
-| IT-001 | EXE-01–EXE-05 | Executor CLI | `start`, `resume`, and `status` run against a recording adapter | JSON actions and local state agree across restart; status has no effect. |
+| IT-001 | EXE-01–EXE-05 | Executor CLI | `start`, `resume`, and `status` run against a recording adapter | Each command emits one JSON object naming its verb; resume reconciles persisted state and status has no effect. |
 | IT-002 | EXE-06, EXE-07 | Orca worker start | Ready lane with exact source base | Child worktree precedes worker start and receipt contains every correlated ID. |
 | IT-003 | EXE-08–EXE-10 | Orca events and follow-up | `worker_done`, clean waiter, dependency event, and timeout | Result is read before release; same terminal receives follow-up; timeout leaves state unchanged. |
 | IT-004 | EXE-11 | Orca failure recovery | Dirty, mismatched, duplicate, escalated, or failed receipt | Lane halts and no replacement worker starts. |

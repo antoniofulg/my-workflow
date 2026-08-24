@@ -92,6 +92,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: validation.md:M3 (workflow-executor)
 - last seen: 2026-08-24T12:17:07Z
 
+### L-014 - Validate and redact recovered provider receipts through the same boundary as fresh receipts
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `workflow-executor` · harmful: 0
+- features: parallel-slice-executor
+- evidence: validation.md:pending-acquire-recovery (workflow-executor)
+- last seen: 2026-08-24T12:41:41Z
+
+### L-015 - Exercise every public CLI verb through its observable state transition
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `workflow-executor` · harmful: 0
+- features: parallel-slice-executor
+- evidence: validation.md:cli-resume (workflow-executor)
+- last seen: 2026-08-24T12:41:41Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

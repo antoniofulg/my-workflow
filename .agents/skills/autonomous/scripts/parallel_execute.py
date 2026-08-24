@@ -91,6 +91,8 @@ def validate_runtime_state(
 
     active_slices: set[str] = set()
     seen_external: set[str] = set()
+    seen_lease_ids: set[str] = set()
+    seen_action_external_ids: dict[str, str] = {}
     for lane_id, lane in lanes.items():
         if not isinstance(lane_id, str) or not _ID.fullmatch(lane_id) or not isinstance(lane, Mapping):
             raise StateError("invalid lane receipt")
@@ -116,6 +118,27 @@ def validate_runtime_state(
             raise StateError(f"invalid resources: {lane_id}")
         if len(set(resources)) != len(resources):
             raise StateError(f"duplicate resources: {lane_id}")
+        lease = lane.get("lease")
+        if lease is not None:
+            if not isinstance(lease, Mapping):
+                raise StateError(f"invalid lease receipt: {lane_id}")
+            lease_id = _require_text(lease.get("lease_id"), "lease id")
+            _require_text(lease.get("idempotency_key"), "lease idempotency key")
+            lease_resources = lease.get("resources")
+            if lease_resources != resources or lease.get("prepared_worktree") is not True:
+                raise StateError(f"invalid lease receipt: {lane_id}")
+            if not isinstance(lease_resources, list) or any(not isinstance(item, str) or not item for item in lease_resources):
+                raise StateError(f"invalid lease resources: {lane_id}")
+            if not isinstance(lease.get("environment_keys"), list) or any(not isinstance(item, str) for item in lease["environment_keys"]):
+                raise StateError(f"invalid lease environment keys: {lane_id}")
+            environment = lease.get("environment")
+            if not isinstance(environment, Mapping) or any(value != "<redacted>" for value in environment.values()):
+                raise StateError(f"unredacted lease environment: {lane_id}")
+            if type(lease.get("released")) is not bool:
+                raise StateError(f"invalid lease release state: {lane_id}")
+            if lease_id in seen_lease_ids:
+                raise StateError(f"duplicate live lease: {lease_id}")
+            seen_lease_ids.add(lease_id)
     for key, action in actions.items():
         if not isinstance(key, str) or not _ID.fullmatch(key) or not isinstance(action, Mapping):
             raise StateError("invalid action receipt")
@@ -125,9 +148,30 @@ def validate_runtime_state(
             raise StateError("invalid action receipt")
         if action.get("status") not in {"pending", "accepted", "released", "failed"}:
             raise StateError("invalid action status")
-        _require_text(action.get("lane"), "action lane")
-        if action["lane"] not in lanes:
+        action_lane_id = _require_text(action.get("lane"), "action lane")
+        if action_lane_id not in lanes:
             raise StateError("action references unknown lane")
+        if action.get("status") in {"accepted", "released"}:
+            external_id = _require_text(action.get("external_id"), "action external id")
+            previous_action = seen_action_external_ids.get(external_id)
+            if previous_action is not None and {previous_action, action["action"]} != {"acquire", "release"}:
+                raise StateError("duplicate external receipt")
+            seen_action_external_ids[external_id] = str(action["action"])
+            receipt = action.get("receipt")
+            if not isinstance(receipt, Mapping):
+                raise StateError("missing action receipt")
+            lane = lanes[action_lane_id]
+            if action["action"] == "acquire":
+                normalize_lease_receipt(
+                    receipt,
+                    {"resources": lane.get("resources", []), "idempotency_key": key},
+                    set(),
+                )
+            elif action["action"] == "release":
+                if receipt.get("lease_id") != external_id or receipt.get("released") is not True:
+                    raise StateError("invalid release receipt")
+        elif action.get("receipt") is not None:
+            raise StateError("pending action contains receipt")
 
 
 def transition_lane(
@@ -291,6 +335,32 @@ def idempotency_key(feature: str, slice_id: str, task: str, action: str, source_
     return hashlib.sha256(material).hexdigest()
 
 
+def normalize_lease_receipt(
+    payload: Mapping[str, Any], request: Mapping[str, Any], live_lease_ids: set[str]
+) -> dict[str, Any]:
+    lease_id = payload.get("lease_id")
+    environment = payload.get("environment")
+    if (
+        not isinstance(lease_id, str)
+        or not lease_id
+        or lease_id in live_lease_ids
+        or payload.get("resources") != request.get("resources")
+        or payload.get("prepared_worktree") is not True
+        or not isinstance(environment, Mapping)
+        or payload.get("idempotency_key") != request.get("idempotency_key")
+    ):
+        raise ExecutorError("resource receipt is uncorrelated or already live")
+    return {
+        "lease_id": lease_id,
+        "idempotency_key": request["idempotency_key"],
+        "resources": list(request["resources"]),
+        "prepared_worktree": True,
+        "environment_keys": sorted(str(key) for key in environment),
+        "environment": {str(key): "<redacted>" for key in sorted(environment)},
+        "released": False,
+    }
+
+
 def _serial_result(feature: str, mode: str, reason: str, lanes: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     return {
         "version": 1,
@@ -331,25 +401,7 @@ class ResourceProvider:
 
     def acquire(self, request: Mapping[str, Any], live_lease_ids: set[str]) -> dict[str, Any]:
         payload = self._call({**request, "operation": "acquire"})
-        lease_id = payload.get("lease_id")
-        if (
-            not isinstance(lease_id, str)
-            or not lease_id
-            or lease_id in live_lease_ids
-            or payload.get("resources") != request.get("resources")
-            or payload.get("prepared_worktree") is not True
-            or not isinstance(payload.get("environment"), dict)
-            or payload.get("idempotency_key") != request.get("idempotency_key")
-        ):
-            raise ExecutorError("resource receipt is uncorrelated or already live")
-        return {
-            "lease_id": lease_id,
-            "resources": list(request["resources"]),
-            "prepared_worktree": True,
-            "environment_keys": sorted(payload["environment"]),
-            "environment": {key: "<redacted>" for key in sorted(payload["environment"])},
-            "released": False,
-        }
+        return normalize_lease_receipt(payload, request, live_lease_ids)
 
     def release(self, request: Mapping[str, Any], lease_id: str) -> dict[str, Any]:
         payload = self._call({**request, "operation": "release", "lease_id": lease_id})
@@ -368,11 +420,13 @@ class Coordinator:
         *,
         adapter_factory: Callable[[], Any] | None = None,
         provider_factory: Callable[[Path], ResourceProvider] | None = None,
+        worktree_creator: Callable[[Path, str], Mapping[str, Any]] | None = None,
     ):
         self.root = Path(root).resolve()
         self.feature = feature
         self.adapter_factory = adapter_factory
         self.provider_factory = provider_factory
+        self.worktree_creator = worktree_creator
         self.state_path: Path | None = None
 
     def _prepare_repository(self) -> None:
@@ -486,19 +540,9 @@ class Coordinator:
     def _worktree_destination(self, lane: Mapping[str, Any]) -> Path:
         return derive_worktree_destination(self.root, self.feature, str(lane["slice"]), str(lane["task"]))
 
-    def _create_worktree(
-        self, adapter: Any, lane: Mapping[str, Any], destination: Path, key: str
-    ) -> Mapping[str, Any]:
-        # Test doubles may expose the legacy creator; Orca itself only attaches
-        # a worker after the provider-neutral Git worktree already exists.
-        creator = getattr(adapter, "prepare_worktree", None) or getattr(adapter, "create_worktree", None)
-        if callable(creator):
-            receipt = creator(
-                dict(lane),
-                idempotency_key=key,
-                worktree_path=str(destination),
-                source_head=self._source_head,
-            )
+    def _create_worktree(self, destination: Path) -> Mapping[str, Any]:
+        if self.worktree_creator is not None:
+            receipt = self.worktree_creator(destination, self._source_head)
             return receipt if isinstance(receipt, Mapping) else {}
         return create_git_worktree(self.root, destination, self._source_head)
 
@@ -652,7 +696,7 @@ class Coordinator:
                         if receipt is None:
                             raise ExecutorError("unreconciled pending action: worktree")
                     else:
-                        receipt = self._create_worktree(adapter, plan_lane, destinations[lane_id], worktree_key)
+                        receipt = self._create_worktree(destinations[lane_id])
                     if not isinstance(receipt, Mapping):
                         raise ExecutorError("malformed worktree receipt")
                     if receipt.get("worktree_path") is not None:
@@ -686,13 +730,19 @@ class Coordinator:
                         "resources": resources,
                     }
                     try:
-                        live = {lane.get("lease", {}).get("lease_id") for lane in state["lanes"].values() if isinstance(lane.get("lease"), Mapping)}
+                        live = {
+                            other_lane.get("lease", {}).get("lease_id")
+                            for other_lane_id, other_lane in state["lanes"].items()
+                            if other_lane_id != lane_id and isinstance(other_lane.get("lease"), Mapping)
+                        }
                         if not acquire_created:
-                            lease = self._reconcile_pending(provider, acquire_action)
-                            if lease is None:
+                            recovered = self._reconcile_pending(provider, acquire_action)
+                            if recovered is None:
                                 raise ExecutorError("unreconciled pending action: acquire")
+                            lease = normalize_lease_receipt(recovered, request, {item for item in live if isinstance(item, str)})
                         else:
-                            lease = provider.acquire(request, {item for item in live if isinstance(item, str)})
+                            acquired = provider.acquire(request, {item for item in live if isinstance(item, str)})
+                            lease = normalize_lease_receipt(acquired, request, {item for item in live if isinstance(item, str)})
                         existing["lease"] = lease
                         self._accept(acquire_action, external_id=lease["lease_id"], receipt=lease)
                     except ExecutorError as exc:
@@ -785,6 +835,7 @@ def main(argv: list[str] | None = None) -> int:
             result = coordinator.status()
         else:
             result = coordinator.start(resume=args.command == "resume")
+        result = {**result, "command": args.command}
         print(json.dumps(result, sort_keys=True))
         return 0
     except (ExecutorError, OSError, subprocess.SubprocessError) as exc:

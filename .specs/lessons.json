@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 14,
+  "next_id": 16,
   "lessons": [
     {
       "id": "L-001",
@@ -238,6 +238,42 @@
       ],
       "created": "2026-08-24T12:17:07Z",
       "last_seen": "2026-08-24T12:17:07Z"
+    },
+    {
+      "id": "L-014",
+      "key": "ac_gap::validate and redact recovered provider receipts through the same boundary as fresh receipts",
+      "text": "Validate and redact recovered provider receipts through the same boundary as fresh receipts",
+      "signal": "ac_gap",
+      "scope": "workflow-executor",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-executor"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md:pending-acquire-recovery (workflow-executor)"
+      ],
+      "created": "2026-08-24T12:41:41Z",
+      "last_seen": "2026-08-24T12:41:41Z"
+    },
+    {
+      "id": "L-015",
+      "key": "ac_gap::exercise every public cli verb through its observable state transition",
+      "text": "Exercise every public CLI verb through its observable state transition",
+      "signal": "ac_gap",
+      "scope": "workflow-executor",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-executor"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md:cli-resume (workflow-executor)"
+      ],
+      "created": "2026-08-24T12:41:41Z",
+      "last_seen": "2026-08-24T12:41:41Z"
     }
   ]
 }

@@ -27,7 +27,8 @@ python3 .agents/skills/autonomous/scripts/parallel_execute.py status \
   --root . --feature <feature-slug>
 ```
 
-All commands emit one JSON object to stdout. Errors use stderr and a non-zero exit. `start` performs
+All commands emit one JSON object to stdout, including a `command` field identifying `start`,
+`resume`, or `status`. Errors use stderr and a non-zero exit. `start` performs
 only actions allowed by the current frozen plan. `resume` reconciles persisted receipts, consumes at
 most the available correlated events, and may block inside the adapter without model polling.
 `status` is read-only.
