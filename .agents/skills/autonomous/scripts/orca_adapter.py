@@ -14,6 +14,25 @@ class AdapterError(core.ExecutorError):
     """Orca returned an unsupported, foreign, or failed lifecycle receipt."""
 
 
+_SENSITIVE_KEYS = {"environment", "env", "credentials", "secrets", "token", "password", "authorization", "transcript", "body"}
+
+
+def _redact_payload(value: Any, *, container: bool = False) -> Any:
+    if isinstance(value, Mapping):
+        if container:
+            return {str(key): _redact_payload(item, container=True) for key, item in value.items()}
+        result: dict[str, Any] = {}
+        for key, item in value.items():
+            if str(key).lower() in _SENSITIVE_KEYS:
+                result[str(key)] = _redact_payload(item, container=True) if isinstance(item, (Mapping, list)) else "<redacted>"
+            else:
+                result[str(key)] = _redact_payload(item)
+        return result
+    if isinstance(value, list):
+        return [_redact_payload(item, container=container) for item in value]
+    return "<redacted>" if container else value
+
+
 def _default_runner(argv: list[str], **kwargs: object) -> Any:
     # core.run_argv owns shell=False; the explicit kwarg is kept at the adapter seam so tests
     # can discriminate accidental shell execution without changing the shared helper.
@@ -296,6 +315,7 @@ class OrcaAdapter:
         else:
             event = "question"
             status = "question"
+        safe_payload = _redact_payload(payload)
         self._deliveries.add(delivery_id)
         return {
             "event": event,
@@ -303,7 +323,7 @@ class OrcaAdapter:
             "delivery_id": delivery_id,
             "run_id": run_id,
             "from_handle": delivery["from_handle"],
-            "payload": payload,
+            "payload": safe_payload,
             "task_id": task_id,
             "dispatch_id": dispatch_id,
             **({"dependency": payload["dependency"]} if "dependency" in payload else {}),
@@ -429,7 +449,7 @@ class OrcaAdapter:
         if dependency.get("dependency") != dependency_name:
             raise AdapterError("uncorrelated dependency event")
         dispatch_id = _text(receipt.get("dispatch_id"), "dispatch id")
-        if dispatch_id + ":" + dependency_name not in self._ended_waiters:
+        if waiter_event.get("ended") is not True and dispatch_id + ":" + dependency_name not in self._ended_waiters:
             raise AdapterError("worker turn is still active")
         next_task = _text(dependency.get("next_task_id") or receipt.get("orchestration_task_id"), "task id")
         response = self._call("worker-start", "--task", next_task, "--terminal", _text(receipt.get("terminal_handle"), "terminal handle"))

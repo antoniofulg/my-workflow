@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 18,
+  "next_id": 20,
   "lessons": [
     {
       "id": "L-001",
@@ -310,6 +310,42 @@
       ],
       "created": "2026-08-24T15:34:19Z",
       "last_seen": "2026-08-24T15:34:19Z"
+    },
+    {
+      "id": "L-018",
+      "key": "surviving_mutant::use missing field negative fixtures to prove provider receipts cannot inherit local expected values",
+      "text": "Use missing-field negative fixtures to prove provider receipts cannot inherit local expected values",
+      "signal": "surviving_mutant",
+      "scope": "workflow-executor",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-executor"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md:Slice-B-R1-M2 (workflow-executor)"
+      ],
+      "created": "2026-08-24T15:54:47Z",
+      "last_seen": "2026-08-24T15:54:47Z"
+    },
+    {
+      "id": "L-019",
+      "key": "ac_gap::redact nested provider payloads before returning or persisting boundary data",
+      "text": "Redact nested provider payloads before returning or persisting boundary data",
+      "signal": "ac_gap",
+      "scope": "workflow-executor",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-executor"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md:Slice-B-waiter-secret (workflow-executor)"
+      ],
+      "created": "2026-08-24T15:54:47Z",
+      "last_seen": "2026-08-24T15:54:47Z"
     }
   ]
 }

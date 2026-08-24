@@ -566,7 +566,10 @@ class Coordinator:
             if delivery.get("event") == "timeout":
                 return "handled"
             if delivery.get("event") in {"waiting", "question"}:
-                lane["waiter"] = dict(delivery)
+                ended = adapter.end_waiter(dict(lane), dict(delivery))
+                if not isinstance(ended, Mapping) or ended.get("ended") is not True:
+                    raise ExecutorError("worker waiter was not ended")
+                lane["waiter"] = {**dict(delivery), "ended": True}
                 if lane["state"] == "running":
                     transition_lane(state, lane_id, "waiting", expected="running")
                 self._save(state)
@@ -614,6 +617,30 @@ class Coordinator:
                 transition_lane(state, lane_id, "serial", expected=lane["state"])
             self._save(state)
             return "serial"
+
+    def _validate_worker_receipt(
+        self,
+        receipt: Mapping[str, Any],
+        lane: Mapping[str, Any],
+        plan_lane: Mapping[str, Any],
+        key: str,
+        source_head: str,
+    ) -> None:
+        required = (
+            "worktree_id", "worktree_path", "branch", "pre_head", "run_id",
+            "orchestration_task_id", "task", "dispatch_id", "terminal_handle", "idempotency_key",
+        )
+        if any(not isinstance(receipt.get(field), str) or not receipt[field] for field in required):
+            raise ExecutorError("incomplete worker receipt")
+        for field in ("worktree_id", "worktree_path", "branch", "pre_head"):
+            if receipt[field] != lane.get(field):
+                raise ExecutorError(f"uncorrelated worker receipt: {field}")
+        if receipt["pre_head"] != source_head:
+            raise ExecutorError("worker source head changed")
+        if receipt["idempotency_key"] != key:
+            raise ExecutorError("uncorrelated worker receipt: idempotency_key")
+        if receipt["task"] != str(plan_lane["task"]):
+            raise ExecutorError("uncorrelated worker receipt: task")
 
     def _release_lease_state(
         self, snapshot: Mapping[str, Any], state: dict[str, Any], lane_id: str, provider: ResourceProvider | None
@@ -836,6 +863,7 @@ class Coordinator:
                         receipt = adapter.start_worker(dict(plan_lane), dict(existing), idempotency_key=worker_key)
                     if not isinstance(receipt, Mapping):
                         raise ExecutorError("malformed worker receipt")
+                    self._validate_worker_receipt(receipt, existing, plan_lane, worker_key, state["source_git_head"])
                     self._accept(worker_action, external_id=receipt.get("dispatch_id"), receipt=dict(receipt))
                     for key in ("run_id", "orchestration_task_id", "dispatch_id", "terminal_handle"):
                         if key in receipt:

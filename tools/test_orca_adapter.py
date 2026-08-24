@@ -192,6 +192,10 @@ def test_clean_waiter_ends_turn_and_follow_up_reuses_terminal_after_dependency_e
         follow_call = cli.calls[-1][0]
         assert follow_call[2] == "worker-start"
         assert follow_call[follow_call.index("--terminal") + 1] == "terminal-A"
+        restarted = adapter(root, RecordingCLI([worker_payload(worktree)]))
+        persisted_waiter = {**observed, "ended": True}
+        restarted_follow_up = restarted.follow_up(receipt, persisted_waiter, dependency)
+        assert restarted_follow_up["terminal_handle"] == "terminal-A"
     finally:
         shutil.rmtree(root)
 
@@ -250,6 +254,48 @@ def test_invalid_worker_result_cannot_release_or_persist_transcript() -> None:
         shutil.rmtree(root)
 
 
+def test_nested_delivery_credentials_are_redacted_before_adapter_returns_payload() -> None:
+    root, lane, worktree = fixture()
+    try:
+        delivery = live_delivery()
+        delivery["payload"] = json.dumps({
+            "taskId": "task-A", "dispatchId": "dispatch-A", "outcome": "waiting", "status": "waiting",
+            "dependency": "producer-A", "environment": {"TOKEN": "secret-token"},
+            "nested": {"credentials": {"password": "secret-password"}},
+        })
+        delivery["type"] = "question"
+        cli = RecordingCLI(start_responses(worktree) + [{"deliveries": [delivery]}])
+        worker = adapter(root, cli)
+        receipt = worker.start_worker(lane, worktree, idempotency_key=KEY)
+        observed = worker.wait_events(receipt)
+        serialized = json.dumps(observed)
+        assert observed["payload"]["environment"]["TOKEN"] == "<redacted>"
+        assert observed["payload"]["nested"]["credentials"]["password"] == "<redacted>"
+        assert "secret-token" not in serialized
+        assert "secret-password" not in serialized
+    finally:
+        shutil.rmtree(root)
+
+
+def test_duplicate_delivery_is_rejected_before_follow_up_or_release() -> None:
+    root, lane, worktree = fixture()
+    try:
+        delivery = {"deliveries": [live_delivery()]}
+        cli = RecordingCLI(start_responses(worktree) + [delivery, delivery])
+        worker = adapter(root, cli)
+        receipt = worker.start_worker(lane, worktree, idempotency_key=KEY)
+        worker.wait_events(receipt)
+        try:
+            worker.wait_events(receipt)
+        except orca_adapter.AdapterError as exc:
+            assert "duplicate" in str(exc)
+        else:
+            raise AssertionError("duplicate delivery must halt")
+        assert not any(call[0][2] in {"worker-release", "worker-start"} for call in cli.calls[6:])
+    finally:
+        shutil.rmtree(root)
+
+
 def test_incomplete_start_receipt_uses_authoritative_worker_show() -> None:
     root, lane, worktree = fixture()
     try:
@@ -258,6 +304,29 @@ def test_incomplete_start_receipt_uses_authoritative_worker_show() -> None:
         receipt = adapter(root, cli).start_worker(lane, worktree, idempotency_key=KEY)
         assert [call[0][2] for call in cli.calls] == ["run-list", "run-create", "task-list", "task-create", "worker-start", "worker-show"]
         assert receipt["dispatch_id"] == "dispatch-A"
+    finally:
+        shutil.rmtree(root)
+
+
+def test_each_mandatory_worker_field_missing_from_authoritative_receipt_halts_without_cleanup() -> None:
+    root, lane, worktree = fixture()
+    try:
+        fields = (
+            "worktree_id", "worktree_path", "branch", "pre_head", "run_id",
+            "task_id", "dispatch_id", "terminal_handle", "feature", "slice", "task", "idempotency_key",
+        )
+        for field in fields:
+            response = worker_payload(worktree)
+            response.pop(field, None)
+            cli = RecordingCLI(start_responses(worktree)[:4] + [response, response])
+            worker = adapter(root, cli)
+            try:
+                worker.start_worker(lane, worktree, idempotency_key=KEY)
+            except orca_adapter.AdapterError as exc:
+                assert "Orca" in str(exc)
+            else:
+                raise AssertionError(f"missing {field} must halt")
+            assert not any(call[0][2] in {"worker-release", "worker-start"} for call in cli.calls[5:])
     finally:
         shutil.rmtree(root)
 

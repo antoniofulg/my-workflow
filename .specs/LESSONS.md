@@ -116,6 +116,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: validation.md:Slice-B-live-delivery (workflow-executor)
 - last seen: 2026-08-24T15:34:19Z
 
+### L-018 - Use missing-field negative fixtures to prove provider receipts cannot inherit local expected values
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `workflow-executor` · harmful: 0
+- features: parallel-slice-executor
+- evidence: validation.md:Slice-B-R1-M2 (workflow-executor)
+- last seen: 2026-08-24T15:54:47Z
+
+### L-019 - Redact nested provider payloads before returning or persisting boundary data
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `workflow-executor` · harmful: 0
+- features: parallel-slice-executor
+- evidence: validation.md:Slice-B-waiter-secret (workflow-executor)
+- last seen: 2026-08-24T15:54:47Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

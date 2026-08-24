@@ -260,6 +260,19 @@ remain blocked only until Slice A passes its Technical Verifier.
 **Remediation gate:** Adapter and executor suites, strict spec/tasks validators, AD index, `git diff --check`, compile, and fresh Technical Verifier.
 **Remediation commit:** `fix(workflow): consume live orca deliveries`.
 
+### T3R2: Harden Orca waiter boundaries and strict receipt recovery
+
+**Remediation status:** complete
+**Slice:** B
+**Remediation resources:** none
+**Observable behaviour:** Run Delivery payloads are redacted before persistence, clean waiters end and survive restart before same-terminal dependency follow-up, sparse worker receipts serialize before running, and missing or duplicate deliveries never release or replace workers.
+**Where:** `.agents/skills/autonomous/scripts/orca_adapter.py`
+**Remediation depends on:** T3R1
+**Remediation requirements:** EXE-07–EXE-11, SEC-005, SEC-006
+**Remediation tests:** IT-002–IT-004 and SEC-005–SEC-006 in `tools/test_orca_adapter.py`; public waiter/receipt/recovery coverage in `tools/test_parallel_executor.py`.
+**Remediation gate:** Adapter and executor suites, strict spec/tasks validators, AD index, `git diff --check`, compile, and fresh Technical Verifier.
+**Remediation commit:** `fix(workflow): harden orca waiter boundaries`.
+
 ### T2R1: Harden resume, disabled-mode, isolation, and lease recovery
 
 **Remediation status:** complete

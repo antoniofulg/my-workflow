@@ -220,10 +220,16 @@ class RecordingAdapter:
     def start_worker(self, lane: dict[str, object], receipt: dict[str, object], *, idempotency_key: str) -> dict[str, str]:
         self.effects.append(("worker", idempotency_key))
         return {
+            "worktree_id": str(receipt["worktree_id"]),
+            "worktree_path": str(receipt["worktree_path"]),
+            "branch": str(receipt["branch"]),
+            "pre_head": str(receipt["pre_head"]),
             "run_id": "run-A",
             "orchestration_task_id": "task-A",
+            "task": str(lane["task"]),
             "dispatch_id": "dispatch-A",
             "terminal_handle": "terminal-A",
+            "idempotency_key": idempotency_key,
         }
 
 
@@ -656,7 +662,12 @@ def test_executor_cli_safe_resume_reconciles_pending_worker_through_injected_ada
 
             def reconcile_action(self, action: dict[str, object]) -> dict[str, str]:
                 self.reconciled.append(str(action["action"]))
-                return {"dispatch_id": "dispatch-resumed", "status": "running"}
+                return {
+                    "worktree_id": "wt-A", "worktree_path": str(destination), "branch": "slice/A", "pre_head": source_head,
+                    "run_id": "run-A", "orchestration_task_id": "task-A", "task": "T1",
+                    "dispatch_id": "dispatch-resumed", "terminal_handle": "terminal-A", "idempotency_key": str(action["key"]),
+                    "status": "running",
+                }
 
         adapter = ResumeRecordingAdapter()
         original_plan = parallel_execute.Coordinator._plan
@@ -764,6 +775,8 @@ def test_executor_resume_delivery_outcomes_are_timeout_waiting_or_serial_without
             ("waiting", "waiting", False),
             ("escalation", "serial", True),
             ("invalid", "serial", True),
+            ("missing", "serial", True),
+            ("duplicate", "serial", True),
         ):
             root = make_repo()
             try:
@@ -780,10 +793,14 @@ def test_executor_resume_delivery_outcomes_are_timeout_waiting_or_serial_without
                         if expected_event == "timeout":
                             return {"event": "timeout", "unchanged": True}
                         if expected_event == "waiting":
-                            return {"event": "waiting", "status": "clean", "dependency": "producer-A"}
-                        if expected_event == "invalid":
-                            raise parallel_execute.ExecutorError("uncorrelated delivery")
+                            return {"event": "waiting", "status": "clean", "dependency": "producer-A", "payload": {"environment": {"TOKEN": "<redacted>"}}}
+                        if expected_event in {"invalid", "missing", "duplicate"}:
+                            raise parallel_execute.ExecutorError(expected_event + " delivery")
                         return {"event": "escalation"}
+
+                    def end_waiter(self, receipt: dict[str, object], waiter: dict[str, object]) -> dict[str, object]:
+                        self.calls.append("end_waiter")
+                        return {"ended": True, "terminal_handle": "terminal-A"}
 
                     def release(self, receipt: dict[str, object], result: dict[str, object] | None = None) -> dict[str, object]:
                         self.calls.append("release")
@@ -802,11 +819,69 @@ def test_executor_resume_delivery_outcomes_are_timeout_waiting_or_serial_without
                     assert result["state"]["lanes"]["slice-A"]["state"] == expected_state
                 else:
                     assert result["state"]["lanes"]["slice-A"]["state"] == expected_state
-                assert adapter.calls == ["wait"]
+                    if expected_event == "waiting":
+                        serialized = json.dumps(result["state"]["lanes"]["slice-A"]["waiter"])
+                        assert "<redacted>" in serialized
+                        assert "secret" not in serialized
+                assert adapter.calls == (["wait", "end_waiter"] if expected_event == "waiting" else ["wait"])
             finally:
                 shutil.rmtree(root)
     finally:
         parallel_execute.Coordinator._plan = original_plan  # type: ignore[method-assign]
+
+
+def test_executor_waiter_persists_end_before_restart_follow_up_on_same_terminal() -> None:
+    root = make_repo()
+    original_plan = parallel_execute.Coordinator._plan
+    parallel_execute.Coordinator._plan = lambda self: lane_plan(resources=[])  # type: ignore[method-assign]
+    try:
+        first = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter())
+        first.start()
+
+        class WaiterAdapter(RecordingAdapter):
+            def __init__(self, phase: str) -> None:
+                super().__init__()
+                self.phase = phase
+                self.calls: list[tuple[str, str]] = []
+
+            def wait_events(self, receipt: dict[str, object], *, timeout: float = 30) -> dict[str, object]:
+                self.calls.append(("wait", str(receipt["terminal_handle"])))
+                if self.phase == "waiting":
+                    return {"event": "waiting", "status": "clean", "dependency": "producer-A", "payload": {"environment": {"TOKEN": "<redacted>"}}}
+                return {"event": "dependency", "status": "complete", "dependency": "producer-A"}
+
+            def end_waiter(self, receipt: dict[str, object], waiter: dict[str, object]) -> dict[str, object]:
+                self.calls.append(("end_waiter", str(receipt["terminal_handle"])))
+                return {"ended": True, "terminal_handle": str(receipt["terminal_handle"])}
+
+            def follow_up(self, receipt: dict[str, object], waiter: dict[str, object], dependency: dict[str, object], *, idempotency_key: str | None = None) -> dict[str, object]:
+                self.calls.append(("follow_up", str(receipt["terminal_handle"])))
+                return {
+                    "worktree_id": receipt["worktree_id"], "worktree_path": receipt["worktree_path"], "branch": receipt["branch"], "pre_head": receipt["pre_head"],
+                    "run_id": receipt["run_id"], "orchestration_task_id": receipt["orchestration_task_id"], "task": receipt["task"],
+                    "dispatch_id": "dispatch-follow-up", "terminal_handle": receipt["terminal_handle"], "idempotency_key": idempotency_key, "status": "running",
+                }
+
+        waiting_adapter = WaiterAdapter("waiting")
+        out = io.StringIO()
+        with redirect_stdout(out):
+            parallel_execute.main(["resume", "--root", str(root), "--feature", "fixture"], adapter_factory=lambda: waiting_adapter)
+        waiting_result = json.loads(out.getvalue())
+        assert waiting_result["state"]["lanes"]["slice-A"]["state"] == "waiting"
+        assert waiting_result["state"]["lanes"]["slice-A"]["waiter"]["ended"] is True
+        assert waiting_adapter.calls == [("wait", "terminal-A"), ("end_waiter", "terminal-A")]
+
+        follow_adapter = WaiterAdapter("dependency")
+        out = io.StringIO()
+        with redirect_stdout(out):
+            parallel_execute.main(["resume", "--root", str(root), "--feature", "fixture"], adapter_factory=lambda: follow_adapter)
+        follow_result = json.loads(out.getvalue())
+        assert follow_result["state"]["lanes"]["slice-A"]["state"] == "running"
+        assert follow_adapter.calls == [("wait", "terminal-A"), ("follow_up", "terminal-A")]
+        assert "secret" not in json.dumps(waiting_result["state"])
+    finally:
+        parallel_execute.Coordinator._plan = original_plan  # type: ignore[method-assign]
+        shutil.rmtree(root)
 
 
 def test_disabled_start_short_circuits_planner_git_and_adapter() -> None:
@@ -863,7 +938,8 @@ class ReconcilingAdapter(RecordingAdapter):
 
     def reconcile_action(self, action: dict[str, object]) -> dict[str, str]:
         self.reconciled.append(str(action["action"]))
-        return {"worktree_id": "wt-recovered", "worktree_path": str(self.state_path.parent), "branch": "slice/A", "pre_head": "head"}
+        state = json.loads(self.state_path.read_text(encoding="utf-8"))
+        return {"worktree_id": "wt-recovered", "worktree_path": str(self.state_path.parent), "branch": "slice/A", "pre_head": state["source_git_head"]}
 
 
 def test_pending_crash_receipt_is_reconciled_without_repeating_external_effect() -> None:
@@ -1016,7 +1092,19 @@ class OrderedAdapter(RecordingAdapter):
 
     def start_worker(self, lane: dict[str, object], receipt: dict[str, object], *, idempotency_key: str) -> dict[str, str]:
         self.effects.append(("worker:" + str(lane["task"]), idempotency_key))
-        return {"dispatch_id": f"dispatch-{lane['task']}", "status": next(self.statuses)}
+        return {
+            "worktree_id": str(receipt["worktree_id"]),
+            "worktree_path": str(receipt["worktree_path"]),
+            "branch": str(receipt["branch"]),
+            "pre_head": str(receipt["pre_head"]),
+            "run_id": "run-" + str(lane["task"]),
+            "orchestration_task_id": "task-" + str(lane["task"]),
+            "task": str(lane["task"]),
+            "dispatch_id": f"dispatch-{lane['task']}",
+            "terminal_handle": "terminal-" + str(lane["task"]),
+            "idempotency_key": idempotency_key,
+            "status": next(self.statuses),
+        }
 
 
 def test_same_slice_dispatches_one_active_task_then_preserves_declared_order() -> None:
@@ -1103,12 +1191,30 @@ class BoundaryAdapter(RecordingAdapter):
         state = json.loads(self.state_path.read_text(encoding="utf-8"))
         assert state["actions"][idempotency_key]["status"] == "pending"
         self.events.append("worker-pending")
-        return {"dispatch_id": "dispatch-A", "status": "accepted" if self.terminal else "running"}
+        return {
+            "worktree_id": str(receipt["worktree_id"]),
+            "worktree_path": str(receipt["worktree_path"]),
+            "branch": str(receipt["branch"]),
+            "pre_head": str(receipt["pre_head"]),
+            "run_id": "run-A",
+            "orchestration_task_id": "task-A",
+            "task": str(lane["task"]),
+            "dispatch_id": "dispatch-A",
+            "terminal_handle": "terminal-A",
+            "idempotency_key": idempotency_key,
+            "status": "accepted" if self.terminal else "running",
+        }
 
     def reconcile_action(self, action: dict[str, object]) -> dict[str, object] | None:
         if action["action"] == "worker":
             self.events.append("reconcile-worker")
-            return {"dispatch_id": "dispatch-A", "status": "running"}
+            state = json.loads(self.state_path.read_text(encoding="utf-8"))
+            lane = state["lanes"][str(action["lane"])]
+            return {
+                "worktree_id": lane["worktree_id"], "worktree_path": lane["worktree_path"], "branch": lane["branch"], "pre_head": lane["pre_head"],
+                "run_id": "run-A", "orchestration_task_id": "task-A", "task": lane["task"],
+                "dispatch_id": "dispatch-A", "terminal_handle": "terminal-A", "idempotency_key": action["key"], "status": "running",
+            }
         return None
 
 
@@ -1215,7 +1321,8 @@ def test_worker_only_adapter_receives_precreated_validated_git_worktree() -> Non
         )
         coordinator._plan = lambda: lane_plan(resources=[])  # type: ignore[method-assign]
         result = coordinator.start()
-        assert result["fallback"] is False
+        assert result["fallback"] is True
+        assert result["reason"] == "worker-failed"
         assert len(created) == 1
         assert seen == [str(created[0][0])]
         assert created[0][0].parent.parent.parent == root.resolve().parent
