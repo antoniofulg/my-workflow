@@ -215,6 +215,27 @@ T3 + T4 + T6 -> T7
 **Tests:** IT-007 in `tools/shared/tests/autonomous-parallelization.test.ts`; E2E-001 in the feature QA report
 **Gate:** Full. Commit `feat(workflow): execute parallel slices autonomously`.
 
+## Review Remediation
+
+### T2R1: Harden resume, disabled-mode, isolation, and lease recovery
+
+**Remediation status:** complete
+**Slice:** A
+**Remediation resources:** none
+**Observable behaviour:** Slice A rejects unsafe or unreconcilable effects before dispatch, reconciles crash-window receipts, preserves task order, and performs fail-closed exactly-once resource cleanup.
+**Remediation depends on:** T2
+**Remediation requirements:** EXE-01–EXE-05, EXE-18–EXE-22, SEC-001, SEC-004, SEC-007, SEC-008
+**Remediation done when:**
+
+- [x] Regression tests discriminate every blocking gap in `validation.md`, including pending receipt recovery and pre-effect persistence.
+- [x] Disabled mode avoids planner, Git, resource, and adapter effects; duplicate same-slice tasks serialize before dispatch.
+- [x] Resource requests and receipts are correlated, resource failures fall back serially, and terminal/halted/abandoned workers release exactly once.
+- [x] Scoped threat model exists for the S11 isolation surface.
+
+**Remediation tests:** `python3 tools/test_parallel_executor.py` (21 cases), including T2R1 recovery/resource/path/order cases.
+**Remediation gate:** Quick — owning test suite, `validate_tasks.py`, and `git diff --check`.
+**Remediation commit:** `fix(workflow): harden parallel executor recovery`.
+
 ## Phase Execution Map
 
 ```text

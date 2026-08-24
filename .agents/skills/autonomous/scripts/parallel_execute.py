@@ -341,11 +341,16 @@ class Coordinator:
         adapter_factory: Callable[[], Any] | None = None,
         provider_factory: Callable[[Path], ResourceProvider] | None = None,
     ):
-        self.root = _repository_root(Path(root).resolve())
+        self.root = Path(root).resolve()
         self.feature = feature
         self.adapter_factory = adapter_factory
         self.provider_factory = provider_factory
-        self.state_path = runtime_state_path(self.root, feature)
+        self.state_path: Path | None = None
+
+    def _prepare_repository(self) -> None:
+        if self.state_path is None:
+            self.root = _repository_root(self.root)
+            self.state_path = runtime_state_path(self.root, self.feature)
 
     def _workflow(self) -> dict[str, Any]:
         path = self.root / ".specs" / "features" / self.feature / "workflow.json"
@@ -373,6 +378,8 @@ class Coordinator:
             raise ExecutorError(str(exc)) from exc
 
     def _load_state(self, workflow: Mapping[str, Any]) -> dict[str, Any] | None:
+        if self.state_path is None:
+            raise StateError("runtime state path is unavailable")
         try:
             state = json.loads(self.state_path.read_text(encoding="utf-8"))
             validate_runtime_state(state, str(self.root), self.feature)
@@ -383,6 +390,8 @@ class Coordinator:
             raise StateError(str(exc)) from exc
 
     def _save(self, state: dict[str, Any]) -> None:
+        if self.state_path is None:
+            raise StateError("runtime state path is unavailable")
         validate_runtime_state(state, str(self.root), self.feature)
         atomic_write_json(self.state_path, state)
 
@@ -396,6 +405,9 @@ class Coordinator:
 
     def status(self) -> dict[str, Any]:
         workflow = self._workflow()
+        if workflow["parallelization"]["mode"] == "disabled":
+            return {"version": 1, "feature": self.feature, "mode": "disabled", "state": None, "actions": []}
+        self._prepare_repository()
         try:
             state = self._load_state(workflow)
         except StateError as exc:
@@ -425,27 +437,94 @@ class Coordinator:
             return self.provider_factory(executable)
         return ResourceProvider(self.root, executable)
 
-    def _record_action(self, state: dict[str, Any], lane_id: str, lane: Mapping[str, Any], action: str) -> tuple[str, dict[str, Any]]:
+    def _record_action(
+        self, state: dict[str, Any], lane_id: str, lane: Mapping[str, Any], action: str
+    ) -> tuple[str, dict[str, Any], bool]:
         key = idempotency_key(self.feature, str(lane["slice"]), str(lane["task"]), action, state["source_git_head"])
         receipt = state["actions"].get(key)
+        created = receipt is None
         if receipt is None:
             receipt = {"key": key, "action": action, "status": "pending", "lane": lane_id}
             state["actions"][key] = receipt
-        elif receipt.get("status") == "pending":
-            raise ExecutorError(f"unreconciled pending action: {action}")
-        return key, receipt
+        return key, receipt, created
+
+    def _reconcile_pending(self, adapter: Any, action: Mapping[str, Any]) -> Mapping[str, Any] | None:
+        reconcile = getattr(adapter, "reconcile_action", None)
+        if not callable(reconcile):
+            return None
+        receipt = reconcile(dict(action))
+        return receipt if isinstance(receipt, Mapping) else None
 
     def _accept(self, action_receipt: dict[str, Any], **fields: Any) -> None:
         action_receipt.update(fields)
         action_receipt["status"] = "accepted"
 
+    def _release_lease_state(
+        self, snapshot: Mapping[str, Any], state: dict[str, Any], lane_id: str, provider: ResourceProvider | None
+    ) -> dict[str, Any]:
+        lane = state["lanes"][lane_id]
+        lease = lane.get("lease")
+        if not isinstance(lease, dict) or not isinstance(lease.get("lease_id"), str):
+            return {"released": False, "reason": "no-lease"}
+        lease_id = lease["lease_id"]
+        for other_lane_id, other_lane in state["lanes"].items():
+            other_lease = other_lane.get("lease")
+            if other_lane_id != lane_id and isinstance(other_lease, Mapping) and other_lease.get("lease_id") == lease_id:
+                raise ExecutorError("foreign lease cleanup")
+        if lease.get("released") is True:
+            return {"released": True, "lease_id": lease_id, "idempotent": True}
+        if provider is None:
+            provider = self._provider(snapshot)
+        if provider is None:
+            raise ExecutorError("missing resource provider")
+        key, action, created = self._record_action(state, lane_id, lane, "release")
+        self._save(state)
+        if action["status"] in {"accepted", "released"}:
+            lease["released"] = True
+            self._save(state)
+            return {"released": True, "lease_id": lease_id, "idempotent": True}
+        request = {
+            "repository": str(self.root),
+            "feature": self.feature,
+            "slice": lane["slice"],
+            "task": lane["task"],
+            "worktree": lane.get("worktree_path", ""),
+            "idempotency_key": key,
+            "resources": lane.get("resources", []),
+        }
+        try:
+            if not created:
+                receipt = self._reconcile_pending(provider, action)
+                if receipt is None:
+                    raise ExecutorError("unreconciled pending action: release")
+            else:
+                receipt = provider.release(request, lease_id)
+            if receipt.get("lease_id") != lease_id or receipt.get("released") is not True:
+                raise ExecutorError("resource release receipt is uncorrelated")
+        except ExecutorError as exc:
+            action["status"] = "failed"
+            lane["fallback_reason"] = "cleanup-failed"
+            self._save(state)
+            raise ExecutorError("resource cleanup failed") from exc
+        lease["released"] = True
+        self._accept(action, external_id=receipt["lease_id"], receipt=dict(receipt))
+        action["status"] = "released"
+        self._save(state)
+        return {"released": True, "lease_id": lease_id, "idempotent": False}
+
     def start(self, *, resume: bool = False) -> dict[str, Any]:
         snapshot = self._workflow()
         mode = snapshot["parallelization"]["mode"]
+        if mode == "disabled":
+            return _serial_result(
+                self.feature,
+                mode,
+                "disabled-mode",
+                [{"id": "serial", "slice": None, "task": None, "status": "ready", "sync_after": []}],
+            )
+        self._prepare_repository()
         plan = self._plan()
         lanes = list(plan.get("lanes", []))
-        if mode == "disabled":
-            return _serial_result(self.feature, mode, "disabled-mode", lanes)
         if plan.get("fallback"):
             return _serial_result(self.feature, mode, "plan-fallback", lanes)
         try:
@@ -456,10 +535,31 @@ class Coordinator:
             state = new_runtime_state(str(self.root), self.feature, mode, snapshot["git_head"])
         if state["source_git_head"] != snapshot["git_head"]:
             return _serial_result(self.feature, mode, "source-head-changed", lanes)
+        seen_slices: set[str] = set()
+        provider: ResourceProvider | None = None
+        for plan_lane in lanes:
+            slice_id = plan_lane.get("slice")
+            if isinstance(slice_id, str) and slice_id in seen_slices:
+                return _serial_result(self.feature, mode, "slice-order", lanes)
+            if isinstance(slice_id, str):
+                seen_slices.add(slice_id)
+            resources = self._lane_resources(plan_lane)
+            if resources is None:
+                return _serial_result(self.feature, mode, "missing-resource-metadata", lanes)
+            declared_path = plan_lane.get("worktree_path")
+            if declared_path is not None:
+                try:
+                    bounded_path(self.root, declared_path)
+                except PathBoundaryError:
+                    return _serial_result(self.feature, mode, "unsafe-worktree-path", lanes)
+            if resources and provider is None:
+                try:
+                    provider = self._provider(snapshot)
+                except (ExecutorError, PathBoundaryError):
+                    return _serial_result(self.feature, mode, "missing-resource-provider", lanes)
         if self.adapter_factory is None:
             return _serial_result(self.feature, mode, "unsupported-adapter", lanes)
         adapter = self.adapter_factory()
-        provider: ResourceProvider | None = None
         actions: list[dict[str, Any]] = []
         for plan_lane in lanes:
             lane_id = str(plan_lane.get("id", ""))
@@ -478,31 +578,37 @@ class Coordinator:
                 return _serial_result(self.feature, mode, "mismatched-lane-receipt", lanes)
             if existing["state"] in {"complete", "failed", "serial"}:
                 continue
-            worktree_key, worktree_action = self._record_action(state, lane_id, existing, "worktree")
+            worktree_key, worktree_action, worktree_created = self._record_action(state, lane_id, existing, "worktree")
             self._save(state)
             if worktree_action["status"] == "pending":
                 try:
-                    receipt = adapter.create_worktree(dict(plan_lane), idempotency_key=worktree_key)
+                    if not worktree_created:
+                        receipt = self._reconcile_pending(adapter, worktree_action)
+                        if receipt is None:
+                            raise ExecutorError("unreconciled pending action: worktree")
+                    else:
+                        receipt = adapter.create_worktree(dict(plan_lane), idempotency_key=worktree_key)
                     if not isinstance(receipt, Mapping):
                         raise ExecutorError("malformed worktree receipt")
+                    if receipt.get("worktree_path") is not None:
+                        bounded_path(self.root, receipt["worktree_path"])
                     self._accept(worktree_action, external_id=receipt.get("worktree_id"), receipt=dict(receipt))
                     existing.update({key: receipt[key] for key in ("worktree_id", "worktree_path", "branch", "pre_head") if key in receipt})
-                    transition_lane(state, lane_id, "running", expected="ready")
+                    if existing["state"] == "ready":
+                        transition_lane(state, lane_id, "running", expected="ready")
                 except Exception as exc:
                     existing["fallback_reason"] = "worktree:" + str(exc)
-                    transition_lane(state, lane_id, "serial", expected="ready")
+                    if existing["state"] in {"ready", "running"}:
+                        transition_lane(state, lane_id, "serial", expected=existing["state"])
                     self._save(state)
-                    return _serial_result(self.feature, mode, "worktree-failed", lanes)
+                    return _serial_result(self.feature, mode, "unreconciled-pending" if not worktree_created else "worktree-failed", lanes)
             if resources:
                 if provider is None:
-                    try:
-                        provider = self._provider(snapshot)
-                    except (ExecutorError, PathBoundaryError):
-                        existing["fallback_reason"] = "missing-resource-provider"
-                        transition_lane(state, lane_id, "serial")
-                        self._save(state)
-                        return _serial_result(self.feature, mode, "missing-resource-provider", lanes)
-                acquire_key, acquire_action = self._record_action(state, lane_id, existing, "acquire")
+                    existing["fallback_reason"] = "missing-resource-provider"
+                    transition_lane(state, lane_id, "serial")
+                    self._save(state)
+                    return _serial_result(self.feature, mode, "missing-resource-provider", lanes)
+                acquire_key, acquire_action, acquire_created = self._record_action(state, lane_id, existing, "acquire")
                 self._save(state)
                 if acquire_action["status"] == "pending":
                     request = {
@@ -516,7 +622,12 @@ class Coordinator:
                     }
                     try:
                         live = {lane.get("lease", {}).get("lease_id") for lane in state["lanes"].values() if isinstance(lane.get("lease"), Mapping)}
-                        lease = provider.acquire(request, {item for item in live if isinstance(item, str)})
+                        if not acquire_created:
+                            lease = self._reconcile_pending(provider, acquire_action)
+                            if lease is None:
+                                raise ExecutorError("unreconciled pending action: acquire")
+                        else:
+                            lease = provider.acquire(request, {item for item in live if isinstance(item, str)})
                         existing["lease"] = lease
                         self._accept(acquire_action, external_id=lease["lease_id"], receipt=lease)
                     except ExecutorError as exc:
@@ -524,11 +635,16 @@ class Coordinator:
                         transition_lane(state, lane_id, "serial")
                         self._save(state)
                         return _serial_result(self.feature, mode, "resource-acquire-failed", lanes)
-            worker_key, worker_action = self._record_action(state, lane_id, existing, "worker")
+            worker_key, worker_action, worker_created = self._record_action(state, lane_id, existing, "worker")
             self._save(state)
             if worker_action["status"] == "pending":
                 try:
-                    receipt = adapter.start_worker(dict(plan_lane), dict(existing), idempotency_key=worker_key)
+                    if not worker_created:
+                        receipt = self._reconcile_pending(adapter, worker_action)
+                        if receipt is None:
+                            raise ExecutorError("unreconciled pending action: worker")
+                    else:
+                        receipt = adapter.start_worker(dict(plan_lane), dict(existing), idempotency_key=worker_key)
                     if not isinstance(receipt, Mapping):
                         raise ExecutorError("malformed worker receipt")
                     self._accept(worker_action, external_id=receipt.get("dispatch_id"), receipt=dict(receipt))
@@ -540,56 +656,31 @@ class Coordinator:
                     existing["fallback_reason"] = "worker:" + str(exc)
                     transition_lane(state, lane_id, "serial")
                     self._save(state)
+                    if existing.get("lease") is not None:
+                        try:
+                            self._release_lease_state(snapshot, state, lane_id, provider)
+                        except ExecutorError:
+                            return _serial_result(self.feature, mode, "cleanup-failed", lanes)
                     return _serial_result(self.feature, mode, "worker-failed", lanes)
+                self._save(state)
+                terminal = receipt.get("terminal") is True or receipt.get("status") in {
+                    "accepted", "complete", "halted", "abandoned", "failed"
+                }
+                if terminal and existing.get("lease") is not None:
+                    try:
+                        self._release_lease_state(snapshot, state, lane_id, provider)
+                    except ExecutorError:
+                        return _serial_result(self.feature, mode, "cleanup-failed", lanes)
         self._save(state)
         return {"version": 1, "feature": self.feature, "mode": mode, "fallback": False, "state": state, "actions": actions}
 
     def release_lane(self, lane_id: str) -> dict[str, Any]:
         snapshot = self._workflow()
+        self._prepare_repository()
         state = self._load_state(snapshot)
         if state is None or lane_id not in state["lanes"]:
             raise ExecutorError("unknown lane")
-        lane = state["lanes"][lane_id]
-        lease = lane.get("lease")
-        if not isinstance(lease, dict) or not isinstance(lease.get("lease_id"), str):
-            return {"released": False, "reason": "no-lease"}
-        lease_id = lease["lease_id"]
-        for other_lane_id, other_lane in state["lanes"].items():
-            other_lease = other_lane.get("lease")
-            if other_lane_id != lane_id and isinstance(other_lease, Mapping) and other_lease.get("lease_id") == lease_id:
-                raise ExecutorError("foreign lease cleanup")
-        if lease.get("released") is True:
-            return {"released": True, "lease_id": lease_id, "idempotent": True}
-        provider = self._provider(snapshot)
-        if provider is None:
-            raise ExecutorError("missing resource provider")
-        key, action = self._record_action(state, lane_id, lane, "release")
-        self._save(state)
-        if action["status"] == "accepted" or action["status"] == "released":
-            lease["released"] = True
-            self._save(state)
-            return {"released": True, "lease_id": lease["lease_id"], "idempotent": True}
-        request = {
-            "repository": str(self.root),
-            "feature": self.feature,
-            "slice": lane["slice"],
-            "task": lane["task"],
-            "worktree": lane.get("worktree_path", ""),
-            "idempotency_key": key,
-            "resources": lane.get("resources", []),
-        }
-        try:
-            receipt = provider.release(request, lease_id)
-        except ExecutorError as exc:
-            action["status"] = "failed"
-            lane["fallback_reason"] = "cleanup-failed"
-            self._save(state)
-            raise ExecutorError("resource cleanup failed") from exc
-        lease["released"] = True
-        self._accept(action, external_id=receipt["lease_id"], receipt=receipt)
-        action["status"] = "released"
-        self._save(state)
-        return {"released": True, "lease_id": lease["lease_id"], "idempotent": False}
+        return self._release_lease_state(snapshot, state, lane_id, None)
 
 
 def _parser() -> argparse.ArgumentParser:
