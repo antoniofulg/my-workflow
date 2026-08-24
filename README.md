@@ -83,13 +83,20 @@ remains visible to Git. Adoption removes only the exact legacy `.specs/features/
 including duplicates, preserves consumer-owned lines and comments, and never stages or commits
 files.
 
-The workflow config is consumer-owned and optional. Copy
-`.my-workflow.toml.example` to `.my-workflow.toml` when a project wants to make its cadence or
-provider profile explicit. Adoption never creates or overwrites this file:
+The tracked `.my-workflow.toml` is the single editable source for all bundled agent models and
+efforts across Claude, Codex, and Cursor. Adoption installs it only when the target does not have
+one, then synchronizes generated native metadata in the fifteen provider packets. Re-adoption
+preserves an existing config byte-for-byte and changes only generated model metadata in existing
+packets; packet instructions remain consumer-owned.
 
 ```bash
-cp /path/to/my-workflow/.my-workflow.toml.example /path/to/target-project/.my-workflow.toml
+python3 .agents/skills/workflow-config/scripts/workflow_config.py \
+  --root /path/to/target-project --sync-agents
 ```
+
+Edit the `[models.<provider>.<role>]` tables in `.my-workflow.toml`, then run the explicit sync
+command. It reports changed and unchanged packet paths and is idempotent. Native `model`,
+`effort`, and `model_reasoning_effort` fields are generated output; do not edit them manually.
 
 The `cadence` controls the deep-review groups:
 
@@ -120,9 +127,10 @@ python3 .agents/skills/workflow-config/scripts/workflow_config.py \
 ```
 
 The first resolution freezes the effective route and cadence in
-`.specs/features/<feature>/workflow.json`. On resume, the snapshot is authoritative: changes to
-`.my-workflow.toml` or resolver arguments are ignored. Run the resolver with `--refresh` only after
-an explicit human request to resolve the feature again:
+`.specs/features/<feature>/workflow.json`, including model and effort for every delegated role.
+Planner is synchronized but remains the top-level session, not a delegated snapshot role. On
+resume, the snapshot is authoritative and packet metadata must still match its frozen model and
+effort. If it differs, synchronize packets and explicitly refresh; ordinary resume will fail:
 
 ```bash
 python3 .agents/skills/workflow-config/scripts/workflow_config.py \
@@ -165,11 +173,12 @@ product-owned product, architecture, design, and stack documentation. For a new 
 the AGENTS.md product stencil and create product docs only as the product earns them. For an
 existing project, the default command refuses a filled product paragraph; use `--skip-agents` when
 you want the rest of the workflow installed first, then merge the delivery loop into `AGENTS.md`
-and update `CLAUDE.md` by hand. Preserve existing agent packets and model pins; add only missing
-packets.
+and update `CLAUDE.md` by hand. Preserve existing agent packet instructions and configuration; add
+only missing packets, then let `--sync-agents` materialize the central model settings.
 
 Run `python3 /path/to/my-workflow/scripts/adopt.py /path/to/target-project` only after that review.
-For a filled product paragraph, use `--skip-agents` as described above.
+For a filled product paragraph, use `--skip-agents` as described above. Adoption also runs the
+target's explicit `--sync-agents` command after installing missing packets.
 If `docs/qa/README.md` is absent, create it. If it exists, merge only newly discovered facts into
 the existing profile; never overwrite existing content. Record the discovered interfaces, existing
 runner or manual adapter, start and health authority, authentication, fixtures, cleanup, and

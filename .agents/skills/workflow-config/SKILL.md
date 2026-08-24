@@ -1,11 +1,28 @@
 ---
 name: workflow-config
-description: Workflow configuration resolves deep-review cadence and delegated-role providers before feature dispatch. Use when planning or resuming a feature, selecting native or mixed providers, or freezing a feature workflow. Don't use for project gates, QA policy, planning depth, or provider model selection.
+description: Workflow configuration synchronizes central agent models and efforts, then resolves deep-review cadence and delegated-role providers before feature dispatch. Use when editing model settings, syncing packets, planning or resuming a feature, selecting native or mixed providers, or freezing a feature workflow. Don't use for project gates, QA policy, or planning depth.
 ---
 
 # Workflow Configuration
 
-Resolve the feature workflow once, then let the orchestrator dispatch the frozen route.
+Synchronize native packet metadata explicitly, then resolve the feature workflow once and let the
+orchestrator dispatch the frozen route.
+
+## Synchronize agent metadata
+
+`.my-workflow.toml` is the single editable source for every Claude, Codex, and Cursor model and
+effort across planner, implementer, verifier, explorer, and deep reviewer. Native packet fields are
+generated output and packet instructions remain provider-owned.
+
+Run:
+
+```bash
+python3 .agents/skills/workflow-config/scripts/workflow_config.py \
+  --root . --sync-agents
+```
+
+The command validates the complete matrix and every packet before writing, reports `changed` and
+`unchanged` paths, and is idempotent. Adoption runs it after installing missing config and packets.
 
 ## First resolution
 
@@ -23,13 +40,15 @@ Treat the JSON output and `.specs/features/<feature-slug>/workflow.json` as the 
 The resolver owns config parsing, validation, balanced groups, role precedence, agent-file lookup,
 and atomic persistence. Keep those rules in the resolver instead of restating them here.
 
-Done when: the snapshot exists, contains the effective cadence and role routes, and the capable
-orchestrator has accepted every selected provider.
+Done when: the snapshot exists, contains the effective cadence, role routes, and frozen delegated
+model/effort, and the capable orchestrator has accepted every selected provider.
 
 ## Resume
 
 Read the existing feature snapshot before dispatch. Use its `deep_review`, `roles`, and `git_head`
-values even when `.my-workflow.toml` has changed. Do not silently re-resolve an active feature.
+values even when `.my-workflow.toml` has changed. Current packet metadata must match each frozen
+delegated model and effort; otherwise synchronize and explicitly refresh. Do not silently re-resolve
+an active feature.
 
 Done when: resumed dispatch uses the snapshot's effective route and records no new resolution.
 

@@ -167,11 +167,13 @@ T3 -> T4 -> T5
 
 **Done when**:
 
-- [ ] Documentation names `.my-workflow.toml` as the editable source and native fields as generated.
-- [ ] Obsolete model-pin ownership language and example-copy steps are removed.
-- [ ] Contract tests compare every native packet with the central matrix.
-- [ ] `E2E-001` and `E2E-002` have terminal QA evidence.
-- [ ] Build gate passes with zero failures.
+- [x] Documentation names `.my-workflow.toml` as the editable source and native fields as generated.
+- [x] Obsolete model-pin ownership language and example-copy steps are removed.
+- [x] Contract tests compare every native packet with the central matrix.
+- [x] `E2E-001` and `E2E-002` have terminal QA evidence.
+- [x] Build gate passes with zero failures.
+
+**Status:** complete — `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py` (108 Vitest tests plus adoption and resolver suites passed); QA scenarios `CFG-centralize-agent-model-routing` and `CFG-freeze-feature-workflow` are terminal `pass`.
 
 **Tests**: unit and CLI/manual, `E2E-001`, `E2E-002`
 **Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`

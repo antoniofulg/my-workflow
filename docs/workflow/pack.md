@@ -52,8 +52,9 @@ Empty on purpose. Machinery only: operating schema, `raw/` README, stub indexes,
 non-stencil **What this project is** paragraph. It writes `@AGENTS.md` as `CLAUDE.md`, copies the
 bundled skills (including `deep-review`) without shipping `__pycache__` or `*.pyc`, and creates
 `docs/qa/README.md` only when the target has no profile. Agent folders copy missing packet files
-into existing folders without overwriting local files or model pins; a fresh destination gets all
-packets. Adoption rejects Makefile references to machine-global `$(HOME)/.claude/...`,
+into existing folders without overwriting local packet instructions or configuration; a fresh
+destination gets all packets. Adoption then synchronizes generated model metadata from the central
+`.my-workflow.toml`. Adoption rejects Makefile references to machine-global `$(HOME)/.claude/...`,
 `${HOME}/.claude/...`, `$HOME/.claude/...`, or `~/.claude/...`; point TLC gates at the adopted
 `.agents/skills/tlc-spec-driven/scripts/...` path instead.
 
