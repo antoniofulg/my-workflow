@@ -91,24 +91,30 @@ def balanced_groups(slice_count: int, cadence: str) -> list[list[int]]:
     return groups
 
 
-def _read_config(root: Path) -> dict[str, Any]:
-    path = root / ".my-workflow.toml"
-    if not path.exists():
-        raise _error("version must be integer 2; .my-workflow.toml is missing")
+def _load_config(path: Path, label: str) -> dict[str, Any]:
     if tomllib is None:  # pragma: no cover
-        raise _error("Python 3.11 or newer is required to parse .my-workflow.toml")
+        raise _error(f"Python 3.11 or newer is required to parse {label}")
     try:
         with path.open("rb") as stream:
             config = tomllib.load(stream)
     except tomllib.TOMLDecodeError as exc:
-        raise _error(f"invalid .my-workflow.toml: {exc}") from exc
+        raise _error(f"invalid {label}: {exc}") from exc
+    except FileNotFoundError as exc:
+        raise _error(f"{label} is missing") from exc
     if not isinstance(config, dict):
-        raise _error(".my-workflow.toml must contain a table")
+        raise _error(f"{label} must contain a table")
     version = config.get("version")
     if type(version) is not int or version != 2:
         raise _error("version must be integer 2")
     _validate_config_schema(config)
     return config
+
+
+def _read_config(root: Path) -> dict[str, Any]:
+    path = root / ".my-workflow.toml"
+    if not path.exists():
+        raise _error("version must be integer 2; .my-workflow.toml is missing")
+    return _load_config(path, ".my-workflow.toml")
 
 
 def _cadence(config: dict[str, Any]) -> str:
@@ -404,28 +410,46 @@ def _write_bytes_atomic(path: Path, content: bytes) -> None:
                 pass
 
 
+def _sync_config(root: Path) -> tuple[dict[str, Any], bytes | None]:
+    local = root / ".my-workflow.toml"
+    if local.exists():
+        return _read_config(root), None
+    example = root / ".my-workflow.toml.example"
+    config = _load_config(example, ".my-workflow.toml.example")
+    return config, example.read_bytes()
+
+
 def sync_agents(root: Path) -> dict[str, list[str]]:
-    """Validate and synchronize all provider packets from the central matrix."""
+    """Validate templates and materialize complete ignored runtime packets."""
     root = root.resolve()
-    config = _read_config(root)
+    config, config_bytes = _sync_config(root)
     plans: list[tuple[Path, bytes]] = []
     for provider in PROVIDERS:
         for role in ROLES:
-            relative = Path(_agent_file(root, provider, role))
-            path = root / relative
-            content = path.read_bytes()
-            packet_setting(provider, content, relative)
-            rendered = render_agent_packet(provider, content, model_setting(config, provider, role), relative)
+            relative = _runtime_relative(provider, role)
+            template_relative = _template_relative(provider, role)
+            template_path = root / template_relative
+            try:
+                template = template_path.read_bytes()
+            except FileNotFoundError as exc:
+                raise _error(f"missing agent template {template_relative.as_posix()}") from exc
+            packet_setting(provider, template, template_relative)
+            rendered = render_agent_packet(
+                provider, template, model_setting(config, provider, role), template_relative
+            )
             assert isinstance(rendered, bytes)
             plans.append((relative, rendered))
+    if config_bytes is not None:
+        _write_bytes_atomic(root / ".my-workflow.toml", config_bytes)
     changed: list[str] = []
     unchanged: list[str] = []
     for relative, rendered in plans:
         path = root / relative
-        current = path.read_bytes()
+        current = path.read_bytes() if path.exists() else None
         if current == rendered:
             unchanged.append(relative.as_posix())
         else:
+            path.parent.mkdir(parents=True, exist_ok=True)
             _write_bytes_atomic(path, rendered)
             changed.append(relative.as_posix())
     return {"changed": changed, "unchanged": unchanged}
@@ -452,22 +476,30 @@ def _git_head(root: Path) -> str:
         raise _error(f"cannot resolve git head in {root}") from exc
 
 
+def _runtime_relative(provider: str, role: str) -> Path:
+    extension = "toml" if provider == "codex" else "md"
+    agent_name = AGENT_NAMES.get(role, role)
+    return Path(f".{provider}") / "agents" / f"{agent_name}.{extension}"
+
+
+def _template_relative(provider: str, role: str) -> Path:
+    extension = "toml" if provider == "codex" else "md"
+    agent_name = AGENT_NAMES.get(role, role)
+    return Path("templates") / "agents" / provider / f"{agent_name}.{extension}"
+
+
 def _agent_file(root: Path, provider: str, role: str) -> str:
-    candidates = _agent_candidates(provider, role)
-    for relative in candidates:
-        if (root / relative).is_file():
-            return relative.as_posix()
-    expected = ", ".join(relative.as_posix() for relative in candidates)
-    raise _error(f"missing agent file for provider {provider!r}, role {role!r}; expected {expected}")
+    relative = _runtime_relative(provider, role)
+    if (root / relative).is_file():
+        return relative.as_posix()
+    raise _error(
+        f"missing generated agent file for provider {provider!r}, role {role!r}; "
+        f"run --sync-agents; expected {relative.as_posix()}"
+    )
 
 
 def _agent_candidates(provider: str, role: str) -> tuple[Path, ...]:
-    agent_name = AGENT_NAMES.get(role, role)
-    extensions = ("toml", "md") if provider == "codex" else ("md", "toml")
-    return tuple(
-        Path(f".{provider}") / "agents" / f"{agent_name}.{extension}"
-        for extension in extensions
-    )
+    return (_runtime_relative(provider, role),)
 
 
 def _snapshot_path(root: Path, feature: str) -> Path:

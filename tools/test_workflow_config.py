@@ -23,7 +23,14 @@ MODELS = {
 }
 
 
-def write_config(root: Path, *, models: dict | None = None, cadence: str = "grouped.3", extra: str = "") -> None:
+def write_config(
+    root: Path,
+    *,
+    models: dict | None = None,
+    cadence: str = "grouped.3",
+    extra: str = "",
+    filename: str = ".my-workflow.toml",
+) -> None:
     lines = ["version = 2", "", "[deep_review]", f'cadence = "{cadence}"', ""]
     for provider in workflow_config.PROVIDERS:
         for role in workflow_config.ROLES:
@@ -36,14 +43,14 @@ def write_config(root: Path, *, models: dict | None = None, cadence: str = "grou
                     "",
                 ]
             )
-    (root / ".my-workflow.toml").write_text("\n".join(lines) + extra, encoding="utf-8")
+    (root / filename).write_text("\n".join(lines) + extra, encoding="utf-8")
 
 
 def make_root() -> Path:
     return Path(tempfile.mkdtemp())
 
 
-def write_packets(root: Path) -> None:
+def write_packets(root: Path, *, runtime: bool = True) -> None:
     packets = {
         "claude": "---\nname: {role}\nmodel: old-model\neffort: low\ntools: Read\n---\nInstructions for {role}.\n",
         "cursor": "---\nname: {role}\nmodel: old-model[effort=low]\nis_background: true\n---\nInstructions for {role}.\n",
@@ -51,13 +58,16 @@ def write_packets(root: Path) -> None:
     }
     for provider, template in packets.items():
         extension = "toml" if provider == "codex" else "md"
-        agents = root / f".{provider}" / "agents"
-        agents.mkdir(parents=True)
         for role in workflow_config.ROLES:
             agent_name = workflow_config.AGENT_NAMES.get(role, role)
-            (agents / f"{agent_name}.{extension}").write_text(
-                template.format(role=agent_name), encoding="utf-8"
-            )
+            content = template.format(role=agent_name).encode("utf-8")
+            template_path = root / "templates" / "agents" / provider / f"{agent_name}.{extension}"
+            template_path.parent.mkdir(parents=True, exist_ok=True)
+            template_path.write_bytes(content)
+            if runtime:
+                runtime_path = root / f".{provider}" / "agents" / f"{agent_name}.{extension}"
+                runtime_path.parent.mkdir(parents=True, exist_ok=True)
+                runtime_path.write_bytes(content)
 
 
 def make_packet_root() -> Path:
@@ -81,6 +91,14 @@ def packet_paths(root: Path) -> list[Path]:
         for provider in workflow_config.PROVIDERS
         for role in workflow_config.ROLES
         for relative in [Path(workflow_config._agent_file(root, provider, role))]
+    ]
+
+
+def template_paths(root: Path) -> list[Path]:
+    return [
+        root / workflow_config._template_relative(provider, role)
+        for provider in workflow_config.PROVIDERS
+        for role in workflow_config.ROLES
     ]
 
 
@@ -219,6 +237,42 @@ def test_sync_renders_all_native_metadata_and_reports_changes() -> None:
         shutil.rmtree(root)
 
 
+def test_sync_initializes_local_config_and_generates_fifteen_runtime_packets() -> None:
+    root = make_root()
+    try:
+        write_config(root, filename=".my-workflow.toml.example")
+        write_packets(root, runtime=False)
+        example = (root / ".my-workflow.toml.example").read_bytes()
+        templates_before = {path: path.read_bytes() for path in template_paths(root)}
+        result = workflow_config.sync_agents(root)
+        assert (root / ".my-workflow.toml").read_bytes() == example
+        assert len(result["changed"]) == 15
+        assert result["unchanged"] == []
+        assert {path: path.read_bytes() for path in template_paths(root)} == templates_before
+        assert len(packet_paths(root)) == 15
+    finally:
+        shutil.rmtree(root)
+
+
+def test_sync_rebuilds_runtime_from_immutable_templates() -> None:
+    root = make_packet_root()
+    try:
+        workflow_config.sync_agents(root)
+        template = root / "templates/agents/claude/planner.md"
+        template_before = template.read_bytes()
+        runtime = root / ".claude/agents/planner.md"
+        runtime.write_bytes(runtime.read_bytes().replace(b"Instructions for planner.", b"Disposable runtime edit."))
+        result = workflow_config.sync_agents(root)
+        assert ".claude/agents/planner.md" in result["changed"]
+        expected = workflow_config.render_agent_packet(
+            "claude", template_before, MODELS["claude"]["planner"], Path("templates/agents/claude/planner.md")
+        )
+        assert runtime.read_bytes() == expected
+        assert template.read_bytes() == template_before
+    finally:
+        shutil.rmtree(root)
+
+
 def test_sync_preserves_non_model_bytes() -> None:
     root = make_packet_root()
     try:
@@ -234,7 +288,7 @@ def test_sync_preserves_non_model_bytes() -> None:
 def test_sync_rejects_malformed_packet_before_any_write() -> None:
     root = make_packet_root()
     try:
-        target = root / ".cursor/agents/verifier.md"
+        target = root / "templates/agents/cursor/verifier.md"
         target.write_text(target.read_text(encoding="utf-8").replace("model:", "model-old:"), encoding="utf-8")
         before = {
             path: path.read_bytes()
@@ -300,7 +354,7 @@ def test_sync_invalid_config_and_duplicate_metadata_write_no_packets() -> None:
         assert {path: path.read_bytes() for path in before} == before
 
         write_config(root)
-        duplicate = root / ".claude/agents/verifier.md"
+        duplicate = root / "templates/agents/claude/verifier.md"
         duplicate.write_text(
             duplicate.read_text(encoding="utf-8").replace(
                 "model: old-model\n", "model: old-model\nmodel: duplicate\n", 1
@@ -370,7 +424,7 @@ def test_sync_requires_native_header_metadata_for_every_provider() -> None:
                 role = "planner"
                 agent_name = workflow_config.AGENT_NAMES.get(role, role)
                 extension = "toml" if provider == "codex" else "md"
-                packet = root / f".{provider}/agents/{agent_name}.{extension}"
+                packet = root / "templates" / "agents" / provider / f"{agent_name}.{extension}"
                 text = packet.read_text(encoding="utf-8")
                 if provider == "claude":
                     if duplicate:
@@ -403,13 +457,14 @@ def test_sync_requires_native_header_metadata_for_every_provider() -> None:
 def test_sync_preserves_crlf_packet_bytes_for_all_providers() -> None:
     root = make_packet_root()
     try:
-        for path in packet_paths(root):
+        for path in template_paths(root):
             path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
-        before = {path: path.read_bytes() for path in packet_paths(root)}
+        before = {path: path.read_bytes() for path in template_paths(root)}
         workflow_config.sync_agents(root)
-        for path, original in before.items():
-            provider = path.parts[-3][1:]
-            current = path.read_bytes()
+        for template, original in before.items():
+            provider = template.parts[-2]
+            runtime = root / workflow_config._runtime_relative(provider, template.stem)
+            current = runtime.read_bytes()
             assert b"\r\n" in current
             assert b"\n" not in current.replace(b"\r\n", b"")
             assert strip_metadata(provider, original) == strip_metadata(provider, current)
@@ -420,7 +475,7 @@ def test_sync_preserves_crlf_packet_bytes_for_all_providers() -> None:
 def test_codex_ignores_model_like_lines_inside_multiline_toml_text() -> None:
     root = make_packet_root()
     try:
-        packet = root / ".codex/agents/planner.toml"
+        packet = root / "templates/agents/codex/planner.toml"
         packet.write_bytes(
             (
                 'name = "planner"\n'
@@ -439,7 +494,7 @@ def test_codex_ignores_model_like_lines_inside_multiline_toml_text() -> None:
         before = packet.read_bytes()
         description_before = before[before.index(b'description = """'):before.index(b'"""', before.index(b'description = """') + 20) + 3]
         workflow_config.sync_agents(root)
-        after = packet.read_bytes()
+        after = (root / ".codex/agents/planner.toml").read_bytes()
         assert workflow_config.packet_setting("codex", after, Path(".codex/agents/planner.toml")) == {
             "model": "codex-planner", "effort": "high"
         }
@@ -726,27 +781,28 @@ def test_missing_agent_is_rejected_without_fallback() -> None:
         try:
             workflow_config.resolve(root=root, feature="missing-agent", slice_count=1, native_provider="codex")
         except workflow_config.ConfigError as exc:
-            assert "missing agent file" in str(exc)
+            assert "missing generated agent file" in str(exc)
         else:
             raise AssertionError("expected missing agent failure")
     finally:
         shutil.rmtree(root)
 
 
-def test_resume_is_stable_and_preserves_frozen_fallback_agent_path() -> None:
+def test_resolver_rejects_noncanonical_agent_extension_without_fallback() -> None:
     root = make_packet_root()
     try:
         preferred = root / ".codex/agents/implementer.toml"
         fallback = root / ".codex/agents/implementer.md"
+        workflow_config.sync_agents(root)
         fallback.write_text(preferred.read_text(encoding="utf-8"), encoding="utf-8")
         preferred.unlink()
-        workflow_config.sync_agents(root)
         git_root(root)
-        first = workflow_config.resolve(root=root, feature="frozen-route", slice_count=1, native_provider="codex")
-        assert first["roles"]["implementer"]["agent_file"] == ".codex/agents/implementer.md"
-        preferred.write_text(fallback.read_text(encoding="utf-8"), encoding="utf-8")
-        resumed = workflow_config.resolve(root=root, feature="frozen-route", slice_count=8, native_provider="cursor")
-        assert resumed == first
+        try:
+            workflow_config.resolve(root=root, feature="frozen-route", slice_count=1, native_provider="codex")
+        except workflow_config.ConfigError as exc:
+            assert "missing generated agent file" in str(exc)
+        else:
+            raise AssertionError("expected canonical runtime path failure")
     finally:
         shutil.rmtree(root)
 
@@ -760,7 +816,7 @@ def test_invalid_frozen_agent_paths_exit_two_without_snapshot_mutation() -> None
         snapshot_path = root / ".specs/features/invalid-frozen-path/workflow.json"
         original = snapshot_path.read_bytes()
         resolver = Path(__file__).resolve().parent.parent / ".agents/skills/workflow-config/scripts/workflow_config.py"
-        cases = (".codex/agents/verifier.toml", ".codex/agents/implementer.md")
+        cases = (".codex/agents/verifier.toml", ".codex/agents/implementer.toml")
         for invalid_path in cases:
             if invalid_path.endswith("verifier.toml"):
                 verifier_path = root / ".codex/agents/verifier.toml"
@@ -773,6 +829,8 @@ def test_invalid_frozen_agent_paths_exit_two_without_snapshot_mutation() -> None
                     ),
                     encoding="utf-8",
                 )
+            else:
+                (root / invalid_path).unlink()
             snapshot = json.loads(original)
             snapshot["roles"]["implementer"]["agent_file"] = invalid_path
             snapshot_path.write_text(json.dumps(snapshot, indent=2, sort_keys=True) + "\n", encoding="utf-8")

@@ -429,7 +429,18 @@ template hashes match the retained runtime copies; Build gate passed.
 **Where**: `.agents/skills/workflow-config/scripts/workflow_config.py`
 **Depends on**: T15
 **Requirement**: AMR-02, AMR-03, AMR-04, AMR-05, AMR-06
-**Done when**: fresh sync generates fifteen ignored packets; repeat sync is byte-identical; resolver uses canonical runtime paths; invalid sources write nothing.
+
+**Done when**:
+
+- [x] Fresh sync copies and validates the example into local config, then generates all fifteen
+  canonical runtime packets from templates.
+- [x] Repeat sync is byte-identical and runtime edits are overwritten from unchanged templates.
+- [x] Resolver and snapshots use only canonical generated runtime paths; extension fallback is gone.
+- [x] Invalid config/template sources fail before any runtime packet write.
+
+**Status:** complete — 30 resolver tests passed, including fresh initialization, template-driven
+regeneration, canonical-path rejection, and validation-before-write coverage.
+
 **Tests**: unit — initialization, generation, idempotence, missing runtime, and snapshot/resume.
 **Gate**: Quick, `python3 tools/test_workflow_config.py`
 **Commit**: `feat(config): generate local provider runtimes`
