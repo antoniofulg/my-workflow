@@ -31,6 +31,15 @@ CONFIG_KEYS = {"version", "deep_review", "profiles", "models"}
 DEEP_REVIEW_KEYS = {"cadence"}
 MODEL_PROVIDERS = set(PROVIDERS)
 MODEL_KEYS = {"model", "effort"}
+CLAUDE_MODEL_RE = re.compile(r"^model:[ \t]*(?P<model>\S+)[ \t]*$", re.MULTILINE)
+CLAUDE_EFFORT_RE = re.compile(r"^effort:[ \t]*(?P<effort>\S+)[ \t]*$", re.MULTILINE)
+CODEX_MODEL_RE = re.compile(r'^model[ \t]*=[ \t]*"(?P<model>[^"]+)"[ \t]*$', re.MULTILINE)
+CODEX_EFFORT_RE = re.compile(
+    r'^model_reasoning_effort[ \t]*=[ \t]*"(?P<effort>[^"]+)"[ \t]*$', re.MULTILINE
+)
+CURSOR_MODEL_RE = re.compile(
+    r"^model:[ \t]*(?P<model>\S+)\[effort=(?P<effort>[^\]]+)\][ \t]*$", re.MULTILINE
+)
 
 
 class ConfigError(ValueError):
@@ -194,6 +203,92 @@ def model_setting(config: dict[str, Any], provider: str, role: str) -> dict[str,
         return _models(config)[provider][role]
     except KeyError as exc:  # pragma: no cover - callers load validated config.
         raise _error(f"models.{provider}.{role} is required") from exc
+
+
+def _one_match(pattern: re.Pattern[str], content: str, path: Path, label: str) -> re.Match[str]:
+    matches = list(pattern.finditer(content))
+    if len(matches) != 1:
+        raise _error(f"{path.as_posix()} must contain exactly one {label} metadata field")
+    return matches[0]
+
+
+def packet_setting(provider: str, content: str, path: Path) -> dict[str, str]:
+    """Parse the native model and effort metadata from one packet."""
+    if provider == "claude":
+        model = _one_match(CLAUDE_MODEL_RE, content, path, "model").group("model")
+        effort = _one_match(CLAUDE_EFFORT_RE, content, path, "effort").group("effort")
+    elif provider == "codex":
+        model = _one_match(CODEX_MODEL_RE, content, path, "model").group("model")
+        effort = _one_match(CODEX_EFFORT_RE, content, path, "model_reasoning_effort").group("effort")
+    else:
+        match = _one_match(CURSOR_MODEL_RE, content, path, "model/effort").groupdict()
+        model, effort = match["model"], match["effort"]
+    return {"model": model, "effort": effort}
+
+
+def render_agent_packet(provider: str, content: str, setting: dict[str, str], path: Path | None = None) -> str:
+    """Replace only provider-native model metadata in an agent packet."""
+    packet_path = path or Path("agent packet")
+    if provider == "claude":
+        model_match = _one_match(CLAUDE_MODEL_RE, content, packet_path, "model")
+        effort_match = _one_match(CLAUDE_EFFORT_RE, content, packet_path, "effort")
+        content = content[:model_match.start()] + f"model: {setting['model']}" + content[model_match.end():]
+        # Re-find after model replacement because offsets may change.
+        effort_match = _one_match(CLAUDE_EFFORT_RE, content, packet_path, "effort")
+        return content[:effort_match.start()] + f"effort: {setting['effort']}" + content[effort_match.end():]
+    if provider == "codex":
+        model_match = _one_match(CODEX_MODEL_RE, content, packet_path, "model")
+        content = content[:model_match.start()] + f'model = "{setting["model"]}"' + content[model_match.end():]
+        effort_match = _one_match(CODEX_EFFORT_RE, content, packet_path, "model_reasoning_effort")
+        return content[:effort_match.start()] + f'model_reasoning_effort = "{setting["effort"]}"' + content[effort_match.end():]
+    match = _one_match(CURSOR_MODEL_RE, content, packet_path, "model/effort")
+    return content[:match.start()] + f"model: {setting['model']}[effort={setting['effort']}]" + content[match.end():]
+
+
+def _write_text_atomic(path: Path, content: str) -> None:
+    temporary: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent, prefix=f".{path.name}.", delete=False
+        ) as stream:
+            temporary = stream.name
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+        temporary = None
+    finally:
+        if temporary:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
+
+
+def sync_agents(root: Path) -> dict[str, list[str]]:
+    """Validate and synchronize all provider packets from the central matrix."""
+    root = root.resolve()
+    config = _read_config(root)
+    plans: list[tuple[Path, str]] = []
+    for provider in PROVIDERS:
+        for role in ROLES:
+            relative = Path(_agent_file(root, provider, role))
+            path = root / relative
+            content = path.read_text(encoding="utf-8")
+            packet_setting(provider, content, relative)
+            rendered = render_agent_packet(provider, content, model_setting(config, provider, role), relative)
+            plans.append((relative, rendered))
+    changed: list[str] = []
+    unchanged: list[str] = []
+    for relative, rendered in plans:
+        path = root / relative
+        current = path.read_text(encoding="utf-8")
+        if current == rendered:
+            unchanged.append(relative.as_posix())
+        else:
+            _write_text_atomic(path, rendered)
+            changed.append(relative.as_posix())
+    return {"changed": changed, "unchanged": unchanged}
 
 
 def _parse_overrides(values: list[str]) -> dict[str, str]:
@@ -385,21 +480,38 @@ def resolve(
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path.cwd())
-    parser.add_argument("--feature", required=True)
-    parser.add_argument("--slices", dest="slice_count", type=int, required=True)
-    parser.add_argument("--native-provider", required=True)
+    parser.add_argument("--feature")
+    parser.add_argument("--slices", dest="slice_count", type=int)
+    parser.add_argument("--native-provider")
     parser.add_argument("--profile")
     parser.add_argument("--override", dest="overrides", action="append", default=[])
     parser.add_argument("--refresh", action="store_true")
+    parser.add_argument("--sync-agents", action="store_true")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
+    arguments = _parser().parse_args(argv)
     try:
-        snapshot = resolve(**vars(_parser().parse_args(argv)))
+        if arguments.sync_agents:
+            if any(
+                value is not None
+                for value in (arguments.feature, arguments.slice_count, arguments.native_provider,
+                              arguments.profile)
+            ) or arguments.refresh:
+                raise _error("--sync-agents cannot be combined with feature-resolution arguments")
+            if arguments.overrides:
+                raise _error("--sync-agents cannot be combined with feature-resolution arguments")
+            print(json.dumps(sync_agents(arguments.root), indent=2, sort_keys=True))
+            return 0
+        if arguments.feature is None or arguments.slice_count is None or arguments.native_provider is None:
+            raise _error("--feature, --slices, and --native-provider are required unless --sync-agents is used")
+        values = vars(arguments)
+        values.pop("sync_agents")
+        snapshot = resolve(**values)
     except ConfigError as exc:
         print(str(exc), file=sys.stderr)
-        return 1
+        return 2
     print(json.dumps(snapshot, indent=2, sort_keys=True))
     return 0
 

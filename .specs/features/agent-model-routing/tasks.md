@@ -86,11 +86,13 @@ T3 -> T4 -> T5
 
 **Done when**:
 
-- [ ] All fifteen packets render their native model syntax from central config.
-- [ ] Validation completes before replacement and preserves non-model bytes.
-- [ ] JSON output lists changed and unchanged project-relative paths.
-- [ ] `UT-003` through `UT-007` and `UT-011` pass.
-- [ ] Quick gate passes with zero failures.
+- [x] All fifteen packets render their native model syntax from central config.
+- [x] Validation completes before replacement and preserves non-model bytes.
+- [x] JSON output lists changed and unchanged project-relative paths.
+- [x] `UT-003` through `UT-007` and `UT-011` pass.
+- [x] Quick gate passes with zero failures.
+
+**Status:** complete — `python3 tools/test_workflow_config.py` (6 passed, 0 failed); CLI sync and idempotent second sync passed.
 
 **Tests**: unit, `UT-003`, `UT-004`, `UT-005`, `UT-006`, `UT-007`, `UT-011`
 **Gate**: Quick, `python3 tools/test_workflow_config.py`

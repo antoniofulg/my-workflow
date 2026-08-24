@@ -40,6 +40,30 @@ def make_root() -> Path:
     return Path(tempfile.mkdtemp())
 
 
+def write_packets(root: Path) -> None:
+    packets = {
+        "claude": "---\nname: {role}\nmodel: old-model\neffort: low\ntools: Read\n---\nInstructions for {role}.\n",
+        "cursor": "---\nname: {role}\nmodel: old-model[effort=low]\nis_background: true\n---\nInstructions for {role}.\n",
+        "codex": 'name = "{role}"\nmodel = "old-model"\nmodel_reasoning_effort = "low"\nsandbox_mode = "read-only"\n\ndeveloper_instructions = "Instructions for {role}."\n',
+    }
+    for provider, template in packets.items():
+        extension = "toml" if provider == "codex" else "md"
+        agents = root / f".{provider}" / "agents"
+        agents.mkdir(parents=True)
+        for role in workflow_config.ROLES:
+            agent_name = workflow_config.AGENT_NAMES.get(role, role)
+            (agents / f"{agent_name}.{extension}").write_text(
+                template.format(role=agent_name), encoding="utf-8"
+            )
+
+
+def make_packet_root() -> Path:
+    root = make_root()
+    write_config(root)
+    write_packets(root)
+    return root
+
+
 def test_parses_complete_v2_matrix() -> None:
     root = make_root()
     try:
@@ -114,6 +138,64 @@ def test_rejects_unknown_top_level_and_missing_config() -> None:
             assert "version must be integer 2" in str(exc)
         else:
             raise AssertionError("expected missing config failure")
+    finally:
+        shutil.rmtree(root)
+
+
+def test_sync_renders_all_native_metadata_and_reports_changes() -> None:
+    root = make_packet_root()
+    try:
+        result = workflow_config.sync_agents(root)
+        assert len(result["changed"]) == 15
+        assert result["unchanged"] == []
+        assert "model: claude-implementer" in (root / ".claude/agents/implementer.md").read_text()
+        assert "effort: high" in (root / ".claude/agents/implementer.md").read_text()
+        cursor = (root / ".cursor/agents/implementer.md").read_text()
+        assert "model: cursor-implementer[effort=high]" in cursor
+        codex = (root / ".codex/agents/implementer.toml").read_text()
+        assert 'model = "codex-implementer"' in codex
+        assert 'model_reasoning_effort = "high"' in codex
+        second = workflow_config.sync_agents(root)
+        assert second == {"changed": [], "unchanged": result["changed"]}
+    finally:
+        shutil.rmtree(root)
+
+
+def test_sync_preserves_non_model_bytes() -> None:
+    root = make_packet_root()
+    try:
+        before = {
+            path: path.read_text(encoding="utf-8")
+            for path in (root / ".claude/agents").glob("*.md")
+        }
+        workflow_config.sync_agents(root)
+        for path, original in before.items():
+            current_lines = path.read_text(encoding="utf-8").splitlines()
+            original_lines = original.splitlines()
+            assert [line for line in current_lines if not line.startswith(("model:", "effort:"))] == [
+                line for line in original_lines if not line.startswith(("model:", "effort:"))
+            ]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_sync_rejects_malformed_packet_before_any_write() -> None:
+    root = make_packet_root()
+    try:
+        target = root / ".cursor/agents/verifier.md"
+        target.write_text(target.read_text(encoding="utf-8").replace("model:", "model-old:"), encoding="utf-8")
+        before = {
+            path: path.read_bytes()
+            for provider in workflow_config.PROVIDERS
+            for path in (root / f".{provider}/agents").glob("*")
+        }
+        try:
+            workflow_config.sync_agents(root)
+        except workflow_config.ConfigError as exc:
+            assert "verifier" in str(exc)
+        else:
+            raise AssertionError("expected malformed packet failure")
+        assert {path: path.read_bytes() for path in before} == before
     finally:
         shutil.rmtree(root)
 
