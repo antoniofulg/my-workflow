@@ -114,11 +114,14 @@ codex
 ```
 
 The wrapper forwards the original argument vector literally, calls `ai-memory finalize-session`
-once after Codex exits, and returns Codex's original exit status. It does not edit `~/.zshrc`.
-The operator may source it from their own shell startup file later if desired.
+once after an interactive Codex exit, and returns Codex's original exit status. It skips automatic
+finalization for known noninteractive, informational, and admin commands (`--version`, `--help`,
+`exec`, `mcp`, `completion`, `login`, and `logout`) because those invocations do not create the
+interactive session that the wrapper is meant to close. It does not edit `~/.zshrc`; the operator
+may source it from their own shell startup file later if desired.
 
-Codex has no reliable true SessionEnd hook. If the wrapper cannot run because the shell or process
-was killed, return to the project directory and run the manual fallback:
+Codex has no reliable true SessionEnd hook. If the wrapper shell dies before cleanup, return to the
+project directory and run the manual fallback:
 
 ```zsh
 source /path/to/my-workflow/scripts/ai-memory.zsh

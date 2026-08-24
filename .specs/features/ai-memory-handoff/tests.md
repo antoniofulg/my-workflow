@@ -9,6 +9,8 @@
 | UT-003 | Finalization failure is visible | Fake `ai-memory finalize-session` exits non-zero | Helper writes the documented failure message to stderr and keeps the Codex status |
 | UT-004 | Arguments remain literal | Wrapper receives arguments containing spaces and shell metacharacters | Fake Codex receives the same argument vector and no argument is executed by the shell |
 | UT-005 | Manual fallback finalizes directly | A fake `ai-memory finalize-session` exits with status `23` and `handoff()` is called directly | Fake `ai-memory` is invoked exactly once and `handoff()` returns status `23` |
+| UT-006 | Informational Codex invocation preserves open session | A pre-existing open session exists and the sourced helper runs `codex --version` | Codex returns success and no automatic finalization call is made |
+| UT-007 | Noninteractive Codex execution preserves open session | A pre-existing open session exists and the sourced helper runs `codex exec work` | Codex returns success and no automatic finalization call is made |
 
 ## Integration
 

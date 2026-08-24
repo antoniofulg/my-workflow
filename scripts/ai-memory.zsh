@@ -11,6 +11,17 @@ _ai_memory_finalize() {
   return "$finalization_status"
 }
 
+_ai_memory_should_finalize() {
+  case "${1-}" in
+    --help|-h|--version|-V|help|version|completion|exec|login|logout|mcp)
+      return 1
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+}
+
 codex() {
   local codex_status
 
@@ -20,7 +31,9 @@ codex() {
     codex_status=$?
   fi
 
-  _ai_memory_finalize || true
+  if _ai_memory_should_finalize "$@"; then
+    _ai_memory_finalize || true
+  fi
   return "$codex_status"
 }
 

@@ -32,7 +32,7 @@ Commit. The last code-changing task is followed by a fresh Verifier.
 One vertical slice, executed sequentially:
 
 ```text
-T1 → T2 → T3 → T4 → T5 → T6
+T1 → T2 → T3 → T4 → T5 → T6 → T7
 ```
 
 ## Task Breakdown
@@ -109,6 +109,19 @@ T1 → T2 → T3 → T4 → T5 → T6
 **Tests:** UT-005; corrected Codex child `kill -9` edge case.
 **Gate:** Quick, validators, and `git diff --check`.
 **Commit:** `test(workflow): cover manual ai-memory fallback`
+
+### T7: Prevent noninteractive Codex finalization
+
+**Status:** complete
+**What:** Bypass automatic finalization for known informational, noninteractive, and admin Codex invocations while preserving interactive exactly-once finalization and child status.
+**Where:** `scripts/test_ai_memory.py`
+**Contract updates:** `.specs/features/ai-memory-handoff/tests.md`, `docs/workflow/ai-memory.md`
+**Depends on:** T6
+**Reuses:** Existing fake-PATH shell helper test pattern.
+**Requirement:** AIM-02, AIM-03
+**Tests:** UT-006, UT-007 plus existing interactive status and exactly-once cases.
+**Gate:** Quick, validators, and `git diff --check`.
+**Commit:** `fix(workflow): avoid finalizing noninteractive codex calls`
 
 ## Diagram-Definition Cross-Check
 

@@ -131,6 +131,18 @@ def test_manual_handoff_calls_finalize_and_returns_status() -> None:
     assert calls == ["finalize-session"]
 
 
+def test_version_does_not_finalize_preexisting_session() -> None:
+    result, calls = run_codex("--version")
+    assert result.returncode == 0
+    assert calls == []
+
+
+def test_exec_does_not_finalize_preexisting_session() -> None:
+    result, calls = run_codex("exec", "work")
+    assert result.returncode == 0
+    assert calls == []
+
+
 def main() -> None:
     tests = (
         test_finalizes_once,
@@ -138,6 +150,8 @@ def main() -> None:
         test_reports_finalization_failure,
         test_passes_arguments_literally,
         test_manual_handoff_calls_finalize_and_returns_status,
+        test_version_does_not_finalize_preexisting_session,
+        test_exec_does_not_finalize_preexisting_session,
     )
     for test in tests:
         test()
