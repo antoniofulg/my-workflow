@@ -101,14 +101,14 @@ instruction bytes, and inspect all native model fields.
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| AMR-01 | Configure every agent | Tasks | In Tasks |
-| AMR-02 | Configure every agent | Tasks | In Tasks |
-| AMR-03 | Configure every agent | Tasks | In Tasks |
-| AMR-04 | Configure every agent | Tasks | In Tasks |
-| AMR-05 | Freeze execution settings | Tasks | In Tasks |
-| AMR-06 | Freeze execution settings | Tasks | In Tasks |
-| AMR-07 | Adopt centralized contract | Tasks | In Tasks |
-| AMR-08 | Adopt centralized contract | Tasks | In Tasks |
+| AMR-01 | Configure every agent | Validation | Verified |
+| AMR-02 | Configure every agent | Validation | Verified |
+| AMR-03 | Configure every agent | Validation | Verified |
+| AMR-04 | Configure every agent | Validation | Verified |
+| AMR-05 | Freeze execution settings | Validation | Verified |
+| AMR-06 | Freeze execution settings | Validation | Verified |
+| AMR-07 | Adopt centralized contract | Validation | Verified |
+| AMR-08 | Adopt centralized contract | Validation | Verified |
 
 **Coverage:** 8 total, 8 mapped to tasks, 0 unmapped.
 

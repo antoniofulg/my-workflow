@@ -6,7 +6,7 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 flow and Critical Rules.** If the skill cannot be activated, stop without implementation.
 
 **Design**: `.specs/features/agent-model-routing/design.md`
-**Status**: Approved
+**Status**: Done
 
 ## Test Coverage Matrix
 
