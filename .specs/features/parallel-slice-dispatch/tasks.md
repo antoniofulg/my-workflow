@@ -68,7 +68,7 @@ T3 → T4
 
 ### T3: Define autonomous inter-slice orchestration
 
-**Status:** pending
+**Status:** complete
 **Observable behaviour:** Autonomous consumes a safe plan only with an isolated capable orchestrator, ends waiting worker turns, follows up on dependency events, syncs at checkpoints, and falls back serially without changing TLC.
 **Where:** `.agents/skills/autonomous/references/parallelization.md`
 **Depends on:** T2
