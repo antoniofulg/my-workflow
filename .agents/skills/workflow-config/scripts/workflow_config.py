@@ -52,6 +52,14 @@ CODEX_EFFORT_RE = re.compile(
     r'^model_reasoning_effort[ \t]*=[ \t]*"(?P<effort>[^"]+)"(?P<suffix>[ \t]*)(?P<newline>\r\n|\n|\Z)',
     re.MULTILINE,
 )
+CODEX_MODEL_ASSIGNMENT_RE = re.compile(
+    r'^[ \t]*model[ \t]*=[ \t]*"(?P<model>[^"]+)"(?P<suffix>[ \t]*(?:#[^\r\n]*)?)(?P<newline>\r\n|\n|\Z)',
+    re.MULTILINE,
+)
+CODEX_EFFORT_ASSIGNMENT_RE = re.compile(
+    r'^[ \t]*model_reasoning_effort[ \t]*=[ \t]*"(?P<effort>[^"]+)"(?P<suffix>[ \t]*(?:#[^\r\n]*)?)(?P<newline>\r\n|\n|\Z)',
+    re.MULTILINE,
+)
 CURSOR_MODEL_RE = re.compile(
     r"^model:[ \t]*(?P<model>[^\r\n\[]+)\[effort=(?P<effort>[^\]\r\n]+)\](?P<suffix>[ \t]*)(?P<newline>\r\n|\n|\Z)",
     re.MULTILINE,
@@ -247,6 +255,55 @@ def _coerce_content(content: str | bytes) -> tuple[str, bool]:
     return content, False
 
 
+def _codex_fields(content: str, path: Path) -> dict[str, list[tuple[int, int, re.Match[str]]]]:
+    if tomllib is None:  # pragma: no cover
+        raise _error("Python 3.11 or newer is required to parse Codex agent packets")
+    try:
+        tomllib.loads(content)
+    except tomllib.TOMLDecodeError as exc:
+        raise _error(f"{path.as_posix()} contains invalid TOML: {exc}") from exc
+
+    fields: dict[str, list[tuple[int, int, re.Match[str]]]] = {"model": [], "effort": []}
+    multiline_delimiter: str | None = None
+    current_table: str | None = None
+    for line_match in re.finditer(r".*(?:\r\n|\n|\Z)", content):
+        line = line_match.group(0)
+        body = line[:-2] if line.endswith("\r\n") else line[:-1] if line.endswith("\n") else line
+        if multiline_delimiter:
+            if multiline_delimiter in body:
+                multiline_delimiter = None
+            continue
+        table = re.match(r"^[ \t]*\[(.+)\][ \t]*(?:#.*)?$", body)
+        if table:
+            current_table = table.group(1)
+            continue
+        if current_table is None:
+            model_match = CODEX_MODEL_ASSIGNMENT_RE.match(content, line_match.start())
+            if model_match:
+                fields["model"].append((line_match.start(), line_match.end(), model_match))
+            effort_match = CODEX_EFFORT_ASSIGNMENT_RE.match(content, line_match.start())
+            if effort_match:
+                fields["effort"].append((line_match.start(), line_match.end(), effort_match))
+        if '"""' in body:
+            occurrences = body.count('"""')
+            if occurrences % 2:
+                multiline_delimiter = '"""'
+        if "'''" in body:
+            occurrences = body.count("'''")
+            if occurrences % 2:
+                multiline_delimiter = "'''"
+    return fields
+
+
+def _codex_field(
+    fields: dict[str, list[tuple[int, int, re.Match[str]]]], key: str, path: Path, label: str
+) -> tuple[int, int, re.Match[str]]:
+    matches = fields[key]
+    if len(matches) != 1:
+        raise _error(f"{path.as_posix()} must contain exactly one {label} metadata field")
+    return matches[0]
+
+
 def packet_setting(provider: str, content: str | bytes, path: Path) -> dict[str, str]:
     """Parse the native model and effort metadata from one packet."""
     text, _ = _coerce_content(content)
@@ -255,8 +312,11 @@ def packet_setting(provider: str, content: str | bytes, path: Path) -> dict[str,
         model = _one_match(CLAUDE_MODEL_RE, header, path, "model").group("model").strip()
         effort = _one_match(CLAUDE_EFFORT_RE, header, path, "effort").group("effort").strip()
     elif provider == "codex":
-        model = _one_match(CODEX_MODEL_RE, header, path, "model").group("model")
-        effort = _one_match(CODEX_EFFORT_RE, header, path, "model_reasoning_effort").group("effort")
+        fields = _codex_fields(text, path)
+        _, _, model_match = _codex_field(fields, "model", path, "model")
+        _, _, effort_match = _codex_field(fields, "effort", path, "model_reasoning_effort")
+        model = model_match.group("model")
+        effort = effort_match.group("effort")
     else:
         match = _one_match(CURSOR_MODEL_RE, header, path, "model/effort").groupdict()
         model, effort = match["model"].strip(), match["effort"].strip()
@@ -279,6 +339,17 @@ def render_agent_packet(
     else:
         model_pattern, effort_pattern = CURSOR_MODEL_RE, None
 
+    if provider == "codex":
+        fields = _codex_fields(text, packet_path)
+        model_start, model_end, model_match = _codex_field(fields, "model", packet_path, "model")
+        _, _, effort_match = _codex_field(fields, "effort", packet_path, "model_reasoning_effort")
+        model_replacement = f'model = "{setting["model"]}"' + model_match.group("suffix") + model_match.group("newline")
+        rendered = text[:model_start] + model_replacement + text[model_end:]
+        new_fields = _codex_fields(rendered, packet_path)
+        effort_start, effort_end, new_effort_match = _codex_field(new_fields, "effort", packet_path, "model_reasoning_effort")
+        effort_replacement = f'model_reasoning_effort = "{setting["effort"]}"' + new_effort_match.group("suffix") + new_effort_match.group("newline")
+        rendered = rendered[:effort_start] + effort_replacement + rendered[effort_end:]
+        return rendered.encode("utf-8") if as_bytes else rendered
     model_match = _one_match(model_pattern, header, packet_path, "model")
     if provider == "cursor":
         replacement = (
@@ -290,10 +361,7 @@ def render_agent_packet(
         rendered = text[:start] + replacement + text[end:]
     else:
         effort_match = _one_match(effort_pattern, header, packet_path, "effort")
-        model_value = (
-            f"model: {setting['model']}" if provider == "claude"
-            else f'model = "{setting["model"]}"'
-        )
+        model_value = f"model: {setting['model']}"
         model_replacement = model_value + model_match.group("suffix") + model_match.group("newline")
         start = header_offset + model_match.start()
         end = header_offset + model_match.end()
@@ -303,7 +371,7 @@ def render_agent_packet(
         effort_match = _one_match(effort_pattern, new_header, packet_path, "effort")
         effort_value = (
             f"effort: {setting['effort']}" if provider == "claude"
-            else f'model_reasoning_effort = "{setting["effort"]}"'
+            else f"effort: {setting['effort']}"
         )
         effort_replacement = effort_value + effort_match.group("suffix") + effort_match.group("newline")
         start = new_header_offset + effort_match.start()

@@ -294,13 +294,37 @@ including CRLF, and remove premature public QA claims. Refresh the always-loaded
 **Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
 **Commit**: `fix(config): harden packet grammar and byte preservation`
 
+### T11: Parse Codex metadata at the TOML top level
+
+**What**: Ignore model-like assignments inside multiline TOML strings while synchronizing only
+the true top-level Codex model and effort fields.
+**Where**: `.agents/skills/workflow-config/scripts/workflow_config.py`,
+`tools/test_workflow_config.py`
+**Depends on**: T10
+**Requirement**: AMR-03
+
+**Done when**:
+
+- [x] Codex parsing validates TOML and scans top-level assignments while tracking multiline strings.
+- [x] A multiline description containing model-like lines does not become metadata; true top-level
+  values are rendered and CRLF/instruction bytes remain unchanged.
+- [x] The previous parser fails the regression in a disposable worktree and the corrected parser is
+  green on the real tree.
+- [x] Resolver, adoption, Vitest, validator, and diff gates pass.
+
+**Status:** complete — previous parser red; corrected tree 27 resolver tests, adoption suite, and 108 Vitest tests passed.
+
+**Tests**: unit and CLI/manual, `UT-003`, `UT-006`
+**Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
+**Commit**: `fix(config): parse Codex metadata at top level`
+
 ## Phase Execution Map
 
 ```text
 Phase 1 -> Phase 2
 
 Phase 1: T1 -> T2 -> T3
-Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10
+Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11
 ```
 
 ## Task Granularity Check
@@ -317,6 +341,7 @@ Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10
 | T8 | Frozen agent ownership discrimination | PASS |
 | T9 | Configured cadence integration | PASS |
 | T10 | Packet grammar, bytes, and QA evidence | PASS |
+| T11 | Codex top-level metadata parsing | PASS |
 
 ## Diagram-Definition Cross-Check
 
@@ -332,6 +357,7 @@ Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10
 | T8 | T7 | T7 -> T8 | PASS |
 | T9 | T8 | T8 -> T9 | PASS |
 | T10 | T9 | T9 -> T10 | PASS |
+| T11 | T10 | T10 -> T11 | PASS |
 
 ## Test Co-location Validation
 
@@ -347,3 +373,4 @@ Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10
 | T8 | Frozen path ownership | unit + CLI/manual | unit + CLI/manual | PASS |
 | T9 | Configured cadence integration | unit + CLI/manual | unit + CLI/manual | PASS |
 | T10 | Packet grammar and public QA reset | unit + CLI/manual | unit + CLI/manual | PASS |
+| T11 | Codex top-level metadata | unit + CLI/manual | unit + CLI/manual | PASS |

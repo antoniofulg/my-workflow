@@ -362,7 +362,7 @@ def test_sync_requires_native_header_metadata_for_every_provider() -> None:
                     if duplicate:
                         text = text.replace('model = "old-model"\n', 'model = "old-model"\nmodel = "duplicate"\n', 1)
                     else:
-                        text = text.replace('model = "old-model"\n', "", 1).replace('developer_instructions = "Instructions', 'model = "body-model"\nmodel_reasoning_effort = "low"\ndeveloper_instructions = "Instructions', 1)
+                        text = text.replace('model = "old-model"\n', "", 1) + 'model = "body-model"\nmodel_reasoning_effort = "low"\n'
                 packet.write_text(text, encoding="utf-8")
                 before = {path: path.read_bytes() for path in packet_paths(root)}
                 try:
@@ -389,6 +389,36 @@ def test_sync_preserves_crlf_packet_bytes_for_all_providers() -> None:
             assert b"\r\n" in current
             assert b"\n" not in current.replace(b"\r\n", b"")
             assert strip_metadata(provider, original) == strip_metadata(provider, current)
+    finally:
+        shutil.rmtree(root)
+
+
+def test_codex_ignores_model_like_lines_inside_multiline_toml_text() -> None:
+    root = make_packet_root()
+    try:
+        packet = root / ".codex/agents/planner.toml"
+        packet.write_bytes(
+            (
+                'name = "planner"\n'
+                'description = """\n'
+                'model = "body-model"\n'
+                '"""\n'
+                'model = "old-model"\n'
+                'model_reasoning_effort = "low"\n'
+                'developer_instructions = "Instructions for planner."\n'
+            ).replace("\n", "\r\n").encode("utf-8")
+        )
+        before = packet.read_bytes()
+        description_before = before[before.index(b'description = """'):before.index(b'"""', before.index(b'description = """') + 20) + 3]
+        workflow_config.sync_agents(root)
+        after = packet.read_bytes()
+        assert workflow_config.packet_setting("codex", after, Path(".codex/agents/planner.toml")) == {
+            "model": "codex-planner", "effort": "high"
+        }
+        assert b'model = "body-model"\r\n' in after
+        assert description_before == after[after.index(b'description = """'):after.index(b'"""', after.index(b'description = """') + 20) + 3]
+        assert b"\r\n" in after
+        assert b"\n" not in after.replace(b"\r\n", b"")
     finally:
         shutil.rmtree(root)
 
