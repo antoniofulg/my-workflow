@@ -766,3 +766,70 @@ Read-only Git inspection found branch `feat/parallel-slice-dispatch` at `126fc50
 returned `27 19`: both sides advanced. Per the autonomous readiness contract, the feature branch
 must integrate current `main` and rerun the full gate before push or pull-request readiness can be
 claimed. This verification did not mutate the base or authorize any remote action.
+
+## Post-main Integration Verification
+
+**Date:** 2026-08-24
+**Integrated HEAD:** `0ff15ebd3a2b4cdf6d7e0104d22aa84e5396a261`
+**Integrated base:** `647b8d7f8a5996d6e49e44241415660f5968e439` (`origin/main`)
+**Merge commit:** `0ff15ebd3a2b4cdf6d7e0104d22aa84e5396a261`
+**Feature status:** COMPLETE
+**Verdict:** PASS
+**Verifier:** fresh independent Verifier (author != verifier)
+
+This section supersedes only the stale-base readiness statement above. All earlier slice,
+deep-review, QA, and sensor evidence remains historical evidence for the unchanged feature blobs.
+
+### Integration ancestry and resolution
+
+`git merge-base --is-ancestor origin/main HEAD` exited `0`, proving the integrated base is an
+ancestor of the merge commit. `git status --short --branch` began with no porcelain entries, and
+`git ls-files -u` returned none: the merge was complete and the pre-verification worktree was clean.
+
+The merge named only `.specs/STATE.md` and `.specs/AD-INDEX.md` as conflict resolutions. The resolved
+state preserves Handoff `Idle.` at `.specs/STATE.md:3-5`, preserves AD-003 and marks it `superseded by
+AD-007` at `.specs/STATE.md:39-49`, records versioned durable feature specs in AD-007 at
+`.specs/STATE.md:99-110`, preserves upstream ai-memory as AD-008 at `.specs/STATE.md:112-131`, and
+records parallelization as AD-009 at `.specs/STATE.md:133-147`. The generated index contains the
+same exact statuses and numbering at `.specs/AD-INDEX.md:10-18`; `python3 tools/ad-index.py --check`
+reports it is current.
+
+Blob-identity checks against first parent `1449f86` proved the merge did not change the feature's
+resolver, planner, autonomous policy, owning tests, spec/tasks, two QA scenarios, or QA report. The
+existing AC evidence and completed QA therefore remain applicable; fresh full gates below independently
+prove compatibility with integrated `origin/main`.
+
+### Post-integration gates
+
+| Command | Result |
+| --- | --- |
+| `npm_config_offline=true npm test` | PASS — 9 files, 109/109 tests passed, 0 failed. |
+| `for test_file in tools/test_*.py; do python3 "$test_file" || exit 1; done` | PASS — 72/72 tests passed: 2 + 8 + 5 + 19 + 14 + 9 + 15, 0 failed. |
+| `python3 scripts/test_ai_memory.py` | PASS — 9/9 tests passed, 0 failed. |
+| `python3 scripts/test_adopt.py` | PASS — 14/14 test functions completed and printed `ok`. |
+| `python3 .agents/skills/tlc-spec-driven/scripts/validate_spec.py .specs/features/parallel-slice-dispatch/spec.md` | PASS — 0 errors, 0 warnings. |
+| `python3 .agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/parallel-slice-dispatch/tasks.md` | PASS — 0 errors, 0 warnings. |
+| `python3 tools/ad-index.py --check` | PASS — `AD-INDEX.md up to date`. |
+| `git diff --check 647b8d7f8a5996d6e49e44241415660f5968e439..HEAD`, `git diff --check 6675d5574e692a7534b676519e89fbc484289b46..HEAD`, and `git diff --check` | PASS — no output before this report update. |
+
+### Acceptance, QA, and discrimination disposition
+
+All 16 PAR acceptance criteria retain exact assertion evidence from the unchanged feature blobs,
+and the fresh gates report no integration regression. The two owning scenarios remain terminal
+`qa_status: pass` at `docs/qa/scenarios/CFG-freeze-feature-workflow.md:7-15` and
+`docs/qa/scenarios/CFG-plan-parallel-slice-dispatch.md:7-15`; the adjacent adoption canary remains
+`pass` at `docs/qa/reports/2026-08-24-parallel-slice-dispatch.md:10-16`.
+
+No new discrimination mutation was injected. The merge's only conflict resolution was decision
+documentation; every behavior, test, and QA-contract blob owned by this feature is byte-identical to
+the already mutated and verified first-parent version. Inventing a behavior mutation for a docs-only
+resolution would add no integration evidence. Previous feature sensors remain recorded above, and
+the integrated full gates are the appropriate regression proof.
+
+The known scope limitation is unchanged: this feature supplies configuration, a deterministic plan,
+and an orchestration contract, but no portable worker/worktree/runtime executor. That limitation is
+explicit at `docs/qa/reports/2026-08-24-parallel-slice-dispatch.md:58-62` and does not contradict this
+feature's approved scope.
+
+**Post-main integration verdict:** PASS — feature COMPLETE on integrated `origin/main`; no blocking
+finding or non-terminal owning scenario remains.
