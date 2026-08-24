@@ -8,6 +8,7 @@
 | UT-002 | Codex status is preserved | A fake `codex` exits with status `42` | Wrapped command returns status `42` after finalization |
 | UT-003 | Finalization failure is visible | Fake `ai-memory finalize-session` exits non-zero | Helper writes the documented failure message to stderr and keeps the Codex status |
 | UT-004 | Arguments remain literal | Wrapper receives arguments containing spaces and shell metacharacters | Fake Codex receives the same argument vector and no argument is executed by the shell |
+| UT-005 | Manual fallback finalizes directly | A fake `ai-memory finalize-session` exits with status `23` and `handoff()` is called directly | Fake `ai-memory` is invoked exactly once and `handoff()` returns status `23` |
 
 ## Integration
 

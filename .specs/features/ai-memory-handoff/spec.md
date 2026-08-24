@@ -69,7 +69,7 @@ ai-memory server; normal adoption remains unchanged and produces no ai-memory ru
 
 ## Edge Cases
 
-- IF Codex is terminated with `kill -9` or the shell itself dies THEN the integration SHALL require the explicit `handoff` fallback after the operator returns to the project directory.
+- IF the Codex child is terminated with `kill -9` while the wrapper shell remains alive THEN the wrapper SHALL still run its cleanup finalization; IF the shell or wrapper dies before cleanup THEN the operator SHALL run the explicit `handoff` fallback after returning to the project directory.
 - IF more than one Codex session is open in the same project THEN the operator SHALL use `ai-memory finalize-session --session-id <uuid>` instead of relying on latest-session selection.
 - IF no handoff is pending THEN a new agent session SHALL receive no ai-memory startup payload.
 

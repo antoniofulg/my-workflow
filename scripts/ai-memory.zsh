@@ -3,10 +3,12 @@
 _ai_memory_finalize() {
   if command ai-memory finalize-session; then
     return 0
+  else
+    local finalization_status=$?
   fi
 
   print -u2 -- 'ai-memory: finalize-session failed; run handoff manually.'
-  return 1
+  return "$finalization_status"
 }
 
 codex() {

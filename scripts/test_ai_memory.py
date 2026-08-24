@@ -50,6 +50,32 @@ def run_codex(
         return result, calls
 
 
+def run_handoff(*, ai_memory_status: int = 0) -> tuple[subprocess.CompletedProcess[str], list[str]]:
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        calls = root / "ai-memory-calls"
+        bin_dir = root / "bin"
+        bin_dir.mkdir()
+        (bin_dir / "ai-memory").write_text(
+            "#!/bin/sh\n"
+            f"printf '%s\\n' \"$*\" >> {shlex.quote(str(calls))}\n"
+            f"exit {ai_memory_status}\n",
+            encoding="utf-8",
+        )
+        (bin_dir / "ai-memory").chmod(0o755)
+        env = os.environ.copy()
+        env["PATH"] = f"{bin_dir}:{env['PATH']}"
+        command = f'source {shlex.quote(str(HELPER))}; handoff'
+        result = subprocess.run(
+            ["zsh", "-f", "-c", command],
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        calls = calls.read_text(encoding="utf-8").splitlines() if calls.exists() else []
+        return result, calls
+
+
 def test_finalizes_once() -> None:
     result, calls = run_codex("work")
     assert result.returncode == 0
@@ -99,12 +125,19 @@ def test_passes_arguments_literally() -> None:
         assert not (root / "injected").exists()
 
 
+def test_manual_handoff_calls_finalize_and_returns_status() -> None:
+    result, calls = run_handoff(ai_memory_status=23)
+    assert result.returncode == 23
+    assert calls == ["finalize-session"]
+
+
 def main() -> None:
     tests = (
         test_finalizes_once,
         test_preserves_codex_status,
         test_reports_finalization_failure,
         test_passes_arguments_literally,
+        test_manual_handoff_calls_finalize_and_returns_status,
     )
     for test in tests:
         test()

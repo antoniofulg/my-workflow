@@ -32,7 +32,7 @@ Commit. The last code-changing task is followed by a fresh Verifier.
 One vertical slice, executed sequentially:
 
 ```text
-T1 → T2 → T3 → T4 → T5
+T1 → T2 → T3 → T4 → T5 → T6
 ```
 
 ## Task Breakdown
@@ -96,6 +96,19 @@ T1 → T2 → T3 → T4 → T5
 **Tests:** IT-002
 **Gate:** Full, Build, spec/tasks validators, and `git diff --check`.
 **Commit:** `docs(decision): bound ai-memory to transient handoff`
+
+### T6: Cover the manual ai-memory fallback
+
+**Status:** complete
+**What:** Add direct behavioral coverage for `handoff()` and align the Codex signal edge case with zsh cleanup semantics.
+**Where:** `scripts/test_ai_memory.py`
+**Contract updates:** `.specs/features/ai-memory-handoff/spec.md`, `.specs/features/ai-memory-handoff/tests.md`
+**Depends on:** T5
+**Reuses:** Existing fake-PATH shell helper test pattern.
+**Requirement:** AIM-03
+**Tests:** UT-005; corrected Codex child `kill -9` edge case.
+**Gate:** Quick, validators, and `git diff --check`.
+**Commit:** `test(workflow): cover manual ai-memory fallback`
 
 ## Diagram-Definition Cross-Check
 
