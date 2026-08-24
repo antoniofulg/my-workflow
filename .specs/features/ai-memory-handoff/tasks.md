@@ -32,7 +32,7 @@ Commit. The last code-changing task is followed by a fresh Verifier.
 One vertical slice, executed sequentially:
 
 ```text
-T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9 → T10
+T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9 → T10 → T11
 ```
 
 ## Task Breakdown
@@ -164,6 +164,20 @@ T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9 → T10
 **Gate:** Local ai-memory help/dry-run, validators, context/README checks, AD/knowledge/full gates, and `git diff --check`.
 **Commit:** `docs(readme): document ai-memory lifecycle controls`
 
+### T11: Prepare release 0.4.0
+
+**Status:** complete
+**What:** Align release authorities and canonical version assertions, add the 0.4.0 changelog summary, and record the release contract.
+**Where:** `package.json`
+**Contract updates:** `.specs/features/ai-memory-handoff/spec.md`, `.specs/features/ai-memory-handoff/tests.md`, canonical version assertions, `.specs/features/release-0.4.0/validation.md`
+**Depends on:** T10
+**Reuses:** Existing release 0.3.6 validation pattern and version-consistency assertions.
+**Requirement:** AIM-11.
+**Tests:** IT-005 release version consistency.
+**QA:** Existing ai-memory WFL pass remains valid; release identity is a repository-reader contract.
+**Gate:** Adoption, AD, Deep Review contract/symlink/token metrics, workflow config, TLC validators, npm test, knowledge, version consistency, and `git diff --check`.
+**Commit:** `build(release): prepare 0.4.0`
+
 ## Diagram-Definition Cross-Check
 
 | Task | Depends On | Diagram Shows | Status |
@@ -175,6 +189,7 @@ T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9 → T10
 | T5 | T4 | T4 → T5 | match |
 | T9 | T8 | T8 → T9 | match |
 | T10 | T9 | T9 → T10 | match |
+| T11 | T10 | T10 → T11 | match |
 
 ## Test Co-location Validation
 
@@ -187,3 +202,4 @@ T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9 → T10
 | T5 | decision index | integration | IT-002 | match |
 | T9 | reviewer context and threat model | contract review | SEC-003 | match |
 | T10 | lifecycle documentation | manual contract review | IT-004 | match |
+| T11 | release authorities | integration | IT-005 | match |

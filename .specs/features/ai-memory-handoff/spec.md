@@ -66,6 +66,15 @@ Acceptance criteria:
 - **AIM-09:** WHERE a Verifier or Deep Reviewer is dispatched as an internal named subagent, the workflow SHALL deliver an explicit role packet and SHALL NOT consume an Implementer ai-memory handoff; a top-level reviewer MAY consume an ai-memory handoff only when no pending Implementer handoff can be consumed.
 - **AIM-10:** WHERE an operator controls ai-memory, the workflow SHALL document enablement, hook-only disablement without data deletion, re-enablement, and a separately labeled destructive purge; it SHALL provide no `.my-workflow.toml` toggle and SHALL identify `.ai-memory.toml` as scope/capture configuration only.
 
+### P1: Keep release surfaces consistent
+
+As a workflow maintainer, I want the published release identity to agree across package metadata,
+lockfile roots, changelog, and canonical release assertions.
+
+Acceptance criteria:
+
+- **AIM-11:** WHEN release `0.4.0` is prepared THEN `package.json`, both root `package-lock.json` version fields, the newest `CHANGELOG.md` heading, and canonical version assertions SHALL all report `0.4.0`.
+
 Independent test: inspect the opt-in integration contract and run repository gates without an
 ai-memory server; normal adoption remains unchanged and produces no ai-memory runtime state.
 
@@ -100,6 +109,7 @@ ai-memory server; normal adoption remains unchanged and produces no ai-memory ru
 | AIM-08 | Preserve workflow authority and privacy | Specify | Complete |
 | AIM-09 | Preserve workflow authority and privacy | Specify | Complete |
 | AIM-10 | Preserve workflow authority and privacy | Specify | Complete |
+| AIM-11 | Keep release surfaces consistent | Specify | Complete |
 
 ## Success Criteria
 
@@ -108,3 +118,4 @@ ai-memory server; normal adoption remains unchanged and produces no ai-memory ru
 - Repository adoption and full gates pass without ai-memory installed or running.
 - Internal reviewer context stays packet-defined and does not consume Implementer handoff context.
 - Operators can enable, disable without deleting data, re-enable, or deliberately purge ai-memory without a repository toggle.
+- Release `0.4.0` identity is consistent across package metadata, changelog, and canonical assertions.
