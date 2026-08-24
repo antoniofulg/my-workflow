@@ -11,6 +11,8 @@
 | UT-005 | Manual fallback finalizes directly | A fake `ai-memory finalize-session` exits with status `23` and `handoff()` is called directly | Fake `ai-memory` is invoked exactly once and `handoff()` returns status `23` |
 | UT-006 | Informational Codex invocation preserves open session | A pre-existing open session exists and the sourced helper runs `codex --version` | Codex returns success and no automatic finalization call is made |
 | UT-007 | Noninteractive Codex execution preserves open session | A pre-existing open session exists and the sourced helper runs `codex exec work` | Codex returns success and no automatic finalization call is made |
+| UT-008 | All public bypass modes preserve open session | A pre-existing open session exists and the sourced helper runs each documented informational, noninteractive, or admin mode | Each mode preserves status and argv and makes zero automatic finalization calls |
+| UT-009 | Interactive launch modes finalize once | The sourced helper runs no-argument Codex, prompt/flags, `resume`, and `fork` with child status `42` | Each invocation preserves status and argv and makes exactly one finalization call |
 
 ## Integration
 

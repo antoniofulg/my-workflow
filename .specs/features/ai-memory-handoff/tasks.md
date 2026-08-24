@@ -32,7 +32,7 @@ Commit. The last code-changing task is followed by a fresh Verifier.
 One vertical slice, executed sequentially:
 
 ```text
-T1 → T2 → T3 → T4 → T5 → T6 → T7
+T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8
 ```
 
 ## Task Breakdown
@@ -122,6 +122,19 @@ T1 → T2 → T3 → T4 → T5 → T6 → T7
 **Tests:** UT-006, UT-007 plus existing interactive status and exactly-once cases.
 **Gate:** Quick, validators, and `git diff --check`.
 **Commit:** `fix(workflow): avoid finalizing noninteractive codex calls`
+
+### T8: Discriminate Codex launch modes
+
+**Status:** complete
+**What:** Strengthen the helper suite with explicit data-driven bypass and interactive mode matrices, preserving argv, child status, exactly-once finalization, and failure behavior.
+**Where:** `scripts/test_ai_memory.py`
+**Contract updates:** `.specs/features/ai-memory-handoff/tests.md`
+**Depends on:** T7
+**Reuses:** Existing fake-PATH shell helper test pattern.
+**Requirement:** AIM-02, AIM-03
+**Tests:** UT-003, UT-006–UT-009.
+**Gate:** Quick, full, build, validators, and `git diff --check`.
+**Commit:** `test(workflow): discriminate codex launch modes`
 
 ## Diagram-Definition Cross-Check
 

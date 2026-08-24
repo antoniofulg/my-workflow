@@ -15,7 +15,7 @@ HELPER = ROOT / "scripts" / "ai-memory.zsh"
 
 def run_codex(
     *args: str, codex_status: int = 0, ai_memory_status: int = 0
-) -> tuple[subprocess.CompletedProcess[str], list[str]]:
+) -> tuple[subprocess.CompletedProcess[str], list[str], list[str]]:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         capture = root / "codex-args"
@@ -24,7 +24,7 @@ def run_codex(
         bin_dir.mkdir()
         (bin_dir / "codex").write_text(
             "#!/bin/sh\n"
-            f"printf '%s\\n' \"$@\" > {shlex.quote(str(capture))}\n"
+            f"if [ \"$#\" -gt 0 ]; then printf '%s\\n' \"$@\" > {shlex.quote(str(capture))}; fi\n"
             f"exit {codex_status}\n",
             encoding="utf-8",
         )
@@ -47,7 +47,8 @@ def run_codex(
             text=True,
         )
         calls = calls.read_text(encoding="utf-8").splitlines() if calls.exists() else []
-        return result, calls
+        received = capture.read_text(encoding="utf-8").splitlines() if capture.exists() else []
+        return result, calls, received
 
 
 def run_handoff(*, ai_memory_status: int = 0) -> tuple[subprocess.CompletedProcess[str], list[str]]:
@@ -77,23 +78,26 @@ def run_handoff(*, ai_memory_status: int = 0) -> tuple[subprocess.CompletedProce
 
 
 def test_finalizes_once() -> None:
-    result, calls = run_codex("work")
+    result, calls, received = run_codex("work")
     assert result.returncode == 0
     assert result.stderr == ""
     assert calls == ["finalize-session"]
+    assert received == ["work"]
 
 
 def test_preserves_codex_status() -> None:
-    result, calls = run_codex("work", codex_status=42)
+    result, calls, received = run_codex("work", codex_status=42)
     assert result.returncode == 42
     assert calls == ["finalize-session"]
+    assert received == ["work"]
 
 
 def test_reports_finalization_failure() -> None:
-    result, calls = run_codex("work", ai_memory_status=1)
-    assert result.returncode == 0
+    result, calls, received = run_codex("work", codex_status=42, ai_memory_status=1)
+    assert result.returncode == 42
     assert result.stderr == "ai-memory: finalize-session failed; run handoff manually.\n"
     assert calls == ["finalize-session"]
+    assert received == ["work"]
 
 
 def test_passes_arguments_literally() -> None:
@@ -132,15 +136,52 @@ def test_manual_handoff_calls_finalize_and_returns_status() -> None:
 
 
 def test_version_does_not_finalize_preexisting_session() -> None:
-    result, calls = run_codex("--version")
-    assert result.returncode == 0
+    result, calls, received = run_codex("--version", codex_status=42)
+    assert result.returncode == 42
     assert calls == []
+    assert received == ["--version"]
 
 
 def test_exec_does_not_finalize_preexisting_session() -> None:
-    result, calls = run_codex("exec", "work")
-    assert result.returncode == 0
+    args = ("exec", "work", "--json")
+    result, calls, received = run_codex(*args, codex_status=42)
+    assert result.returncode == 42
     assert calls == []
+    assert received == list(args)
+
+
+def test_other_bypass_modes_do_not_finalize_preexisting_session() -> None:
+    cases = (
+        ("--help",),
+        ("-h",),
+        ("--version",),
+        ("-V",),
+        ("help",),
+        ("version",),
+        ("completion", "zsh"),
+        ("login", "status"),
+        ("logout",),
+        ("mcp", "list"),
+    )
+    for args in cases:
+        result, calls, received = run_codex(*args, codex_status=42)
+        assert result.returncode == 42
+        assert calls == []
+        assert received == list(args)
+
+
+def test_interactive_launch_modes_finalize_once_and_preserve_status_and_argv() -> None:
+    cases = (
+        (),
+        ("prompt with spaces", "--sandbox", "read-only"),
+        ("resume", "abc"),
+        ("fork", "abc"),
+    )
+    for args in cases:
+        result, calls, received = run_codex(*args, codex_status=42)
+        assert result.returncode == 42
+        assert calls == ["finalize-session"]
+        assert received == list(args)
 
 
 def main() -> None:
@@ -152,6 +193,8 @@ def main() -> None:
         test_manual_handoff_calls_finalize_and_returns_status,
         test_version_does_not_finalize_preexisting_session,
         test_exec_does_not_finalize_preexisting_session,
+        test_other_bypass_modes_do_not_finalize_preexisting_session,
+        test_interactive_launch_modes_finalize_once_and_preserve_status_and_argv,
     )
     for test in tests:
         test()
