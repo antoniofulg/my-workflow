@@ -2,6 +2,8 @@ version = 1
 
 [parallelization]
 mode = "disabled" # disabled, safe, or full
+# Optional repository-relative executable for resource-bearing lanes.
+# resource_provider = "tools/workflow_resources"
 
 [deep_review]
 cadence = "grouped.3"

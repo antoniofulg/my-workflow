@@ -153,7 +153,7 @@ T3 + T4 + T6 -> T7
 
 ### T5: Freeze the consumer resource provider
 
-**Status:** pending
+**Status:** complete
 **Slice:** D
 **Resources:** none
 **Observable behaviour:** Workflow resolution freezes an optional safe repository-relative provider executable and preserves an existing valid snapshot when provider validation fails.
@@ -164,12 +164,12 @@ T3 + T4 + T6 -> T7
 **Tools:** Skill `ponytail`; no documentation lookup.
 **Done when:**
 
-- [ ] Absent provider freezes as null without changing disabled/default behavior.
-- [ ] Valid executable freezes as a normalized repository-relative path.
-- [ ] Absolute, external, directory, non-executable, and unsafe-symlink paths fail before snapshot replacement.
-- [ ] `python3 tools/test_workflow_config.py` reports all existing and IT-005 cases passing with zero failures.
+- [x] Absent provider freezes as null without changing disabled/default behavior.
+- [x] Valid executable freezes as a normalized repository-relative path.
+- [x] Absolute, external, directory, non-executable, and unsafe-symlink paths fail before snapshot replacement.
+- [x] `python3 tools/test_workflow_config.py` reports all existing and IT-005 cases passing with zero failures.
 
-**Tests:** IT-005 in `tools/test_workflow_config.py`
+**Tests:** IT-005 in `tools/test_workflow_config.py` (18 cases)
 **Gate:** Quick. Commit `feat(config): freeze parallel resource provider`.
 
 ### T6: Plan explicit lane resources

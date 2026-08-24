@@ -33,13 +33,22 @@ def make_repo() -> Path:
     return root
 
 
+def make_provider(root: Path, relative: str = "tools/workflow_resources", *, executable: bool = True) -> Path:
+    path = root / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("#!/bin/sh\n", encoding="utf-8")
+    if executable:
+        path.chmod(0o755)
+    return path
+
+
 def test_defaults_and_native_routing() -> None:
     root = make_repo()
     try:
         snapshot = workflow_config.resolve(
             root=root, feature="default", slice_count=4, native_provider="codex"
         )
-        assert snapshot["parallelization"] == {"mode": "disabled"}
+        assert snapshot["parallelization"] == {"mode": "disabled", "resource_provider": None}
         assert snapshot["deep_review"] == {"cadence": "grouped.3", "groups": [[1, 2], [3, 4]]}
         assert all(value["provider"] == "codex" for value in snapshot["roles"].values())
         assert snapshot["roles"]["verifier"]["agent_file"] == ".codex/agents/verifier.toml"
@@ -74,11 +83,11 @@ def test_parallelization_accepts_supported_modes() -> None:
             )
             assert result.returncode == 0
             payload = json.loads(result.stdout)
-            assert payload["parallelization"] == {"mode": mode}
+            assert payload["parallelization"] == {"mode": mode, "resource_provider": None}
             snapshot = json.loads(
                 (root / f".specs/features/mode-{mode}/workflow.json").read_text(encoding="utf-8")
             )
-            assert snapshot["parallelization"] == {"mode": mode}
+            assert snapshot["parallelization"] == {"mode": mode, "resource_provider": None}
     finally:
         shutil.rmtree(root)
 
@@ -128,7 +137,101 @@ def test_parallelization_resume_uses_frozen_mode_after_config_changes() -> None:
             root=root, feature="frozen-mode", slice_count=8, native_provider="cursor"
         )
         assert resumed == first
-        assert resumed["parallelization"] == {"mode": "full"}
+        assert resumed["parallelization"] == {"mode": "full", "resource_provider": None}
+    finally:
+        shutil.rmtree(root)
+
+
+def test_resource_provider_freezes_normalized_repository_relative_executable() -> None:
+    root = make_repo()
+    try:
+        make_provider(root)
+        (root / ".my-workflow.toml").write_text(
+            "[parallelization]\nmode = 'full'\nresource_provider = 'tools/workflow_resources'\n",
+            encoding="utf-8",
+        )
+        snapshot = workflow_config.resolve(root=root, feature="provider", slice_count=1, native_provider="codex")
+        assert snapshot["parallelization"] == {"mode": "full", "resource_provider": "tools/workflow_resources"}
+        on_disk = json.loads((root / ".specs/features/provider/workflow.json").read_text(encoding="utf-8"))
+        assert on_disk["parallelization"] == snapshot["parallelization"]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_resource_provider_rejects_unsafe_inputs_without_replacing_valid_snapshot() -> None:
+    root = make_repo()
+    try:
+        make_provider(root)
+        (root / ".my-workflow.toml").write_text(
+            "[parallelization]\nresource_provider = 'tools/workflow_resources'\n", encoding="utf-8"
+        )
+        first = workflow_config.resolve(root=root, feature="provider-invalid", slice_count=1, native_provider="codex")
+        path = root / ".specs/features/provider-invalid/workflow.json"
+        original = path.read_bytes()
+        outside = Path(tempfile.mkdtemp())
+        try:
+            cases = ("/tmp/provider", "../provider", "tools", "tools/missing")
+            for value in cases:
+                (root / ".my-workflow.toml").write_text(
+                    f"[parallelization]\nresource_provider = {value!r}\n", encoding="utf-8"
+                )
+                try:
+                    workflow_config.resolve(root=root, feature="provider-invalid", slice_count=1, native_provider="codex", refresh=True)
+                except workflow_config.ConfigError as exc:
+                    assert "resource_provider" in str(exc)
+                else:
+                    raise AssertionError(f"expected provider rejection: {value}")
+                assert path.read_bytes() == original
+
+            non_executable = make_provider(root, "tools/not-executable", executable=False)
+            (root / ".my-workflow.toml").write_text(
+                "[parallelization]\nresource_provider = 'tools/not-executable'\n", encoding="utf-8"
+            )
+            try:
+                workflow_config.resolve(root=root, feature="provider-invalid", slice_count=1, native_provider="codex", refresh=True)
+            except workflow_config.ConfigError as exc:
+                assert "resource_provider" in str(exc)
+            else:
+                raise AssertionError("expected non-executable provider rejection")
+            assert path.read_bytes() == original
+
+            outside_provider = outside / "provider"
+            outside_provider.write_text("#!/bin/sh\n", encoding="utf-8")
+            outside_provider.chmod(0o755)
+            symlink = root / "tools/symlink-provider"
+            symlink.symlink_to(outside_provider)
+            (root / ".my-workflow.toml").write_text(
+                "[parallelization]\nresource_provider = 'tools/symlink-provider'\n", encoding="utf-8"
+            )
+            try:
+                workflow_config.resolve(root=root, feature="provider-invalid", slice_count=1, native_provider="codex", refresh=True)
+            except workflow_config.ConfigError as exc:
+                assert "resource_provider" in str(exc)
+            else:
+                raise AssertionError("expected symlink provider rejection")
+            assert path.read_bytes() == original
+            assert json.loads(path.read_text(encoding="utf-8")) == first
+        finally:
+            shutil.rmtree(outside)
+    finally:
+        shutil.rmtree(root)
+
+
+def test_resource_provider_resume_uses_frozen_path_after_config_changes() -> None:
+    root = make_repo()
+    try:
+        make_provider(root, "tools/frozen-provider")
+        (root / ".my-workflow.toml").write_text(
+            "[parallelization]\nmode = 'full'\nresource_provider = 'tools/frozen-provider'\n", encoding="utf-8"
+        )
+        first = workflow_config.resolve(root=root, feature="frozen-provider", slice_count=1, native_provider="codex")
+        make_provider(root, "tools/new-provider")
+        (root / ".my-workflow.toml").write_text(
+            "[parallelization]\nmode = 'disabled'\nresource_provider = 'tools/new-provider'\n", encoding="utf-8"
+        )
+        resumed = workflow_config.resolve(root=root, feature="frozen-provider", slice_count=8, native_provider="cursor")
+        assert resumed == first
+        assert resumed["parallelization"]["resource_provider"] == "tools/frozen-provider"
     finally:
         shutil.rmtree(root)
 
@@ -450,7 +553,7 @@ def test_snapshot_is_stable_and_atomic_failure_preserves_previous() -> None:
             "cadence": "grouped.3",
             "groups": [[1, 2]],
         }
-        assert on_disk["parallelization"] == {"mode": "disabled"}
+        assert on_disk["parallelization"] == {"mode": "disabled", "resource_provider": None}
         expected_agents = {
             "implementer": ".codex/agents/implementer.toml",
             "verifier": ".codex/agents/verifier.toml",
@@ -553,7 +656,7 @@ def test_checked_in_v1_snapshots_resume_with_disabled_parallelization() -> None:
         )
         assert snapshot["version"] == 1
         assert snapshot["feature"] == feature
-        assert snapshot["parallelization"] == {"mode": "disabled"}
+        assert snapshot["parallelization"] == {"mode": "disabled", "resource_provider": None}
 
 
 if __name__ == "__main__":
