@@ -58,7 +58,7 @@ T3 → T4
 
 ### T2: Generate deterministic slice plans
 
-**Status:** pending
+**Status:** complete
 **Observable behaviour:** A read-only CLI preserves intra-slice order and projects disabled, safe, full, blocked, checkpoint, conflict, and serial-fallback states deterministically.
 **Where:** `.agents/skills/workflow-config/scripts/parallel_plan.py`
 **Depends on:** T1

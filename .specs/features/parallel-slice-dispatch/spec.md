@@ -116,13 +116,13 @@ that reduced wall time never weakens readiness.
 | PAR-02 | Freeze the dispatch policy | Design | Complete |
 | PAR-03 | Freeze the dispatch policy | Design | Complete |
 | PAR-04 | Freeze the dispatch policy | Design | Complete |
-| PAR-05 | Plan ready work | Design | Pending |
-| PAR-06 | Plan ready work | Design | Pending |
-| PAR-07 | Plan ready work | Design | Pending |
-| PAR-08 | Plan ready work | Design | Pending |
-| PAR-09 | Plan ready work | Design | Pending |
-| PAR-10 | Plan ready work | Design | Pending |
-| PAR-11 | Plan ready work | Design | Pending |
+| PAR-05 | Plan ready work | Design | Complete |
+| PAR-06 | Plan ready work | Design | Complete |
+| PAR-07 | Plan ready work | Design | Complete |
+| PAR-08 | Plan ready work | Design | Complete |
+| PAR-09 | Plan ready work | Design | Complete |
+| PAR-10 | Plan ready work | Design | Complete |
+| PAR-11 | Plan ready work | Design | Complete |
 | PAR-12 | Preserve workflow evidence | Design | Pending |
 | PAR-13 | Preserve workflow evidence | Design | Pending |
 | PAR-14 | Preserve workflow evidence | Design | Pending |
