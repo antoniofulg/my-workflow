@@ -220,6 +220,8 @@ class RecordingAdapter:
     def start_worker(self, lane: dict[str, object], receipt: dict[str, object], *, idempotency_key: str) -> dict[str, str]:
         self.effects.append(("worker", idempotency_key))
         return {
+            "feature": "fixture",
+            "slice": str(lane["slice"]),
             "worktree_id": str(receipt["worktree_id"]),
             "worktree_path": str(receipt["worktree_path"]),
             "branch": str(receipt["branch"]),
@@ -613,6 +615,53 @@ def test_executor_cli_start_resume_status_emit_one_json_object_and_status_has_no
         shutil.rmtree(root)
 
 
+def test_executor_cli_selects_orca_adapter_and_threads_non_default_wait_budget() -> None:
+    root = make_repo()
+    try:
+        first = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter())
+        first._plan = lambda: lane_plan(resources=[])  # type: ignore[method-assign]
+        first.start()
+
+        class TimeoutAdapter(RecordingAdapter):
+            def __init__(self) -> None:
+                super().__init__()
+                self.waits: list[float] = []
+
+            def wait_events(self, receipt: dict[str, object], *, timeout: float = 30) -> dict[str, object]:
+                self.waits.append(timeout)
+                return {"event": "timeout", "unchanged": True}
+
+        adapter = TimeoutAdapter()
+        selected: list[tuple[str, Path, str]] = []
+        original_factory = parallel_execute._adapter_factory
+        original_plan = parallel_execute.Coordinator._plan
+        parallel_execute._adapter_factory = lambda name, root, feature: (selected.append((name, root, feature)) or (lambda: adapter))  # type: ignore[assignment]
+        parallel_execute.Coordinator._plan = lambda self: lane_plan(resources=[])  # type: ignore[method-assign]
+        stdout = io.StringIO()
+        try:
+            with redirect_stdout(stdout):
+                exit_code = parallel_execute.main(["resume", "--root", str(root), "--feature", "fixture", "--adapter", "orca", "--wait-seconds", "7"])
+        finally:
+            parallel_execute._adapter_factory = original_factory  # type: ignore[assignment]
+            parallel_execute.Coordinator._plan = original_plan  # type: ignore[method-assign]
+        result = json.loads(stdout.getvalue())
+        assert exit_code == 0
+        assert selected[0][0] == "orca"
+        assert selected[0][1].resolve() == root.resolve()
+        assert selected[0][2] == "fixture"
+        assert adapter.waits == [7.0]
+        assert result["state"]["lanes"]["slice-A"]["state"] == "running"
+        try:
+            with redirect_stderr(io.StringIO()):
+                parallel_execute.main(["resume", "--root", str(root), "--feature", "fixture", "--wait-seconds", "0"])
+        except SystemExit as exc:
+            assert exc.code == 2
+        else:
+            raise AssertionError("out-of-range wait budget must be rejected")
+    finally:
+        shutil.rmtree(root)
+
+
 def test_executor_cli_safe_resume_reconciles_pending_worker_through_injected_adapter() -> None:
     root = make_repo()
     try:
@@ -663,6 +712,7 @@ def test_executor_cli_safe_resume_reconciles_pending_worker_through_injected_ada
             def reconcile_action(self, action: dict[str, object]) -> dict[str, str]:
                 self.reconciled.append(str(action["action"]))
                 return {
+                    "feature": "fixture", "slice": "A",
                     "worktree_id": "wt-A", "worktree_path": str(destination), "branch": "slice/A", "pre_head": source_head,
                     "run_id": "run-A", "orchestration_task_id": "task-A", "task": "T1",
                     "dispatch_id": "dispatch-resumed", "terminal_handle": "terminal-A", "idempotency_key": str(action["key"]),
@@ -726,9 +776,10 @@ def test_executor_resume_consumes_run_delivery_reads_accepts_then_releases_worke
         parallel_execute.atomic_write_json(probe.state_path, state)  # type: ignore[arg-type]
 
         class LiveResumeAdapter(RecordingAdapter):
-            def __init__(self) -> None:
+            def __init__(self, state_path: Path | None = None) -> None:
                 super().__init__()
                 self.calls: list[str] = []
+                self.state_path = state_path
 
             def wait_events(self, receipt: dict[str, object], *, timeout: float = 30) -> dict[str, object]:
                 self.calls.append("check")
@@ -742,11 +793,18 @@ def test_executor_resume_consumes_run_delivery_reads_accepts_then_releases_worke
                 self.calls.append("accept")
                 return {**dict(receipt), "status": "accepted", "accepted": True}
 
+            def ack_delivery(self, receipt: dict[str, object], delivery: dict[str, object]) -> dict[str, object]:
+                self.calls.append("ack")
+                return {"acknowledged": True, "delivery_id": "delivery-A"}
+
             def release(self, receipt: dict[str, object], result: dict[str, object] | None = None) -> dict[str, object]:
+                if self.state_path is not None:
+                    persisted = json.loads(self.state_path.read_text(encoding="utf-8"))
+                    assert any(action["action"] == "worker_release" and action["status"] == "pending" for action in persisted["actions"].values())
                 self.calls.append("release")
                 return {"released": True, "dispatch_id": "dispatch-A"}
 
-        adapter = LiveResumeAdapter()
+        adapter = LiveResumeAdapter(probe.state_path)
         original_plan = parallel_execute.Coordinator._plan
         parallel_execute.Coordinator._plan = lambda self: lane_plan(resources=[])  # type: ignore[method-assign]
         stdout = io.StringIO()
@@ -761,7 +819,24 @@ def test_executor_resume_consumes_run_delivery_reads_accepts_then_releases_worke
         result = json.loads(stdout.getvalue())
         assert result["fallback"] is False
         assert result["state"]["lanes"]["slice-A"]["state"] == "complete"
-        assert adapter.calls == ["check", "read", "accept", "release"]
+        assert adapter.calls == ["check", "read", "accept", "ack", "release"]
+
+        class RestartAdapter(LiveResumeAdapter):
+            def wait_events(self, receipt: dict[str, object], *, timeout: float = 30) -> dict[str, object]:
+                raise AssertionError("completed worker must not reread delivery after restart")
+
+        restarted = RestartAdapter()
+        out = io.StringIO()
+        old_plan = parallel_execute.Coordinator._plan
+        parallel_execute.Coordinator._plan = lambda self: lane_plan(resources=[])  # type: ignore[method-assign]
+        try:
+            with redirect_stdout(out):
+                parallel_execute.main(["resume", "--root", str(root), "--feature", "fixture"], adapter_factory=lambda: restarted)
+        finally:
+            parallel_execute.Coordinator._plan = old_plan  # type: ignore[method-assign]
+        restart_result = json.loads(out.getvalue())
+        assert restart_result["state"]["lanes"]["slice-A"]["state"] == "complete"
+        assert restarted.calls == []
     finally:
         shutil.rmtree(root)
 
@@ -857,6 +932,7 @@ def test_executor_waiter_persists_end_before_restart_follow_up_on_same_terminal(
             def follow_up(self, receipt: dict[str, object], waiter: dict[str, object], dependency: dict[str, object], *, idempotency_key: str | None = None) -> dict[str, object]:
                 self.calls.append(("follow_up", str(receipt["terminal_handle"])))
                 return {
+                    "feature": "fixture", "slice": "A",
                     "worktree_id": receipt["worktree_id"], "worktree_path": receipt["worktree_path"], "branch": receipt["branch"], "pre_head": receipt["pre_head"],
                     "run_id": receipt["run_id"], "orchestration_task_id": receipt["orchestration_task_id"], "task": receipt["task"],
                     "dispatch_id": "dispatch-follow-up", "terminal_handle": receipt["terminal_handle"], "idempotency_key": idempotency_key, "status": "running",
@@ -939,7 +1015,9 @@ class ReconcilingAdapter(RecordingAdapter):
     def reconcile_action(self, action: dict[str, object]) -> dict[str, str]:
         self.reconciled.append(str(action["action"]))
         state = json.loads(self.state_path.read_text(encoding="utf-8"))
-        return {"worktree_id": "wt-recovered", "worktree_path": str(self.state_path.parent), "branch": "slice/A", "pre_head": state["source_git_head"]}
+        root = self.state_path.parent.parent.parent
+        destination = parallel_execute.derive_worktree_destination(root, "fixture", "A", "T1")
+        return {"worktree_id": "wt-recovered", "worktree_path": str(destination), "branch": "slice/A", "pre_head": state["source_git_head"]}
 
 
 def test_pending_crash_receipt_is_reconciled_without_repeating_external_effect() -> None:
@@ -1093,6 +1171,8 @@ class OrderedAdapter(RecordingAdapter):
     def start_worker(self, lane: dict[str, object], receipt: dict[str, object], *, idempotency_key: str) -> dict[str, str]:
         self.effects.append(("worker:" + str(lane["task"]), idempotency_key))
         return {
+            "feature": "fixture",
+            "slice": str(lane["slice"]),
             "worktree_id": str(receipt["worktree_id"]),
             "worktree_path": str(receipt["worktree_path"]),
             "branch": str(receipt["branch"]),
@@ -1192,6 +1272,8 @@ class BoundaryAdapter(RecordingAdapter):
         assert state["actions"][idempotency_key]["status"] == "pending"
         self.events.append("worker-pending")
         return {
+            "feature": "fixture",
+            "slice": str(lane["slice"]),
             "worktree_id": str(receipt["worktree_id"]),
             "worktree_path": str(receipt["worktree_path"]),
             "branch": str(receipt["branch"]),
@@ -1211,6 +1293,7 @@ class BoundaryAdapter(RecordingAdapter):
             state = json.loads(self.state_path.read_text(encoding="utf-8"))
             lane = state["lanes"][str(action["lane"])]
             return {
+                "feature": "fixture", "slice": lane["slice"],
                 "worktree_id": lane["worktree_id"], "worktree_path": lane["worktree_path"], "branch": lane["branch"], "pre_head": lane["pre_head"],
                 "run_id": "run-A", "orchestration_task_id": "task-A", "task": lane["task"],
                 "dispatch_id": "dispatch-A", "terminal_handle": "terminal-A", "idempotency_key": action["key"], "status": "running",
@@ -1328,6 +1411,25 @@ def test_worker_only_adapter_receives_precreated_validated_git_worktree() -> Non
         assert created[0][0].parent.parent.parent == root.resolve().parent
     finally:
         parallel_execute.create_git_worktree = original_creator  # type: ignore[assignment]
+        shutil.rmtree(root)
+
+
+def test_real_git_worktree_creation_and_cleanup_use_unpatched_argv_path() -> None:
+    root = make_repo()
+    destination = parallel_execute.derive_worktree_destination(root, "fixture", "A", "T1")
+    try:
+        source_head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+        receipt = parallel_execute.create_git_worktree(root, destination, source_head)
+        assert destination.is_dir()
+        assert receipt["worktree_path"] == str(destination)
+        assert subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=destination, text=True).strip() == source_head
+        removed = subprocess.run(["git", "worktree", "remove", "--force", str(destination)], cwd=root, check=True, capture_output=True, text=True)
+        assert removed.returncode == 0
+        subprocess.run(["git", "worktree", "prune"], cwd=root, check=True, capture_output=True, text=True)
+        assert not destination.exists()
+    finally:
+        if destination.exists():
+            subprocess.run(["git", "worktree", "remove", "--force", str(destination)], cwd=root, check=False, capture_output=True, text=True)
         shutil.rmtree(root)
 
 

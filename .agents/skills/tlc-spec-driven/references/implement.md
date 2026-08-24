@@ -349,7 +349,7 @@ Dispatch a fresh sub-agent following the **Verifier** role described in [sub-age
 
 **What the Verifier does** (full procedure in [sub-agents.md](sub-agents.md); operating checklist in [validate.md](validate.md)): a spec-anchored coverage check (evidence-or-zero, each asserted value matched to the spec outcome) plus a discrimination sensor (behavior-level mutations run in a scratch state and then discarded), after which it writes `.specs/features/[feature]/validation.md` (PASS/FAIL, per-AC evidence, sensor result, diff range) and returns a compact verdict + ranked gaps in chat. It runs read-only over the real tree and does NOT fix.
 
-If the Verifier returns FAIL, route the ranked gaps back to an implementer and re-dispatch the Verifier using the fingerprinted remediation accounting in `docs/guidelines/REVIEW-ROUNDS.md`; halt on the third failed remediation of the same fingerprint and escalate.
+If the Verifier returns FAIL, record the fingerprinted result with the stdlib convergence script, route the ranked gaps back to an implementer, and re-dispatch the Verifier using the accounting in `docs/guidelines/REVIEW-ROUNDS.md`; count the failed Verifier result even when the scoped build gate is green, halt on the third failed remediation of the same fingerprint, and escalate.
 
 If you are unsure whether more tasks remain, check `tasks.md` when present; when Tasks was skipped,
 confirm every inline execution-plan step is complete. If all work is complete, dispatch the Verifier

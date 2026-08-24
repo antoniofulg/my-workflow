@@ -27,7 +27,7 @@ The feature's frozen mode is authoritative; absent a capable executor, use the e
 | Gate Level | When to Use | Command |
 | --- | --- | --- |
 | Quick | Executor, Orca, Git, config, or planner task | Owning Python test file(s), `python3 .agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/parallel-slice-executor/tasks.md`, and `git diff --check` |
-| Full | Autonomous integration or feature close | `npm_config_offline=true npm test`; every `tools/test_*.py`; all TLC/state/index validators; `git diff --check` |
+| Full | Autonomous integration or feature close | `npm_config_offline=true npm run test:all`; all TLC/state/index validators; `git diff --check` |
 | Build | Planning/decision-only mutation | Strict spec/tasks/state/index validators and `git diff --check` |
 
 ## Execution Plan
@@ -231,7 +231,7 @@ remain blocked only until Slice A passes its Technical Verifier.
 **Remediation depends on:** T2R3
 **Remediation requirements:** EXE-23, EXE-24, EXE-25
 **Remediation tests:** IT-008 in `tools/shared/tests/qa-skills.test.ts` plus existing shared workflow tests.
-**Remediation gate:** Targeted Vitest, full `npm_config_offline=true npm test`, strict spec/tasks validators, AD index, writing-skills audit, and `git diff --check`.
+**Remediation gate:** Targeted Vitest, full `npm_config_offline=true npm run test:all`, strict spec/tasks validators, AD index, writing-skills audit, and `git diff --check`.
 **Remediation commit:** `fix(workflow): count repeated verification blockers`.
 
 ### T2R5: Prove safe-mode CLI resume
@@ -329,6 +329,30 @@ remain blocked only until Slice A passes its Technical Verifier.
 **Remediation tests:** `python3 tools/test_parallel_executor.py` (26 cases), including T2R3 pending-worker, nested-receipt, contract, and CLI-resume cases.
 **Remediation gate:** Executor tests, strict spec/tasks, AD index check, diff check, and compile.
 **Remediation commit:** `fix(workflow): close executor verification gaps`.
+
+### TDR1: Close grouped deep-review blockers for Slices A-B
+
+**Remediation status:** complete
+**Slice:** A-B review group
+**Remediation resources:** none
+**Observable behaviour:** Executor and Orca boundaries reject uncorrelated or secret-bearing receipts, lifecycle delivery/release effects survive restart exactly once, public wait controls work, blocker convergence persists deterministically, and durable contracts report only completed slice scope.
+**Where:** `.agents/skills/autonomous/scripts/parallel_execute.py`
+**Remediation depends on:** T3R2
+**Remediation requirements:** EXE-01–EXE-11, EXE-23–EXE-25, SEC-001–SEC-006
+**Remediation done when:**
+
+- [x] Worker, worktree, and follow-up receipts use complete provider-neutral correlation; Orca run/task ambiguity and unknown/missing fields fail closed.
+- [x] Credential-shaped keys are redacted recursively before any receipt, delivery, output, log, or state persistence.
+- [x] Delivery acceptance, acknowledgement, worker release, and resource release persist/reconcile exactly once across restart.
+- [x] `resume --wait-seconds` enforces `1..3600`, reaches Orca `--timeout-ms`, and adapter selection/non-default timeout are discriminated.
+- [x] A disposable repository test executes the unpatched `git worktree add` path and cleans it through Git.
+- [x] A stdlib convergence CLI persists blocker fingerprints/counts, preserves reopened identity, and halts only on the third failed remediation of that fingerprint.
+- [x] EXE-18–EXE-22 remain Planned until Slice D; design/DX distinguish current A-B state from future C/D fields and provider-prepared environment.
+- [x] Validation records the grouped-review invalidation, review-count wording counts Verifier failure regardless of green gate, and one repository full-gate command includes Vitest plus every Python suite.
+
+**Remediation tests:** Adapter/executor suites, real Git fixture, convergence script suite, shared workflow contracts, and full repository gate.
+**Remediation gate:** `npm run test:all`; strict spec/tasks/state/index validators; Python compile; `git diff --check`; deep-review incremental round 2.
+**Remediation commit:** `fix(workflow): close executor group review blockers`.
 
 ## Phase Execution Map
 

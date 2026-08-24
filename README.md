@@ -220,7 +220,7 @@ implementer, explorer and verifier packets live under `.cursor/agents/`, `.claud
 
 ```bash
 npm install
-npm test
+npm run test:all
 npm run knowledge
 ```
 

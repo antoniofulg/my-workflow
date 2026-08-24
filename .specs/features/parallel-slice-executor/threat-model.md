@@ -2,8 +2,9 @@
 
 ## Scope
 
-Slice A covers the local coordinator, its Git-common runtime receipts, subprocess boundary, and
-consumer resource-provider lease protocol. Orca worker command details remain in Slice B.
+Slices A-B cover the local coordinator, its Git-common runtime receipts, subprocess boundary,
+consumer resource-provider lease protocol, and Orca worker lifecycle. Checkpoint fields and
+ephemeral provider-environment delivery remain deferred to T4/T7.
 
 ## Trust boundaries and abuse paths
 
@@ -12,7 +13,7 @@ consumer resource-provider lease protocol. Orca worker command details remain in
 | Versioned feature state → local runtime state | Foreign, malformed, or torn JSON is replayed after restart | No adapter effect; named serial recovery | Strict schema/identity validation and atomic replacement; `tools/test_parallel_executor.py` |
 | Coordinator → subprocess/provider | Feature, task, path, or provider input contains shell metacharacters | Exact argv only, bounded timeout, no shell expansion | `run_argv`, bounded provider path, SEC-003 tests |
 | Coordinator → worktree path | Absolute escape, parent traversal, or unsafe symlink is supplied | Reject before adapter effect | `bounded_path` preflight and SEC-004 regression test |
-| Provider → coordinator | Receipt is malformed, foreign, duplicate, unprepared, or contains secret values | Refuse worker dispatch; persist only redacted keys | Correlation/lease validation, serial fallback, redaction tests |
+| Provider/Orca → coordinator | Receipt is malformed, foreign, duplicate, unprepared, or contains secret values | Refuse worker dispatch; persist only redacted keys | Correlation/lease validation, serial fallback, recursive credential redaction tests |
 | Lane → cleanup | A lane releases another lane's lease or repeats destructive cleanup | Foreign release rejected; owned retry is idempotent | Ownership check and exact-once release tests |
 
 ## Attacker assumptions

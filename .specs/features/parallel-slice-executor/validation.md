@@ -224,3 +224,10 @@ None for Slice B technical verification.
 spec-defined outcomes; 43 scoped tests pass and all three behavior mutants die. This verdict does
 not complete the feature and does not authorize deep-review, a real Orca pilot, QA Plan, or QA
 Execute.
+
+## Grouped deep-review invalidation
+
+The grouped A-B deep-review result invalidates earlier PASS claims for unknown receipt fields,
+credential suffix redaction, durable delivery/release replay, CLI wait controls, and convergence
+state. TDR1 closes only those A-B findings. C/D implementation findings remain Planned and are not
+implemented by this batch.

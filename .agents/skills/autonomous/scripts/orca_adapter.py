@@ -17,13 +17,20 @@ class AdapterError(core.ExecutorError):
 _SENSITIVE_KEYS = {"environment", "env", "credentials", "secrets", "token", "password", "authorization", "transcript", "body"}
 
 
+def _is_sensitive_key(key: str) -> bool:
+    normalized = key.strip().lower().replace("-", "_")
+    if normalized in _SENSITIVE_KEYS or normalized in {"access_token", "refresh_token", "api_key", "client_secret", "cookie"}:
+        return True
+    return normalized.endswith(("_token", "_secret", "_key", "_cookie", "_password", "_credential"))
+
+
 def _redact_payload(value: Any, *, container: bool = False) -> Any:
     if isinstance(value, Mapping):
         if container:
             return {str(key): _redact_payload(item, container=True) for key, item in value.items()}
         result: dict[str, Any] = {}
         for key, item in value.items():
-            if str(key).lower() in _SENSITIVE_KEYS:
+            if _is_sensitive_key(str(key)):
                 result[str(key)] = _redact_payload(item, container=True) if isinstance(item, (Mapping, list)) else "<redacted>"
             else:
                 result[str(key)] = _redact_payload(item)
@@ -136,10 +143,13 @@ class OrcaAdapter:
         runs = response.get("runs", [])
         if not isinstance(runs, list):
             raise AdapterError("malformed Orca run list")
+        matches: list[str] = []
         for run in runs:
             if isinstance(run, Mapping) and run.get("objective") == objective:
-                return _text(run.get("id") or run.get("run_id") or run.get("runId"), "run id")
-        return None
+                matches.append(_text(run.get("id") or run.get("run_id") or run.get("runId"), "run id"))
+        if len(matches) > 1:
+            raise AdapterError("multiple matching Orca runs")
+        return matches[0] if matches else None
 
     def _ensure_run(self, key: str) -> str:
         objective = f"parallel-slice:{self.feature}:{key}"
@@ -156,13 +166,16 @@ class OrcaAdapter:
         tasks = response.get("tasks", [])
         if not isinstance(tasks, list):
             raise AdapterError("malformed Orca task list")
+        matches: list[str] = []
         for task in tasks:
             if isinstance(task, Mapping) and task.get("spec") == spec:
                 task_run = task.get("run_id") or task.get("runId")
                 if task_run is not None and task_run != run_id:
                     raise AdapterError("uncorrelated Orca task receipt")
-                return _text(task.get("id") or task.get("task_id") or task.get("taskId"), "task id")
-        return None
+                matches.append(_text(task.get("id") or task.get("task_id") or task.get("taskId"), "task id"))
+        if len(matches) > 1:
+            raise AdapterError("multiple matching Orca tasks")
+        return matches[0] if matches else None
 
     def _ensure_task(self, run_id: str, lane: Mapping[str, Any], key: str) -> str:
         slice_id = _text(lane.get("slice"), "lane slice")
@@ -187,6 +200,14 @@ class OrcaAdapter:
         task_id: str | None = None,
     ) -> dict[str, Any]:
         data = dict(payload)
+        allowed = {
+            "feature", "slice", "task", "worktree_id", "worktree_path", "branch", "pre_head", "idempotency_key",
+            "run_id", "runId", "task_id", "taskId", "orchestration_task_id", "dispatch_id", "dispatchId",
+            "terminal_handle", "terminalHandle", "agentTerminalHandle", "status",
+        }
+        unknown = set(data) - allowed
+        if unknown:
+            raise AdapterError("unknown Orca worker receipt field")
         expected = {
             "feature": self.feature,
             "slice": _text(lane.get("slice"), "lane slice"),
@@ -212,7 +233,15 @@ class OrcaAdapter:
         data["orchestration_task_id"] = actual_task
         data["dispatch_id"] = _text(data.get("dispatch_id"), "dispatch id")
         data["terminal_handle"] = _text(data.get("terminal_handle"), "terminal handle")
-        return data
+        return {
+            **{field: data[field] for field in expected},
+            "run_id": data["run_id"],
+            "task_id": actual_task,
+            "orchestration_task_id": actual_task,
+            "dispatch_id": data["dispatch_id"],
+            "terminal_handle": data["terminal_handle"],
+            **({"status": data["status"]} if "status" in data else {}),
+        }
 
     @staticmethod
     def _complete_worker(payload: Mapping[str, Any]) -> bool:
@@ -351,10 +380,13 @@ class OrcaAdapter:
         status = response.get("status")
         if status not in {"succeeded", "accepted", "complete", "completed"}:
             raise AdapterError("worker-read did not prove completion")
+        source_identity = response.get("source_identity") or response.get("sourceIdentity")
+        if source_identity != receipt.get("terminal_handle"):
+            raise AdapterError("uncorrelated worker-read source")
         return {
             "dispatch_id": dispatch_id,
             "source": response.get("source"),
-            "source_identity": response.get("source_identity") or response.get("sourceIdentity"),
+            "source_identity": source_identity,
             "provider": response.get("provider"),
             "transcript": "<redacted>",
             "cursor": response.get("cursor"),
@@ -404,6 +436,25 @@ class OrcaAdapter:
         if isinstance(delivery, Mapping):
             return self._delivery(delivery, receipt)
         raise AdapterError("missing Orca delivery")
+
+    def ack_delivery(self, receipt: Mapping[str, Any], delivery: Mapping[str, Any]) -> dict[str, Any]:
+        delivery_id = _text(delivery.get("delivery_id"), "delivery id")
+        run_id = _text(receipt.get("run_id"), "run id")
+        response = self._call("check", "--run", run_id, "--ack", delivery_id)
+        if response.get("acknowledged") is False:
+            raise AdapterError("Orca delivery acknowledgement failed")
+        if response.get("delivery_id") not in (None, delivery_id):
+            raise AdapterError("uncorrelated Orca acknowledgement")
+        return {"acknowledged": True, "delivery_id": delivery_id}
+
+    def reconcile_action(self, action: Mapping[str, Any]) -> Mapping[str, Any] | None:
+        if action.get("action") != "worker_release":
+            return None
+        dispatch_id = _text(action.get("dispatch_id"), "dispatch id")
+        status = self._call("worker-show", "--dispatch", dispatch_id).get("status")
+        if status in {"released", "complete", "completed"}:
+            return {"released": True, "dispatch_id": dispatch_id}
+        return self._release({"idempotency_key": _text(action.get("key"), "idempotency key"), "dispatch_id": dispatch_id})
 
     def _release(self, receipt: Mapping[str, Any]) -> dict[str, Any]:
         key = _text(receipt.get("idempotency_key"), "idempotency key")

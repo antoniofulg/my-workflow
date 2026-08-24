@@ -18,3 +18,4 @@
 - T3 attaches Orca workers only through `worker-start --worktree path:<validated-checkout>`; run/task reuse is keyed by the core idempotency key, and worker/event receipts are redacted and correlated before release or same-terminal follow-up.
 - T3R1 keeps Run Delivery (`check --run`) separate from worker-read output; resume accepts only correlated successful deliveries after redacted output validation, leaves timeout/waiting unchanged, and serializes escalation or malformed receipts without release.
 - T3R2 persists only redacted waiter payloads, records `end_waiter` before `waiting`, allows restart-safe dependency follow-up on the persisted terminal, and independently rejects sparse worker receipts before `running`.
+- TDR1 adds strict unknown-field/duplicate Orca boundaries, durable completion/ack/worker-release replay, bounded CLI waits, real Git worktree coverage, and stdlib review-fingerprint persistence; EXE-18–22 and C/D data fields remain planned.

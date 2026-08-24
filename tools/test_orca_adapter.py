@@ -179,7 +179,7 @@ def test_clean_waiter_ends_turn_and_follow_up_reuses_terminal_after_dependency_e
         }
         cli = RecordingCLI(
             start_responses(worktree)
-            + [{"deliveries": [waiter]}, {"started": True, **worker_payload(worktree)}]
+            + [{"deliveries": [waiter]}, worker_payload(worktree)]
         )
         worker = adapter(root, cli)
         receipt = worker.start_worker(lane, worktree, idempotency_key=KEY)
@@ -261,7 +261,7 @@ def test_nested_delivery_credentials_are_redacted_before_adapter_returns_payload
         delivery["payload"] = json.dumps({
             "taskId": "task-A", "dispatchId": "dispatch-A", "outcome": "waiting", "status": "waiting",
             "dependency": "producer-A", "environment": {"TOKEN": "secret-token"},
-            "nested": {"credentials": {"password": "secret-password"}},
+            "nested": {"credentials": {"password": "secret-password", "access_token": "access-secret", "refresh_token": "refresh-secret", "api_key": "api-secret", "client_secret": "client-secret", "cookie": "cookie-secret"}},
         })
         delivery["type"] = "question"
         cli = RecordingCLI(start_responses(worktree) + [{"deliveries": [delivery]}])
@@ -271,8 +271,18 @@ def test_nested_delivery_credentials_are_redacted_before_adapter_returns_payload
         serialized = json.dumps(observed)
         assert observed["payload"]["environment"]["TOKEN"] == "<redacted>"
         assert observed["payload"]["nested"]["credentials"]["password"] == "<redacted>"
+        assert observed["payload"]["nested"]["credentials"]["access_token"] == "<redacted>"
+        assert observed["payload"]["nested"]["credentials"]["refresh_token"] == "<redacted>"
+        assert observed["payload"]["nested"]["credentials"]["api_key"] == "<redacted>"
+        assert observed["payload"]["nested"]["credentials"]["client_secret"] == "<redacted>"
+        assert observed["payload"]["nested"]["credentials"]["cookie"] == "<redacted>"
         assert "secret-token" not in serialized
         assert "secret-password" not in serialized
+        assert "access-secret" not in serialized
+        assert "refresh-secret" not in serialized
+        assert "api-secret" not in serialized
+        assert "client-secret" not in serialized
+        assert "cookie-secret" not in serialized
     finally:
         shutil.rmtree(root)
 
@@ -292,6 +302,78 @@ def test_duplicate_delivery_is_rejected_before_follow_up_or_release() -> None:
         else:
             raise AssertionError("duplicate delivery must halt")
         assert not any(call[0][2] in {"worker-release", "worker-start"} for call in cli.calls[6:])
+    finally:
+        shutil.rmtree(root)
+
+
+def test_delivery_ack_is_run_scoped_and_available_before_release() -> None:
+    root, lane, worktree = fixture()
+    try:
+        cli = RecordingCLI(start_responses(worktree) + [{"deliveries": [live_delivery()]}, {"acknowledged": True}])
+        worker = adapter(root, cli)
+        receipt = worker.start_worker(lane, worktree, idempotency_key=KEY)
+        delivery = worker.wait_events(receipt)
+        ack = worker.ack_delivery(receipt, delivery)
+        assert ack == {"acknowledged": True, "delivery_id": "delivery-A"}
+        ack_call = cli.calls[-1][0]
+        assert ack_call[2] == "check"
+        assert ack_call[ack_call.index("--run") + 1] == "run-A"
+        assert ack_call[ack_call.index("--ack") + 1] == "delivery-A"
+    finally:
+        shutil.rmtree(root)
+
+
+def test_worker_read_rejects_foreign_source_identity() -> None:
+    root, lane, worktree = fixture()
+    try:
+        output = live_worker_output()
+        output["sourceIdentity"] = "terminal-foreign"
+        cli = RecordingCLI(start_responses(worktree) + [output])
+        worker = adapter(root, cli)
+        receipt = worker.start_worker(lane, worktree, idempotency_key=KEY)
+        try:
+            worker.read_worker(receipt)
+        except orca_adapter.AdapterError as exc:
+            assert "source" in str(exc)
+        else:
+            raise AssertionError("foreign worker-read source must halt")
+    finally:
+        shutil.rmtree(root)
+
+
+def test_duplicate_matching_runs_tasks_and_unknown_worker_fields_halt() -> None:
+    root, lane, worktree = fixture()
+    try:
+        objective = "parallel-slice:fixture:" + KEY
+        duplicate_runs = [{"id": "run-A", "objective": objective}, {"id": "run-B", "objective": objective}]
+        cli = RecordingCLI([{"runs": duplicate_runs}])
+        try:
+            adapter(root, cli).start_worker(lane, worktree, idempotency_key=KEY)
+        except orca_adapter.AdapterError as exc:
+            assert "multiple" in str(exc)
+        else:
+            raise AssertionError("duplicate matching runs must halt")
+
+        duplicate_tasks = [{"id": "task-A", "run_id": "run-A", "spec": "parallel-slice:fixture:A:T1:" + KEY}, {"id": "task-B", "run_id": "run-A", "spec": "parallel-slice:fixture:A:T1:" + KEY}]
+        cli = RecordingCLI([
+            {"runs": []}, {"id": "run-A", "objective": objective}, {"tasks": duplicate_tasks},
+        ])
+        try:
+            adapter(root, cli).start_worker(lane, worktree, idempotency_key=KEY)
+        except orca_adapter.AdapterError as exc:
+            assert "multiple" in str(exc)
+        else:
+            raise AssertionError("duplicate matching tasks must halt")
+
+        response = worker_payload(worktree)
+        response["unknown"] = "value"
+        cli = RecordingCLI(start_responses(worktree)[:4] + [response])
+        try:
+            adapter(root, cli).start_worker(lane, worktree, idempotency_key=KEY)
+        except orca_adapter.AdapterError as exc:
+            assert "unknown" in str(exc)
+        else:
+            raise AssertionError("unknown worker field must halt")
     finally:
         shutil.rmtree(root)
 

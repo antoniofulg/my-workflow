@@ -80,9 +80,10 @@ JSON request on stdin:
 ```
 
 Acquire succeeds only with a correlated JSON receipt containing `lease_id`, the same resource names,
-`prepared_worktree: true`, and an `environment` object. Environment values are delivered to the
-worker but persisted and logged as redacted markers. Release returns the same lease ID and
-`released: true`; a repeated release is idempotent.
+`prepared_worktree: true`, and an `environment` object. Slice A-B persist and log only redacted
+environment markers; ephemeral delivery of environment values is deferred to T7's autonomous
+integration contract. Release returns the same lease ID and `released: true`; a repeated release is
+idempotent.
 
 ## State
 

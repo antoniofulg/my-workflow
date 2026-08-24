@@ -120,11 +120,12 @@ RuntimeState {
 LaneReceipt {
   slice, task, state, worktree_id, worktree_path, branch,
   run_id, orchestration_task_id, dispatch_id, terminal_handle,
-  pre_head, current_head, lease, invalidated_evidence[], fallback_reason
+  pre_head, lease, fallback_reason
+  # T4 adds current_head and invalidated_evidence[] during checkpoint sync.
 }
 
 ActionReceipt {
-  key, action, status, request_fingerprint, external_id, created_at, completed_at
+  key, action, status, lane, external_id, receipt
 }
 
 LeaseReceipt {
@@ -174,5 +175,6 @@ ready -> needs_resources -> running -> waiting -> needs_sync -> running -> compl
 | Checkpoint reconciliation | Rebase dependent private lane | The consumer sees the exact producer before its dependent task. |
 | Final slice integration | Merge verified slice | Preserves commit identity and review evidence. |
 
-The policy/effect boundary and fail-closed provider rule are durable project decisions recorded as
-`AD-010` in `.specs/STATE.md`.
+The policy/effect boundary is recorded by active `AD-011`; blocker-scoped convergence follows
+`AD-012`. `AD-010` is the superseded predecessor. Checkpoint fields remain T4 scope, and provider
+environment delivery remains T7 scope; Slice A-B persist only the redacted lease shape.

@@ -53,3 +53,11 @@ complete definition; all other edits are short pointers.
 | Rewording/reopening preserves identity and count | Pass | Canonical rule and IT-008 assertion. |
 | Distinct blocker starts independently | Pass | Canonical rule and IT-008 assertion. |
 | Diagnostic cap remains per issue and separate | Pass | `references/validate.md` bridge and IT-008 assertion. |
+
+## TDR1 delta
+
+| Item | Result | Evidence |
+| --- | --- | --- |
+| Canonical convergence remains singular | Pass | `REVIEW-ROUNDS.md` remains the complete prose rule; skills point to `review_convergence.py` for executable state. |
+| Failed Verifier with green gate is counted | Pass | Canonical wording and shared contract assertion cover the changed rule. |
+| C/D contract scope is explicit | Pass | Design/DX state T4/T7-only fields and EXE-18–22 remain Planned. |

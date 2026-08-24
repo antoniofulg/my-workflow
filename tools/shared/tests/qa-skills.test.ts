@@ -238,6 +238,7 @@ describe("canonical QA skills", () => {
     expect(reviewRounds).toContain("fingerprint = requirement + root cause + failure path");
     expect(reviewRounds).toContain("independent failed-remediation counter for each fingerprint");
     expect(reviewRounds).toContain("third failed remediation of the same fingerprint");
+    expect(reviewRounds).toContain("every failed post-fix Verifier result, whether or not the build gate is green");
     expect(reviewRounds).toContain("Rewording or reopening a finding preserves its fingerprint and counter");
     expect(reviewRounds).toContain("A distinct blocker starts at count zero and does not consume another fingerprint's counter");
     expect(reviewRounds).not.toMatch(/one global (?:remediation|blocker) counter/i);
@@ -259,6 +260,9 @@ describe("canonical QA skills", () => {
     expect(readRepositoryFile(".agents/skills/tlc-spec-driven/references/validate.md")).toContain(
       "diagnostic cap is per issue and separate from review-remediation fingerprint accounting",
     );
+    const convergence = readRepositoryFile(".agents/skills/tlc-spec-driven/scripts/review_convergence.py");
+    expect(convergence).toContain("failed_remediations");
+    expect(convergence).toContain("os.replace");
   });
 
   it("IT-003 dispatches all QA phases through each existing Verifier", () => {

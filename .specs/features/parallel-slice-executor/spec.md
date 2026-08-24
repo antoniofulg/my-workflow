@@ -187,11 +187,11 @@ scoped to the blocker that is not converging so unrelated findings do not waste 
 | EXE-15 | Git checkpoint and integration adapter | C | Planned |
 | EXE-16 | Git checkpoint and integration adapter | C | Planned |
 | EXE-17 | Git checkpoint and integration adapter | C | Planned |
-| EXE-18 | Resource provider and autonomous integration | D | Complete |
-| EXE-19 | Resource provider and autonomous integration | D | Complete |
-| EXE-20 | Resource provider and autonomous integration | D | Complete |
-| EXE-21 | Resource provider and autonomous integration | D | Complete |
-| EXE-22 | Resource provider and autonomous integration | D | Complete |
+| EXE-18 | Resource provider and autonomous integration | D | Planned |
+| EXE-19 | Resource provider and autonomous integration | D | Planned |
+| EXE-20 | Resource provider and autonomous integration | D | Planned |
+| EXE-21 | Resource provider and autonomous integration | D | Planned |
+| EXE-22 | Resource provider and autonomous integration | D | Planned |
 | SEC-001 | Coordinator state and receipts | A | Complete |
 | SEC-002 | Coordinator state and receipts | A | Complete |
 | SEC-003 | Safe process and path boundary | A | Complete |

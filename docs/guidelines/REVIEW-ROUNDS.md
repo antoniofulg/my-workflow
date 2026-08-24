@@ -87,7 +87,7 @@ identity and buys the same independence.
    Filed-issue review uses the same rule. `ponytail-review` is the skill; this rule is what makes
    YAGNI blocking.
 ## Fingerprinted remediation accounting
-`fingerprint = requirement + root cause + failure path` is each finding's immutable identity. Maintain an independent failed-remediation counter for each fingerprint; count only a scoped post-fix gate failure. Halt on the third failed remediation of the same fingerprint and escalate the path.
+`fingerprint = requirement + root cause + failure path` is each finding's immutable identity. Maintain an independent failed-remediation counter for each fingerprint; count every failed post-fix Verifier result, whether or not the build gate is green. Halt on the third failed remediation of the same fingerprint and escalate the path. The executable state lives in `review-fingerprints.json` through the stdlib convergence script.
 Rewording or reopening a finding preserves its fingerprint and counter. A distinct blocker starts at count zero and does not consume another fingerprint's counter; the diagnostic cap is separate.
 ## Finding shape
 Every finding states, in this order:

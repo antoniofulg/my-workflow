@@ -7,7 +7,9 @@
     "knowledge": "tsx tools/knowledge/src/cli.ts",
     "review:graft:build": "graft build",
     "review:graft:version": "graft --version",
-    "test": "vitest run --dir tools"
+    "test": "vitest run --dir tools",
+    "test:python": "python3 tools/test_orca_adapter.py && python3 tools/test_parallel_executor.py && python3 tools/test_review_convergence.py",
+    "test:all": "npm run test && npm run test:python"
   },
   "devDependencies": {
     "@types/node": "22.20.1",

@@ -143,7 +143,7 @@ def validate_runtime_state(
         if not isinstance(key, str) or not _ID.fullmatch(key) or not isinstance(action, Mapping):
             raise StateError("invalid action receipt")
         if action.get("key") != key or action.get("action") not in {
-            "worktree", "worker", "follow_up", "acquire", "release"
+            "worktree", "worker", "follow_up", "acquire", "release", "worker_release"
         }:
             raise StateError("invalid action receipt")
         if action.get("status") not in {"pending", "accepted", "released", "failed"}:
@@ -559,10 +559,16 @@ class Coordinator:
         lane: dict[str, Any],
         adapter: Any,
         provider: ResourceProvider | None,
+        wait_seconds: float = 30,
     ) -> str:
         """Consume one Run delivery; return continue, handled, or serial."""
         try:
-            delivery = adapter.wait_events(dict(lane))
+            worker_key = idempotency_key(self.feature, str(plan_lane["slice"]), str(plan_lane["task"]), "worker", state["source_git_head"])
+            worker_action = state["actions"].get(worker_key)
+            if not isinstance(worker_action, dict):
+                raise ExecutorError("missing worker action receipt")
+            completion = worker_action.get("completion")
+            delivery = dict(completion) if isinstance(completion, Mapping) else adapter.wait_events(dict(lane), timeout=wait_seconds)
             if delivery.get("event") == "timeout":
                 return "handled"
             if delivery.get("event") in {"waiting", "question"}:
@@ -589,6 +595,8 @@ class Coordinator:
                         follow_receipt = adapter.follow_up(dict(lane), waiter, dict(delivery), idempotency_key=follow_key)
                     if not isinstance(follow_receipt, Mapping):
                         raise ExecutorError("malformed follow-up receipt")
+                    self._validate_worker_receipt(follow_receipt, lane, plan_lane, follow_key, state["source_git_head"])
+                    follow_receipt = self._project_worker_receipt(follow_receipt)
                     self._accept(follow_action, external_id=follow_receipt.get("dispatch_id"), receipt=dict(follow_receipt))
                     for key in ("run_id", "orchestration_task_id", "dispatch_id", "terminal_handle"):
                         if key in follow_receipt:
@@ -598,13 +606,33 @@ class Coordinator:
                 return "handled"
             if delivery.get("event") != "worker_done":
                 raise ExecutorError("unhandled worker delivery")
-            output = adapter.read_worker(dict(lane))
-            accepted = adapter.accept_worker_done(dict(lane), dict(delivery), dict(output))
-            adapter.release(dict(lane), dict(accepted))
-            worker_key = idempotency_key(self.feature, str(plan_lane["slice"]), str(plan_lane["task"]), "worker", state["source_git_head"])
-            worker_action = state["actions"].get(worker_key)
-            if isinstance(worker_action, dict):
+            if not isinstance(completion, Mapping):
+                output = adapter.read_worker(dict(lane))
+                accepted = adapter.accept_worker_done(dict(lane), dict(delivery), dict(output))
                 worker_action["completion"] = dict(accepted)
+                self._save(state)
+            else:
+                accepted = dict(completion)
+            if not worker_action.get("delivery_ack"):
+                ack = adapter.ack_delivery(dict(lane), dict(delivery))
+                if not isinstance(ack, Mapping) or ack.get("acknowledged") is not True:
+                    raise ExecutorError("delivery was not acknowledged")
+                worker_action["delivery_ack"] = dict(ack)
+                self._save(state)
+            release_key, release_action, release_created = self._record_action(state, lane_id, lane, "worker_release")
+            release_action["dispatch_id"] = lane["dispatch_id"]
+            self._save(state)
+            if release_action["status"] == "pending":
+                if not release_created:
+                    release_receipt = self._reconcile_pending(adapter, release_action)
+                    if release_receipt is None:
+                        raise ExecutorError("unreconciled pending action: release")
+                else:
+                    release_receipt = adapter.release(dict(lane), dict(accepted))
+                if not isinstance(release_receipt, Mapping) or release_receipt.get("released") is not True:
+                    raise ExecutorError("worker release receipt was not accepted")
+                self._accept(release_action, external_id="release:" + str(lane["dispatch_id"]), receipt=dict(release_receipt))
+                self._save(state)
             if lane.get("lease") is not None:
                 self._release_lease_state(snapshot, state, lane_id, provider)
             if lane["state"] == "running":
@@ -627,7 +655,7 @@ class Coordinator:
         source_head: str,
     ) -> None:
         required = (
-            "worktree_id", "worktree_path", "branch", "pre_head", "run_id",
+            "feature", "slice", "worktree_id", "worktree_path", "branch", "pre_head", "run_id",
             "orchestration_task_id", "task", "dispatch_id", "terminal_handle", "idempotency_key",
         )
         if any(not isinstance(receipt.get(field), str) or not receipt[field] for field in required):
@@ -637,10 +665,29 @@ class Coordinator:
                 raise ExecutorError(f"uncorrelated worker receipt: {field}")
         if receipt["pre_head"] != source_head:
             raise ExecutorError("worker source head changed")
+        if receipt["feature"] != self.feature or receipt["slice"] != str(plan_lane["slice"]):
+            raise ExecutorError("uncorrelated worker receipt: feature/slice")
         if receipt["idempotency_key"] != key:
             raise ExecutorError("uncorrelated worker receipt: idempotency_key")
         if receipt["task"] != str(plan_lane["task"]):
             raise ExecutorError("uncorrelated worker receipt: task")
+
+    @staticmethod
+    def _project_worker_receipt(receipt: Mapping[str, Any]) -> dict[str, Any]:
+        fields = (
+            "feature", "slice", "task", "worktree_id", "worktree_path", "branch", "pre_head", "run_id",
+            "orchestration_task_id", "dispatch_id", "terminal_handle", "idempotency_key", "status",
+        )
+        return {field: receipt[field] for field in fields if field in receipt}
+
+    def _validate_worktree_receipt(self, receipt: Mapping[str, Any], destination: Path, source_head: str) -> None:
+        required = ("worktree_id", "worktree_path", "branch", "pre_head")
+        if any(not isinstance(receipt.get(field), str) or not receipt[field] for field in required):
+            raise ExecutorError("incomplete worktree receipt")
+        if Path(str(receipt["worktree_path"])).resolve() != Path(destination).resolve():
+            raise ExecutorError("uncorrelated worktree receipt: path")
+        if receipt["pre_head"] != source_head:
+            raise ExecutorError("uncorrelated worktree receipt: source head")
 
     def _release_lease_state(
         self, snapshot: Mapping[str, Any], state: dict[str, Any], lane_id: str, provider: ResourceProvider | None
@@ -695,7 +742,7 @@ class Coordinator:
         self._save(state)
         return {"released": True, "lease_id": lease_id, "idempotent": False}
 
-    def start(self, *, resume: bool = False) -> dict[str, Any]:
+    def start(self, *, resume: bool = False, wait_seconds: float = 30) -> dict[str, Any]:
         snapshot = self._workflow()
         mode = snapshot["parallelization"]["mode"]
         if mode == "disabled":
@@ -787,7 +834,7 @@ class Coordinator:
                 if isinstance(worker_action, Mapping) and worker_action.get("status") in {"accepted", "released"}:
                     if not callable(getattr(adapter, "wait_events", None)):
                         continue
-                    if self._resume_worker_event(snapshot, state, lane_id, plan_lane, existing, adapter, provider) == "serial":
+                    if self._resume_worker_event(snapshot, state, lane_id, plan_lane, existing, adapter, provider, wait_seconds) == "serial":
                         result = _serial_result(self.feature, mode, existing.get("fallback_reason", "worker-failed"), lanes)
                         result["state"] = state
                         return result
@@ -802,8 +849,8 @@ class Coordinator:
                         receipt = self._create_worktree(destinations[lane_id])
                     if not isinstance(receipt, Mapping):
                         raise ExecutorError("malformed worktree receipt")
-                    if receipt.get("worktree_path") is not None:
-                        bounded_path(_git_common_dir(self.root).parent.parent, receipt["worktree_path"])
+                    self._validate_worktree_receipt(receipt, destinations[lane_id], state["source_git_head"])
+                    bounded_path(_git_common_dir(self.root).parent.parent, receipt["worktree_path"])
                     self._accept(worktree_action, external_id=receipt.get("worktree_id"), receipt=dict(receipt))
                     existing.update({key: receipt[key] for key in ("worktree_id", "worktree_path", "branch", "pre_head") if key in receipt})
                 except Exception as exc:
@@ -864,6 +911,7 @@ class Coordinator:
                     if not isinstance(receipt, Mapping):
                         raise ExecutorError("malformed worker receipt")
                     self._validate_worker_receipt(receipt, existing, plan_lane, worker_key, state["source_git_head"])
+                    receipt = self._project_worker_receipt(receipt)
                     self._accept(worker_action, external_id=receipt.get("dispatch_id"), receipt=dict(receipt))
                     for key in ("run_id", "orchestration_task_id", "dispatch_id", "terminal_handle"):
                         if key in receipt:
@@ -910,8 +958,18 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--root", type=Path, default=Path.cwd())
     parser.add_argument("--feature", required=True)
     parser.add_argument("--adapter", choices=("auto", "orca"), default="auto")
-    parser.add_argument("--wait-seconds", type=float, default=30)
+    parser.add_argument("--wait-seconds", type=_wait_seconds, default=30.0)
     return parser
+
+
+def _wait_seconds(value: str) -> float:
+    try:
+        parsed = float(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("wait-seconds must be a number") from exc
+    if not 1 <= parsed <= 3600:
+        raise argparse.ArgumentTypeError("wait-seconds must be between 1 and 3600")
+    return parsed
 
 
 def _adapter_factory(name: str, root: Path, feature: str) -> Callable[[], Any] | None:
@@ -943,7 +1001,7 @@ def main(
         if args.command == "status":
             result = coordinator.status()
         else:
-            result = coordinator.start(resume=args.command == "resume")
+            result = coordinator.start(resume=args.command == "resume", wait_seconds=args.wait_seconds)
         result = {**result, "command": args.command}
         print(json.dumps(result, sort_keys=True))
         return 0
