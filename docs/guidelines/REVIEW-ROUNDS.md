@@ -73,8 +73,11 @@ final session answers *"does the finished thing feel right?"* after all implemen
 6. **Signal over volume.** Above 20 findings, keep all blocking ones and prune the rest to the most
    impactful. Eight precise findings are worth more than thirty that include marginal concerns.
 7. **The reviewer is not the author.** A different actor, or at minimum a different model — the model
-   that implemented the change never solely reviews it. This is cheaper than recruiting a fresh agent
-   identity and buys the same independence.
+that implemented the change never solely reviews it. This is cheaper than recruiting a fresh agent
+identity and buys the same independence.
+   The ai-memory handoff is operator continuity, not reviewer context. Verifier and Deep Reviewer are
+   internal named subagents: they receive explicit role packets and must not consume an Implementer
+   handoff. A top-level reviewer may consume an ai-memory handoff only when no pending Implementer handoff can be consumed.
 8. **A documentation-only change is not an exception.** What a second reader buys is a second reading,
    and a document no tool parses can be as wrong as one that ten do — `docs/` is full of Markdown that
    agents act on.

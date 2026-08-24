@@ -30,6 +30,7 @@
 - [`QAS-discover-independent-qa-skills`](../scenarios/QAS-discover-independent-qa-skills.md)
 - [`QAS-enforce-spec-anchored-qa-contracts`](../scenarios/QAS-enforce-spec-anchored-qa-contracts.md)
 - [`CFG-keep-local-artifacts-out-of-git`](../scenarios/CFG-keep-local-artifacts-out-of-git.md)
+- [`WFL-ai-memory-handoff`](../scenarios/WFL-ai-memory-handoff.md)
 
 ## Adjacent canary
 

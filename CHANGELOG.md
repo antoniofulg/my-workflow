@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented here.
 
+## [0.4.0] - 2026-08-24
+
+### Added
+
+- Opt-in ai-memory handoff across Claude Code, Codex, and Cursor with loopback-only, single-use continuity; adoption does not install it.
+- Explicit reviewer isolation for internal Verifier and Deep Reviewer packets, with subagent capture dropping documented only as storage/noise control.
+- Enable, reversible disable, re-enable, and separately destructive purge procedures for the operator-managed ai-memory lifecycle.
+
+### Changed
+
+- Codex handoff wrapper now finalizes only interactive launch modes and preserves the original child argv and exit status.
+
+### Fixed
+
+- Noninteractive and informational Codex commands no longer finalize an unrelated open session.
+- QA runtime walks cover handoff delivery, single-use/no replay, the Codex wrapper/fallback/noninteractive fix, and the adoption canary. Lifecycle controls are documented and command-checked/dry-run only; reviewer isolation remains technical validation unless a later release QA session covers its documentation contract.
+
 ## [0.3.6] - 2026-08-23
 
 ### Added

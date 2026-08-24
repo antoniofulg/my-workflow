@@ -111,6 +111,27 @@ Idle.
 
 ### AD-008
 
+- **Decision**: Adopt upstream ai-memory `1.31.0` only as an opt-in, transient handoff transport
+  between Claude Code, Codex, and Cursor. Lifecycle hooks and the sourceable Codex helper may create
+  one pending baton, but MCP, briefing, routing skills, managed workstreams, LLMs, embeddings,
+  consolidation, and auto-improvement remain disabled. Git, `.specs/`, tasks, architecture docs,
+  and `knowledge/` remain the only project authority. Reviewer continuity is packet-defined: internal
+  Verifier and Deep Reviewer subagents do not consume Implementer handoffs.
+- **Reason**: Provider limits can end a session before work is finished; a bounded single-use baton
+  resumes the next session without recurring startup context or a second task and decision ledger.
+- **Trade-off**: The local runtime stores captured session material outside the checkout and still
+  needs explicit path exclusions because free-form prompts and shell output are not a complete DLP
+  boundary. Codex requires a manual `handoff` fallback when its process exits abnormally. Dropping
+  subagent captures reduces storage noise but does not protect a top-level reviewer; role isolation
+  remains an explicit packet rule.
+- **Scope**: `scripts/ai-memory.zsh`, `scripts/test_ai_memory.py`, `docs/workflow/ai-memory.md`,
+  `README.md`, `docs/guidelines/REVIEW-ROUNDS.md`, `docs/qa/`, the ai-memory feature contracts and
+  threat model, and this decision record.
+- **Date**: 2026-08-23
+- **Status**: active
+
+### AD-009
+
 - **Decision**: Parallelization is an opt-in inter-slice orchestration layer above unchanged TLC;
   `disabled` is the default, `safe` consumes independent or verified cross-slice producers, and
   `full` consumes completed gated checkpoints with sync and revalidation. Uncertainty falls back to
