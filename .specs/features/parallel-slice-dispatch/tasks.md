@@ -86,6 +86,12 @@ T3 → T4
 **Tests:** Structural AD index and feature state validation
 **Gate:** Run `python3 tools/ad-index.py`, `python3 tools/ad-index.py --check`, both TLC validators, `npm_config_offline=true npm test`, and `git diff --check`. Commit `docs(workflow): record parallel dispatch decisions`.
 
+## Review Remediation
+
+| Task | Depends on | Status | Observable behaviour | Tests | Gate | Commit |
+| --- | --- | --- | --- | --- | --- | --- |
+| T2R1 | T2 | complete | Dependency eligibility precedes write-conflict evaluation; incomplete dependencies remain blocked; `in_progress` is never redispatched; `waiting` becomes `follow_up` only after dependencies complete. | Regression cases in `tools/test_parallel_plan.py` | `python3 tools/test_parallel_plan.py`, `python3 tools/test_workflow_config.py`, `git diff --check`, task validator | `fix(workflow): harden parallel planner readiness` |
+
 ## Diagram-Definition Cross-Check
 
 | Task | Depends On | Diagram Shows | Status |

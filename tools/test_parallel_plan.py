@@ -154,6 +154,82 @@ def test_write_collision_falls_back_and_names_both_tasks() -> None:
         shutil.rmtree(root)
 
 
+def test_dependency_blocking_precedes_write_conflict_evaluation() -> None:
+    root = make_repo(
+        task("T1", "A", where="src/shared.py")
+        + task("T2", "B", depends_on="T3", where="src/shared.py")
+        + task("T3", "C")
+    )
+    try:
+        plan = parallel_plan.plan(root=root, feature="fixture")
+        assert plan["fallback"] is False
+        assert [item["task"] for item in plan["lanes"]] == ["T1", "T3"]
+        assert blocked_task(plan, "T2")["reasons"] == ["dependency-incomplete:T3"]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_fallback_reasons_are_complete_and_ordered() -> None:
+    root = make_repo(
+        task("T1", None, depends_on="T99")
+        + task("T2", "B", depends_on="T3")
+        + task("T3", "C", depends_on="T2")
+        + task("T4", "D", where="src/d.py, src/e.py")
+    )
+    try:
+        plan = parallel_plan.plan(root=root, feature="fixture")
+        assert plan["fallback"] is True
+        assert plan["reasons"] == [
+            "missing-slice:T1",
+            "ambiguous-where:T4",
+            "unknown-dependency:T1->T99",
+            "dependency-cycle:T2->T3->T2",
+        ]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_in_progress_is_blocked_and_waiting_follows_up_after_dependencies() -> None:
+    root = make_repo(
+        task("T1", "A", status="in_progress") + task("T2", "B"), mode="safe"
+    )
+    try:
+        plan = parallel_plan.plan(root=root, feature="fixture")
+        assert [item["task"] for item in plan["lanes"]] == ["T2"]
+        assert blocked_task(plan, "T1")["reasons"] == ["in-progress:T1"]
+    finally:
+        shutil.rmtree(root)
+
+    root = make_repo(
+        task("T1", "A", status="waiting", depends_on="T2") + task("T2", "B"), mode="full"
+    )
+    try:
+        plan = parallel_plan.plan(root=root, feature="fixture")
+        assert [item["task"] for item in plan["lanes"]] == ["T2"]
+        assert blocked_task(plan, "T1")["reasons"] == ["waiting-on-dependency:T2"]
+    finally:
+        shutil.rmtree(root)
+
+    root = make_repo(
+        task("T1", "A", status="waiting", depends_on="T2")
+        + task("T2", "B", status="complete"),
+        mode="full",
+    )
+    try:
+        plan = parallel_plan.plan(root=root, feature="fixture")
+        assert plan["lanes"] == [
+            {
+                "id": "slice-A",
+                "slice": "A",
+                "task": "T1",
+                "status": "follow_up",
+                "sync_after": ["T2"],
+            }
+        ]
+    finally:
+        shutil.rmtree(root)
+
+
 def test_same_state_and_head_emit_byte_identical_json() -> None:
     root = make_repo(task("T1", "A") + task("T2", "B"))
     try:

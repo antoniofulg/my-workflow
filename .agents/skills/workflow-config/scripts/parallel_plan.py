@@ -149,7 +149,7 @@ def _write_conflicts(candidates: list[Task]) -> list[str]:
 
 
 def _serial_lane(task: Task | None) -> list[dict[str, Any]]:
-    if task is None:
+    if task is None or task.status in {"in_progress", "waiting"}:
         return []
     return [
         {
@@ -200,16 +200,17 @@ def plan(
 
     candidates: list[Task] = []
     blocked: dict[str, list[str]] = {}
+    seen_slices: set[str | None] = set()
     for task in tasks:
         if task.complete:
             continue
-        if task.slice_id not in {item.slice_id for item in candidates}:
+        if task.slice_id not in seen_slices:
             candidates.append(task)
+            seen_slices.add(task.slice_id)
         else:
             first = next(item for item in candidates if item.slice_id == task.slice_id)
             blocked[task.id] = [f"slice-order:{first.id}"]
 
-    reasons.extend(_write_conflicts(candidates))
     reasons = list(dict.fromkeys(reasons))
     if reasons:
         plan_output["fallback"] = True
@@ -232,13 +233,18 @@ def plan(
             blocked[task.id] = ["disabled-mode"]
         candidates = candidates[:1]
     ready: list[dict[str, Any]] = []
+    ready_tasks: list[Task] = []
     for task in candidates:
+        if task.status == "in_progress":
+            blocked[task.id] = [f"in-progress:{task.id}"]
+            continue
         task_reasons = list(blocked.get(task.id, []))
         sync_after: list[str] = []
         for dependency_id in task.depends_on:
             dependency = by_id[dependency_id]
             if not dependency.complete:
-                task_reasons.append(f"dependency-incomplete:{dependency_id}")
+                reason = "waiting-on-dependency" if task.status == "waiting" else "dependency-incomplete"
+                task_reasons.append(f"{reason}:{dependency_id}")
             elif dependency.slice_id != task.slice_id:
                 if mode == "safe" and dependency.slice_id not in verified:
                     task_reasons.append(f"awaiting-verified-slice:{dependency.slice_id}")
@@ -247,15 +253,39 @@ def plan(
         if task_reasons:
             blocked[task.id] = list(dict.fromkeys(task_reasons))
             continue
+        ready_tasks.append(task)
         ready.append(
             {
                 "id": "serial" if mode == "disabled" else f"slice-{task.slice_id}",
                 "slice": task.slice_id,
                 "task": task.id,
-                "status": "ready",
+                "status": "follow_up" if task.status == "waiting" else "ready",
                 "sync_after": sync_after,
             }
         )
+
+    conflict_reasons = _write_conflicts(ready_tasks)
+    if conflict_reasons:
+        for lane in ready[1:]:
+            blocked[lane["task"]] = ["serial-fallback"]
+        plan_output["fallback"] = True
+        plan_output["reasons"] = conflict_reasons
+        if ready:
+            serial_lane = dict(ready[0])
+            serial_lane["id"] = "serial"
+            plan_output["lanes"] = [serial_lane]
+        else:
+            plan_output["lanes"] = []
+        plan_output["blocked"] = [
+            {
+                "task": task.id,
+                "slice": task.slice_id,
+                "reasons": blocked[task.id],
+            }
+            for task in tasks
+            if task.id in blocked
+        ]
+        return plan_output
 
     plan_output["lanes"] = ready
     plan_output["blocked"] = [

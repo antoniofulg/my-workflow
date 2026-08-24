@@ -72,6 +72,18 @@ that a capable orchestrator can dispatch concurrency while every slice remains s
 
 **Independent Test:** Run fixtures covering serial, independent, cross-slice, waiting, conflict, cycle, and missing-metadata graphs.
 
+### Planner task statuses
+
+The planner SHALL treat task status as a dispatch state, not as evidence that a worker can be
+started again:
+
+| Task status | Planner result |
+| --- | --- |
+| `pending` | Candidate when slice order and dependencies allow it. |
+| `in_progress` | Blocked with `in-progress:<task-id>`; never emitted as a fresh worker. |
+| `waiting` | Emits `follow_up` only when every declared dependency is complete; otherwise remains blocked with `waiting-on-dependency:<task-id>`. |
+| `complete` | Not a candidate; may unlock dependent tasks and full-mode checkpoints. |
+
 ### P1: Preserve workflow evidence under concurrency
 
 **User Story:** As a delivery owner, I want parallel dispatch to preserve all existing evidence so
