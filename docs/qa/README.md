@@ -29,7 +29,10 @@ No browser, API, or mobile surface exists in this repository.
 - Exact path used by `qa-execute`: invoke the command documented by the
   [`workflow-config` skill](../../.agents/skills/workflow-config/SKILL.md) inside a checkout-local
   disposable Git repository; invoke [`scripts/adopt.py`](../../scripts/adopt.py) against a separate
-  checkout-local disposable target; inspect its printed external-skill command before invoking
+  checkout-local disposable target; inspect package membership with `npm pack --dry-run --json`
+  from the active checkout, and create any clean-clone canary from the active local repository into
+  a checkout-owned disposable path without fetching a remote; inspect the adoption script's printed
+  external-skill command before invoking
   [`scripts/install_security_skills.py`](../../scripts/install_security_skills.py) only when the
   QA packet explicitly authorizes network access and target writes; then inspect the targets and
   repository files named by each charter. For Deep Review publication, extract the public recipe

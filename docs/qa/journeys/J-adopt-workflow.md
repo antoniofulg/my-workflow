@@ -19,7 +19,9 @@
    template bodies, `tools/ad-index.py`, and unrelated ignore entries.
 6. Confirm the local config and consumer-owned template/profile state survive byte-for-byte, runtime
    packets regenerate, and the resulting diff remains reviewable.
-7. Continue to [`J-enable-external-security-skills`](J-enable-external-security-skills.md) only after
+7. Pack and clone the adopted source state; confirm tracked example/templates travel while local
+   config/runtime packets do not, then regenerate the checkout-local packets from tracked sources.
+8. Continue to [`J-enable-external-security-skills`](J-enable-external-security-skills.md) only after
    explicitly authorizing its networked installer step.
 
 ## Promises

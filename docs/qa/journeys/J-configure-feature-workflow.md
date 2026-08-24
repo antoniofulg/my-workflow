@@ -6,11 +6,13 @@
 
 ## Flow
 
-1. Initialize the local config from the tracked example, edit its complete v2 model matrix, and run explicit sync; inspect all fifteen generated native packets.
-2. Run sync again and confirm no runtime packet bytes change; confirm tracked templates remain unchanged.
-3. Resolve a feature and confirm delegated model/effort values are frozen while planner remains top-level.
-4. Synchronize a deliberate delegated model change, confirm ordinary resume rejects drift, then explicitly refresh.
-5. Add a cadence and partial mixed-provider profile, then confirm route precedence and adoption preservation.
+1. Distinguish tracked `.my-workflow.toml.example` and packet templates from ignored local config and generated runtimes; confirm the same ownership boundary in package output and a clean clone.
+2. Initialize the local config, select the documented `mixed` profile, edit one model/effort pair per provider, and run explicit sync; inspect all fifteen generated native packets.
+3. Run sync again and confirm no runtime packet bytes change; confirm tracked templates remain unchanged.
+4. Exercise invalid config, template, metadata, destination, and symlink inputs; confirm each failure names its source and changes no local or outside bytes.
+5. Resolve a feature and confirm delegated model/effort values are frozen while planner remains top-level.
+6. Replace unsynchronized config values, then synchronize deliberate model/effort drift; confirm frozen resume first remains stable, then rejects packet drift until explicit refresh.
+7. Confirm cadence grouping, provider precedence, checkout isolation, and adoption preservation as adjacent paths.
 
 ## Promises
 
