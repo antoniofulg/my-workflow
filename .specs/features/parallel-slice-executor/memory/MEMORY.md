@@ -15,3 +15,4 @@
 - T2R3 removes adapter worktree allocation entirely, validates recovered leases through the fresh-receipt normalizer, and exposes CLI resume as a distinct command result.
 - T2R4 makes review convergence fingerprint-scoped; `REVIEW-ROUNDS.md` is canonical and bridge docs must not restate its full accounting.
 - T2R5 keeps the public CLI `resume` observable while allowing a minimal entrypoint-only adapter factory seam for safe-mode reconciliation tests; persisted pending worker receipts are accepted without dispatching a second effect.
+- T3 attaches Orca workers only through `worker-start --worktree path:<validated-checkout>`; run/task reuse is keyed by the core idempotency key, and worker/event receipts are redacted and correlated before release or same-terminal follow-up.

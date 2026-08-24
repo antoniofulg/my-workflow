@@ -175,12 +175,12 @@ scoped to the blocker that is not converging so unrelated findings do not waste 
 | EXE-03 | Coordinator state and receipts | A | Complete |
 | EXE-04 | Coordinator state and receipts | A | Complete |
 | EXE-05 | Coordinator state and receipts | A | Complete |
-| EXE-06 | Orca adapter | B | Planned |
-| EXE-07 | Orca adapter | B | Planned |
-| EXE-08 | Orca adapter | B | Planned |
-| EXE-09 | Orca adapter | B | Planned |
-| EXE-10 | Orca adapter | B | Planned |
-| EXE-11 | Orca adapter | B | Planned |
+| EXE-06 | Orca adapter | B | Complete |
+| EXE-07 | Orca adapter | B | Complete |
+| EXE-08 | Orca adapter | B | Complete |
+| EXE-09 | Orca adapter | B | Complete |
+| EXE-10 | Orca adapter | B | Complete |
+| EXE-11 | Orca adapter | B | Complete |
 | EXE-12 | Git checkpoint and integration adapter | C | Planned |
 | EXE-13 | Git checkpoint and integration adapter | C | Planned |
 | EXE-14 | Git checkpoint and integration adapter | C | Planned |
@@ -196,8 +196,8 @@ scoped to the blocker that is not converging so unrelated findings do not waste 
 | SEC-002 | Coordinator state and receipts | A | Complete |
 | SEC-003 | Safe process and path boundary | A | Complete |
 | SEC-004 | Safe process and path boundary | A | Complete |
-| SEC-005 | Orca adapter | B | Planned |
-| SEC-006 | Orca adapter | B | Planned |
+| SEC-005 | Orca adapter | B | Complete |
+| SEC-006 | Orca adapter | B | Complete |
 | SEC-007 | Resource provider | D | Complete |
 | SEC-008 | Resource provider | D | Complete |
 | EXE-23 | Review convergence policy | A | Complete |

@@ -108,7 +108,7 @@ T3 + T4 + T6 -> T7
 
 ### T3: Adapt the Orca worker lifecycle
 
-**Status:** pending
+**Status:** complete
 **Slice:** B
 **Resources:** none
 **Observable behaviour:** The coordinator creates a validated child Git worktree before resource preparation; the Orca adapter attaches its worker to that existing checkout, validates every receipt, blocks on correlated events, follows up the same terminal, and releases only accepted owned workers.
