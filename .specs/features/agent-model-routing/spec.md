@@ -103,15 +103,15 @@ instruction bytes, and inspect all native model fields.
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| AMR-01 | Configure every agent | Tasks | Verified |
-| AMR-02 | Configure every agent | Tasks | Verified |
-| AMR-03 | Configure every agent | Tasks | Verified |
-| AMR-04 | Configure every agent | Tasks | Verified |
-| AMR-05 | Freeze execution settings | Tasks | Verified |
-| AMR-06 | Freeze execution settings | Tasks | Verified |
-| AMR-07 | Adopt centralized contract | Tasks | Verified |
-| AMR-08 | Adopt centralized contract | Tasks | Verified |
-| AMR-09 | Keep operator state unversioned | Tasks | Verified |
+| AMR-01 | Configure every agent | Validation | Verified |
+| AMR-02 | Configure every agent | Validation | Verified |
+| AMR-03 | Configure every agent | Validation | Verified |
+| AMR-04 | Configure every agent | Validation | Verified |
+| AMR-05 | Freeze execution settings | Validation | Verified |
+| AMR-06 | Freeze execution settings | Validation | Verified |
+| AMR-07 | Adopt centralized contract | Validation | Verified |
+| AMR-08 | Adopt centralized contract | Validation | Verified |
+| AMR-09 | Keep operator state unversioned | Validation | Verified |
 
 **Coverage:** 9 total, 9 mapped to tasks, 0 unmapped.
 
