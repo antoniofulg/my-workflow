@@ -545,4 +545,100 @@ lessons script after this report update. A clean result is not claimed.
 - Sensor: 4/6 targeted mutations killed; wrong-feature and wrong-version mutations survived.
 - Round 1 closure: Critical fixed; 3/4 Major findings closed; snapshot-validation Major remains.
 
-Verdict: FAIL
+Historical verdict: FAIL
+
+## Post-Review Remediation Re-Verification
+
+**Date:** 2026-08-24
+**Diff range:** `6675d5574e692a7534b676519e89fbc484289b46..382acbf`
+**Remediation commit:** `382acbf`
+**Verifier:** fresh independent Verifier (author != verifier)
+**Feature status:** COMPLETE
+
+This result preserves the earlier PASS and FAIL records above. It supersedes the current readiness
+verdict after independently rechecking every PAR requirement, every Round 1 Critical/Major finding,
+the final gates, and six behavior-level mutations.
+
+### Round 1 Critical/Major closure
+
+| Finding | Current evidence | Result |
+| --- | --- | --- |
+| Critical — missing or unreadable `tasks.md` exits successfully | `.agents/skills/workflow-config/scripts/parallel_plan.py:195-199` raises before plan emission; `tools/test_parallel_plan.py:245-258` requires exit 1, empty stdout, and the read-error message. The successful-fallback mutation was killed. | PASS |
+| Major — planner accepts another feature's or schema version's snapshot | `.agents/skills/workflow-config/scripts/parallel_plan.py:35-51` validates exact version and feature identity; `tools/test_parallel_plan.py:263-287` now supplies otherwise-valid snapshots that differ only by `feature` or only by `version`. Removing either validation independently failed the planner suite. | PASS |
+| Major — checked-in v1 snapshots cannot resume | `tools/test_workflow_config.py:546-556` resumes every checked-in v1 snapshot and requires exact feature identity plus `parallelization.mode = "disabled"`. Removing the field from one snapshot failed the suite. | PASS |
+| Major — final validation overclaims PAR-13/PAR-14 | This independent result cites the exact assertions and killed mutations below; the prior FAIL remains historical above. | PASS |
+| Major — IT-006 omits clean committed checkpoint and sync-before-consumption ordering | `tools/shared/tests/autonomous-parallelization.test.ts:34-51` pins both state and ordering. Removing cleanliness or reversing synchronization order independently failed IT-006. | PASS |
+
+**Round 1 result:** 1/1 Critical and 4/4 Major findings closed. No blocking finding remains.
+
+### Spec-anchored acceptance criteria
+
+| Requirement | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| PAR-01 | Missing configuration freezes `disabled`. | `tools/test_workflow_config.py:36-42` — `assert snapshot["parallelization"] == {"mode": "disabled"}`. | PASS |
+| PAR-02 | Each supported mode freezes unchanged. | `tools/test_workflow_config.py:50-81` iterates `disabled`, `safe`, and `full`, then asserts emitted and persisted values equal the input. | PASS |
+| PAR-03 | Unsupported mode exits non-zero without replacing a valid snapshot. | `tools/test_workflow_config.py:86-110` requires `ConfigError` and byte-identical persisted content. | PASS |
+| PAR-04 | Resume uses the frozen mode without re-resolution. | `tools/test_workflow_config.py:115-131` changes config and invocation inputs, then asserts `resumed == first` and mode remains `full`; `tools/test_workflow_config.py:546-556` covers checked-in v1 snapshots. | PASS |
+| PAR-05 | At most the first incomplete task of each slice is dispatchable. | `tools/test_parallel_plan.py:74-80` requires only `T1` and `T3` as lanes while `T2` is blocked by `slice-order:T1`. | PASS |
+| PAR-06 | Disabled mode returns one serial lane in declaration order. | `tools/test_parallel_plan.py:84-93` asserts the exact single serial lane and `disabled-mode` blocker. | PASS |
+| PAR-07 | Safe mode requires verified cross-slice producers. | `tools/test_parallel_plan.py:97-110` asserts the consumer blocked before slice verification and ready afterward. | PASS |
+| PAR-08 | Full mode records a completed upstream task as sync checkpoint. | `tools/test_parallel_plan.py:114-121` asserts `sync_after == ["T1"]` and `status == "ready"`. | PASS |
+| PAR-09 | Incomplete dependencies block consumers and no later slice task dispatches. | `tools/test_parallel_plan.py:157-167` requires `dependency-incomplete:T3`; `tools/test_parallel_plan.py:203-229` keeps waiting work blocked until completion, then emits only `follow_up`. | PASS |
+| PAR-10 | Invalid graph or metadata falls back with every decisive reason; unreadable task input fails closed. | `tools/test_parallel_plan.py:126-187` asserts cycle, unknown dependency, missing slice, ambiguous path, collision, and ordered reasons; `tools/test_parallel_plan.py:245-287` asserts read failure plus independently isolated snapshot feature/version rejection. | PASS |
+| PAR-11 | Identical state and head emit byte-equivalent JSON. | `tools/test_parallel_plan.py:233-240` compares exact stdout bytes; `tools/test_parallel_plan.py:292-325` asserts the exact projection. | PASS |
+| PAR-12 | Missing isolated executor preserves serial execution without worker/worktree creation. | `tools/shared/tests/autonomous-parallelization.test.ts:29-31` asserts all three clauses in the canonical autonomous contract. | PASS |
+| PAR-13 | Waiting worker leaves a clean commit, reports dependency/head, ends, and resumes only by event. | `tools/shared/tests/autonomous-parallelization.test.ts:34-41` asserts clean committed checkpoint, exact report, turn end, event-only follow-up, dirty refusal, and serial recovery. | PASS |
+| PAR-14 | New checkpoints synchronize before consumption and rerun the affected gate. | `tools/shared/tests/autonomous-parallelization.test.ts:42-51` asserts ordering, exact event commit, checkpoint cadence, final no-op, and gate-before-continuation. | PASS |
+| PAR-15 | Changed reviewed trees invalidate and repeat affected evidence. | `tools/shared/tests/autonomous-parallelization.test.ts:52-55` asserts invalidation of gates, Verifier, and deep-review plus gate repetition on the resulting tree. | PASS |
+| PAR-16 | Existing TLC task, Verifier, deep-review, QA, and final-gate contracts remain intact. | `tools/shared/tests/autonomous-parallelization.test.ts:56-61` asserts every preserved stage and unchanged TLC. | PASS |
+
+**Spec-anchored result:** 16/16 precise outcomes matched. No uncovered AC or spec-precision gap.
+
+### Fresh final gates
+
+| Command | Result |
+| --- | --- |
+| `npm_config_offline=true npm test` | PASS — 9 files, 109 tests passed, 0 failed, 0 skipped. |
+| `for test_file in tools/test_*.py; do python3 "$test_file"; done` | PASS — ad-index `ok`; 69 numbered tests passed, 0 failed, 0 skipped. |
+| `python3 .agents/skills/tlc-spec-driven/scripts/validate_spec.py .specs/features/parallel-slice-dispatch/spec.md` | PASS — 0 errors, 0 warnings. |
+| `python3 .agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/parallel-slice-dispatch/tasks.md` | PASS — 0 errors, 0 warnings. |
+| `python3 tools/ad-index.py --check` | PASS — `AD-INDEX.md up to date`. |
+| `git diff --check 6675d5574e692a7534b676519e89fbc484289b46..382acbf` | PASS — no output. |
+
+No test was deleted, weakened, skipped, or added without a named contract outcome.
+
+### Fresh discrimination sensor
+
+All mutations ran in one detached temporary worktree at `382acbf`. Each file was restored from HEAD
+between attempts. The scratch was removed; real-tree porcelain matched its pre-sensor baseline.
+
+| Mutation | Expected regression | Result |
+| --- | --- | --- |
+| Convert unreadable `tasks.md` into successful fallback JSON. | CLI read failure must remain non-zero with no plan output. | KILLED at `tools/test_parallel_plan.py:256-258`. |
+| Remove exact snapshot feature validation while all other fields remain valid. | Wrong feature identity must be rejected independently. | KILLED at `tools/test_parallel_plan.py:263-287`. |
+| Remove exact snapshot version validation while all other fields remain valid. | Wrong schema version must be rejected independently. | KILLED at `tools/test_parallel_plan.py:263-287`. |
+| Remove `parallelization` from one checked-in v1 snapshot. | Resume compatibility must fail. | KILLED at `tools/test_workflow_config.py:546-556`. |
+| Permit a waiting worker without a clean committed checkpoint. | PAR-13 state safety must fail. | KILLED at `tools/shared/tests/autonomous-parallelization.test.ts:34`. |
+| Synchronize only after the dependent consumes the newer commit. | PAR-14 ordering must fail. | KILLED at `tools/shared/tests/autonomous-parallelization.test.ts:42-44`. |
+
+**Sensor depth:** lightweight, six targeted mutations covering every Round 1 blocker.
+**Sensor result:** PASS — 6/6 killed, 0 survived.
+
+### Code quality and lessons
+
+Changed behavior remains limited to the requested workflow configuration, deterministic planner,
+autonomous policy, contract tests, and versioned feature evidence. Standard-library implementation
+matches existing project patterns. No unrelated flexibility or product behavior was introduced.
+
+This clean PASS has no surviving mutant, AC gap, spec-precision gap, gate failure, or
+`SPEC_DEVIATION`. Per the TLC lessons contract, no lesson was added and no prior lesson duplicated.
+
+### Final summary
+
+- Round 1 closure: 1/1 Critical and 4/4 Major findings closed.
+- Spec-anchored check: 16/16 requirements verified.
+- Gate: 109 Vitest + 69 numbered Python tests passed, 0 failed, 0 skipped.
+- Sensor: 6/6 targeted mutations killed, including both previous survivors.
+- Remaining gaps: none.
+
+Verdict: PASS
