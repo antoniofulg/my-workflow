@@ -72,7 +72,12 @@ Argument safety remains asserted at `scripts/test_ai_memory.py:128`-`129`. Loopb
 
 ## QA Disposition
 
-Technical verdict only. Existing `docs/qa/scenarios/WFL-ai-memory-handoff.md:9` remains `fail`, with `fix_status: pending` at line 11. This session did not change QA status, configuration, evidence, reports, or product code. A fresh QA Execute session must retest the provider lifecycle and the recorded noninteractive-wrapper defect.
+Technical verdict remains PASS. Fresh QA Execute retested the provider lifecycle and the recorded
+noninteractive-wrapper defect in
+`docs/qa/reports/2026-08-24-ai-memory-handoff.md`. The scenario
+`docs/qa/scenarios/WFL-ai-memory-handoff.md` is now `qa_status: pass`, with
+`fix_status: fixed` and `retest_status: pass`. The original defect remains preserved as historical
+bug evidence; this disposition does not expand or replace the technical verifier scope above.
 
 ## Summary
 
