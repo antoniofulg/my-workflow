@@ -145,3 +145,19 @@ Idle.
   autonomous orchestration, and Verifier/deep-review/QA integration.
 - **Date**: 2026-08-24
 - **Status**: active
+
+### AD-010
+
+- **Decision**: Parallel execution uses a provider-neutral deterministic coordinator whose adapters
+  own external effects. Orca is the first worktree/worker/event adapter; checkpoint sync rebases only
+  the private dependent lane, verified slices merge without rewriting their commits, and any missing
+  adapter or consumer resource-provider capability falls back to serial execution.
+- **Reason**: Restart safety, event correlation, Git evidence, and isolation policy must behave the
+  same across agents and IDEs, while real port/runtime/database semantics remain owned by each
+  consuming project.
+- **Trade-off**: Non-Orca environments stay serial until they implement the conformance protocol,
+  and resource-bearing concurrency requires a small project executable plus adoption QA.
+- **Scope**: Autonomous parallel execution, workflow snapshots and task resource metadata, Orca/Git
+  adapters, consumer resource providers, and future IDE adapters.
+- **Date**: 2026-08-24
+- **Status**: active

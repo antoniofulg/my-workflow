@@ -16,3 +16,4 @@ When recording an `AD-NNN`, run `python3 tools/ad-index.py` in the same commit.
 | `AD-007` | active | `.specs/features/` is versioned, durable workflow state. |
 | `AD-008` | active | Adopt upstream ai-memory `1.31.0` only as an opt-in, transient handoff transport between Claude Code, Codex, and Cursor. |
 | `AD-009` | active | Parallelization is an opt-in inter-slice orchestration layer above unchanged TLC; `disabled` is the default, `safe` consumes independent or… |
+| `AD-010` | active | Parallel execution uses a provider-neutral deterministic coordinator whose adapters own external effects. |
