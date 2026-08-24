@@ -1,6 +1,6 @@
 # BUG-20260824-release-overstates-lifecycle-qa
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** major
 - **Scenario:** `REL-report-current-workflow-release`
 - **Expected:** Release `0.4.0` describes lifecycle procedures without claiming runtime QA coverage
@@ -13,8 +13,8 @@
   `docs/qa/reports/2026-08-24-ai-memory-handoff.md`, and compare the matrix and nine probe results
   with mandatory charter probe 3 in `CH-review-release-0-4-0-2026-08-24.md`
 - **Evidence:** `docs/qa/evidence/2026-08-24-release-0-4-0/session.md`
-- **Fix commit:**
-- **Retest:** pending fresh technical verification and release-journey QA
+- **Fix commit:** `61f2e74`
+- **Retest:** pass at `dbe11cf`; fresh technical validation, release journey, adjacent adoption canary, package dry-run, lifecycle help/dry-run, reviewer pointer, and full gates passed
 
 ## Reproduction
 
@@ -34,3 +34,12 @@ or execute destructive machine operations to preserve the broader wording.
 Extend the canonical release assertion so unsupported lifecycle-QA wording fails when the durable
 report remains scoped to AIM-01-AIM-08. A fresh Verifier must run the technical gate, resume this
 release charter, and re-walk `REL-report-current-workflow-release` plus the adjacent adoption canary.
+
+## Retest evidence
+
+Fresh QA Execute on 2026-08-24 confirmed that `CHANGELOG.md:20` no longer claims runtime lifecycle-
+control coverage. It distinguishes runtime-walked handoff evidence, lifecycle documentation and
+command checks/dry-run, and technical reviewer-isolation validation. The scoped suite passed 23/23,
+package/version/adoption/lifecycle/reviewer probes passed, and the full 108/108 gate passed.
+Evidence: `docs/qa/evidence/2026-08-24-release-0-4-0/session.md`; report:
+`docs/qa/reports/2026-08-24-release-0-4-0.md`.
