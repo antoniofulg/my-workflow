@@ -162,8 +162,92 @@ Sensor ran in a detached temporary worktree at commit `60a719e`. Each mutation r
 
 T2 adds an internal planning CLI for orchestrators. This packet ran technical verification only; no product runtime or QA phase was required.
 
+## Slice 2 — T2 Remediation Re-verification
+
+**Diff range:** `d6ff064..8f8ea1e`
+**Remediation commit:** `8f8ea1e`
+**Slice verdict after remediation:** PASS
+**Feature status:** IN PROGRESS
+**Task:** T2/T2R1 — Generate deterministic slice plans and harden planner readiness
+**Requirements:** PAR-05, PAR-06, PAR-07, PAR-08, PAR-09, PAR-10, PAR-11, plus the Planner task-status contract
+
+This fresh Verifier retained the preceding FAIL as historical evidence and independently rechecked the remediated tree. The three prior Major gaps are closed; this is not a final feature verdict.
+
+### Task completion
+
+| Task | Status | Evidence |
+| --- | --- | --- |
+| T2 | Verified after remediation | Scoped gates passed and 4/4 targeted sensor mutations were killed. |
+| T2R1 | Verified | Dependency readiness precedes conflict detection; complete decisive reasons and active/waiting transitions are asserted exactly. |
+
+### Spec-anchored acceptance criteria
+
+| Criterion | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| PAR-05 | No slice exposes more than its first incomplete task. | `tools/test_parallel_plan.py:74-79` — two pending Slice A tasks yield lanes `T1`, `T3`, while T2 is exactly blocked by `slice-order:T1`. | PASS |
+| PAR-06 | Disabled mode emits one serial lane in declaration order. | `tools/test_parallel_plan.py:84-92` — exact lane equals T1/Slice A/`ready`/no sync and T2 is blocked by `disabled-mode`. | PASS |
+| PAR-07 | Safe mode exposes independent roots and holds a cross-slice consumer until its producer slice is verified. | `tools/test_parallel_plan.py:97-109` — before verification only T3 is ready and T2 has exact reason `awaiting-verified-slice:A`; after verification T2 and T3 are ready. | PASS |
+| PAR-08 | Full mode exposes a consumer after its upstream task completes and records that checkpoint. | `tools/test_parallel_plan.py:114-121` — T2 has `sync_after == ["T1"]` and `status == "ready"`. | PASS |
+| PAR-09 | An incomplete dependency blocks its consumer before conflict evaluation and no later same-slice task is dispatched. | `tools/test_parallel_plan.py:157-167` — T2 shares T1's write path but remains exactly blocked by `dependency-incomplete:T3`, while only T1 and T3 are lanes; `tools/test_parallel_plan.py:74-79` proves a later same-slice task stays blocked. | PASS |
+| PAR-10 | Invalid graph metadata and every decisive graph reason cause serial fallback; collisions are evaluated only among ready candidates and name both tasks. | `tools/test_parallel_plan.py:126-153` covers each required class and the exact collision; `tools/test_parallel_plan.py:172-187` asserts the complete ordered four-reason set; `tools/test_parallel_plan.py:157-167` proves a blocked consumer cannot create a false collision fallback. | PASS |
+| PAR-11 | Identical feature state and Git head emit byte-identical JSON. | `tools/test_parallel_plan.py:233-240` — two CLI invocations assert exact stdout bytes; `tools/test_parallel_plan.py:245-278` asserts the complete projection. | PASS |
+
+**Spec-anchored result:** 7/7 PAR-05–PAR-11 criteria match precise outcomes. No spec-precision gap remains.
+
+### Status-transition and edge precision
+
+| Contract / edge | `file:line` + assertion | Result |
+| --- | --- | --- |
+| `in_progress` never starts another worker | `tools/test_parallel_plan.py:192-199` — only T2 is a lane and T1 is exactly blocked by `in-progress:T1`. | PASS |
+| `waiting` stays blocked while a dependency is incomplete | `tools/test_parallel_plan.py:203-209` — only T2 is a lane and T1 is exactly blocked by `waiting-on-dependency:T2`. | PASS |
+| `waiting` becomes `follow_up` only after all declared dependencies complete | `tools/test_parallel_plan.py:213-228` — the exact sole lane is T1 with `status = follow_up` and `sync_after = ["T2"]`. | PASS |
+| Exact write collision selects fallback | `tools/test_parallel_plan.py:147-152` — fallback is true and names `write-conflict:T1:T2:src/shared.py`. | PASS |
+| Unknown dependency selects fallback and names the unknown ID | `tools/test_parallel_plan.py:132-142` plus the exact combined assertion at `tools/test_parallel_plan.py:172-187` names `unknown-dependency:T1->T99`. | PASS |
+
+Dirty waiting workers and final reconciliation remain outside T2 and are owned by T3/PAR-13–PAR-15.
+
+### Fresh gate check
+
+| Command | Result |
+| --- | --- |
+| `python3 tools/test_parallel_plan.py` | PASS — 11 passed, 0 failed, 0 skipped |
+| `python3 tools/test_workflow_config.py` | PASS — 14 passed, 0 failed, 0 skipped |
+| `python3 /Users/antoniofulg/Projects/my-workflow/.agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/parallel-slice-dispatch/tasks.md` | PASS — 0 errors, 0 warnings |
+| `git diff --check d6ff064..8f8ea1e` | PASS — no output |
+
+The prior T2 report recorded 8 planner tests. Remediation adds 3 regression functions, for 11 total; no planner test was deleted or skipped.
+
+### Fresh discrimination sensor
+
+Sensor ran in detached temporary worktree `/tmp/parallel-sensor.AMSDrV/tree` at `8f8ea1e`. Each mutation ran `python3 tools/test_parallel_plan.py`; the scratch was removed and real-tree porcelain remained identical to the empty baseline.
+
+| Mutation | Source evidence | Expected regression | Result |
+| --- | --- | --- | --- |
+| Bypass incomplete-dependency blocking. | `.agents/skills/workflow-config/scripts/parallel_plan.py:243-247` | A blocked consumer is exposed and can participate in a false write conflict. | KILLED at `tools/test_parallel_plan.py:167` |
+| Stop recognizing `in_progress` as active. | `.agents/skills/workflow-config/scripts/parallel_plan.py:237-240` | An active task is redispatched as a fresh lane. | KILLED at `tools/test_parallel_plan.py:198` |
+| Emit `ready` instead of `follow_up` for a satisfied waiting worker. | `.agents/skills/workflow-config/scripts/parallel_plan.py:257-263` | Resume semantics collapse into a new-worker dispatch. | KILLED at `tools/test_parallel_plan.py:220` |
+| Retain only the first decisive graph reason. | `.agents/skills/workflow-config/scripts/parallel_plan.py:214-218` | Combined invalid input hides later decisive reasons. | KILLED at `tools/test_parallel_plan.py:182` |
+
+**Sensor depth:** lightweight, 4 targeted behavior mutations focused on the historical gaps.
+**Sensor result:** PASS — 4/4 killed, 0 survived.
+
+### Code quality and contract parity
+
+| Check | Result |
+| --- | --- |
+| Read-only, standard-library planner remains the minimum implementation | PASS |
+| Dependency eligibility is computed before write conflicts | PASS — `.agents/skills/workflow-config/scripts/parallel_plan.py:237-267` |
+| Every PAR-05–PAR-11 outcome has non-hollow assertion evidence | PASS |
+| Active and waiting transitions match the newly precise spec table | PASS |
+| Remediation is limited to planner, canonical tests, spec precision, and workflow state | PASS |
+| Test contract followed | PASS — exact inputs and outcomes live in the canonical `tools/test_parallel_plan.py` suite; no duplicate suite or implementation-mirroring assertion was added. |
+
+### Ranked gaps
+
+None for Slice 2/T2 after remediation.
+
 ## Feature Summary
 
 **Overall:** IN PROGRESS
 
-Slice 1/T1 remains technically verified. Slice 2/T2 is not verified: three Major gaps require implementer remediation and a fresh technical Verifier. T3–T4, resolved deep-review group, final gate, and final QA remain pending. `validate_state.py` remains intentionally deferred until the feature can truthfully claim final PASS.
+Slice 1/T1 remains technically verified. Slice 2/T2 now passes fresh technical re-verification after remediation; its prior FAIL remains above as historical evidence. T3–T4, resolved deep-review group, final gate, and final QA remain pending. `validate_state.py` remains intentionally deferred until the feature can truthfully claim final PASS.
