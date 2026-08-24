@@ -63,6 +63,7 @@ Acceptance criteria:
 - **AIM-06:** WHERE ai-memory is adopted, the setup SHALL leave briefing, MCP registration, routing skills, managed workstreams, LLMs, embeddings, consolidation, and auto-improvement disabled.
 - **AIM-07:** The workflow SHALL keep ai-memory runtime data outside the consuming repository and identify Git plus the documented workflow artifacts as authoritative.
 - **AIM-08:** WHERE capture hooks are enabled, the setup SHALL document local-loopback operation, bounded capture, secret-path exclusions, and the residual that free-form prompts or shell output are not complete DLP boundaries.
+- **AIM-09:** WHERE a Verifier or Deep Reviewer is dispatched as an internal named subagent, the workflow SHALL deliver an explicit role packet and SHALL NOT consume an Implementer ai-memory handoff; a top-level reviewer MAY consume an ai-memory handoff only when no pending Implementer handoff can be consumed.
 
 Independent test: inspect the opt-in integration contract and run repository gates without an
 ai-memory server; normal adoption remains unchanged and produces no ai-memory runtime state.
@@ -82,6 +83,7 @@ ai-memory server; normal adoption remains unchanged and produces no ai-memory ru
 | S8 | User prompts and tool output may contain sensitive content | Loopback-only server, no cloud LLM, secret-path exclusions | AIM-06, AIM-08 |
 | S9 | External ai-memory process and hooks | Fail-visible finalization; upstream kept outside package dependencies | AIM-03, AIM-05 |
 | S11 | Persistent local server process | Loopback bind and explicit operator-managed lifecycle | AIM-05, AIM-08 |
+| S10 | Reviewer context and persistent handoff authority | Explicit role packets for internal reviewers; subagent capture drop is storage/noise control only | AIM-09 |
 
 ## Requirement Traceability
 
@@ -95,9 +97,11 @@ ai-memory server; normal adoption remains unchanged and produces no ai-memory ru
 | AIM-06 | Preserve workflow authority and privacy | Specify | Complete |
 | AIM-07 | Preserve workflow authority and privacy | Specify | Complete |
 | AIM-08 | Preserve workflow authority and privacy | Specify | Complete |
+| AIM-09 | Preserve workflow authority and privacy | Specify | Complete |
 
 ## Success Criteria
 
 - A normal Codex exit invokes finalization exactly once while preserving its exit status.
 - Claude Code, Codex, and Cursor can exchange one pending handoff without enabling recurring briefing.
 - Repository adoption and full gates pass without ai-memory installed or running.
+- Internal reviewer context stays packet-defined and does not consume Implementer handoff context.

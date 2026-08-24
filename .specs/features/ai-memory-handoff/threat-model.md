@@ -17,8 +17,8 @@
 | B2 | External ai-memory process and lifecycle hooks | Loopback-only pinned installation and explicit disabled features |
 | B3 | Codex wrapper arguments and exit status | `"$@"` forwarding and status preservation in `scripts/ai-memory.zsh` |
 
-Assets are the operator's local handoff content, repository workflow authority, shell process state, and
-provider credentials that must remain outside repository artifacts.
+Assets are the operator's local handoff content, explicit reviewer packets, repository workflow
+authority, shell process state, and provider credentials that must remain outside repository artifacts.
 
 ## Threats and controls
 
@@ -28,6 +28,7 @@ provider credentials that must remain outside repository artifacts.
 | TM-002 | Finalization failure is hidden and loses the baton: B2 → B3 | Wrapper prints a fixed stderr message and leaves manual `handoff` available. | A killed shell or `kill -9` can still prevent automatic finalization. |
 | TM-003 | Captured context leaves the local workstation or grows startup prompts: B1 → B2 | Loopback binding, no cloud features, single-use handoff, disabled briefing/MCP/routing/managed features. | The operator must configure path exclusions; free-form content remains outside complete DLP guarantees. |
 | TM-004 | Runtime data becomes repository authority: B2 → workflow artifacts | Documentation names Git, `.specs/`, tasks, architecture docs, and `knowledge/` as canonical. | Operators can still manually copy stale content; review must preserve the stated boundary. |
+| TM-005 | An internal Verifier or Deep Reviewer consumes Implementer handoff context and reviews with contaminated state: B2 → review process | Internal named subagents receive explicit role packets and do not consume Implementer handoff; top-level consumption is allowed only when no pending Implementer handoff exists. `drop_subagent_captures` is documented as storage/noise control, not role isolation. | Provider packet handling remains an operational boundary and requires independent review evidence. |
 
 ## Residual focus for review
 

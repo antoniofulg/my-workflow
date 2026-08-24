@@ -32,7 +32,7 @@ Commit. The last code-changing task is followed by a fresh Verifier.
 One vertical slice, executed sequentially:
 
 ```text
-T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8
+T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9
 ```
 
 ## Task Breakdown
@@ -136,6 +136,20 @@ T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8
 **Gate:** Quick, full, build, validators, and `git diff --check`.
 **Commit:** `test(workflow): discriminate codex launch modes`
 
+### T9: Isolate internal reviewers from Implementer handoffs
+
+**Status:** complete
+**What:** Extend the canonical reviewer-independence rule and feature contracts so internal named Verifier/Deep Reviewer packets never consume Implementer handoffs; document subagent capture dropping as storage/noise control only.
+**Where:** `docs/guidelines/REVIEW-ROUNDS.md`
+**Contract updates:** `docs/workflow/ai-memory.md`, `.specs/features/ai-memory-handoff/spec.md`, `.specs/features/ai-memory-handoff/tests.md`, `.specs/features/ai-memory-handoff/threat-model.md`, `.specs/STATE.md`
+**Depends on:** T8
+**Reuses:** Existing reviewer-is-not-author hard rule and AD-008 authority boundary.
+**Requirement:** AIM-09, S10.
+**Tests:** SEC-003 bounded reviewer-isolation contract review.
+**QA:** No user-visible behavior changed; WFL scenario remains unchanged. This is an internal reviewer-context rule.
+**Gate:** Guideline-size/context check, validators, AD/knowledge/full gates, and `git diff --check`.
+**Commit:** `docs(workflow): isolate reviewers from ai-memory handoffs`
+
 ## Diagram-Definition Cross-Check
 
 | Task | Depends On | Diagram Shows | Status |
@@ -145,6 +159,7 @@ T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8
 | T3 | T2 | T2 → T3 | match |
 | T4 | T3 | T3 → T4 | match |
 | T5 | T4 | T4 → T5 | match |
+| T9 | T8 | T8 → T9 | match |
 
 ## Test Co-location Validation
 
@@ -155,3 +170,4 @@ T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8
 | T3 | adoption boundary | integration | IT-001, IT-003 | match |
 | T4 | documentation/config contract | none | manual QA scenario contract | match |
 | T5 | decision index | integration | IT-002 | match |
+| T9 | reviewer context and threat model | contract review | SEC-003 | match |

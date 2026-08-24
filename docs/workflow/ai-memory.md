@@ -93,6 +93,7 @@ explicit exclusions, for example:
 ```toml
 workspace = "local"
 project_strategy = "repo-root"
+drop_subagent_captures = "true"
 
 [capture]
 ignore_paths = [".env", ".env.*", "private/**", "~/.ssh/**", "~/personal-notes/**"]
@@ -102,6 +103,11 @@ Keep this marker outside the repository when possible. Exclusions are lexical an
 not filter secrets mentioned in free-form prompts, shell output, or patches; this is not a complete
 DLP boundary. Review the upstream [capture policy](https://github.com/akitaonrails/ai-memory/blob/v1.31.0/docs/marker-file.md#capture-exclusions)
 before adding paths.
+
+`drop_subagent_captures = "true"` is an optional storage and noise control: it prevents subagent
+captures for this project from being stored. It does not isolate reviewer roles or protect a
+top-level reviewer from consuming an Implementer handoff. Apply the reviewer packet rule in
+[`REVIEW-ROUNDS.md`](../guidelines/REVIEW-ROUNDS.md).
 
 ## Codex wrapper
 

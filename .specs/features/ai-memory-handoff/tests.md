@@ -33,3 +33,4 @@ fixtures. A fresh Verifier performs the documented manual journey on the configu
 | --- | --- | --- | --- |
 | SEC-001 | Shell argument injection | Pass command substitution, separators, whitespace, and glob characters as Codex arguments | Values reach Codex literally; no injected command executes |
 | SEC-002 | Secret capture expands silently | Review setup defaults and capture exclusions | Server remains loopback-only, no cloud provider is configured, and exclusions plus DLP residual are explicit |
+| SEC-003 | Implementer context contaminates internal review | A pending Implementer handoff exists while Verifier or Deep Reviewer is dispatched as an internal named subagent | The reviewer receives and uses its explicit role packet without consuming the Implementer handoff; a top-level reviewer consumes a handoff only when no pending Implementer handoff exists |
