@@ -179,13 +179,35 @@ T3 -> T4 -> T5
 **Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
 **Commit**: `docs(config): publish centralized model workflow`
 
+### T6: Remediate independent verification findings
+
+**What**: Restore baseline resolver invariants and add discriminating coverage for CLI contracts,
+all-provider synchronization, snapshot drift, checkout isolation, and target-local adoption values.
+**Where**: `.agents/skills/workflow-config/scripts/workflow_config.py`,
+`tools/test_workflow_config.py`, `scripts/test_adopt.py`
+**Depends on**: T5
+**Requirement**: AMR-01, AMR-03, AMR-04, AMR-06, AMR-07
+
+**Done when**:
+
+- [x] Public CLI errors use the documented `workflow-config:` prefix, exit 2, and emit no stdout.
+- [x] All provider packet bytes, exact path sets, full idempotence, validation-before-write, drift,
+  isolation, adoption parity, and baseline resolver invariants are discriminated.
+- [x] `python3 tools/test_workflow_config.py`, `python3 scripts/test_adopt.py`, and `npm test` pass.
+
+**Status:** complete — 21 resolver tests, adoption suite, and 108 Vitest tests passed.
+
+**Tests**: unit and integration, `UT-001`, `UT-002`, `UT-003`, `UT-004`, `UT-005`, `UT-006`, `UT-007`, `UT-008`, `UT-009`, `UT-010`, `UT-011`, `IT-001`, `IT-002`, `IT-003`
+**Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
+**Commit**: `fix(config): restore resolver and adoption verification coverage`
+
 ## Phase Execution Map
 
 ```text
 Phase 1 -> Phase 2
 
 Phase 1: T1 -> T2 -> T3
-Phase 2: T3 -> T4 -> T5
+Phase 2: T3 -> T4 -> T5 -> T6
 ```
 
 ## Task Granularity Check
@@ -197,6 +219,7 @@ Phase 2: T3 -> T4 -> T5
 | T3 | One snapshot state transition | PASS |
 | T4 | One adoption integration | PASS |
 | T5 | One public contract publication | PASS |
+| T6 | Verification remediation | PASS |
 
 ## Diagram-Definition Cross-Check
 
@@ -207,6 +230,7 @@ Phase 2: T3 -> T4 -> T5
 | T3 | T2 | T2 -> T3 | PASS |
 | T4 | T3 | T3 -> T4 | PASS |
 | T5 | T4 | T4 -> T5 | PASS |
+| T6 | T5 | T5 -> T6 | PASS |
 
 ## Test Co-location Validation
 
@@ -217,3 +241,4 @@ Phase 2: T3 -> T4 -> T5
 | T3 | Snapshot resolver | unit | unit | PASS |
 | T4 | Adoption integration | integration | integration | PASS |
 | T5 | Contract/docs | unit + CLI/manual | unit + CLI/manual | PASS |
+| T6 | Resolver/adoption regression coverage | unit + integration | unit + integration | PASS |

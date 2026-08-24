@@ -47,7 +47,7 @@ class ConfigError(ValueError):
 
 
 def _error(message: str) -> ConfigError:
-    return ConfigError(f"workflow config: {message}")
+    return ConfigError(f"workflow-config: {message}")
 
 
 def balanced_groups(slice_count: int, cadence: str) -> list[list[int]]:

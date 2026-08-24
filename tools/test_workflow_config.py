@@ -5,6 +5,8 @@ from __future__ import annotations
 import shutil
 import subprocess
 import tempfile
+import hashlib
+import json
 from pathlib import Path
 import sys
 
@@ -73,6 +75,37 @@ def git_root(root: Path) -> None:
     subprocess.run(["git", "commit", "-qm", "seed"], cwd=root, check=True)
 
 
+def packet_paths(root: Path) -> list[Path]:
+    return [
+        root / relative
+        for provider in workflow_config.PROVIDERS
+        for role in workflow_config.ROLES
+        for relative in [Path(workflow_config._agent_file(root, provider, role))]
+    ]
+
+
+def tree_digest(root: Path) -> str:
+    digest = hashlib.sha256()
+    for path in sorted(packet_paths(root)):
+        digest.update(path.relative_to(root).as_posix().encode())
+        digest.update(path.read_bytes())
+    return digest.hexdigest()
+
+
+def strip_metadata(provider: str, content: bytes) -> bytes:
+    text = content.decode("utf-8")
+    if provider == "claude":
+        lines = [line for line in text.splitlines(keepends=True) if not line.startswith(("model:", "effort:"))]
+    elif provider == "codex":
+        lines = [
+            line for line in text.splitlines(keepends=True)
+            if not line.startswith(("model =", "model_reasoning_effort ="))
+        ]
+    else:
+        lines = [line for line in text.splitlines(keepends=True) if not line.startswith("model:")]
+    return "".join(lines).encode("utf-8")
+
+
 def test_parses_complete_v2_matrix() -> None:
     root = make_root()
     try:
@@ -102,6 +135,14 @@ def test_rejects_invalid_matrix() -> None:
         (
             lambda c: c["models"]["codex"]["verifier"].__setitem__("model", ""),
             "models.codex.verifier.model must be a non-empty string",
+        ),
+        (
+            lambda c: c["models"]["codex"]["verifier"].pop("model"),
+            "models.codex.verifier.model is required",
+        ),
+        (
+            lambda c: c["models"]["codex"]["verifier"].pop("effort"),
+            "models.codex.verifier.effort is required",
         ),
         (
             lambda c: c["models"]["codex"]["verifier"].__setitem__("effort", "bogus"),
@@ -154,8 +195,10 @@ def test_rejects_unknown_top_level_and_missing_config() -> None:
 def test_sync_renders_all_native_metadata_and_reports_changes() -> None:
     root = make_packet_root()
     try:
+        before = {path: path.read_bytes() for path in packet_paths(root)}
         result = workflow_config.sync_agents(root)
-        assert len(result["changed"]) == 15
+        expected_paths = sorted(path.relative_to(root).as_posix() for path in before)
+        assert sorted(result["changed"]) == expected_paths
         assert result["unchanged"] == []
         assert "model: claude-implementer" in (root / ".claude/agents/implementer.md").read_text()
         assert "effort: high" in (root / ".claude/agents/implementer.md").read_text()
@@ -164,8 +207,14 @@ def test_sync_renders_all_native_metadata_and_reports_changes() -> None:
         codex = (root / ".codex/agents/implementer.toml").read_text()
         assert 'model = "codex-implementer"' in codex
         assert 'model_reasoning_effort = "high"' in codex
+        first_digest = tree_digest(root)
         second = workflow_config.sync_agents(root)
-        assert second == {"changed": [], "unchanged": result["changed"]}
+        assert second["changed"] == []
+        assert sorted(second["unchanged"]) == expected_paths
+        assert tree_digest(root) == first_digest
+        for path, original in before.items():
+            provider = path.parts[-3][1:]
+            assert strip_metadata(provider, original) == strip_metadata(provider, path.read_bytes())
     finally:
         shutil.rmtree(root)
 
@@ -173,17 +222,11 @@ def test_sync_renders_all_native_metadata_and_reports_changes() -> None:
 def test_sync_preserves_non_model_bytes() -> None:
     root = make_packet_root()
     try:
-        before = {
-            path: path.read_text(encoding="utf-8")
-            for path in (root / ".claude/agents").glob("*.md")
-        }
+        before = {path: path.read_bytes() for path in packet_paths(root)}
         workflow_config.sync_agents(root)
         for path, original in before.items():
-            current_lines = path.read_text(encoding="utf-8").splitlines()
-            original_lines = original.splitlines()
-            assert [line for line in current_lines if not line.startswith(("model:", "effort:"))] == [
-                line for line in original_lines if not line.startswith(("model:", "effort:"))
-            ]
+            provider = path.parts[-3][1:]
+            assert strip_metadata(provider, original) == strip_metadata(provider, path.read_bytes())
     finally:
         shutil.rmtree(root)
 
@@ -205,6 +248,60 @@ def test_sync_rejects_malformed_packet_before_any_write() -> None:
         else:
             raise AssertionError("expected malformed packet failure")
         assert {path: path.read_bytes() for path in before} == before
+    finally:
+        shutil.rmtree(root)
+
+
+def test_cli_errors_use_public_prefix_exit_two_and_empty_stdout() -> None:
+    root = make_packet_root()
+    try:
+        resolver = Path(__file__).resolve().parent.parent / ".agents/skills/workflow-config/scripts/workflow_config.py"
+        config = root / ".my-workflow.toml"
+        config.write_text(config.read_text(encoding="utf-8").replace('model = "codex-verifier"', 'model = ""', 1), encoding="utf-8")
+        result = subprocess.run(
+            [sys.executable, str(resolver), "--root", str(root), "--sync-agents"],
+            text=True, capture_output=True, check=False,
+        )
+        assert result.returncode == 2
+        assert result.stdout == ""
+        assert result.stderr.startswith("workflow-config:")
+
+        invalid = subprocess.run(
+            [sys.executable, str(resolver), "--root", str(root), "--feature", "bad", "--slices", "0", "--native-provider", "codex"],
+            text=True, capture_output=True, check=False,
+        )
+        assert invalid.returncode == 2
+        assert invalid.stdout == ""
+        assert invalid.stderr.startswith("workflow-config:")
+    finally:
+        shutil.rmtree(root)
+
+
+def test_sync_invalid_config_and_duplicate_metadata_write_no_packets() -> None:
+    root = make_packet_root()
+    try:
+        before = {path: path.read_bytes() for path in packet_paths(root)}
+        config = root / ".my-workflow.toml"
+        config.write_text(config.read_text(encoding="utf-8").replace('model = "codex-verifier"', 'model = ""', 1), encoding="utf-8")
+        try:
+            workflow_config.sync_agents(root)
+        except workflow_config.ConfigError:
+            pass
+        else:
+            raise AssertionError("expected invalid config failure")
+        assert {path: path.read_bytes() for path in before} == before
+
+        write_config(root)
+        duplicate = root / ".claude/agents/verifier.md"
+        duplicate.write_text(duplicate.read_text(encoding="utf-8") + "model: duplicate\n", encoding="utf-8")
+        before_duplicate = {path: path.read_bytes() for path in packet_paths(root)}
+        try:
+            workflow_config.sync_agents(root)
+        except workflow_config.ConfigError as exc:
+            assert "verifier" in str(exc)
+        else:
+            raise AssertionError("expected duplicate metadata failure")
+        assert {path: path.read_bytes() for path in before_duplicate} == before_duplicate
     finally:
         shutil.rmtree(root)
 
@@ -249,6 +346,41 @@ def test_resume_rejects_drift_and_refresh_freezes_new_settings() -> None:
         )
         assert refreshed["roles"]["implementer"]["model"] == "codex-implementer-v2"
         assert refreshed["roles"]["implementer"]["effort"] == first["roles"]["implementer"]["effort"]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_resume_uses_frozen_snapshot_when_config_changes_without_sync() -> None:
+    root = make_packet_root()
+    try:
+        workflow_config.sync_agents(root)
+        git_root(root)
+        first = workflow_config.resolve(root=root, feature="config-only", slice_count=1, native_provider="codex")
+        models = {provider: {role: dict(setting) for role, setting in values.items()} for provider, values in MODELS.items()}
+        models["codex"]["implementer"]["model"] = "codex-config-only"
+        write_config(root, models=models)
+        resumed = workflow_config.resolve(root=root, feature="config-only", slice_count=8, native_provider="cursor")
+        assert resumed == first
+    finally:
+        shutil.rmtree(root)
+
+
+def test_resume_rejects_effort_drift_after_sync() -> None:
+    root = make_packet_root()
+    try:
+        workflow_config.sync_agents(root)
+        git_root(root)
+        workflow_config.resolve(root=root, feature="effort-drift", slice_count=1, native_provider="codex")
+        models = {provider: {role: dict(setting) for role, setting in values.items()} for provider, values in MODELS.items()}
+        models["codex"]["implementer"]["effort"] = "medium"
+        write_config(root, models=models)
+        workflow_config.sync_agents(root)
+        try:
+            workflow_config.resolve(root=root, feature="effort-drift", slice_count=1, native_provider="codex")
+        except workflow_config.ConfigError as exc:
+            assert "run --sync-agents, then explicitly use --refresh" in str(exc)
+        else:
+            raise AssertionError("expected effort drift failure")
     finally:
         shutil.rmtree(root)
 
@@ -359,6 +491,81 @@ def test_invalid_existing_snapshot_fails_without_mutation() -> None:
         assert path.read_bytes() == before
     finally:
         shutil.rmtree(root)
+
+
+def test_cli_adapter_and_invalid_slice_count() -> None:
+    root = make_packet_root()
+    try:
+        workflow_config.sync_agents(root)
+        git_root(root)
+        resolver = Path(__file__).resolve().parent.parent / ".agents/skills/workflow-config/scripts/workflow_config.py"
+        result = subprocess.run(
+            [sys.executable, str(resolver), "--root", str(root), "--feature", "cli", "--slices", "2", "--native-provider", "codex", "--override", "verifier=claude"],
+            text=True, capture_output=True, check=False,
+        )
+        assert result.returncode == 0
+        assert result.stderr == ""
+        payload = json.loads(result.stdout)
+        assert payload["roles"]["verifier"]["provider"] == "claude"
+        assert (root / ".specs/features/cli/workflow.json").is_file()
+        invalid = subprocess.run(
+            [sys.executable, str(resolver), "--root", str(root), "--feature", "invalid", "--slices", "0", "--native-provider", "codex"],
+            text=True, capture_output=True, check=False,
+        )
+        assert invalid.returncode == 2
+        assert invalid.stdout == ""
+        assert "workflow-config: slice count must be at least 1" in invalid.stderr
+    finally:
+        shutil.rmtree(root)
+
+
+def test_missing_agent_is_rejected_without_fallback() -> None:
+    root = make_packet_root()
+    try:
+        workflow_config.sync_agents(root)
+        git_root(root)
+        (root / ".codex/agents/verifier.toml").unlink()
+        try:
+            workflow_config.resolve(root=root, feature="missing-agent", slice_count=1, native_provider="codex")
+        except workflow_config.ConfigError as exc:
+            assert "missing agent file" in str(exc)
+        else:
+            raise AssertionError("expected missing agent failure")
+    finally:
+        shutil.rmtree(root)
+
+
+def test_resume_is_stable_and_preserves_frozen_fallback_agent_path() -> None:
+    root = make_packet_root()
+    try:
+        preferred = root / ".codex/agents/implementer.toml"
+        fallback = root / ".codex/agents/implementer.md"
+        fallback.write_text(preferred.read_text(encoding="utf-8"), encoding="utf-8")
+        preferred.unlink()
+        workflow_config.sync_agents(root)
+        git_root(root)
+        first = workflow_config.resolve(root=root, feature="frozen-route", slice_count=1, native_provider="codex")
+        assert first["roles"]["implementer"]["agent_file"] == ".codex/agents/implementer.md"
+        preferred.write_text(fallback.read_text(encoding="utf-8"), encoding="utf-8")
+        resumed = workflow_config.resolve(root=root, feature="frozen-route", slice_count=8, native_provider="cursor")
+        assert resumed == first
+    finally:
+        shutil.rmtree(root)
+
+
+def test_distinct_checkouts_sync_only_their_local_configuration() -> None:
+    roots = [make_packet_root(), make_packet_root()]
+    try:
+        for index, root in enumerate(roots, start=1):
+            models = {provider: {role: dict(setting) for role, setting in values.items()} for provider, values in MODELS.items()}
+            models["codex"]["implementer"]["model"] = f"checkout-{index}"
+            write_config(root, models=models)
+            workflow_config.sync_agents(root)
+        assert workflow_config.packet_setting("codex", (roots[0] / ".codex/agents/implementer.toml").read_text(), Path(".codex/agents/implementer.toml"))["model"] == "checkout-1"
+        assert workflow_config.packet_setting("codex", (roots[1] / ".codex/agents/implementer.toml").read_text(), Path(".codex/agents/implementer.toml"))["model"] == "checkout-2"
+    finally:
+        for root in roots:
+            shutil.rmtree(root)
 
 
 if __name__ == "__main__":

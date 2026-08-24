@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import io
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -13,6 +14,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from adopt import STENCIL, main
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / ".agents/skills/workflow-config/scripts"))
+import workflow_config
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -36,6 +39,26 @@ def snapshot_tree(root: Path) -> dict[str, tuple[str, bytes | str | None]]:
         else:
             snapshot[relative] = ("file", path.read_bytes())
     return snapshot
+
+
+def set_model_setting(config: str, provider: str, role: str, model: str, effort: str) -> str:
+    pattern = re.compile(
+        rf"(\[models\.{provider}\.{role}\]\s+model = )\"[^\"]+\"(\s+effort = )\"[^\"]+\""
+    )
+    updated, count = pattern.subn(rf'\1"{model}"\2"{effort}"', config, count=1)
+    assert count == 1
+    return updated
+
+
+def strip_packet_metadata(provider: str, data: bytes) -> bytes:
+    text = data.decode("utf-8")
+    if provider == "claude":
+        lines = [line for line in text.splitlines(keepends=True) if not line.startswith(("model:", "effort:"))]
+    elif provider == "codex":
+        lines = [line for line in text.splitlines(keepends=True) if not line.startswith(("model =", "model_reasoning_effort ="))]
+    else:
+        lines = [line for line in text.splitlines(keepends=True) if not line.startswith("model:")]
+    return "".join(lines).encode("utf-8")
 
 
 def test_deep_review_skill_adoption_and_artifact_hygiene() -> None:
@@ -304,14 +327,16 @@ def test_adoption_installs_v2_config_and_syncs_fifteen_packets() -> None:
         run(tmp)
         config = (tmp / ".my-workflow.toml").read_text(encoding="utf-8")
         assert config.startswith("version = 2\n")
+        parsed = workflow_config._read_config(tmp)
         for provider in ("claude", "codex", "cursor"):
-            for role in ("planner", "implementer", "verifier", "explorer", "deep-reviewer"):
+            for role in workflow_config.ROLES:
+                agent_name = workflow_config.AGENT_NAMES.get(role, role)
                 extension = "toml" if provider == "codex" else "md"
-                packet = tmp / f".{provider}/agents/{role}.{extension}"
+                packet = tmp / f".{provider}/agents/{agent_name}.{extension}"
                 assert packet.is_file()
                 text = packet.read_text(encoding="utf-8")
-                assert "model" in text
-                assert "effort" in text or "model_reasoning_effort" in text
+                actual = workflow_config.packet_setting(provider, text, packet)
+                assert actual == workflow_config.model_setting(parsed, provider, role)
     finally:
         shutil.rmtree(tmp)
 
@@ -332,6 +357,41 @@ def test_adoption_rejects_invalid_packet_before_sync_writes() -> None:
                 raise AssertionError("expected malformed packet rejection")
         assert "verifier" in stderr.getvalue()
         assert "model-old:" in packet.read_text(encoding="utf-8")
+    finally:
+        shutil.rmtree(tmp)
+
+
+def test_existing_config_drives_all_native_values_and_preserves_non_model_bytes() -> None:
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        run(tmp)
+        config_path = tmp / ".my-workflow.toml"
+        customized = config_path.read_text(encoding="utf-8")
+        customized = set_model_setting(customized, "claude", "planner", "claude-target", "medium")
+        customized = set_model_setting(customized, "codex", "implementer", "codex-target", "low")
+        customized = set_model_setting(customized, "cursor", "verifier", "cursor-target", "high")
+        config_path.write_text(customized, encoding="utf-8")
+        original_config = config_path.read_bytes()
+        original_packets: dict[Path, bytes] = {}
+        for provider in workflow_config.PROVIDERS:
+            for role in workflow_config.ROLES:
+                agent_name = workflow_config.AGENT_NAMES.get(role, role)
+                extension = "toml" if provider == "codex" else "md"
+                packet = tmp / f".{provider}/agents/{agent_name}.{extension}"
+                packet.write_bytes(packet.read_bytes() + b"\n# consumer instruction sentinel\n")
+                original_packets[packet] = packet.read_bytes()
+
+        run(tmp)
+        assert config_path.read_bytes() == original_config
+        parsed = workflow_config._read_config(tmp)
+        for provider in workflow_config.PROVIDERS:
+            for role in workflow_config.ROLES:
+                agent_name = workflow_config.AGENT_NAMES.get(role, role)
+                extension = "toml" if provider == "codex" else "md"
+                packet = tmp / f".{provider}/agents/{agent_name}.{extension}"
+                actual = workflow_config.packet_setting(provider, packet.read_text(encoding="utf-8"), packet)
+                assert actual == workflow_config.model_setting(parsed, provider, role)
+                assert strip_packet_metadata(provider, original_packets[packet]) == strip_packet_metadata(provider, packet.read_bytes())
     finally:
         shutil.rmtree(tmp)
 
