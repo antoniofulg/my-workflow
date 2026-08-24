@@ -541,6 +541,27 @@ execution and collision preflight are covered.
 **Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
 **Commit**: `fix(config): preflight local runtime ownership`
 
+### T21: Run customized local config adoption contract
+
+**What**: Include the existing-config adoption integration contract in the canonical test runner.
+**Where**: canonical adoption integration suite
+**Depends on**: T20
+**Requirement**: AMR-07
+
+**Done when**:
+
+- [x] The customized local config test runs from `scripts/test_adopt.py`'s canonical `__main__`
+  runner in logical adoption order.
+- [x] The adoption suite counts and executes all 18 integration tests with the full Build gate.
+- [x] Task, diff, and commit validators pass without changing the validation certificate.
+
+**Status:** complete — the canonical runner executes 18 adoption tests and preserves customized
+local config, native values, and non-model bytes.
+
+**Tests**: integration, `IT-002`
+**Gate**: Build, `python3 scripts/test_adopt.py && npm test && python3 tools/test_workflow_config.py`
+**Commit**: `test(adopt): run customized local config contract`
+
 ## Phase Execution Map
 
 ```text
@@ -548,7 +569,7 @@ Phase 1 -> Phase 2 -> Phase 3
 
 Phase 1: T1 -> T2 -> T3
 Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -> T14
-Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19 -> T20
+Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19 -> T20 -> T21
 ```
 
 ## Task Granularity Check
@@ -575,6 +596,7 @@ Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19 -> T20
 | T18 | Public contract publication | PASS |
 | T19 | Revised architecture contract coverage | PASS |
 | T20 | Local write preflight and clean-clone contract | PASS |
+| T21 | Customized adoption runner contract | PASS |
 
 ## Diagram-Definition Cross-Check
 
@@ -600,6 +622,7 @@ Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19 -> T20
 | T18 | T17 | T17 -> T18 | PASS |
 | T19 | T18 | T18 -> T19 | PASS |
 | T20 | T19 | T19 -> T20 | PASS |
+| T21 | T20 | T20 -> T21 | PASS |
 
 ## Test Co-location Validation
 
@@ -625,3 +648,4 @@ Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19 -> T20
 | T18 | Contract/docs | unit + CLI/manual | unit + CLI/manual | PASS |
 | T19 | Mixed profile and malformed adoption config | unit + integration | unit + integration | PASS |
 | T20 | Local collision and clean-clone ownership | unit + integration | unit + integration | PASS |
+| T21 | Customized local config adoption | integration | integration | PASS |

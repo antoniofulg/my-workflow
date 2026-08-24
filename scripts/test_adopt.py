@@ -652,6 +652,7 @@ if __name__ == "__main__":
     test_adoption_installs_v2_config_and_syncs_fifteen_packets()
     test_adoption_rejects_invalid_template_before_runtime_writes()
     test_adoption_rejects_malformed_local_config_without_partial_writes()
+    test_existing_config_drives_all_native_values_and_preserves_non_model_bytes()
     test_gitignore_rules_merge_without_overwrite()
     test_deep_review_learnings_survive_consumer_parent_ignore()
     test_feature_specs_are_versioned_and_legacy_ignore_is_removed()
