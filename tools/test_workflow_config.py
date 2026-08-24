@@ -591,8 +591,19 @@ def test_invalid_frozen_agent_paths_exit_two_without_snapshot_mutation() -> None
         snapshot_path = root / ".specs/features/invalid-frozen-path/workflow.json"
         original = snapshot_path.read_bytes()
         resolver = Path(__file__).resolve().parent.parent / ".agents/skills/workflow-config/scripts/workflow_config.py"
-        cases = (".codex/agents/verifier.toml", ".codex/agents/missing.toml")
+        cases = (".codex/agents/verifier.toml", ".codex/agents/implementer.md")
         for invalid_path in cases:
+            if invalid_path.endswith("verifier.toml"):
+                verifier_path = root / ".codex/agents/verifier.toml"
+                verifier_path.write_text(
+                    workflow_config.render_agent_packet(
+                        "codex",
+                        verifier_path.read_text(encoding="utf-8"),
+                        {"model": "codex-implementer", "effort": "high"},
+                        Path(".codex/agents/verifier.toml"),
+                    ),
+                    encoding="utf-8",
+                )
             snapshot = json.loads(original)
             snapshot["roles"]["implementer"]["agent_file"] = invalid_path
             snapshot_path.write_text(json.dumps(snapshot, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -604,6 +615,10 @@ def test_invalid_frozen_agent_paths_exit_two_without_snapshot_mutation() -> None
             assert result.returncode == 2
             assert result.stdout == ""
             assert result.stderr.startswith("workflow-config:")
+            if invalid_path.endswith("verifier.toml"):
+                assert "role 'implementer' has an invalid agent_file" in result.stderr
+            else:
+                assert "role 'implementer' agent_file is missing" in result.stderr
             assert snapshot_path.read_bytes() == before
     finally:
         shutil.rmtree(root)

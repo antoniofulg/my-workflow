@@ -224,13 +224,36 @@ all-provider synchronization, snapshot drift, checkout isolation, and target-loc
 **Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
 **Commit**: `fix(config): restore final resolver contracts`
 
+### T8: Discriminate frozen agent ownership
+
+**What**: Strengthen the frozen-path regression so a wrong-role packet with matching model and
+effort fails specifically on provider-role ownership, while an allowed-but-missing fallback path
+fails on existence.
+**Where**: `tools/test_workflow_config.py`
+**Depends on**: T7
+**Requirement**: AMR-06
+
+**Done when**:
+
+- [x] The wrong-role packet carries matching frozen metadata and asserts the exact ownership error.
+- [x] The missing allowed candidate asserts the exact missing-file error and both cases preserve
+  snapshot bytes.
+- [x] The ownership mutant is red in a disposable worktree and the real implementation is green.
+- [x] Resolver, adoption, Vitest, task-validator, and diff gates pass.
+
+**Status:** complete — ownership mutant red; real tree 22 resolver tests, adoption suite, and 108 Vitest tests passed.
+
+**Tests**: unit and CLI/manual, `UT-009`
+**Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
+**Commit**: `test(config): discriminate frozen agent ownership`
+
 ## Phase Execution Map
 
 ```text
 Phase 1 -> Phase 2
 
 Phase 1: T1 -> T2 -> T3
-Phase 2: T3 -> T4 -> T5 -> T6 -> T7
+Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8
 ```
 
 ## Task Granularity Check
@@ -244,6 +267,7 @@ Phase 2: T3 -> T4 -> T5 -> T6 -> T7
 | T5 | One public contract publication | PASS |
 | T6 | Verification remediation | PASS |
 | T7 | Final resolver contract restoration | PASS |
+| T8 | Frozen agent ownership discrimination | PASS |
 
 ## Diagram-Definition Cross-Check
 
@@ -256,6 +280,7 @@ Phase 2: T3 -> T4 -> T5 -> T6 -> T7
 | T5 | T4 | T4 -> T5 | PASS |
 | T6 | T5 | T5 -> T6 | PASS |
 | T7 | T6 | T6 -> T7 | PASS |
+| T8 | T7 | T7 -> T8 | PASS |
 
 ## Test Co-location Validation
 
@@ -268,3 +293,4 @@ Phase 2: T3 -> T4 -> T5 -> T6 -> T7
 | T5 | Contract/docs | unit + CLI/manual | unit + CLI/manual | PASS |
 | T6 | Resolver/adoption regression coverage | unit + integration | unit + integration | PASS |
 | T7 | Resolver contract restoration | unit + CLI/manual | unit + CLI/manual | PASS |
+| T8 | Frozen path ownership | unit + CLI/manual | unit + CLI/manual | PASS |
