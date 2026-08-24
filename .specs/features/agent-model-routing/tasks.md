@@ -365,13 +365,42 @@ while preserving inline comments after real assignments.
 **Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
 **Commit**: `fix(config): ignore comment delimiters in Codex scanner`
 
+### T14: Replace the Codex lexer with TOML-backed assignment parsing
+
+**What**: Parse the complete Codex packet with the standard-library TOML parser, identify the
+top-level native header boundary, and replace only the quoted metadata value spans while retaining
+all surrounding bytes, including inline comments and CRLF newlines.
+**Where**: `.agents/skills/workflow-config/scripts/workflow_config.py`,
+`tools/test_workflow_config.py`
+**Depends on**: T13
+**Requirement**: AMR-01, AMR-03, AMR-07
+
+**Done when**:
+
+- [x] Valid quoted TOML data containing `#` and opposite triple-quote tokens does not hide later
+  metadata; multiline body assignments and after-boundary keys remain excluded.
+- [x] Single-line native assignments are validated and decoded by `tomllib`, including escaped
+  strings, while duplicate or ambiguous metadata remains rejected before writes.
+- [x] Rendering replaces only the quoted value spans and preserves exact model/effort comments,
+  instruction bytes, and CRLF newlines.
+- [x] The previous scanner and an inline-suffix mutation are red in disposable worktrees; the
+  corrected tree is green through resolver, adoption, Vitest, validators, and diff gates.
+
+**Status:** complete — old scanner rejected valid opposite-triple quoted data and the suffix
+mutation deleted an effort comment; corrected tree passes 28 resolver, 17 adoption, and 108 Vitest
+tests.
+
+**Tests**: unit and CLI/manual, `UT-003`, `UT-006`
+**Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
+**Commit**: `fix(config): replace Codex lexer with TOML-backed parsing`
+
 ## Phase Execution Map
 
 ```text
 Phase 1 -> Phase 2
 
 Phase 1: T1 -> T2 -> T3
-Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13
+Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -> T14
 ```
 
 ## Task Granularity Check
@@ -391,6 +420,7 @@ Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13
 | T11 | Codex top-level metadata parsing | PASS |
 | T12 | Codex header boundary and native round trip | PASS |
 | T13 | Codex comment-aware scanning | PASS |
+| T14 | TOML-backed Codex assignment parsing | PASS |
 
 ## Diagram-Definition Cross-Check
 
@@ -409,6 +439,7 @@ Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13
 | T11 | T10 | T10 -> T11 | PASS |
 | T12 | T11 | T11 -> T12 | PASS |
 | T13 | T12 | T12 -> T13 | PASS |
+| T14 | T13 | T13 -> T14 | PASS |
 
 ## Test Co-location Validation
 
@@ -427,3 +458,4 @@ Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13
 | T11 | Codex top-level metadata | unit + CLI/manual | unit + CLI/manual | PASS |
 | T12 | Codex native boundary and round trip | unit + CLI/manual | unit + CLI/manual | PASS |
 | T13 | Codex comment-aware scanner | unit + CLI/manual | unit + CLI/manual | PASS |
+| T14 | Codex TOML assignment parser and byte-preserving renderer | unit + CLI/manual | unit + CLI/manual | PASS |

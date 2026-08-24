@@ -44,20 +44,10 @@ CLAUDE_EFFORT_RE = re.compile(
     r"^effort:[ \t]*(?P<effort>[^\r\n]+?)(?P<suffix>[ \t]*)(?P<newline>\r\n|\n|\Z)",
     re.MULTILINE,
 )
-CODEX_MODEL_RE = re.compile(
-    r'^model[ \t]*=[ \t]*"(?P<model>[^"]+)"(?P<suffix>[ \t]*)(?P<newline>\r\n|\n|\Z)',
-    re.MULTILINE,
-)
-CODEX_EFFORT_RE = re.compile(
-    r'^model_reasoning_effort[ \t]*=[ \t]*"(?P<effort>[^"]+)"(?P<suffix>[ \t]*)(?P<newline>\r\n|\n|\Z)',
-    re.MULTILINE,
-)
-CODEX_MODEL_ASSIGNMENT_RE = re.compile(
-    r'^[ \t]*model[ \t]*=[ \t]*"(?P<model>[^"]+)"(?P<suffix>[ \t]*(?:#[^\r\n]*)?)(?P<newline>\r\n|\n|\Z)',
-    re.MULTILINE,
-)
-CODEX_EFFORT_ASSIGNMENT_RE = re.compile(
-    r'^[ \t]*model_reasoning_effort[ \t]*=[ \t]*"(?P<effort>[^"]+)"(?P<suffix>[ \t]*(?:#[^\r\n]*)?)(?P<newline>\r\n|\n|\Z)',
+CODEX_ASSIGNMENT_RE = re.compile(
+    r'(?P<prefix>^[ \t]*(?P<key>model|model_reasoning_effort)[ \t]*=[ \t]*")'
+    r'(?P<raw>(?:\\.|[^"\\])*)(?P<closing>")'
+    r'(?P<suffix>[ \t]*(?:#[^\r\n]*)?)(?P<newline>\r\n|\n|\Z)',
     re.MULTILINE,
 )
 CURSOR_MODEL_RE = re.compile(
@@ -255,88 +245,62 @@ def _coerce_content(content: str | bytes) -> tuple[str, bool]:
     return content, False
 
 
-def _strip_toml_comment(line: str) -> str:
-    quote: str | None = None
-    triple = False
-    escaped = False
-    index = 0
-    while index < len(line):
-        if quote:
-            delimiter = quote * 3 if triple else quote
-            if line.startswith(delimiter, index) and not escaped:
-                index += len(delimiter)
-                quote = None
-                triple = False
-                escaped = False
-                continue
-            if quote == '"' and line[index] == "\\" and not escaped:
-                escaped = True
-            else:
-                escaped = False
-            index += 1
-            continue
-        if line.startswith('"""', index) or line.startswith("'''", index):
-            quote = line[index]
-            triple = True
-            index += 3
-            continue
-        if line[index] in ('"', "'"):
-            quote = line[index]
-            triple = False
-            index += 1
-            continue
-        if line[index] == "#":
-            return line[:index]
-        index += 1
-    return line
+def _toml_basic_value(value: str) -> str:
+    """Escape a value for an existing TOML basic-string quote pair."""
+    encoded = json.dumps(value, ensure_ascii=False)
+    return encoded[1:-1]
 
 
-def _codex_fields(content: str, path: Path) -> dict[str, list[tuple[int, int, re.Match[str]]]]:
+def _toml_prefix_is_top_level(prefix: str) -> bool:
+    if tomllib is None:  # pragma: no cover
+        return False
+    try:
+        parsed = tomllib.loads(prefix + '\n__workflow_top_level_probe = ""\n')
+    except tomllib.TOMLDecodeError:
+        return False
+    return parsed.get("__workflow_top_level_probe") == ""
+
+
+def _codex_developer_boundary(content: str, path: Path) -> int:
+    candidates = [
+        match for match in re.finditer(r"^[ \t]*developer_instructions[ \t]*=", content, re.MULTILINE)
+        if _toml_prefix_is_top_level(content[:match.start()])
+    ]
+    if len(candidates) != 1:
+        raise _error(f"{path.as_posix()} must contain exactly one top-level developer_instructions assignment")
+    return candidates[0].start()
+
+
+def _codex_fields(content: str, path: Path) -> dict[str, list[tuple[int, int, re.Match[str], str]]]:
     if tomllib is None:  # pragma: no cover
         raise _error("Python 3.11 or newer is required to parse Codex agent packets")
     try:
-        tomllib.loads(content)
+        parsed = tomllib.loads(content)
     except tomllib.TOMLDecodeError as exc:
         raise _error(f"{path.as_posix()} contains invalid TOML: {exc}") from exc
-
-    fields: dict[str, list[tuple[int, int, re.Match[str]]]] = {"model": [], "effort": []}
-    multiline_delimiter: str | None = None
-    current_table: str | None = None
-    for line_match in re.finditer(r".*(?:\r\n|\n|\Z)", content):
-        line = line_match.group(0)
-        body = line[:-2] if line.endswith("\r\n") else line[:-1] if line.endswith("\n") else line
-        if multiline_delimiter:
-            if multiline_delimiter in body:
-                multiline_delimiter = None
+    boundary = _codex_developer_boundary(content, path)
+    fields: dict[str, list[tuple[int, int, re.Match[str], str]]] = {"model": [], "effort": []}
+    prefix = content[:boundary]
+    for match in CODEX_ASSIGNMENT_RE.finditer(prefix):
+        if not _toml_prefix_is_top_level(prefix[:match.start()]):
             continue
-        syntax_body = _strip_toml_comment(body)
-        table = re.match(r"^[ \t]*\[(.+)\][ \t]*$", syntax_body)
-        if table:
-            current_table = table.group(1)
+        try:
+            line_parsed = tomllib.loads(content[match.start():match.end()])
+        except tomllib.TOMLDecodeError:
             continue
-        if current_table is None and re.match(r"^[ \t]*developer_instructions[ \t]*=", syntax_body):
-            break
-        if current_table is None:
-            model_match = CODEX_MODEL_ASSIGNMENT_RE.match(content, line_match.start())
-            if model_match:
-                fields["model"].append((line_match.start(), line_match.end(), model_match))
-            effort_match = CODEX_EFFORT_ASSIGNMENT_RE.match(content, line_match.start())
-            if effort_match:
-                fields["effort"].append((line_match.start(), line_match.end(), effort_match))
-        if '"""' in syntax_body:
-            occurrences = syntax_body.count('"""')
-            if occurrences % 2:
-                multiline_delimiter = '"""'
-        if "'''" in syntax_body:
-            occurrences = syntax_body.count("'''")
-            if occurrences % 2:
-                multiline_delimiter = "'''"
+        key = match.group("key")
+        if key in line_parsed:
+            field = "model" if key == "model" else "effort"
+            fields[field].append((match.start(), match.end(), match, line_parsed[key]))
+    for field, key in (("model", "model"), ("effort", "model_reasoning_effort")):
+        if len(fields[field]) != 1 or parsed.get(key) != fields[field][0][3]:
+            fields[field] = []
     return fields
 
 
 def _codex_field(
-    fields: dict[str, list[tuple[int, int, re.Match[str]]]], key: str, path: Path, label: str
-) -> tuple[int, int, re.Match[str]]:
+    fields: dict[str, list[tuple[int, int, re.Match[str], str]]], key: str, path: Path, label: str
+) -> tuple[int, int, re.Match[str], str]:
     matches = fields[key]
     if len(matches) != 1:
         raise _error(f"{path.as_posix()} must contain exactly one {label} metadata field")
@@ -352,10 +316,8 @@ def packet_setting(provider: str, content: str | bytes, path: Path) -> dict[str,
         effort = _one_match(CLAUDE_EFFORT_RE, header, path, "effort").group("effort").strip()
     elif provider == "codex":
         fields = _codex_fields(text, path)
-        _, _, model_match = _codex_field(fields, "model", path, "model")
-        _, _, effort_match = _codex_field(fields, "effort", path, "model_reasoning_effort")
-        model = model_match.group("model")
-        effort = effort_match.group("effort")
+        _, _, _, model = _codex_field(fields, "model", path, "model")
+        _, _, _, effort = _codex_field(fields, "effort", path, "model_reasoning_effort")
     else:
         match = _one_match(CURSOR_MODEL_RE, header, path, "model/effort").groupdict()
         model, effort = match["model"].strip(), match["effort"].strip()
@@ -373,20 +335,25 @@ def render_agent_packet(
     header, header_offset = _header(provider, text, packet_path)
     if provider == "claude":
         model_pattern, effort_pattern = CLAUDE_MODEL_RE, CLAUDE_EFFORT_RE
-    elif provider == "codex":
-        model_pattern, effort_pattern = CODEX_MODEL_RE, CODEX_EFFORT_RE
     else:
         model_pattern, effort_pattern = CURSOR_MODEL_RE, None
 
     if provider == "codex":
         fields = _codex_fields(text, packet_path)
-        model_start, model_end, model_match = _codex_field(fields, "model", packet_path, "model")
-        _, _, effort_match = _codex_field(fields, "effort", packet_path, "model_reasoning_effort")
-        model_replacement = f'model = "{setting["model"]}"' + model_match.group("suffix") + model_match.group("newline")
+        model_start, model_end, model_match, _ = _codex_field(fields, "model", packet_path, "model")
+        model_replacement = (
+            text[model_start:model_match.start("raw")]
+            + _toml_basic_value(setting["model"])
+            + text[model_match.end("raw"):model_end]
+        )
         rendered = text[:model_start] + model_replacement + text[model_end:]
         new_fields = _codex_fields(rendered, packet_path)
-        effort_start, effort_end, new_effort_match = _codex_field(new_fields, "effort", packet_path, "model_reasoning_effort")
-        effort_replacement = f'model_reasoning_effort = "{setting["effort"]}"' + new_effort_match.group("suffix") + new_effort_match.group("newline")
+        effort_start, effort_end, new_effort_match, _ = _codex_field(new_fields, "effort", packet_path, "model_reasoning_effort")
+        effort_replacement = (
+            rendered[effort_start:new_effort_match.start("raw")]
+            + _toml_basic_value(setting["effort"])
+            + rendered[new_effort_match.end("raw"):effort_end]
+        )
         rendered = rendered[:effort_start] + effort_replacement + rendered[effort_end:]
         return rendered.encode("utf-8") if as_bytes else rendered
     model_match = _one_match(model_pattern, header, packet_path, "model")

@@ -426,10 +426,12 @@ def test_codex_ignores_model_like_lines_inside_multiline_toml_text() -> None:
                 'name = "planner"\n'
                 '# """ harmless comment\n'
                 "# ''' harmless comment\n"
+                'summary = "literal # \'\'\' marker with escaped quote: \\"quoted\\""\n'
+                'summary_single = \'literal # """ marker\'\n'
                 'description = """\n'
                 'model = "body-model"\n'
                 '"""\n'
-                'model = "old-model"\n'
+                'model = "old\\u002dmodel" # model comment\n'
                 'model_reasoning_effort = "low" # effort comment\n'
                 'developer_instructions = "Instructions for planner."\n'
             ).replace("\n", "\r\n").encode("utf-8")
@@ -442,6 +444,8 @@ def test_codex_ignores_model_like_lines_inside_multiline_toml_text() -> None:
             "model": "codex-planner", "effort": "high"
         }
         assert b'model = "body-model"\r\n' in after
+        assert b'model = "codex-planner" # model comment\r\n' in after
+        assert b'model_reasoning_effort = "high" # effort comment\r\n' in after
         assert description_before == after[after.index(b'description = """'):after.index(b'"""', after.index(b'description = """') + 20) + 3]
         assert b"\r\n" in after
         assert b"\n" not in after.replace(b"\r\n", b"")
