@@ -3,7 +3,8 @@
 **Verdict**: PASS
 **Date**: 2026-08-24
 **Spec**: `.specs/features/ai-memory-handoff/spec.md`
-**Feature diff range**: `6675d55..1086c4b`
+**Feature diff range**: `6675d55..61f2e74d5adb1c1bb49efe7bb7e72109286c8106`
+**Current verification scope**: AIM-11/AIM-12 release contract at `61f2e74`; prior AIM-01-AIM-10 evidence retained
 **T9 slice range**: `065f50a..42d8ceb`
 **T10 documentation scope**: `README.md`, `docs/workflow/ai-memory.md`, and the AIM-10 feature contract
 **Verifier**: independent Technical Verifier, author != verifier
@@ -15,7 +16,7 @@
 | T1-T8 implementation and prior remediation | Done | `scripts/ai-memory.zsh:3`, `scripts/test_ai_memory.py:88`, `docs/workflow/ai-memory.md:1` |
 | T9 reviewer-isolation contract | Done | `docs/guidelines/REVIEW-ROUNDS.md:75`, `.specs/features/ai-memory-handoff/tasks.md:139` |
 | T10 lifecycle-control documentation | Done | `README.md:144`, `docs/workflow/ai-memory.md:10`, `.specs/features/ai-memory-handoff/spec.md:67` |
-| T11-T12 release 0.4.0 | Done | `.specs/features/ai-memory-handoff/tasks.md:167`-`:193`; `.specs/features/release-0.4.0/validation.md:1` |
+| T11-T13 release 0.4.0 | Done | `.specs/features/ai-memory-handoff/tasks.md:167`-`:207`; `.specs/features/release-0.4.0/validation.md:1` |
 
 ## Spec-Anchored Acceptance Criteria
 
@@ -31,9 +32,10 @@
 | AIM-08 | Setup documents loopback, bounded capture, exclusions, and incomplete-DLP residual. | `docs/workflow/ai-memory.md:39`-`50` requires loopback; `docs/workflow/ai-memory.md:116`-`124` defines exclusions, bounded lexical behavior, and incomplete-DLP residual. | PASS |
 | AIM-09 / S10 / SEC-003 | Internal named Verifier and Deep Reviewer receive explicit role packets and never consume an Implementer handoff; a top-level reviewer may consume only when no pending Implementer handoff can be consumed; capture dropping is not role isolation. | Canonical rule: `docs/guidelines/REVIEW-ROUNDS.md:75`-`80`. Explicit provider packets remain unchanged. Storage/noise distinction and canonical pointer: `docs/workflow/ai-memory.md:121`-`124`. Exact abuse case: `.specs/features/ai-memory-handoff/tests.md:36`. | PASS |
 | AIM-10 | Operators can enable, disable hooks without deleting data, re-enable, or deliberately purge without a repository toggle. | Enable/restart guidance: `docs/workflow/ai-memory.md:10`-`14`, `:82`-`102`; no-toggle and marker boundary: `:77`-`80`; dry-run and hook-only disablement: `:169`-`200`; re-enable: `:202`-`206`; destructive purge: `:220`-`231`; concise public pointer: `README.md:144`-`147`. | PASS |
-| AIM-11 / IT-005 | All release surfaces report `0.4.0`, and the consistency gate discriminates drift. | Values agree at `package.json:3`, `package-lock.json:3`, `package-lock.json:9`, and `CHANGELOG.md:5`; exact assertions at `tools/shared/tests/qa-skills.test.ts:762`, `:764`-`:767` plus secondary package/lock assertions at `tools/shared/tests/deep-review-installation.test.ts:70`-`:72`. Independent package and changelog mutations each failed the scoped suite. | PASS |
+| AIM-11 / IT-005 | All release surfaces report `0.4.0`, and the consistency gate discriminates drift. | Values agree at `package.json:3`, `package-lock.json:3`, `package-lock.json:9`, and `CHANGELOG.md:5`; exact assertions at `tools/shared/tests/qa-skills.test.ts:765`-`:770`. Independent changelog-heading mutation failed the scoped suite. | PASS |
+| AIM-12 / IT-005 | Release QA wording distinguishes runtime-walked handoff evidence, documented/command-checked lifecycle dry-runs, and technical reviewer-isolation validation. | Exact claim at `CHANGELOG.md:20`; positive assertions at `tools/shared/tests/qa-skills.test.ts:771`-`:773`; historical overclaim rejection at `:774`. Runtime scope: `docs/qa/reports/2026-08-24-ai-memory-handoff.md:14`-`:17`, `:26`-`:51`; dry-run limitation: `docs/qa/reports/2026-08-24-release-0-4-0.md:32`-`:35`. | PASS |
 
-**Spec-anchored status**: 11/11 outcomes matched; 0 precision gaps.
+**Spec-anchored status**: 12/12 outcomes matched; 0 precision gaps. AIM-11/AIM-12 were independently re-derived at `61f2e74`.
 
 ## AIM-09 Contract and Security Parity
 
@@ -76,23 +78,26 @@ spec, test contract, threat model, and AD-008.
 **Sensor depth**: lightweight, three behavior-level contract mutations.
 **Sensor result**: 3/3 killed — PASS.
 
-### T11-T12 release sensor
+### T12-T13 release sensor
 
-At `1086c4b`, two detached scratch worktrees independently changed `package.json:3` and the newest
-`CHANGELOG.md:5` heading to `9.9.9`. The scoped IT-005/AIM-11 suite failed at
-`tools/shared/tests/qa-skills.test.ts:762` and `:766`, respectively. Real-tree porcelain matched
-before and after cleanup.
+At `61f2e74`, two detached scratch worktrees independently restored the reported lifecycle-runtime
+overclaim and changed the newest `CHANGELOG.md:5` heading to `9.9.9`. The scoped IT-005 suite failed
+at `tools/shared/tests/qa-skills.test.ts:771` and `:769`, respectively, with 1 failed / 22 passed for
+each mutation. Both worktrees were removed; real-checkout porcelain matched the clean baseline.
 
 **Release sensor result**: 2/2 killed — PASS. See
-`.specs/features/release-0.4.0/validation.md:46`.
+`.specs/features/release-0.4.0/validation.md:52`.
 
 ## Gate Check
 
-- **Structural validators**: `python3 /Users/antoniofulg/Projects/my-workflow/.agents/skills/tlc-spec-driven/scripts/validate_spec.py .specs/features/ai-memory-handoff/spec.md && python3 /Users/antoniofulg/Projects/my-workflow/.agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/ai-memory-handoff/tasks.md` — 0 errors, 0 warnings.
+- **Structural validators**: all four tracked `spec.md` files passed with 0 errors/0 warnings; both tracked `tasks.md` files passed with 0 errors, with 3 pre-existing warnings only in `qa-skills/tasks.md`.
 - **Guideline size**: `test "$(wc -l < docs/guidelines/REVIEW-ROUNDS.md | tr -d ' ')" -le 160` — exit 0; 160/160 lines.
 - **Full Python/AD**: `python3 scripts/test_ai_memory.py && python3 scripts/test_adopt.py && python3 tools/test_ad_index.py && python3 tools/ad-index.py --check` — exit 0; 9 helper tests, 14 adoption test functions, 2 AD-index test functions; index current; 0 failed or skipped.
-- **Build**: `npm_config_offline=true npm test && npm run knowledge && git diff --check` — exit 0; 8 Vitest files, 108 tests passed, 0 failed, 0 skipped; knowledge 0 errors and 17 warnings; diff check passed.
-- **Count command**: `rg -c '^def test_' scripts/test_ai_memory.py scripts/test_adopt.py tools/test_ad_index.py` plus Vitest summary — 133 counted tests/functions. T9 changes no test file, so the T9 before/after count is 133/133, delta 0.
+- **Scoped release gate**: `npm_config_offline=true npx vitest run tools/shared/tests/qa-skills.test.ts` — exit 0; 1 file, 23 tests passed, 0 failed, 0 skipped.
+- **Review/workflow/TLC gates**: deep-review contract 8, symlink manifest 5, token metrics 19, workflow config 11, and TLC validators 9 — all passed.
+- **Dependency gate**: `npm_config_offline=true npm ls --depth=0` — exit 0; 7 exact dev dependencies.
+- **Build**: `npm_config_offline=true npm test && npm run knowledge && git diff --check` — exit 0; 8 Vitest files, 108 tests passed, 0 failed, 0 skipped; knowledge 0 errors and 17 non-gating warnings; diff check passed.
+- **Release diff gate**: `git diff --check v0.3.6..HEAD && git diff --check` — exit 0.
 
 ## Code Quality and QA Disposition
 
@@ -103,17 +108,18 @@ before and after cleanup.
 | No redundant guideline growth; hard 160-line cap remains green | PASS |
 | AD/spec/test/threat contract parity | PASS |
 | Tests map to acceptance criteria; manual SEC-003 uses the owning contract layer | PASS |
-| T9 changes no public behavior through UI, API, CLI, mobile, public configuration, adoption, or docs-as-interface | PASS — Technical only; no QA dispatch |
+| AIM-12 changes release docs-as-interface and therefore requires fresh QA Execute after technical PASS | PASS — QA state left unchanged in this phase |
 
-Existing QA records and statuses were not changed. Prior provider-lifecycle QA remains recorded in
-`docs/qa/reports/2026-08-24-ai-memory-handoff.md`; reviewer isolation remains technical validation,
-and release 0.4.0 QA remains a separate fresh Verifier phase.
+Existing QA records and statuses were not changed. Prior provider-handoff QA remains recorded in
+`docs/qa/reports/2026-08-24-ai-memory-handoff.md`; reviewer isolation remains technical validation.
+Release scenario `REL-report-current-workflow-release` remains failed with retest pending until a
+fresh QA Execute resumes it and its adjacent canaries.
 
 ## Summary
 
 **Overall**: PASS.
 
-- **Spec-anchored check**: 11/11 outcomes matched; 0 precision gaps.
-- **Gate**: 133 counted tests/functions passed; 0 failed; 0 skipped.
-- **Sensor**: prior reviewer-isolation sensor 3/3 killed; release sensor 2/2 killed.
-- **Ranked gaps**: none. Release QA remains separate.
+- **Spec-anchored check**: 12/12 outcomes matched; 0 precision gaps; current slice AIM-11/AIM-12 independently re-derived.
+- **Gate**: scoped 23/23 and full 108/108 Vitest tests passed; all Python, AD, review, workflow, TLC, dependency, knowledge, validator, and diff lanes exited 0.
+- **Sensor**: prior reviewer-isolation sensor 3/3 killed; current release sensor 2/2 killed.
+- **Ranked gaps**: none for technical verification. Fresh QA Execute required.
