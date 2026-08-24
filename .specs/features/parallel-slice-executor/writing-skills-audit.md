@@ -87,3 +87,11 @@ complete definition; all other edits are short pointers.
 | Disposable fixture | Pass | `tools/qa_parallel_pilot.py` owns setup, safe snapshot, dry-run assertion, and cleanup without product files. |
 | Handoff identity | Pass | `tools/test_qa_parallel_pilot.py` rejects the disabled/completed feature and requires `parallel-pilot`. |
 | QA boundary | Pass | The handoff remains `untested`; no Orca worker is created by author gates. |
+
+## T7R2 delta
+
+| Item | Result | Evidence |
+| --- | --- | --- |
+| Source correlation | Pass | `qa_parallel_pilot.py` compares frozen `git_head` to `git rev-parse HEAD` before planner dry-run output. |
+| Cleanup lifecycle | Pass | Bounded marker/attestation validates first cleanup, repeat idempotent cleanup, and rejects arbitrary roots. |
+| Mutation coverage | Pass | Canonical QA test covers zero-hash source mutation and repeated cleanup/unmarked path rejection. |

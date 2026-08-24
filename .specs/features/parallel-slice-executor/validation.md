@@ -498,3 +498,70 @@ owned sibling worktrees. `tools/test_qa_parallel_pilot.py` rejects the disabled/
 feature target and proves setup/dry-run/cleanup. The real Orca start remains untested and owned by a
 fresh QA Verifier. Fingerprint `5ea1f781...` remains at count 1; this successful remediation does
 not increment it.
+
+## Slice D / T7R1 Independent Technical Re-verification
+
+**Date:** 2026-08-24
+**Diff range:** a26e7f4^..ff93843
+**Verifier:** independent Technical Verifier (author != verifier)
+**Slice verdict:** FAIL. T7R1 fixes the prior disabled/completed-target blocker, but the disposable
+pilot is not restart-safe and its frozen source checkpoint is not discriminated. No real Orca pilot
+was executed in this technical phase.
+
+### Spec-Anchored Acceptance Criteria
+
+| Criterion | Spec-defined outcome | file:line + assertion | Result |
+| --- | --- | --- | --- |
+| E2E-001 / EXE-18 | Disposable safe fixture exposes exactly two independent ready Resources:none lanes. | tools/qa_parallel_pilot.py:38-55,70-85; tools/test_qa_parallel_pilot.py:22-37 assert safe mode, validated true, two ready lanes, and empty resources. Public dry-run returned slice-A and slice-B. | PASS |
+| E2E-001 / EXE-06 | Lanes derive from exact real frozen source HEAD before worktree creation. | tools/qa_parallel_pilot.py:35,43-49 writes current HEAD, but tools/qa_parallel_pilot.py:70-85 never correlates it to repository HEAD and tools/test_qa_parallel_pilot.py:22-37 never asserts it. Replacing git_head with forty zeroes survived canonical harness. | FAIL |
+| E2E-001 / SEC-008 | Cleanup removes only marker-owned fixture/worktrees and remains idempotent across restart/retry. | tools/qa_parallel_pilot.py:63-67,88-97 validates ownership before deletion, but second cleanup fails after first removed marker. tools/test_qa_parallel_pilot.py:38-40 exercises cleanup once only. | FAIL |
+| Production isolation | Versioned workflow remains frozen disabled; pilot setup changes only temporary root. | .specs/features/parallel-slice-executor/workflow.json:1 remained disabled; real-tree porcelain matched baseline after fixture and sensor cleanup. | PASS |
+
+**Spec-anchored status:** 2 PASS, 2 FAIL, 0 spec-precision gaps in T7R1 scope.
+
+### Gate Evidence
+
+- Canonical harness: 1 passed, 0 failed.
+- IT-007: 2 passed, 0 failed.
+- Directed Slice D suites: config 18, planner 16, executor 37, Orca 20, Git 7; 98 passed, 0 failed.
+- Full gate: 110 Vitest plus 146 Python cases, 0 failed/skipped, and contract smoke ok.
+- Strict spec/tasks validators: 0 errors, 0 warnings; AD index current.
+- Python compile, diff check, and all four commit-message checks: exit 0.
+
+### Discrimination Sensor
+
+Mutations ran in detached temporary worktree /tmp/parallel-slice-d-r1-sensor.KuxFI8/tree at
+ff93843; scratch removal restored real-tree porcelain to baseline.
+
+| Mutation | Behavior fault | Directed result | Outcome |
+| --- | --- | --- | --- |
+| M1 | Freeze pilot mode as full instead of required safe. | Canonical harness exits 1 during dry-run. | KILLED |
+| M2 | Freeze source git_head as forty zeroes instead of repository HEAD. | Canonical harness still reports 1 passed. | SURVIVED |
+| M3 | Give one lane a database resource instead of Resources:none. | Canonical harness exits 1 during dry-run. | KILLED |
+
+**Sensor:** lightweight, 3 mutations, 2 killed, 1 survived. FAIL.
+
+### Fingerprint Accounting
+
+- 5ea1f781 is closed at historical count 1: handoff no longer targets frozen disabled/completed production feature.
+- c81a953f is open at count 1: dry-run does not correlate frozen git_head to repository HEAD.
+- d8cf8d2e is open at count 1: repeated cleanup raises ValueError instead of stable cleanup evidence.
+
+### Ranked Gaps
+
+1. **Major / E2E-001, SEC-008:** Make cleanup retry/restart-idempotent and extend canonical harness
+   to call cleanup twice while proving no unrelated path is removed.
+2. **Major / E2E-001, EXE-06:** Make dry-run reject a frozen git_head that is not disposable
+   repository's exact HEAD; add zero-checkpoint regression assertion.
+
+**Overall:** FAIL for Slice D after T7R1. Grouped C-D deep-review, real Orca E2E-001, QA, and feature
+closure remain blocked on these two remediation tasks.
+
+## T7R2 post-remediation
+
+T7R2 hardens the pilot lifecycle without touching the production disabled workflow: dry-run now
+rejects a missing or mismatched frozen source HEAD and returns equal `source_git_head`/
+`repository_head` alongside the two validated lanes. Cleanup accepts only the bounded marked fixture,
+records an attestation, and returns an explicit idempotent success on repeat; unmarked roots remain
+untouched. Canonical tests cover both verifier mutants. Fingerprints `c81a953f...` and `d8cf8d2e...`
+remain at count 1 pending fresh verifier closure; this remediation does not edit their ledger counts.

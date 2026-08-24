@@ -235,6 +235,26 @@ T3 + T4 + T6 -> T7
 **Remediation gate:** Directed QA fixture, `npm run test:all`, strict validators/index, compile, diff check, adequacy review.
 **Remediation commit:** `fix(workflow): make parallel pilot executable`.
 
+### T7R2: Harden parallel pilot source and cleanup lifecycle
+
+**Remediation status:** complete
+**Slice:** D
+**Remediation resources:** none
+**Observable behaviour:** The pilot dry-run correlates frozen source HEAD to the disposable repository and cleanup is idempotent only for the attested fixture root.
+**Where:** `tools/qa_parallel_pilot.py`
+**Remediation depends on:** T7R1
+**Remediation requirements:** E2E-001, EXE-06, SEC-008
+**Remediation done when:**
+
+- [x] Dry-run rejects nonexistent or mismatched frozen `git_head` before any executor/Orca effect and returns the exact repository/source head for two lanes.
+- [x] First cleanup records a bounded attestation; repeated cleanup of the same root returns an explicit idempotent success.
+- [x] Unmarked/arbitrary roots are rejected and never removed; production workflow remains untouched.
+- [x] Canonical QA tests kill both verifier mutants.
+
+**Remediation tests:** `tools/test_qa_parallel_pilot.py`, full Python discovery, shared IT-007.
+**Remediation gate:** Harness/directed suites, `npm run test:all`, strict validators/index, compile, diff check, adequacy review.
+**Remediation commit:** `fix(workflow): harden parallel pilot lifecycle`.
+
 ## Review Remediation
 
 The human rejected a slice-global cap because the prior rounds closed different blockers. T2R4

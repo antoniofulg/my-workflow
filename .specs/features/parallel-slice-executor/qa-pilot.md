@@ -15,11 +15,14 @@ python3 .agents/skills/autonomous/scripts/parallel_execute.py start \
 python3 tools/qa_parallel_pilot.py cleanup --root "$FIXTURE_ROOT"
 ```
 
-The dry-run command must return `validated: true`, `mode: safe`, and exactly two ready
+The dry-run command must return `validated: true`, `mode: safe`, equal `source_git_head` and
+`repository_head`, and exactly two ready
 `Resources: none` lanes before QA mutates Orca. The journey must then observe two independent
 lanes with distinct validated worktree, branch,
 dispatch, and terminal receipts active in one run; correlated `worker_done` deliveries; read-before-
 ack-before-release ordering; clean waiter end and same-terminal dependency follow-up; deterministic
 checkpoint/gate or no-op evidence; and owned worker/worktree cleanup. Record command output and
 receipt identities without transcripts, environment values, or credentials. Abort the pilot rather
-than substituting a fake result if the capability gate returns serial fallback.
+than substituting a fake result if the capability gate returns serial fallback. Cleanup is
+attested and a repeated cleanup of the same root returns an idempotent success; unmarked roots are
+rejected.

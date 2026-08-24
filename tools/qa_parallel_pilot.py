@@ -13,6 +13,7 @@ from pathlib import Path
 
 FEATURE = "parallel-pilot"
 MARKER = ".parallel-slice-qa-fixture"
+PREFIX = "parallel-slice-pilot-"
 ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -62,13 +63,21 @@ def setup() -> dict[str, str]:
 
 def _validate_root(value: str) -> Path:
     root = Path(value).resolve()
-    if not (root / MARKER).is_file() or not (root / ".specs/features" / FEATURE / "workflow.json").is_file():
+    temporary_root = Path(tempfile.gettempdir()).resolve()
+    if temporary_root not in root.parents or not root.name.startswith(PREFIX):
+        raise ValueError("pilot root is outside the disposable fixture boundary")
+    if not root.is_dir() or not (root / MARKER).is_file() or not (root / ".specs/features" / FEATURE / "workflow.json").is_file():
         raise ValueError("not a parallel pilot fixture")
     return root
 
 
 def dry_run(root_value: str) -> dict[str, object]:
     root = _validate_root(root_value)
+    snapshot_path = root / ".specs/features" / FEATURE / "workflow.json"
+    snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    repository_head = git(root, "rev-parse", "HEAD")
+    if snapshot.get("git_head") != repository_head:
+        raise ValueError("pilot frozen git_head does not match repository HEAD")
     planner = ROOT / ".agents/skills/workflow-config/scripts/parallel_plan.py"
     result = subprocess.run(
         ["python3", str(planner), "--root", str(root), "--feature", FEATURE],
@@ -82,10 +91,27 @@ def dry_run(root_value: str) -> dict[str, object]:
         raise ValueError("pilot fixture must expose exactly two safe lanes")
     if any(lane.get("status") != "ready" or lane.get("resources") != [] for lane in lanes):
         raise ValueError("pilot fixture lanes must be ready and resource-free")
-    return {"validated": True, "root": str(root), "feature": FEATURE, "mode": "safe", "lanes": lanes}
+    return {
+        "validated": True,
+        "root": str(root),
+        "feature": FEATURE,
+        "mode": "safe",
+        "source_git_head": snapshot["git_head"],
+        "repository_head": repository_head,
+        "lanes": lanes,
+    }
 
 
 def cleanup(root_value: str) -> dict[str, object]:
+    root = Path(root_value).resolve()
+    attestation = root.parent / f".{root.name}.parallel-pilot-cleaned"
+    if not root.exists():
+        if not attestation.is_file():
+            raise ValueError("pilot root is not an attested disposable fixture")
+        record = json.loads(attestation.read_text(encoding="utf-8"))
+        if record.get("root") != str(root) or record.get("status") != "cleaned":
+            raise ValueError("pilot cleanup attestation is invalid")
+        return {"cleaned": True, "idempotent": True, "root": root_value}
     root = _validate_root(root_value)
     worktree_root = root.parent / f".{root.name}-parallel-slices"
     if worktree_root.exists():
@@ -93,8 +119,9 @@ def cleanup(root_value: str) -> dict[str, object]:
             if child.is_dir() and (child / ".git").exists():
                 subprocess.run(["git", "worktree", "remove", "--force", str(child)], cwd=root, check=False)
         shutil.rmtree(worktree_root, ignore_errors=True)
+    attestation.write_text(json.dumps({"root": str(root), "status": "cleaned"}, sort_keys=True) + "\n", encoding="utf-8")
     shutil.rmtree(root)
-    return {"cleaned": True, "root": root_value}
+    return {"cleaned": True, "idempotent": False, "root": root_value}
 
 
 def main() -> int:
