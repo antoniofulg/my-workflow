@@ -584,6 +584,31 @@ duplicate, or unknown test registrations before execution.
 **Gate**: Build, `python3 scripts/test_adopt.py && npm test && python3 tools/test_workflow_config.py`
 **Commit**: `test(adopt): enforce complete smoke registry`
 
+### T23: Contain generated runtimes within the checkout
+
+**What**: Reject symlinked runtime parents and destinations, including dangling links, before
+configuration initialization or any generated-file write.
+**Where**: workflow-config sync preflight and canonical resolver contract suite
+**Depends on**: T22
+**Requirement**: AMR-07
+
+**Done when**:
+
+- [x] Every runtime parent and destination is checked for symlinks from the checkout root, with
+  actionable `workflow-config:` diagnostics and exit 2 before writes.
+- [x] Symlinked local config, example, and template sources are rejected under the same ownership
+  invariant.
+- [x] Canonical disposable tests prove local config, runtime packets, and outside sentinels remain
+  unchanged for existing and dangling symlink cases.
+- [x] Full Build, clean-worktree/package/Git checks, validators, diff, and commit checks pass
+  without modifying `validation.md`.
+
+**Status:** complete — runtime and source symlink escapes are rejected before any write.
+
+**Tests**: unit and CLI, `UT-002`, `IT-003`
+**Gate**: Build, clean-worktree/package/Git ownership checks, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
+**Commit**: `fix(config): contain generated runtimes in checkout`
+
 ## Phase Execution Map
 
 ```text
@@ -591,7 +616,7 @@ Phase 1 -> Phase 2 -> Phase 3
 
 Phase 1: T1 -> T2 -> T3
 Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -> T14
-Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19 -> T20 -> T21 -> T22
+Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19 -> T20 -> T21 -> T22 -> T23
 ```
 
 ## Task Granularity Check
@@ -620,6 +645,7 @@ Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19 -> T20 -> T21 -> T22
 | T20 | Local write preflight and clean-clone contract | PASS |
 | T21 | Customized adoption runner contract | PASS |
 | T22 | Complete adoption smoke registry | PASS |
+| T23 | Symlink-contained runtime ownership | PASS |
 
 ## Diagram-Definition Cross-Check
 
@@ -647,6 +673,7 @@ Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19 -> T20 -> T21 -> T22
 | T20 | T19 | T19 -> T20 | PASS |
 | T21 | T20 | T20 -> T21 | PASS |
 | T22 | T21 | T21 -> T22 | PASS |
+| T23 | T22 | T22 -> T23 | PASS |
 
 ## Test Co-location Validation
 
@@ -674,3 +701,4 @@ Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19 -> T20 -> T21 -> T22
 | T20 | Local collision and clean-clone ownership | unit + integration | unit + integration | PASS |
 | T21 | Customized local config adoption | integration | integration | PASS |
 | T22 | Complete adoption runner registry | integration | integration | PASS |
+| T23 | Symlink-contained runtime ownership | unit + CLI/manual | unit + CLI/manual | PASS |

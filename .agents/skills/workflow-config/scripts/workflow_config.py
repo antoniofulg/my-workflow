@@ -412,31 +412,52 @@ def _write_bytes_atomic(path: Path, content: bytes) -> None:
 
 def _preflight_destination(root: Path, destination: Path, label: str) -> None:
     relative = destination.relative_to(root).as_posix()
-    if destination.exists() and not destination.is_file():
-        raise _error(f"{label} destination {relative} must be a file")
     parent = destination.parent
     while parent != root:
+        if parent.is_symlink():
+            parent_relative = parent.relative_to(root).as_posix()
+            raise _error(f"{label} parent {parent_relative} must not be a symlink")
         if parent.exists() and not parent.is_dir():
             parent_relative = parent.relative_to(root).as_posix()
             raise _error(f"{label} parent {parent_relative} must be a directory")
         parent = parent.parent
+    if destination.is_symlink():
+        raise _error(f"{label} destination {relative} must not be a symlink")
+    if destination.exists() and not destination.is_file():
+        raise _error(f"{label} destination {relative} must be a file")
+
+
+def _preflight_path(root: Path, path: Path, label: str) -> None:
+    relative = path.relative_to(root)
+    current = root
+    for part in relative.parts:
+        current /= part
+        if current.is_symlink():
+            current_relative = current.relative_to(root).as_posix()
+            relation = "path" if current == path else "parent"
+            raise _error(f"{label} {relation} {current_relative} must not be a symlink")
 
 
 def _sync_config(root: Path) -> tuple[dict[str, Any], bytes | None]:
     local = root / ".my-workflow.toml"
+    _preflight_path(root, local, "local config")
     if local.exists():
         return _read_config(root), None
     example = root / ".my-workflow.toml.example"
+    _preflight_path(root, example, "config example")
     config = _load_config(example, ".my-workflow.toml.example")
     return config, example.read_bytes()
 
 
 def sync_agents(root: Path) -> dict[str, list[str]]:
     """Validate templates and materialize complete ignored runtime packets."""
-    root = root.resolve()
+    root = root.absolute()
+    if root.is_symlink():
+        raise _error(f"root {root} must not be a symlink")
     if not root.is_dir():
         raise _error(f"root is not a directory: {root}")
     local_config = root / ".my-workflow.toml"
+    _preflight_path(root, local_config, "local config")
     _preflight_destination(root, local_config, "local config")
     config, config_bytes = _sync_config(root)
     plans: list[tuple[Path, bytes]] = []
@@ -445,6 +466,7 @@ def sync_agents(root: Path) -> dict[str, list[str]]:
             relative = _runtime_relative(provider, role)
             template_relative = _template_relative(provider, role)
             template_path = root / template_relative
+            _preflight_path(root, template_path, "agent template")
             try:
                 template = template_path.read_bytes()
             except FileNotFoundError as exc:

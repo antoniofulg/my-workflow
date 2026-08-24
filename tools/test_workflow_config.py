@@ -110,6 +110,39 @@ def tree_digest(root: Path) -> str:
     return digest.hexdigest()
 
 
+def path_state(path: Path) -> tuple[str, str | bytes | None]:
+    if path.is_symlink():
+        return ("symlink", str(path.readlink()))
+    if path.is_file():
+        return ("file", path.read_bytes())
+    if path.is_dir():
+        return ("directory", None)
+    return ("missing", None)
+
+
+def runtime_state(root: Path) -> dict[Path, tuple[str, str | bytes | None]]:
+    relatives = {
+        Path(f".{provider}")
+        for provider in workflow_config.PROVIDERS
+    } | {
+        Path(f".{provider}/agents")
+        for provider in workflow_config.PROVIDERS
+    }
+    relatives.update(
+        workflow_config._runtime_relative(provider, role)
+        for provider in workflow_config.PROVIDERS
+        for role in workflow_config.ROLES
+    )
+    return {relative: path_state(root / relative) for relative in sorted(relatives)}
+
+
+def tree_state(root: Path) -> dict[Path, tuple[str, str | bytes | None]]:
+    state: dict[Path, tuple[str, str | bytes | None]] = {}
+    for path in sorted(root.rglob("*")):
+        state[path.relative_to(root)] = path_state(path)
+    return state
+
+
 def strip_metadata(provider: str, content: bytes) -> bytes:
     text = content.decode("utf-8")
     if provider == "claude":
@@ -307,6 +340,116 @@ def test_sync_preflights_early_and_late_runtime_collisions_before_local_init() -
             assert state() == before
         finally:
             shutil.rmtree(root)
+
+
+def test_sync_rejects_symlinked_runtime_paths_before_local_init() -> None:
+    cases = (
+        ("claude parent", Path(".claude"), "runtime parent .claude must not be a symlink"),
+        ("agents parent", Path(".codex/agents"), "runtime parent .codex/agents must not be a symlink"),
+        (
+            "packet destination",
+            Path(".cursor/agents/deep-reviewer.md"),
+            "runtime destination .cursor/agents/deep-reviewer.md must not be a symlink",
+        ),
+        (
+            "dangling packet destination",
+            Path(".codex/agents/planner.toml"),
+            "runtime destination .codex/agents/planner.toml must not be a symlink",
+        ),
+    )
+    resolver = Path(__file__).resolve().parent.parent / ".agents/skills/workflow-config/scripts/workflow_config.py"
+    for name, collision, message in cases:
+        root = make_packet_root()
+        outside = Path(tempfile.mkdtemp())
+        try:
+            config = root / ".my-workflow.toml"
+            (root / ".my-workflow.toml.example").write_bytes(config.read_bytes())
+            (root / ".my-workflow.toml").unlink()
+            if collision in (Path(".claude"), Path(".codex/agents")):
+                shutil.rmtree(root / collision)
+                target = outside / collision.name
+                target.mkdir(parents=True)
+                (target / "sentinel.txt").write_bytes(b"outside sentinel")
+                (root / collision).symlink_to(target, target_is_directory=True)
+            else:
+                target = outside / "packet.toml"
+                if name != "dangling packet destination":
+                    target.write_bytes(b"outside packet")
+                (root / collision).unlink()
+                (root / collision).symlink_to(target)
+            before_runtime = runtime_state(root)
+            before_outside = tree_state(outside)
+            result = subprocess.run(
+                [sys.executable, str(resolver), "--root", str(root), "--sync-agents"],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            assert result.returncode == 2, name
+            assert result.stdout == "", name
+            assert result.stderr == f"workflow-config: {message}\n", name
+            assert not (root / ".my-workflow.toml").exists(), name
+            assert runtime_state(root) == before_runtime, name
+            assert tree_state(outside) == before_outside, name
+        finally:
+            shutil.rmtree(root)
+            shutil.rmtree(outside)
+
+
+def test_sync_rejects_symlinked_local_sources_before_any_write() -> None:
+    cases = (
+        ("local config", Path(".my-workflow.toml"), "local config path .my-workflow.toml must not be a symlink"),
+        ("config example", Path(".my-workflow.toml.example"), "config example path .my-workflow.toml.example must not be a symlink"),
+        (
+            "agent template",
+            Path("templates/agents/claude/planner.md"),
+            "agent template path templates/agents/claude/planner.md must not be a symlink",
+        ),
+    )
+    resolver = Path(__file__).resolve().parent.parent / ".agents/skills/workflow-config/scripts/workflow_config.py"
+    for name, source, message in cases:
+        root = make_packet_root()
+        outside = Path(tempfile.mkdtemp())
+        try:
+            if source.name == ".my-workflow.toml":
+                target = outside / source.name
+                target.write_bytes((root / source).read_bytes())
+                (root / source).unlink()
+                (root / source).symlink_to(target)
+            else:
+                example = root / ".my-workflow.toml"
+                if source.name == ".my-workflow.toml.example":
+                    target = outside / source.name
+                    target.write_bytes(example.read_bytes())
+                    example.unlink()
+                    (root / source).symlink_to(target)
+                else:
+                    config = root / ".my-workflow.toml"
+                    (root / ".my-workflow.toml.example").write_bytes(config.read_bytes())
+                    config.unlink()
+                    target = outside / source.name
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes((root / source).read_bytes())
+                    (root / source).unlink()
+                    (root / source).symlink_to(target)
+            before_runtime = runtime_state(root)
+            before_outside = tree_state(outside)
+            config_before = path_state(root / ".my-workflow.toml")
+            result = subprocess.run(
+                [sys.executable, str(resolver), "--root", str(root), "--sync-agents"],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            assert result.returncode == 2, name
+            assert result.stdout == "", name
+            assert result.stderr == f"workflow-config: {message}\n", name
+            assert path_state(root / ".my-workflow.toml") == config_before, name
+            assert runtime_state(root) == before_runtime, name
+            assert tree_state(outside) == before_outside, name
+        finally:
+            shutil.rmtree(root)
+            shutil.rmtree(outside)
 
 
 def test_sync_rebuilds_runtime_from_immutable_templates() -> None:
