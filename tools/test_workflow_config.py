@@ -452,6 +452,55 @@ def test_sync_rejects_symlinked_local_sources_before_any_write() -> None:
             shutil.rmtree(outside)
 
 
+def test_sync_rejects_symlinked_root_before_any_external_write() -> None:
+    resolver = Path(__file__).resolve().parent.parent / ".agents/skills/workflow-config/scripts/workflow_config.py"
+
+    target = make_root()
+    link_parent = Path(tempfile.mkdtemp())
+    try:
+        write_config(target, filename=".my-workflow.toml.example")
+        write_packets(target, runtime=False)
+        (target / "sentinel.txt").write_bytes(b"external sentinel")
+        linked_root = link_parent / "linked-checkout"
+        linked_root.symlink_to(target, target_is_directory=True)
+        before_target = tree_state(target)
+        before_runtime = runtime_state(target)
+        result = subprocess.run(
+            [sys.executable, str(resolver), "--root", str(linked_root), "--sync-agents"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert result.returncode == 2
+        assert result.stdout == ""
+        assert result.stderr == f"workflow-config: root {linked_root.absolute()} must not be a symlink\n"
+        assert not (target / ".my-workflow.toml").exists()
+        assert runtime_state(target) == before_runtime
+        assert tree_state(target) == before_target
+    finally:
+        shutil.rmtree(target)
+        shutil.rmtree(link_parent)
+
+    dangling_parent = Path(tempfile.mkdtemp())
+    try:
+        dangling_root = dangling_parent / "dangling-checkout"
+        missing_target = dangling_parent / "missing-target"
+        dangling_root.symlink_to(missing_target, target_is_directory=True)
+        result = subprocess.run(
+            [sys.executable, str(resolver), "--root", str(dangling_root), "--sync-agents"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert result.returncode == 2
+        assert result.stdout == ""
+        assert result.stderr == f"workflow-config: root {dangling_root.absolute()} must not be a symlink\n"
+        assert not missing_target.exists()
+        assert list(dangling_parent.iterdir()) == [dangling_root]
+    finally:
+        shutil.rmtree(dangling_parent)
+
+
 def test_sync_rebuilds_runtime_from_immutable_templates() -> None:
     root = make_packet_root()
     try:

@@ -609,6 +609,29 @@ configuration initialization or any generated-file write.
 **Gate**: Build, clean-worktree/package/Git ownership checks, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
 **Commit**: `fix(config): contain generated runtimes in checkout`
 
+### T24: Discriminate root symlink containment
+
+**What**: Add the canonical CLI contract for rejecting existing and dangling `--root` symlinks
+before any generated local state can be created through the link.
+**Where**: canonical resolver CLI contract suite
+**Depends on**: T23
+**Requirement**: AMR-07
+
+**Done when**:
+
+- [x] Existing and dangling root symlinks return exit 2, empty stdout, and the exact
+  `workflow-config:` root diagnostic.
+- [x] The existing-target test proves no local config, runtime packet, or external sentinel is
+  created or changed through the symlink.
+- [x] Removing only the root-symlink guard makes the canonical test red; the real suite is green.
+- [x] Full Build, validators, diff, and commit checks pass without modifying `validation.md`.
+
+**Status:** complete — root symlink mutant red and canonical root containment tests green.
+
+**Tests**: unit and CLI, `UT-002`, `IT-003`
+**Gate**: Build, `python3 tools/test_workflow_config.py && npm test && python3 scripts/test_adopt.py`
+**Commit**: `test(config): discriminate root symlink containment`
+
 ## Phase Execution Map
 
 ```text
@@ -616,7 +639,7 @@ Phase 1 -> Phase 2 -> Phase 3
 
 Phase 1: T1 -> T2 -> T3
 Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -> T14
-Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19 -> T20 -> T21 -> T22 -> T23
+Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19 -> T20 -> T21 -> T22 -> T23 -> T24
 ```
 
 ## Task Granularity Check
@@ -646,6 +669,7 @@ Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19 -> T20 -> T21 -> T22 -> 
 | T21 | Customized adoption runner contract | PASS |
 | T22 | Complete adoption smoke registry | PASS |
 | T23 | Symlink-contained runtime ownership | PASS |
+| T24 | Root symlink containment contract | PASS |
 
 ## Diagram-Definition Cross-Check
 
@@ -674,6 +698,7 @@ Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19 -> T20 -> T21 -> T22 -> 
 | T21 | T20 | T20 -> T21 | PASS |
 | T22 | T21 | T21 -> T22 | PASS |
 | T23 | T22 | T22 -> T23 | PASS |
+| T24 | T23 | T23 -> T24 | PASS |
 
 ## Test Co-location Validation
 
@@ -702,3 +727,4 @@ Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19 -> T20 -> T21 -> T22 -> 
 | T21 | Customized local config adoption | integration | integration | PASS |
 | T22 | Complete adoption runner registry | integration | integration | PASS |
 | T23 | Symlink-contained runtime ownership | unit + CLI/manual | unit + CLI/manual | PASS |
+| T24 | Root symlink containment contract | unit + CLI/manual | unit + CLI/manual | PASS |
