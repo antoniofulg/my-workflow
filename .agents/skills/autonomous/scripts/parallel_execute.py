@@ -550,6 +550,71 @@ class Coordinator:
         action_receipt.update(fields)
         action_receipt["status"] = "accepted"
 
+    def _resume_worker_event(
+        self,
+        snapshot: Mapping[str, Any],
+        state: dict[str, Any],
+        lane_id: str,
+        plan_lane: Mapping[str, Any],
+        lane: dict[str, Any],
+        adapter: Any,
+        provider: ResourceProvider | None,
+    ) -> str:
+        """Consume one Run delivery; return continue, handled, or serial."""
+        try:
+            delivery = adapter.wait_events(dict(lane))
+            if delivery.get("event") == "timeout":
+                return "handled"
+            if delivery.get("event") in {"waiting", "question"}:
+                lane["waiter"] = dict(delivery)
+                if lane["state"] == "running":
+                    transition_lane(state, lane_id, "waiting", expected="running")
+                self._save(state)
+                return "handled"
+            if delivery.get("event") == "dependency" and lane["state"] == "waiting":
+                waiter = lane.get("waiter")
+                if not isinstance(waiter, Mapping):
+                    raise ExecutorError("missing waiter receipt")
+                follow_key, follow_action, follow_created = self._record_action(state, lane_id, lane, "follow_up")
+                self._save(state)
+                if follow_action["status"] == "pending":
+                    if not follow_created:
+                        follow_receipt = self._reconcile_pending(adapter, follow_action)
+                        if follow_receipt is None:
+                            raise ExecutorError("unreconciled pending action: follow_up")
+                    else:
+                        follow_receipt = adapter.follow_up(dict(lane), waiter, dict(delivery), idempotency_key=follow_key)
+                    if not isinstance(follow_receipt, Mapping):
+                        raise ExecutorError("malformed follow-up receipt")
+                    self._accept(follow_action, external_id=follow_receipt.get("dispatch_id"), receipt=dict(follow_receipt))
+                    for key in ("run_id", "orchestration_task_id", "dispatch_id", "terminal_handle"):
+                        if key in follow_receipt:
+                            lane[key] = follow_receipt[key]
+                    transition_lane(state, lane_id, "running", expected="waiting")
+                    self._save(state)
+                return "handled"
+            if delivery.get("event") != "worker_done":
+                raise ExecutorError("unhandled worker delivery")
+            output = adapter.read_worker(dict(lane))
+            accepted = adapter.accept_worker_done(dict(lane), dict(delivery), dict(output))
+            adapter.release(dict(lane), dict(accepted))
+            worker_key = idempotency_key(self.feature, str(plan_lane["slice"]), str(plan_lane["task"]), "worker", state["source_git_head"])
+            worker_action = state["actions"].get(worker_key)
+            if isinstance(worker_action, dict):
+                worker_action["completion"] = dict(accepted)
+            if lane.get("lease") is not None:
+                self._release_lease_state(snapshot, state, lane_id, provider)
+            if lane["state"] == "running":
+                transition_lane(state, lane_id, "complete", expected="running")
+            self._save(state)
+            return "handled"
+        except Exception as exc:
+            lane["fallback_reason"] = "worker:" + str(exc)
+            if lane["state"] in {"running", "waiting"}:
+                transition_lane(state, lane_id, "serial", expected=lane["state"])
+            self._save(state)
+            return "serial"
+
     def _release_lease_state(
         self, snapshot: Mapping[str, Any], state: dict[str, Any], lane_id: str, provider: ResourceProvider | None
     ) -> dict[str, Any]:
@@ -689,6 +754,17 @@ class Coordinator:
                 continue
             worktree_key, worktree_action, worktree_created = self._record_action(state, lane_id, existing, "worktree")
             self._save(state)
+            if resume and existing.get("state") in {"running", "waiting"}:
+                worker_key = idempotency_key(self.feature, slice_id, task_id, "worker", state["source_git_head"])
+                worker_action = state["actions"].get(worker_key)
+                if isinstance(worker_action, Mapping) and worker_action.get("status") in {"accepted", "released"}:
+                    if not callable(getattr(adapter, "wait_events", None)):
+                        continue
+                    if self._resume_worker_event(snapshot, state, lane_id, plan_lane, existing, adapter, provider) == "serial":
+                        result = _serial_result(self.feature, mode, existing.get("fallback_reason", "worker-failed"), lanes)
+                        result["state"] = state
+                        return result
+                    continue
             if worktree_action["status"] == "pending":
                 try:
                     if not worktree_created:
@@ -703,8 +779,6 @@ class Coordinator:
                         bounded_path(_git_common_dir(self.root).parent.parent, receipt["worktree_path"])
                     self._accept(worktree_action, external_id=receipt.get("worktree_id"), receipt=dict(receipt))
                     existing.update({key: receipt[key] for key in ("worktree_id", "worktree_path", "branch", "pre_head") if key in receipt})
-                    if existing["state"] == "ready":
-                        transition_lane(state, lane_id, "running", expected="ready")
                 except Exception as exc:
                     existing["fallback_reason"] = "worktree:" + str(exc)
                     if existing["state"] in {"ready", "running"}:
@@ -766,6 +840,8 @@ class Coordinator:
                     for key in ("run_id", "orchestration_task_id", "dispatch_id", "terminal_handle"):
                         if key in receipt:
                             existing[key] = receipt[key]
+                    if existing["state"] == "ready":
+                        transition_lane(state, lane_id, "running", expected="ready")
                     actions.append({"action": "worker", "lane": lane_id, "key": worker_key})
                 except Exception as exc:
                     existing["fallback_reason"] = "worker:" + str(exc)

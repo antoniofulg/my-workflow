@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 16,
+  "next_id": 18,
   "lessons": [
     {
       "id": "L-001",
@@ -274,6 +274,42 @@
       ],
       "created": "2026-08-24T12:41:41Z",
       "last_seen": "2026-08-24T12:41:41Z"
+    },
+    {
+      "id": "L-016",
+      "key": "surviving_mutant::assert acceptance validation precedes destructive cleanup with a negative zero effect case",
+      "text": "Assert acceptance validation precedes destructive cleanup with a negative zero-effect case",
+      "signal": "surviving_mutant",
+      "scope": "workflow-executor",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-executor"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md:Slice-B-M1 (workflow-executor)"
+      ],
+      "created": "2026-08-24T15:34:19Z",
+      "last_seen": "2026-08-24T15:34:19Z"
+    },
+    {
+      "id": "L-017",
+      "key": "ac_gap::model provider inbox deliveries and worker output as distinct schemas at integration boundaries",
+      "text": "Model provider inbox deliveries and worker output as distinct schemas at integration boundaries",
+      "signal": "ac_gap",
+      "scope": "workflow-executor",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-executor"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md:Slice-B-live-delivery (workflow-executor)"
+      ],
+      "created": "2026-08-24T15:34:19Z",
+      "last_seen": "2026-08-24T15:34:19Z"
     }
   ]
 }

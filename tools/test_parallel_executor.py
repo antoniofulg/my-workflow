@@ -688,6 +688,127 @@ def test_executor_cli_safe_resume_reconciles_pending_worker_through_injected_ada
         shutil.rmtree(root)
 
 
+def test_executor_resume_consumes_run_delivery_reads_accepts_then_releases_worker() -> None:
+    root = make_repo()
+    try:
+        probe = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter())
+        snapshot = probe._workflow()
+        source_head = snapshot["git_head"]
+        probe._prepare_repository()
+        worker_key = parallel_execute.idempotency_key("fixture", "A", "T1", "worker", source_head)
+        worktree_key = parallel_execute.idempotency_key("fixture", "A", "T1", "worktree", source_head)
+        destination = parallel_execute.derive_worktree_destination(root, "fixture", "A", "T1")
+        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "safe", source_head)
+        state["lanes"]["slice-A"] = {
+            "slice": "A", "task": "T1", "state": "running", "resources": [],
+            "worktree_id": "wt-A", "worktree_path": str(destination), "branch": "slice/A", "pre_head": source_head,
+            "run_id": "run-A", "orchestration_task_id": "task-A", "dispatch_id": "dispatch-A", "terminal_handle": "terminal-A",
+        }
+        state["actions"][worktree_key] = {
+            "key": worktree_key, "action": "worktree", "status": "accepted", "lane": "slice-A",
+            "external_id": "wt-A", "receipt": {"worktree_id": "wt-A", "worktree_path": str(destination), "branch": "slice/A", "pre_head": source_head},
+        }
+        state["actions"][worker_key] = {
+            "key": worker_key, "action": "worker", "status": "accepted", "lane": "slice-A", "external_id": "dispatch-A",
+            "receipt": {"run_id": "run-A", "orchestration_task_id": "task-A", "dispatch_id": "dispatch-A", "terminal_handle": "terminal-A", "worktree_id": "wt-A", "worktree_path": str(destination), "branch": "slice/A", "pre_head": source_head, "feature": "fixture", "slice": "A", "task": "T1", "idempotency_key": worker_key, "status": "running"},
+        }
+        parallel_execute.atomic_write_json(probe.state_path, state)  # type: ignore[arg-type]
+
+        class LiveResumeAdapter(RecordingAdapter):
+            def __init__(self) -> None:
+                super().__init__()
+                self.calls: list[str] = []
+
+            def wait_events(self, receipt: dict[str, object], *, timeout: float = 30) -> dict[str, object]:
+                self.calls.append("check")
+                return {"event": "worker_done", "delivery_id": "delivery-A", "run_id": "run-A", "payload": {"taskId": "task-A", "dispatchId": "dispatch-A", "outcome": "succeeded"}}
+
+            def read_worker(self, receipt: dict[str, object]) -> dict[str, object]:
+                self.calls.append("read")
+                return {"dispatch_id": "dispatch-A", "source": "terminal", "source_identity": "terminal-A", "provider": "codex", "transcript": "<redacted>", "cursor": "cursor-A", "status": "succeeded"}
+
+            def accept_worker_done(self, receipt: dict[str, object], delivery: dict[str, object], output: dict[str, object]) -> dict[str, object]:
+                self.calls.append("accept")
+                return {**dict(receipt), "status": "accepted", "accepted": True}
+
+            def release(self, receipt: dict[str, object], result: dict[str, object] | None = None) -> dict[str, object]:
+                self.calls.append("release")
+                return {"released": True, "dispatch_id": "dispatch-A"}
+
+        adapter = LiveResumeAdapter()
+        original_plan = parallel_execute.Coordinator._plan
+        parallel_execute.Coordinator._plan = lambda self: lane_plan(resources=[])  # type: ignore[method-assign]
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        try:
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                exit_code = parallel_execute.main(["resume", "--root", str(root), "--feature", "fixture"], adapter_factory=lambda: adapter)
+        finally:
+            parallel_execute.Coordinator._plan = original_plan  # type: ignore[method-assign]
+        assert exit_code == 0
+        assert stderr.getvalue() == ""
+        result = json.loads(stdout.getvalue())
+        assert result["fallback"] is False
+        assert result["state"]["lanes"]["slice-A"]["state"] == "complete"
+        assert adapter.calls == ["check", "read", "accept", "release"]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_executor_resume_delivery_outcomes_are_timeout_waiting_or_serial_without_release() -> None:
+    original_plan = parallel_execute.Coordinator._plan
+    parallel_execute.Coordinator._plan = lambda self: lane_plan(resources=[])  # type: ignore[method-assign]
+    try:
+        for expected_event, expected_state, expected_fallback in (
+            ("timeout", "running", False),
+            ("waiting", "waiting", False),
+            ("escalation", "serial", True),
+            ("invalid", "serial", True),
+        ):
+            root = make_repo()
+            try:
+                first = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter())
+                first.start()
+
+                class OutcomeAdapter(RecordingAdapter):
+                    def __init__(self) -> None:
+                        super().__init__()
+                        self.calls: list[str] = []
+
+                    def wait_events(self, receipt: dict[str, object], *, timeout: float = 30) -> dict[str, object]:
+                        self.calls.append("wait")
+                        if expected_event == "timeout":
+                            return {"event": "timeout", "unchanged": True}
+                        if expected_event == "waiting":
+                            return {"event": "waiting", "status": "clean", "dependency": "producer-A"}
+                        if expected_event == "invalid":
+                            raise parallel_execute.ExecutorError("uncorrelated delivery")
+                        return {"event": "escalation"}
+
+                    def release(self, receipt: dict[str, object], result: dict[str, object] | None = None) -> dict[str, object]:
+                        self.calls.append("release")
+                        return {"released": True, "dispatch_id": "dispatch-A"}
+
+                adapter = OutcomeAdapter()
+                stdout = io.StringIO()
+                stderr = io.StringIO()
+                with redirect_stdout(stdout), redirect_stderr(stderr):
+                    exit_code = parallel_execute.main(["resume", "--root", str(root), "--feature", "fixture"], adapter_factory=lambda: adapter)
+                result = json.loads(stdout.getvalue())
+                assert exit_code == 0
+                assert result["fallback"] is expected_fallback
+                if expected_fallback:
+                    assert result["reason"].startswith("worker:")
+                    assert result["state"]["lanes"]["slice-A"]["state"] == expected_state
+                else:
+                    assert result["state"]["lanes"]["slice-A"]["state"] == expected_state
+                assert adapter.calls == ["wait"]
+            finally:
+                shutil.rmtree(root)
+    finally:
+        parallel_execute.Coordinator._plan = original_plan  # type: ignore[method-assign]
+
+
 def test_disabled_start_short_circuits_planner_git_and_adapter() -> None:
     root = make_repo(mode="disabled")
     original_root = parallel_execute._repository_root

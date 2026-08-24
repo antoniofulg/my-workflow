@@ -247,6 +247,19 @@ remain blocked only until Slice A passes its Technical Verifier.
 **Remediation gate:** Executor tests, strict spec/tasks validators, AD index, `git diff --check`, and fresh Technical Verifier.
 **Remediation commit:** `fix(workflow): prove safe resume reconciliation`.
 
+### T3R1: Consume live Orca deliveries and close coordinator lifecycle gaps
+
+**Remediation status:** complete
+**Slice:** B
+**Remediation resources:** none
+**Observable behaviour:** Public resume consumes Run-scoped Delivery records, reads and validates the separate worker output receipt before release, preserves exact timeout/waiting/escalation states, and rejects incomplete or uncorrelated worker receipts before any destructive cleanup.
+**Where:** `.agents/skills/autonomous/scripts/orca_adapter.py`
+**Remediation depends on:** T3
+**Remediation requirements:** EXE-07–EXE-11, SEC-005, SEC-006
+**Remediation tests:** IT-002–IT-004 and SEC-005–SEC-006 in `tools/test_orca_adapter.py`; public resume lifecycle coverage in `tools/test_parallel_executor.py`.
+**Remediation gate:** Adapter and executor suites, strict spec/tasks validators, AD index, `git diff --check`, compile, and fresh Technical Verifier.
+**Remediation commit:** `fix(workflow): consume live orca deliveries`.
+
 ### T2R1: Harden resume, disabled-mode, isolation, and lease recovery
 
 **Remediation status:** complete

@@ -104,6 +104,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: validation.md:cli-resume (workflow-executor)
 - last seen: 2026-08-24T12:41:41Z
 
+### L-016 - Assert acceptance validation precedes destructive cleanup with a negative zero-effect case
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `workflow-executor` · harmful: 0
+- features: parallel-slice-executor
+- evidence: validation.md:Slice-B-M1 (workflow-executor)
+- last seen: 2026-08-24T15:34:19Z
+
+### L-017 - Model provider inbox deliveries and worker output as distinct schemas at integration boundaries
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `workflow-executor` · harmful: 0
+- features: parallel-slice-executor
+- evidence: validation.md:Slice-B-live-delivery (workflow-executor)
+- last seen: 2026-08-24T15:34:19Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

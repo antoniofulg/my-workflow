@@ -35,7 +35,7 @@ def _payload(value: Any) -> dict[str, Any]:
     result = value.get("result")
     if isinstance(result, dict):
         value = result
-    for nested in ("run", "task", "worker", "dispatch"):
+    for nested in ("run", "task", "worker", "dispatch", "worktree"):
         if isinstance(value.get(nested), dict):
             value = {**value, **value[nested]}
     for field, aliases in {
@@ -43,6 +43,9 @@ def _payload(value: Any) -> dict[str, Any]:
         "task_id": ("task_id", "taskId"),
         "dispatch_id": ("dispatch_id", "dispatchId"),
         "terminal_handle": ("terminal_handle", "terminalHandle", "agentTerminalHandle"),
+        "worktree_id": ("worktree_id", "worktreeId"),
+        "worktree_path": ("worktree_path", "worktreePath"),
+        "pre_head": ("pre_head", "preHead", "sourceHead"),
     }.items():
         if field not in value:
             for alias in aliases:
@@ -74,6 +77,7 @@ class OrcaAdapter:
         self._workers: dict[str, dict[str, Any]] = {}
         self._ended_waiters: set[str] = set()
         self._released: dict[str, dict[str, Any]] = {}
+        self._deliveries: set[str] = set()
 
     def _call(self, *arguments: str, timeout: float | None = None) -> dict[str, Any]:
         argv = [self.executable, "orchestration", *arguments, "--json"]
@@ -175,8 +179,9 @@ class OrcaAdapter:
             "idempotency_key": key,
         }
         for field, expected_value in expected.items():
-            actual = data.get(field, expected_value)
-            if actual != expected_value:
+            if field not in data:
+                raise AdapterError(f"missing Orca worker receipt: {field}")
+            if data[field] != expected_value:
                 raise AdapterError(f"uncorrelated Orca worker receipt: {field}")
             data[field] = expected_value
         run_id = _text(data.get("run_id"), "run id")
@@ -189,6 +194,32 @@ class OrcaAdapter:
         data["dispatch_id"] = _text(data.get("dispatch_id"), "dispatch id")
         data["terminal_handle"] = _text(data.get("terminal_handle"), "terminal handle")
         return data
+
+    @staticmethod
+    def _complete_worker(payload: Mapping[str, Any]) -> bool:
+        return all(
+            field in payload
+            for field in (
+                "run_id", "task_id", "dispatch_id", "terminal_handle", "feature", "slice", "task",
+                "worktree_id", "worktree_path", "branch", "pre_head", "idempotency_key",
+            )
+        )
+
+    def _authoritative_worker(
+        self,
+        response: Mapping[str, Any],
+        lane: Mapping[str, Any],
+        worktree: Mapping[str, str],
+        key: str,
+        *,
+        task_id: str,
+    ) -> dict[str, Any]:
+        data = dict(response)
+        if not self._complete_worker(data):
+            dispatch_id = _text(data.get("dispatch_id"), "dispatch id")
+            authoritative = self._call("worker-show", "--dispatch", dispatch_id)
+            data = {**data, **authoritative}
+        return self._validate_worker(data, lane, worktree, key, task_id=task_id)
 
     def start_worker(
         self, lane: Mapping[str, Any], receipt: Mapping[str, Any], *, idempotency_key: str
@@ -211,52 +242,132 @@ class OrcaAdapter:
             "--agent",
             "codex",
         )
-        worker = self._validate_worker(response, lane, worktree, key, task_id=task_id)
+        worker = self._authoritative_worker(response, lane, worktree, key, task_id=task_id)
         if worker["run_id"] != run_id:
             raise AdapterError("uncorrelated Orca run receipt")
         worker["status"] = "running"
         self._workers[key] = dict(worker)
         return dict(worker)
 
-    def _event(self, payload: Mapping[str, Any], receipt: Mapping[str, Any]) -> dict[str, Any]:
-        data = dict(payload)
-        event_name = data.get("event") or data.get("type")
-        if event_name not in {"worker_done", "waiting", "dependency", "escalation"}:
-            raise AdapterError("missing Orca worker event")
-        for field in (
-            "run_id", "task_id", "dispatch_id", "terminal_handle", "worktree_id",
-            "worktree_path", "pre_head", "idempotency_key",
-        ):
-            if data.get(field) != receipt.get(field):
-                raise AdapterError(f"uncorrelated Orca event: {field}")
-        if data.get("status") in {"dirty", "failed", "escalated"} or data.get("outcome") == "failed" or event_name == "escalation":
-            raise AdapterError("Orca worker halted")
-        if event_name == "worker_done":
-            if data.get("status") not in {None, "accepted"} and data.get("outcome") != "succeeded":
-                raise AdapterError("Orca worker was not accepted")
-            data["status"] = "accepted"
-        redacted = [field for field in ("transcript", "body", "environment", "env") if field in data]
-        for field in redacted:
-            data.pop(field, None)
-        if redacted:
-            data["redacted_fields"] = redacted
-        data["event"] = event_name
-        return data
+    def _delivery(self, delivery: Mapping[str, Any], receipt: Mapping[str, Any]) -> dict[str, Any]:
+        delivery_id = _text(delivery.get("id"), "delivery id")
+        if delivery_id in self._deliveries:
+            raise AdapterError("duplicate Orca delivery")
+        run_id = _text(delivery.get("run_id"), "delivery run id")
+        if run_id != receipt.get("run_id"):
+            raise AdapterError("uncorrelated Orca delivery: run_id")
+        event_type = _text(delivery.get("type"), "delivery type")
+        if event_type not in {"worker_done", "escalation", "question"}:
+            raise AdapterError("unsupported Orca delivery")
+        if delivery.get("from_handle") != receipt.get("terminal_handle"):
+            raise AdapterError("uncorrelated Orca delivery: from_handle")
+        raw_payload = delivery.get("payload")
+        if isinstance(raw_payload, str):
+            try:
+                payload = json.loads(raw_payload)
+            except json.JSONDecodeError as exc:
+                raise AdapterError("malformed Orca delivery payload") from exc
+        else:
+            payload = raw_payload
+        if not isinstance(payload, dict):
+            raise AdapterError("malformed Orca delivery payload")
+        task_id = payload.get("taskId") or payload.get("task_id")
+        dispatch_id = payload.get("dispatchId") or payload.get("dispatch_id")
+        if task_id != receipt.get("orchestration_task_id"):
+            raise AdapterError("uncorrelated Orca delivery: taskId")
+        if dispatch_id != receipt.get("dispatch_id"):
+            raise AdapterError("uncorrelated Orca delivery: dispatchId")
+        outcome = payload.get("outcome")
+        if payload.get("status") in {"dirty", "failed", "escalated"} or outcome == "failed":
+            raise AdapterError("Orca worker delivery halted")
+        if event_type == "worker_done":
+            if outcome != "succeeded":
+                raise AdapterError("Orca worker outcome was not accepted")
+            event = "worker_done"
+            status = "accepted"
+        elif event_type == "escalation":
+            raise AdapterError("Orca worker escalated")
+        elif payload.get("status") == "waiting" and payload.get("dependency"):
+            event = "waiting"
+            status = "clean"
+        elif payload.get("event") == "dependency" and payload.get("status") == "complete":
+            event = "dependency"
+            status = "complete"
+        else:
+            event = "question"
+            status = "question"
+        self._deliveries.add(delivery_id)
+        return {
+            "event": event,
+            "status": status,
+            "delivery_id": delivery_id,
+            "run_id": run_id,
+            "from_handle": delivery["from_handle"],
+            "payload": payload,
+            "task_id": task_id,
+            "dispatch_id": dispatch_id,
+            **({"dependency": payload["dependency"]} if "dependency" in payload else {}),
+        }
 
     def read_worker(self, receipt: Mapping[str, Any]) -> dict[str, Any]:
         dispatch_id = _text(receipt.get("dispatch_id"), "dispatch id")
         response = self._call("worker-read", "--dispatch", dispatch_id, "--limit", "50")
-        event = response.get("event") if isinstance(response.get("event"), Mapping) else response
-        return self._event(event, receipt)
+        actual_dispatch = response.get("dispatch_id") or response.get("dispatchId")
+        if actual_dispatch != dispatch_id:
+            raise AdapterError("uncorrelated worker-read dispatch")
+        aliases = {
+            "source": ("source",),
+            "source_identity": ("source_identity", "sourceIdentity"),
+            "provider": ("provider",),
+            "cursor": ("cursor",),
+            "status": ("status",),
+        }
+        for field, names in aliases.items():
+            if not any(name in response for name in names):
+                raise AdapterError(f"missing worker-read field: {field}")
+        transcript = response.get("transcript")
+        if transcript is None:
+            raise AdapterError("missing worker-read transcript")
+        status = response.get("status")
+        if status not in {"succeeded", "accepted", "complete", "completed"}:
+            raise AdapterError("worker-read did not prove completion")
+        return {
+            "dispatch_id": dispatch_id,
+            "source": response.get("source"),
+            "source_identity": response.get("source_identity") or response.get("sourceIdentity"),
+            "provider": response.get("provider"),
+            "transcript": "<redacted>",
+            "cursor": response.get("cursor"),
+            "status": status,
+            "transcript_redacted": True,
+        }
+
+    def accept_worker_done(
+        self,
+        receipt: Mapping[str, Any],
+        delivery: Mapping[str, Any],
+        output: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        if delivery.get("event") != "worker_done" or delivery.get("status") != "accepted":
+            raise AdapterError("worker delivery was not accepted")
+        if output.get("dispatch_id") != receipt.get("dispatch_id") or output.get("transcript") != "<redacted>":
+            raise AdapterError("worker output is uncorrelated or unredacted")
+        return {
+            **dict(receipt),
+            "status": "accepted",
+            "accepted": True,
+            "delivery_id": delivery["delivery_id"],
+            "output": dict(output),
+        }
 
     def wait_events(self, receipt: Mapping[str, Any], *, timeout: float = 30) -> dict[str, Any]:
         if timeout <= 0:
             raise AdapterError("Orca wait timeout must be positive")
-        terminal = _text(receipt.get("terminal_handle"), "terminal handle")
+        run_id = _text(receipt.get("run_id"), "run id")
         response = self._call(
             "check",
-            "--terminal",
-            terminal,
+            "--run",
+            run_id,
             "--wait",
             "--types",
             "worker_done,question,escalation",
@@ -264,12 +375,15 @@ class OrcaAdapter:
             str(int(timeout * 1000)),
             timeout=timeout + 1,
         )
-        events = response.get("events")
-        if events == [] or response.get("timeout") is True or response.get("count") == 0:
+        deliveries = response.get("deliveries")
+        if deliveries == [] or response.get("timeout") is True or response.get("count") == 0:
             return {"event": "timeout", "unchanged": True}
-        if isinstance(events, list) and len(events) == 1:
-            return self._event(events[0], receipt)
-        return self._event(response, receipt)
+        if isinstance(deliveries, list) and len(deliveries) == 1:
+            return self._delivery(deliveries[0], receipt)
+        delivery = response.get("delivery")
+        if isinstance(delivery, Mapping):
+            return self._delivery(delivery, receipt)
+        raise AdapterError("missing Orca delivery")
 
     def _release(self, receipt: Mapping[str, Any]) -> dict[str, Any]:
         key = _text(receipt.get("idempotency_key"), "idempotency key")
@@ -286,26 +400,27 @@ class OrcaAdapter:
         return dict(result)
 
     def release(self, receipt: Mapping[str, Any], result: Mapping[str, Any] | None = None) -> dict[str, Any]:
-        event = self.read_worker(receipt) if result is None else self._event(result, receipt)
-        if event.get("event") != "worker_done" or event.get("status") != "accepted":
+        if result is None or result.get("accepted") is not True:
             raise AdapterError("worker must be accepted before release")
         return self._release(receipt)
 
     def end_waiter(self, receipt: Mapping[str, Any], waiter: Mapping[str, Any]) -> dict[str, Any]:
-        event = self._event(waiter, receipt)
+        event = waiter
         if event.get("event") != "waiting" or event.get("status") != "clean":
             raise AdapterError("worker waiter is not clean")
         dependency = _text(event.get("dependency"), "dependency")
         self._ended_waiters.add(_text(receipt.get("dispatch_id"), "dispatch id") + ":" + dependency)
-        return self._release(receipt)
+        return {"ended": True, "terminal_handle": _text(receipt.get("terminal_handle"), "terminal handle")}
 
     def follow_up(
         self,
         receipt: Mapping[str, Any],
         waiter: Mapping[str, Any],
         dependency: Mapping[str, Any],
+        *,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
-        waiter_event = self._event(waiter, receipt)
+        waiter_event = waiter
         if waiter_event.get("event") != "waiting" or waiter_event.get("status") != "clean":
             raise AdapterError("worker waiter is not clean")
         dependency_name = _text(waiter_event.get("dependency"), "dependency")
@@ -318,20 +433,10 @@ class OrcaAdapter:
             raise AdapterError("worker turn is still active")
         next_task = _text(dependency.get("next_task_id") or receipt.get("orchestration_task_id"), "task id")
         response = self._call("worker-start", "--task", next_task, "--terminal", _text(receipt.get("terminal_handle"), "terminal handle"))
-        result = dict(response)
-        result.setdefault("run_id", receipt["run_id"])
-        result.setdefault("task_id", next_task)
-        result.setdefault("dispatch_id", receipt["dispatch_id"])
-        result.setdefault("terminal_handle", receipt["terminal_handle"])
-        result.setdefault("worktree_id", receipt["worktree_id"])
-        result.setdefault("worktree_path", receipt["worktree_path"])
-        result.setdefault("branch", receipt["branch"])
-        result.setdefault("pre_head", receipt["pre_head"])
-        result.setdefault("feature", self.feature)
-        result.setdefault("slice", receipt["slice"])
-        result.setdefault("task", receipt["task"])
-        result.setdefault("idempotency_key", receipt["idempotency_key"])
-        return self._validate_worker(result, receipt, receipt, _text(receipt.get("idempotency_key"), "idempotency key"), task_id=next_task)
+        lane = {"feature": self.feature, "slice": receipt["slice"], "task": receipt["task"]}
+        worktree = {key: receipt[key] for key in ("worktree_id", "worktree_path", "branch", "pre_head")}
+        key = _text(idempotency_key or receipt.get("idempotency_key"), "idempotency key")
+        return self._authoritative_worker(response, lane, worktree, key, task_id=next_task)
 
 
 Adapter = OrcaAdapter

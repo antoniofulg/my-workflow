@@ -83,6 +83,31 @@ def start_responses(worktree: dict[str, str]) -> list[object]:
     ]
 
 
+def live_delivery(*, outcome: str = "succeeded") -> dict[str, object]:
+    return {
+        "id": "delivery-A",
+        "run_id": "run-A",
+        "type": "worker_done",
+        "from_handle": "terminal-A",
+        "payload": json.dumps(
+            {"taskId": "task-A", "dispatchId": "dispatch-A", "outcome": outcome, "filesModified": []}
+        ),
+        "created_at": "2026-08-24T00:00:00Z",
+    }
+
+
+def live_worker_output() -> dict[str, object]:
+    return {
+        "dispatchId": "dispatch-A",
+        "source": "terminal",
+        "sourceIdentity": "terminal-A",
+        "provider": "codex",
+        "transcript": "secret worker transcript",
+        "cursor": "cursor-A",
+        "status": "succeeded",
+    }
+
+
 def test_start_attaches_existing_worktree_and_correlates_every_receipt_field() -> None:
     root, lane, worktree = fixture()
     try:
@@ -101,6 +126,7 @@ def test_start_attaches_existing_worktree_and_correlates_every_receipt_field() -
         assert receipt["worktree_path"] == worktree["worktree_path"]
         assert receipt["pre_head"] == HEAD
         assert receipt["idempotency_key"] == KEY
+        assert receipt["status"] == "running"
     finally:
         shutil.rmtree(root)
 
@@ -128,23 +154,18 @@ def test_start_reuses_run_task_and_worker_by_idempotency_without_duplicate_effec
 def test_worker_done_is_read_before_release_and_transcript_is_redacted() -> None:
     root, lane, worktree = fixture()
     try:
-        event = {
-            "event": "worker_done",
-            **worker_payload(worktree, status="accepted"),
-            "outcome": "succeeded",
-            "transcript": "do not persist this body",
-            "environment": {"TOKEN": "secret"},
-        }
-        cli = RecordingCLI(start_responses(worktree) + [event, {"released": True, "dispatch_id": "dispatch-A"}])
+        cli = RecordingCLI(start_responses(worktree) + [{"deliveries": [live_delivery()]}, live_worker_output(), {"released": True, "dispatch_id": "dispatch-A"}])
         worker = adapter(root, cli)
         receipt = worker.start_worker(lane, worktree, idempotency_key=KEY)
+        delivery = worker.wait_events(receipt)
         result = worker.read_worker(receipt)
-        released = worker.release(receipt, result)
-        assert result["event"] == "worker_done"
-        assert "transcript" not in result
-        assert "environment" not in result
+        accepted = worker.accept_worker_done(receipt, delivery, result)
+        released = worker.release(receipt, accepted)
+        assert result["dispatch_id"] == "dispatch-A"
+        assert result["transcript"] == "<redacted>"
+        assert "secret worker transcript" not in json.dumps(result)
         assert released["released"] is True
-        assert [call[0][2] for call in cli.calls[-2:]] == ["worker-read", "worker-release"]
+        assert [call[0][2] for call in cli.calls[-3:]] == ["check", "worker-read", "worker-release"]
     finally:
         shutil.rmtree(root)
 
@@ -152,10 +173,13 @@ def test_worker_done_is_read_before_release_and_transcript_is_redacted() -> None
 def test_clean_waiter_ends_turn_and_follow_up_reuses_terminal_after_dependency_event() -> None:
     root, lane, worktree = fixture()
     try:
-        waiter = {"event": "waiting", **worker_payload(worktree), "status": "clean", "dependency": "producer-A"}
+        waiter = {
+            "id": "delivery-wait", "run_id": "run-A", "type": "question", "from_handle": "terminal-A",
+            "payload": json.dumps({"taskId": "task-A", "dispatchId": "dispatch-A", "outcome": "waiting", "status": "waiting", "dependency": "producer-A"}),
+        }
         cli = RecordingCLI(
             start_responses(worktree)
-            + [{"events": [waiter]}, {"released": True, "dispatch_id": "dispatch-A"}, {"started": True, **worker_payload(worktree)}]
+            + [{"deliveries": [waiter]}, {"started": True, **worker_payload(worktree)}]
         )
         worker = adapter(root, cli)
         receipt = worker.start_worker(lane, worktree, idempotency_key=KEY)
@@ -186,22 +210,74 @@ def test_wait_timeout_is_blocking_and_leaves_no_follow_up_effect() -> None:
         shutil.rmtree(root)
 
 
+def test_live_delivery_is_run_scoped_and_worker_read_is_a_separate_schema() -> None:
+    root, lane, worktree = fixture()
+    try:
+        cli = RecordingCLI(start_responses(worktree) + [{"deliveries": [live_delivery()]}, live_worker_output(), {"released": True, "dispatch_id": "dispatch-A"}])
+        worker = adapter(root, cli)
+        receipt = worker.start_worker(lane, worktree, idempotency_key=KEY)
+        delivery = worker.wait_events(receipt, timeout=5)
+        output = worker.read_worker(receipt)
+        accepted = worker.accept_worker_done(receipt, delivery, output)
+        worker.release(receipt, accepted)
+        assert delivery["delivery_id"] == "delivery-A"
+        assert delivery["payload"]["taskId"] == "task-A"
+        assert output["source_identity"] == "terminal-A"
+        assert output["transcript"] == "<redacted>"
+        assert [call[0][2] for call in cli.calls[-3:]] == ["check", "worker-read", "worker-release"]
+        check_call = cli.calls[-3][0]
+        assert check_call[check_call.index("--run") + 1] == "run-A"
+        assert "--terminal" not in check_call
+    finally:
+        shutil.rmtree(root)
+
+
+def test_invalid_worker_result_cannot_release_or_persist_transcript() -> None:
+    root, lane, worktree = fixture()
+    try:
+        cli = RecordingCLI(start_responses(worktree))
+        worker = adapter(root, cli)
+        receipt = worker.start_worker(lane, worktree, idempotency_key=KEY)
+        try:
+            worker.release(receipt, {"accepted": False, "transcript": "secret"})
+        except orca_adapter.AdapterError as exc:
+            assert "accepted" in str(exc)
+        else:
+            raise AssertionError("invalid result must halt before release")
+        assert not any(call[0][2] == "worker-release" for call in cli.calls)
+        assert "secret" not in json.dumps(receipt)
+    finally:
+        shutil.rmtree(root)
+
+
+def test_incomplete_start_receipt_uses_authoritative_worker_show() -> None:
+    root, lane, worktree = fixture()
+    try:
+        start = {"run_id": "run-A", "task_id": "task-A", "dispatch_id": "dispatch-A"}
+        cli = RecordingCLI(start_responses(worktree)[:4] + [start, worker_payload(worktree)])
+        receipt = adapter(root, cli).start_worker(lane, worktree, idempotency_key=KEY)
+        assert [call[0][2] for call in cli.calls] == ["run-list", "run-create", "task-list", "task-create", "worker-start", "worker-show"]
+        assert receipt["dispatch_id"] == "dispatch-A"
+    finally:
+        shutil.rmtree(root)
+
+
 def test_mismatch_dirty_duplicate_escalation_and_failure_halt_before_replacement() -> None:
     root, lane, worktree = fixture()
     try:
         cases = [
-            {"event": "worker_done", **worker_payload(worktree), "task_id": "other-task", "status": "accepted"},
-            {"event": "worker_done", **worker_payload(worktree), "status": "dirty"},
-            {"event": "worker_done", **worker_payload(worktree), "dispatch_id": "dispatch-other", "status": "accepted"},
-            {"event": "escalation", **worker_payload(worktree), "status": "escalated"},
-            {"event": "worker_done", **worker_payload(worktree), "status": "failed"},
+            {**live_delivery(), "payload": json.dumps({"taskId": "other-task", "dispatchId": "dispatch-A", "outcome": "succeeded"})},
+            {**live_delivery(), "payload": json.dumps({"taskId": "task-A", "dispatchId": "dispatch-A", "outcome": "succeeded", "status": "dirty"})},
+            {**live_delivery(), "payload": json.dumps({"taskId": "task-A", "dispatchId": "dispatch-other", "outcome": "succeeded"})},
+            {**live_delivery(), "type": "escalation"},
+            {**live_delivery(outcome="failed")},
         ]
         for event in cases:
-            cli = RecordingCLI(start_responses(worktree) + [event])
+            cli = RecordingCLI(start_responses(worktree) + [{"deliveries": [event]}])
             worker = adapter(root, cli)
             receipt = worker.start_worker(lane, worktree, idempotency_key=KEY)
             try:
-                worker.read_worker(receipt)
+                worker.wait_events(receipt)
             except orca_adapter.AdapterError as exc:
                 assert "Orca" in str(exc)
             else:
