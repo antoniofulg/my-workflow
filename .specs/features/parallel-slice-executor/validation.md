@@ -720,3 +720,71 @@ worktree cleanup, frozen-head dry-run, and arbitrary-root rejection assertions r
 - `npm_config_offline=true npm run test:all`: 110 Vitest tests and all discovered Python suites passed, 0 failed.
 - Strict spec/tasks validation, AD index, Python compile, `git diff --check`, and commit-message validation passed.
 - The two T7R3 fingerprints remain open at historical count 1 pending a fresh Technical Verifier; this remediation does not close or increment them.
+
+## T7R5 remediation handoff
+
+T7R5 adds a public cleanup-process ownership matrix for root, feature, missing, extra, duplicate,
+outside, and reordered worktree attestation values. Every case creates a legitimate Git worktree
+and an unowned sentinel, then asserts rejection, fixture/worktree/sentinel survival, and no external
+cleanup tombstone. Existing source-head, residual retry, exact-path, dry-run, and arbitrary-root
+coverage remains unchanged. No real Orca pilot was run by the author; the new `f46e5c21...`
+fingerprint remains count 1 for fresh verifier closure.
+
+## Slice D / T7R4 Independent Technical Re-verification
+
+**Date:** 2026-08-24
+**Diff range:** `3f2b174^..3f2b174`
+**Verifier:** independent Technical Verifier (author != verifier)
+**Slice verdict:** FAIL. Both T7R3 blockers are resolved at historical count 1, but removal of the
+non-HEAD ownership validation still survives the canonical pilot suite. No real Orca pilot was run.
+
+### Spec-Anchored Acceptance Criteria
+
+| Criterion | Spec-defined outcome | `file:line` + assertion/probe | Result |
+| --- | --- | --- | --- |
+| E2E-001 / SEC-008 source ownership | A source-HEAD-only manifest tamper causes zero deletion. | `tools/qa_parallel_pilot.py:84-94`; `tools/test_qa_parallel_pilot.py:105-127` asserts rejection plus fixture and real owned worktree survival; independent probe passed. | PASS |
+| E2E-001 / SEC-008 restart residual | Retry remains false with the identical bounded residual until external removal, then converges without deleting the sentinel. | `tools/qa_parallel_pilot.py:157-174`; `tools/test_qa_parallel_pilot.py:135-182` asserts identical residuals, sentinel survival, and later idempotent success; independent restart probe passed. | PASS |
+| E2E-001 / SEC-008 tombstone boundary | Tombstone paths stay under the exact derived sibling and cannot widen cleanup. | `tools/qa_parallel_pilot.py:107-128`; independent outside-path tombstone probe was rejected with the fixture already absent. | PASS |
+| E2E-001 / SEC-008 complete ownership | Cleanup rejects a manifest whose root, feature, or exact owned-worktree list is not the setup attestation. | `tools/qa_parallel_pilot.py:71-81` contains the check, but removing it leaves all five `tools/test_qa_parallel_pilot.py` cases green. | FAIL |
+
+**Spec-anchored status:** 3 PASS, 1 FAIL, 0 spec-precision gaps in T7R4 scope.
+
+### Gate Evidence
+
+- Pilot harness: 5 passed, 0 failed; IT-007: 2 passed, 0 failed.
+- Directed Slice D suites: executor 37, Orca 20, Git 7, config 18, planner 16; 98 passed, 0 failed.
+- Full `npm_config_offline=true npm run test:all`: 110 Vitest tests plus every discovered Python suite passed; 0 failed/skipped.
+- Strict spec/tasks validators: 0 errors, 0 warnings; AD index current; Python compile, diff check, and commit-message validation passed.
+- Real-tree porcelain matched its pre-sensor baseline after the temporary worktree was removed.
+
+### Discrimination Sensor
+
+| Mutation | Result |
+| --- | --- |
+| Remove ownership `source_git_head` versus repository HEAD check. | KILLED by `tools/test_qa_parallel_pilot.py:105-127`. |
+| Force a restarted residual cleanup down the `cleaned: true` branch. | KILLED by `tools/test_qa_parallel_pilot.py:159-169`. |
+| Remove root, feature, and exact-worktree ownership validation. | SURVIVED: canonical pilot suite reported 5 passed. |
+
+**Sensor:** lightweight, 3 mutations, 2 killed, 1 survived. FAIL.
+
+### Fingerprint Accounting
+
+- `7009c8b0996b20dd6029a94d77596e129bf53efe2f7d99f8bc4d13667616d452` closed at count 1.
+- `187464370a08ebbfae594e77e9c7a88f4f66545faf2b46249c62148c07a8c08b` closed at count 1.
+- `f46e5c21f55a5f436fccfddb8504677394d245e5e9b70b44b0003eb0043564ff` opened at count 1: the canonical suite omits adverse coverage for non-HEAD ownership fields.
+
+### Ranked Gap
+
+1. **Major / E2E-001, SEC-008:** Add a canonical adverse case that changes only the ownership
+   `root`, `feature`, or exact `worktrees` list, proves cleanup rejects it before effects, and kills
+   removal of the shared ownership check. Keep the existing constant-path deletion and HEAD tests.
+
+**Overall:** FAIL for Slice D after T7R4. This is a distinct first-count coverage blocker, not a
+repeat of either resolved T7R3 failure. Grouped C-D deep-review, real Orca pilot, QA, and feature
+closure remain pending.
+
+## T7R5 implementation evidence
+
+- `python3 tools/test_qa_parallel_pilot.py`: 6 tests passed, 0 failed; the ownership matrix covers root, feature, missing, extra, duplicate, outside, and reordered worktree values through subprocess cleanup.
+- Every matrix case creates a real owned worktree and unowned sentinel, then asserts nonzero rejection, fixture/worktree/sentinel survival, and no tombstone.
+- The `f46e5c21...` ledger entry remains open at count 1 for fresh verifier closure; no ledger count was changed by this remediation.

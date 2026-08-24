@@ -12,6 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 HANDOFF = ROOT / ".specs/features/parallel-slice-executor/qa-pilot.md"
 HARNESS = ROOT / "tools/qa_parallel_pilot.py"
+OWNED_WORKTREES = ("parallel-pilot/A-T1", "parallel-pilot/B-T2")
 
 
 def test_pilot_handoff_uses_disposable_safe_fixture_and_dry_run_two_lanes() -> None:
@@ -186,6 +187,55 @@ def test_cleanup_retry_preserves_residual_failure_until_residual_is_gone() -> No
         if sibling_root.exists():
             shutil.rmtree(sibling_root)
         attestation.unlink(missing_ok=True)
+
+
+def test_cleanup_rejects_every_non_head_ownership_tamper_before_any_effect() -> None:
+    tamper_cases = {
+        "root": lambda ownership, fixture_root: ownership.update(root=str(fixture_root / "not-the-fixture")),
+        "feature": lambda ownership, fixture_root: ownership.update(feature="not-the-feature"),
+        "missing-worktrees": lambda ownership, fixture_root: ownership.pop("worktrees"),
+        "extra-worktree": lambda ownership, fixture_root: ownership.update(worktrees=[*OWNED_WORKTREES, "parallel-pilot/C-T3"]),
+        "duplicate-worktree": lambda ownership, fixture_root: ownership.update(worktrees=[OWNED_WORKTREES[0], OWNED_WORKTREES[0]]),
+        "outside-worktree": lambda ownership, fixture_root: ownership.update(worktrees=["../outside"]),
+        "reordered-worktrees": lambda ownership, fixture_root: ownership.update(worktrees=list(reversed(OWNED_WORKTREES))),
+    }
+    for name, tamper in tamper_cases.items():
+        setup = subprocess.run([sys.executable, str(HARNESS), "setup"], text=True, capture_output=True, check=True)
+        fixture = json.loads(setup.stdout)["root"]
+        fixture_root = Path(fixture)
+        ownership_path = fixture_root / ".parallel-slice-qa-ownership.json"
+        original = json.loads(ownership_path.read_text(encoding="utf-8"))
+        sibling_root = fixture_root.parent / f".{fixture_root.name}-parallel-slices"
+        owned = sibling_root / "parallel-pilot" / "A-T1"
+        sentinel = sibling_root / "parallel-pilot" / "unowned" / "sentinel"
+        try:
+            owned.parent.mkdir(parents=True)
+            subprocess.run(["git", "worktree", "add", "--detach", str(owned), "HEAD"], cwd=fixture_root, check=True, capture_output=True)
+            sentinel.parent.mkdir(parents=True)
+            sentinel.write_text(f"preserve {name}\n", encoding="utf-8")
+            tampered = dict(original)
+            tamper(tampered, fixture_root)
+            ownership_path.write_text(json.dumps(tampered), encoding="utf-8")
+            rejected = subprocess.run(
+                [sys.executable, str(HARNESS), "cleanup", "--root", fixture],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            assert rejected.returncode != 0
+            assert fixture_root.exists()
+            assert owned.exists()
+            assert sentinel.read_text(encoding="utf-8") == f"preserve {name}\n"
+            assert not (fixture_root.parent / f".{fixture_root.name}.parallel-pilot-cleaned").exists()
+        finally:
+            if fixture_root.exists():
+                ownership_path.write_text(json.dumps(original), encoding="utf-8")
+                subprocess.run([sys.executable, str(HARNESS), "cleanup", "--root", fixture], check=False)
+            if sibling_root.exists():
+                shutil.rmtree(sibling_root)
+            if fixture_root.exists():
+                shutil.rmtree(fixture_root)
+            (fixture_root.parent / f".{fixture_root.name}.parallel-pilot-cleaned").unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

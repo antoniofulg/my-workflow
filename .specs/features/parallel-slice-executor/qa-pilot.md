@@ -28,3 +28,6 @@ outside the disposable root and independently binds the ownership source HEAD to
 repository and frozen workflow before deletion. A repeated cleanup returns idempotent success only
 when the bounded derived sibling has no residual paths; an unowned residual returns `cleaned: false`
 with exact paths until it is removed. Unmarked roots and tampered attestations are rejected.
+The ownership attestation contract includes the fixture root, feature, and the ordered exact
+`parallel-pilot/A-T1` and `parallel-pilot/B-T2` worktree list; missing, extra, duplicate, outside,
+or reordered values must fail closed before cleanup effects.

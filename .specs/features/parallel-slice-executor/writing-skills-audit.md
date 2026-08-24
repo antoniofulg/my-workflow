@@ -110,3 +110,11 @@ complete definition; all other edits are short pointers.
 | Independent cleanup trust | Pass | Cleanup matches `git rev-parse HEAD`, frozen workflow `git_head`, and ownership `source_git_head` before any destructive action. |
 | Durable residual evidence | Pass | The external tombstone stores exact residual paths and retries re-scan the bounded sibling before reporting idempotent success. |
 | QA boundary | Pass | The handoff remains untested for real Orca; only disposable fixture setup/dry-run/cleanup contracts changed. |
+
+## T7R5 delta
+
+| Item | Result | Evidence |
+| --- | --- | --- |
+| Public adverse coverage | Pass | Cleanup is invoked as a separate CLI process for root, feature, and all non-exact worktree-list variants; assertions target rejection and filesystem state. |
+| Test necessity | Pass | Each variant maps to SEC-008 ownership binding and proves no tombstone or Git/filesystem effect. |
+| QA boundary | Pass | No real Orca pilot or product file is touched. |
