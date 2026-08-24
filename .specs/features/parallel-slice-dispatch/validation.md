@@ -2,10 +2,11 @@
 
 **Date:** 2026-08-24
 **Spec:** `.specs/features/parallel-slice-dispatch/spec.md`
-**Feature status:** IN PROGRESS
+**Feature status:** COMPLETE
 **Verifier:** independent Verifier (author != verifier)
 
-This report is incremental. It validates Slice 1/T1 only. It does not claim final feature PASS.
+This report began as incremental slice evidence. Historical sections retain their original scope;
+the appended Final Delivery Verification is the authoritative current verdict.
 
 ## Slice 1 — T1 Technical Verification
 
@@ -705,3 +706,63 @@ a fresh QA Plan Verifier defines the public configuration/CLI journeys, a separa
 Verifier walks them, and the final delivery gate passes on the resulting final tree.
 
 **Overall technical verdict:** PASS
+
+## Final Delivery Verification
+
+**Date:** 2026-08-24
+**Current HEAD:** `126fc504c025f45c4fbd2b627df49419a3540cfa`
+**Feature status:** COMPLETE
+**Verdict:** PASS
+**Remote delivery readiness:** BLOCKED — integrate the current `main`, then rerun the full gate
+
+This section preserves every earlier incremental PASS and FAIL. It closes the feature on the current
+branch because technical verification, the capped deep-review remediation, fresh QA Plan/Execute,
+and the final branch gate are complete. It does not claim remote delivery readiness on a stale base.
+
+### Review-cap closure
+
+The only Round 2 blocking defect was malformed object/list snapshot modes producing an unstable
+failure path. Commit `beca0d2` fixed the type check; independent remediation evidence at
+`.specs/features/parallel-slice-dispatch/validation.md:646-696` records the exact CLI assertions,
+green scoped gates, and 2/2 killed mutations. Commit `9322385` recorded that verification before QA.
+
+The review cap is exhausted. `docs/guidelines/REVIEW-ROUNDS.md:66` requires the Round 2 fix and scoped
+gate without starting Round 3; `docs/guidelines/REVIEW-ROUNDS.md:145-146` permits escalation only when
+that gate fails or the blocker remains reproducible. Neither condition holds. The taxonomy at
+`docs/guidelines/REVIEW-ROUNDS.md:102-111` makes only unfixed Blocker/Major findings delivery-blocking;
+no such finding remains. Residual non-journey-blocking Minor/advisory items, if any, do not change
+this verdict.
+
+### Terminal QA
+
+The CLI/manual QA report records three terminal `pass` rows at
+`docs/qa/reports/2026-08-24-parallel-slice-dispatch.md:10-16`, ten passing edge probes and no defect at
+`docs/qa/reports/2026-08-24-parallel-slice-dispatch.md:40-56`, and its public-runtime limitation at
+`docs/qa/reports/2026-08-24-parallel-slice-dispatch.md:58-62`. Durable scenario state independently reads
+`qa_status: pass` for frozen resolution at
+`docs/qa/scenarios/CFG-freeze-feature-workflow.md:7-15` and deterministic slice planning at
+`docs/qa/scenarios/CFG-plan-parallel-slice-dispatch.md:7-15`.
+
+The limitation remains material but non-blocking: this repository has no portable worker runtime.
+QA proves public resolver/planner output and installed policy bytes; it does not claim live agent,
+worktree, rebase, runtime, port, database, or wall-time behavior.
+
+### Fresh final-tree gates
+
+| Command | Result |
+| --- | --- |
+| `npm_config_offline=true npm test` | PASS — 9 files, 109 tests passed, 0 failed, 0 skipped. |
+| `for test_file in tools/test_*.py; do python3 "$test_file" || exit 1; done` | PASS — ad-index `ok`; numbered suites 8 + 5 + 19 + 14 + 9 + 15 = 70 passed, 0 failed, 0 skipped. |
+| `python3 .agents/skills/tlc-spec-driven/scripts/validate_spec.py .specs/features/parallel-slice-dispatch/spec.md` | PASS — 0 errors, 0 warnings. |
+| `python3 .agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/parallel-slice-dispatch/tasks.md` | PASS — 0 errors, 0 warnings. |
+| `python3 tools/ad-index.py --check` | PASS — `AD-INDEX.md up to date`. |
+| `git diff --check 6675d5574e692a7534b676519e89fbc484289b46..HEAD` and `git diff --check` | PASS — no output. |
+| `python3 .agents/skills/tlc-spec-driven/scripts/validate_state.py parallel-slice-dispatch` | PASS — 0 errors across the feature. |
+
+### Base status
+
+Read-only Git inspection found branch `feat/parallel-slice-dispatch` at `126fc50`, current local
+`main` at `647b8d7`, and merge base `6675d55`. `git rev-list --left-right --count main...HEAD`
+returned `27 19`: both sides advanced. Per the autonomous readiness contract, the feature branch
+must integrate current `main` and rerun the full gate before push or pull-request readiness can be
+claimed. This verification did not mutate the base or authorize any remote action.
