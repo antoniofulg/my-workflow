@@ -69,8 +69,8 @@ eligible slices can advance concurrently without agent polling.
 
 **Acceptance Criteria:**
 
-1. **EXE-06:** WHEN a lane becomes ready THEN the Orca adapter SHALL create one child worktree from the recorded base before starting its worker.
-2. **EXE-07:** WHEN worktree creation succeeds THEN the adapter SHALL validate and return the exact worktree, branch, run, task, dispatch, terminal, and source-HEAD receipt before the lane becomes running.
+1. **EXE-06:** WHEN a lane becomes ready THEN the coordinator SHALL derive and validate one child Git worktree destination from the recorded base before creating it, and the Orca adapter SHALL attach its worker only to that existing worktree.
+2. **EXE-07:** WHEN worktree creation succeeds THEN the coordinator and adapter SHALL validate and return the exact worktree, branch, run, task, dispatch, terminal, and source-HEAD receipt before the lane becomes running.
 3. **EXE-08:** WHEN Orca reports `worker_done` THEN the adapter SHALL read the worker result, correlate it to the declared task, and release the worker only after the coordinator accepts the receipt.
 4. **EXE-09:** WHEN a worker reports a clean waiter THEN the coordinator SHALL mark the lane waiting, end that worker turn, and SHALL send follow-up to the same terminal only after the declared dependency event.
 5. **EXE-10:** WHEN no dependency event is available THEN the adapter SHALL use Orca's blocking event wait and SHALL NOT poll through model turns.
@@ -147,7 +147,7 @@ so that one checkout cannot silently test another checkout's runtime or data.
 1. **SEC-001:** Malformed or foreign runtime state is rejected before any adapter effect.
 2. **SEC-002:** Runtime-state replacement is atomic and remains outside versioned feature artifacts.
 3. **SEC-003:** External commands execute as validated argv arrays with `shell=False` and bounded timeouts.
-4. **SEC-004:** Repository and worktree destinations are resolved, bounded, and checked for unsafe symlinks before writes.
+4. **SEC-004:** A deterministic Git worktree destination is resolved, bounded, and checked for unsafe symlinks before the first worktree writer or worker process; adapters receive only that validated checkout.
 5. **SEC-005:** Every provider response is correlated to the current idempotency key and declared lane.
 6. **SEC-006:** Logs, errors, and state redact environment values and worker transcript bodies.
 7. **SEC-007:** A resource-bearing lane cannot start until its unique lease and prepared worktree are proven.

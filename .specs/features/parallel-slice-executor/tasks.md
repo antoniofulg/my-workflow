@@ -111,7 +111,7 @@ T3 + T4 + T6 -> T7
 **Status:** pending
 **Slice:** B
 **Resources:** none
-**Observable behaviour:** The Orca adapter creates a child worktree before its worker, validates every receipt, blocks on correlated events, follows up the same terminal, and releases only accepted owned workers.
+**Observable behaviour:** The coordinator creates a validated child Git worktree before resource preparation; the Orca adapter attaches its worker to that existing checkout, validates every receipt, blocks on correlated events, follows up the same terminal, and releases only accepted owned workers.
 **Where:** `.agents/skills/autonomous/scripts/orca_adapter.py`
 **Depends on:** T2
 **Requirement:** EXE-06–EXE-11, SEC-005, SEC-006
@@ -119,7 +119,7 @@ T3 + T4 + T6 -> T7
 **Tools:** Skills `ponytail` and `orca-cli`; live Orca guide is authoritative.
 **Done when:**
 
-- [ ] Recording-CLI assertions prove worktree creation precedes resource preparation and worker start.
+- [ ] Recording-CLI assertions prove validated Git worktree creation precedes resource preparation and worker attachment.
 - [ ] Run/task/dispatch/terminal/worktree/head/idempotency fields are all correlated before state changes.
 - [ ] `worker_done`, clean waiter, dependency follow-up, timeout, escalation, failure, mismatch, and duplicate receipts have exact outcomes.
 - [ ] Logs/state expose no worker transcript body or environment value.
@@ -235,6 +235,25 @@ T3 + T4 + T6 -> T7
 **Remediation tests:** `python3 tools/test_parallel_executor.py` (21 cases), including T2R1 recovery/resource/path/order cases.
 **Remediation gate:** Quick — owning test suite, `validate_tasks.py`, and `git diff --check`.
 **Remediation commit:** `fix(workflow): harden parallel executor recovery`.
+
+### T2R2: Close executor crash windows and pre-effect worktree isolation
+
+**Remediation status:** complete
+**Slice:** A
+**Remediation resources:** none
+**Observable behaviour:** Every external action observes a persisted pending receipt; pending acquire, worker, and release receipts reconcile without duplicate effects; same-slice tasks advance in declared order; and the core creates a validated Git worktree before adapter worker attachment.
+**Remediation depends on:** T2R1
+**Remediation requirements:** EXE-02–EXE-04, EXE-06, EXE-07, EXE-19, SEC-004
+**Remediation done when:**
+
+- [x] Acquire, worker, and release effects assert persisted pending intent and pending crash receipts reconcile without repeating the effect.
+- [x] Same-slice lanes expose one active task, then advance the next task only after the prior checkpoint completes; acquire precedes worker attachment.
+- [x] A deterministic destination is bounded before any writer, Git creates the checkout, and adapters attach workers to an existing worktree.
+- [x] The provider-neutral contract is updated in spec/design/DX/tasks; `validation.md` FAIL and generated lessons remain included as evidence.
+
+**Remediation tests:** `python3 tools/test_parallel_executor.py` (25 cases), including T2R2 crash/order/destination cases.
+**Remediation gate:** Quick plus strict spec/tasks/index/diff gates.
+**Remediation commit:** `fix(workflow): close executor crash windows`.
 
 ## Phase Execution Map
 

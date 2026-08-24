@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 12,
+  "next_id": 14,
   "lessons": [
     {
       "id": "L-001",
@@ -202,6 +202,42 @@
       ],
       "created": "2026-08-24T05:56:16Z",
       "last_seen": "2026-08-24T05:56:16Z"
+    },
+    {
+      "id": "L-012",
+      "key": "surviving_mutant::assert persisted intent at every external effect boundary not only one representative boundary",
+      "text": "Assert persisted intent at every external-effect boundary, not only one representative boundary",
+      "signal": "surviving_mutant",
+      "scope": "workflow-executor",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-executor"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md:M2 (workflow-executor)"
+      ],
+      "created": "2026-08-24T12:17:07Z",
+      "last_seen": "2026-08-24T12:17:07Z"
+    },
+    {
+      "id": "L-013",
+      "key": "surviving_mutant::exercise pending receipt reconciliation for every effect type before claiming restart safety",
+      "text": "Exercise pending-receipt reconciliation for every effect type before claiming restart safety",
+      "signal": "surviving_mutant",
+      "scope": "workflow-executor",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-executor"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md:M3 (workflow-executor)"
+      ],
+      "created": "2026-08-24T12:17:07Z",
+      "last_seen": "2026-08-24T12:17:07Z"
     }
   ]
 }

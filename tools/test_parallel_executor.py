@@ -167,13 +167,20 @@ class RecordingAdapter:
     def __init__(self) -> None:
         self.effects: list[tuple[str, str]] = []
 
-    def create_worktree(self, lane: dict[str, object], *, idempotency_key: str) -> dict[str, str]:
+    def create_worktree(
+        self,
+        lane: dict[str, object],
+        *,
+        idempotency_key: str,
+        worktree_path: str = ".",
+        source_head: str = "head",
+    ) -> dict[str, str]:
         self.effects.append(("worktree", idempotency_key))
         return {
             "worktree_id": "wt-A",
-            "worktree_path": ".",
+            "worktree_path": worktree_path,
             "branch": "slice/A",
-            "pre_head": "head",
+            "pre_head": source_head,
         }
 
     def start_worker(self, lane: dict[str, object], receipt: dict[str, object], *, idempotency_key: str) -> dict[str, str]:
@@ -298,7 +305,7 @@ def test_none_resources_bypass_provider_and_resource_lane_requires_correlated_le
         assert resource_provider.requests[0]["feature"] == "fixture"
         assert resource_provider.requests[0]["slice"] == "A"
         assert resource_provider.requests[0]["task"] == "T1"
-        assert resource_provider.requests[0]["worktree"] == "."
+        assert resource_provider.requests[0]["worktree"] == resource_result["state"]["lanes"]["slice-A"]["worktree_path"]  # type: ignore[index]
         assert isinstance(resource_provider.requests[0]["idempotency_key"], str)
         lane = resource_result["state"]["lanes"]["slice-A"]  # type: ignore[index]
         assert lane["lease"]["prepared_worktree"] is True  # type: ignore[index]
@@ -584,9 +591,10 @@ def test_same_slice_tasks_never_start_two_workers_or_reorder_declared_tasks() ->
             ],
         }  # type: ignore[method-assign]
         result = coordinator.start()
-        assert result["fallback"] is True
-        assert result["reason"] == "slice-order"
-        assert adapter.effects == []
+        assert result["fallback"] is False
+        assert result["state"]["lanes"]["slice-A-1"]["state"] == "running"  # type: ignore[index]
+        assert "slice-A-2" not in result["state"]["lanes"]  # type: ignore[index]
+        assert [effect[0] for effect in adapter.effects] == ["worktree", "worker"]
     finally:
         shutil.rmtree(root)
 
@@ -662,10 +670,19 @@ class ObservingAdapter(RecordingAdapter):
         self.state_path = state_path
         self.pending_before_effect = False
 
-    def create_worktree(self, lane: dict[str, object], *, idempotency_key: str) -> dict[str, str]:
+    def create_worktree(
+        self,
+        lane: dict[str, object],
+        *,
+        idempotency_key: str,
+        worktree_path: str = ".",
+        source_head: str = "head",
+    ) -> dict[str, str]:
         state = json.loads(self.state_path.read_text(encoding="utf-8"))
         self.pending_before_effect = state["actions"][idempotency_key]["status"] == "pending"
-        return super().create_worktree(lane, idempotency_key=idempotency_key)
+        return super().create_worktree(
+            lane, idempotency_key=idempotency_key, worktree_path=worktree_path, source_head=source_head
+        )
 
 
 def test_each_external_action_observes_its_persisted_idempotency_key_before_effect() -> None:
@@ -689,13 +706,212 @@ def test_invalid_worktree_destination_is_rejected_before_adapter_effect() -> Non
         coordinator = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: adapter)
         coordinator._plan = lambda: {
             "fallback": False,
-            "lanes": [{**lane_plan(resources=[])["lanes"][0], "worktree_path": str(root.parent / "escape")}],
+            "lanes": [lane_plan(resources=[])["lanes"][0]],
         }  # type: ignore[method-assign]
+        coordinator._worktree_destination = lambda lane: root.parent.parent / "escape"  # type: ignore[method-assign]
         result = coordinator.start()
         assert result["fallback"] is True
         assert result["reason"] == "unsafe-worktree-path"
         assert adapter.effects == []
     finally:
+        shutil.rmtree(root)
+
+
+class OrderedAdapter(RecordingAdapter):
+    def __init__(self, statuses: list[str]) -> None:
+        super().__init__()
+        self.statuses = iter(statuses)
+        self.created = 0
+
+    def create_worktree(self, lane: dict[str, object], **kwargs: object) -> dict[str, str]:
+        self.created += 1
+        self.effects.append(("worktree:" + str(lane["task"]), str(kwargs["idempotency_key"])))
+        path = str(kwargs["worktree_path"])
+        return {"worktree_id": f"wt-{self.created}", "worktree_path": path, "branch": f"slice/A-{self.created}", "pre_head": str(kwargs["source_head"])}
+
+    def start_worker(self, lane: dict[str, object], receipt: dict[str, object], *, idempotency_key: str) -> dict[str, str]:
+        self.effects.append(("worker:" + str(lane["task"]), idempotency_key))
+        return {"dispatch_id": f"dispatch-{lane['task']}", "status": next(self.statuses)}
+
+
+def test_same_slice_dispatches_one_active_task_then_preserves_declared_order() -> None:
+    root = make_repo()
+    try:
+        adapter = OrderedAdapter(["running", "accepted"])
+
+        def plan() -> dict[str, object]:
+            return {
+                "fallback": False,
+                "lanes": [
+                    {"id": "slice-A-1", "slice": "A", "task": "T1", "status": "ready", "sync_after": [], "resources": []},
+                    {"id": "slice-A-2", "slice": "A", "task": "T2", "status": "ready", "sync_after": [], "resources": []},
+                ],
+            }
+
+        first = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: adapter)
+        first._plan = plan  # type: ignore[method-assign]
+        first_result = first.start()
+        assert first_result["fallback"] is False
+        assert first_result["state"]["lanes"]["slice-A-1"]["state"] == "running"  # type: ignore[index]
+        assert "slice-A-2" not in first_result["state"]["lanes"]  # type: ignore[index]
+        checkpoint = json.loads(first.state_path.read_text(encoding="utf-8"))
+        checkpoint["lanes"]["slice-A-1"]["state"] = "complete"
+        parallel_execute.atomic_write_json(first.state_path, checkpoint)
+        adapter.statuses = iter(["accepted"])
+        second = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: adapter)
+        second._plan = plan  # type: ignore[method-assign]
+        second_result = second.start(resume=True)
+        assert second_result["state"]["lanes"]["slice-A-1"]["state"] == "complete"  # type: ignore[index]
+        assert second_result["state"]["lanes"]["slice-A-2"]["state"] == "complete"  # type: ignore[index]
+        assert [item[0] for item in adapter.effects] == ["worktree:T1", "worker:T1", "worktree:T2", "worker:T2"]
+    finally:
+        shutil.rmtree(root)
+
+
+class BoundaryProvider(RecordingProvider):
+    def __init__(self, state_path: Path, *, reconciled: dict[str, dict[str, object]] | None = None) -> None:
+        super().__init__()
+        self.state_path = state_path
+        self.events: list[str] = []
+        self.reconciled = reconciled
+
+    def _assert_pending(self, key: str, action: str) -> None:
+        state = json.loads(self.state_path.read_text(encoding="utf-8"))
+        assert state["actions"][key]["action"] == action
+        assert state["actions"][key]["status"] == "pending"
+
+    def acquire(self, request: dict[str, object], live_lease_ids: set[str]) -> dict[str, object]:
+        self._assert_pending(str(request["idempotency_key"]), "acquire")
+        self.events.append("acquire-pending")
+        return super().acquire(request, live_lease_ids)
+
+    def release(self, request: dict[str, object], lease_id: str) -> dict[str, object]:
+        self._assert_pending(str(request["idempotency_key"]), "release")
+        self.events.append("release-pending")
+        return super().release(request, lease_id)
+
+    def reconcile_action(self, action: dict[str, object]) -> dict[str, object] | None:
+        if self.reconciled is not None and str(action["action"]) in self.reconciled:
+            self.events.append("reconcile-" + str(action["action"]))
+            return dict(self.reconciled[str(action["action"])] )
+        return None
+
+
+class BoundaryAdapter(RecordingAdapter):
+    def __init__(self, state_path: Path, events: list[str], *, terminal: bool = True) -> None:
+        super().__init__()
+        self.state_path = state_path
+        self.events = events
+        self.terminal = terminal
+
+    def create_worktree(self, lane: dict[str, object], **kwargs: object) -> dict[str, str]:
+        state = json.loads(self.state_path.read_text(encoding="utf-8"))
+        assert state["actions"][str(kwargs["idempotency_key"])]["status"] == "pending"
+        self.events.append("worktree-pending")
+        return super().create_worktree(lane, **kwargs)
+
+    def start_worker(self, lane: dict[str, object], receipt: dict[str, object], *, idempotency_key: str) -> dict[str, str]:
+        state = json.loads(self.state_path.read_text(encoding="utf-8"))
+        assert state["actions"][idempotency_key]["status"] == "pending"
+        self.events.append("worker-pending")
+        return {"dispatch_id": "dispatch-A", "status": "accepted" if self.terminal else "running"}
+
+
+def test_every_acquire_worker_and_release_effect_observes_persisted_pending_intent() -> None:
+    root = make_repo()
+    try:
+        configure_provider(root)
+        state_path = parallel_execute.runtime_state_path(root, "fixture")
+        events: list[str] = []
+        provider = BoundaryProvider(state_path)
+        provider.events = events
+        adapter = BoundaryAdapter(state_path, events)
+        coordinator = parallel_execute.Coordinator(
+            root, "fixture", adapter_factory=lambda: adapter, provider_factory=lambda _: provider
+        )
+        coordinator._plan = lambda: lane_plan(resources=["port"])  # type: ignore[method-assign]
+        result = coordinator.start()
+        assert result["fallback"] is False
+        assert events == ["worktree-pending", "acquire-pending", "worker-pending", "release-pending"]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_pending_acquire_worker_and_release_reconcile_without_repeating_effects() -> None:
+    root = make_repo()
+    try:
+        configure_provider(root)
+        probe = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter())
+        probe._prepare_repository()
+        source_head = json.loads((root / ".specs/features/fixture/workflow.json").read_text())["git_head"]
+        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "safe", source_head)
+        worktree = str(parallel_execute.derive_worktree_destination(root, "fixture", "A", "T1"))
+        state["lanes"]["slice-A"] = {
+            "slice": "A", "task": "T1", "state": "running", "resources": ["port"],
+            "worktree_id": "wt-A", "worktree_path": worktree, "branch": "slice/A", "pre_head": source_head,
+            "lease": {"lease_id": "lease-A", "resources": ["port"], "prepared_worktree": True, "environment_keys": [], "environment": {}, "released": False},
+        }
+        for action, status in (("worktree", "accepted"), ("acquire", "pending"), ("worker", "accepted"), ("release", "pending")):
+            key = parallel_execute.idempotency_key("fixture", "A", "T1", action, source_head)
+            state["actions"][key] = {"key": key, "action": action, "status": status, "lane": "slice-A"}
+        parallel_execute.atomic_write_json(probe.state_path, state)
+        provider = BoundaryProvider(
+            probe.state_path,
+            reconciled={
+                "acquire": {"lease_id": "lease-A", "resources": ["port"], "prepared_worktree": True, "environment": {}},
+                "release": {"lease_id": "lease-A", "released": True},
+            },
+        )
+        adapter = BoundaryAdapter(probe.state_path, provider.events, terminal=False)
+        coordinator = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: adapter, provider_factory=lambda _: provider)
+        coordinator._plan = lambda: lane_plan(resources=["port"])  # type: ignore[method-assign]
+        result = coordinator.start(resume=True)
+        assert result["fallback"] is False
+        assert provider.acquires == 0
+        assert provider.releases == 0
+        assert "reconcile-acquire" in provider.events
+        assert "reconcile-release" in provider.events
+        assert adapter.effects == []
+    finally:
+        shutil.rmtree(root)
+
+
+class WorkerOnlyAdapter:
+    def __init__(self, seen: list[str]) -> None:
+        self.seen = seen
+
+    def start_worker(self, lane: dict[str, object], receipt: dict[str, object], *, idempotency_key: str) -> dict[str, str]:
+        self.seen.append(str(receipt["worktree_path"]))
+        return {"dispatch_id": "dispatch-existing", "status": "running"}
+
+
+def test_worker_only_adapter_receives_precreated_validated_git_worktree() -> None:
+    root = make_repo()
+    try:
+        seen: list[str] = []
+        created: list[tuple[Path, str]] = []
+        original_creator = parallel_execute.create_git_worktree
+
+        def fake_creator(repo: Path, destination: Path, source_head: str) -> dict[str, str]:
+            created.append((destination, source_head))
+            return {
+                "worktree_id": "git-wt-A",
+                "worktree_path": str(destination),
+                "branch": "(detached)",
+                "pre_head": source_head,
+            }
+
+        parallel_execute.create_git_worktree = fake_creator  # type: ignore[assignment]
+        adapter = WorkerOnlyAdapter(seen)
+        coordinator = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: adapter)
+        coordinator._plan = lambda: lane_plan(resources=[])  # type: ignore[method-assign]
+        result = coordinator.start()
+        assert result["fallback"] is False
+        assert len(created) == 1
+        assert seen == [str(created[0][0])]
+        assert created[0][0].parent.parent.parent == root.resolve().parent
+    finally:
+        parallel_execute.create_git_worktree = original_creator  # type: ignore[assignment]
         shutil.rmtree(root)
 
 

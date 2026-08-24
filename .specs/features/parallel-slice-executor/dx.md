@@ -35,6 +35,14 @@ most the available correlated events, and may block inside the adapter without m
 `--adapter auto` selects a proven installed adapter; the first supported adapter is `orca`. If none
 qualifies, the command returns a successful serial-fallback result and creates no worktree or worker.
 
+## Worktree destination contract
+
+The coordinator derives a deterministic sibling destination from the repository Git common
+directory ancestry, feature, slice, and task. It resolves and validates that destination before the first
+Git write. The provider-neutral worktree creator creates the checkout from the frozen source HEAD;
+the Orca adapter receives the existing absolute worktree path and attaches its worker there. Orca's
+worktree-create command is not used as a path allocator.
+
 ## Task metadata
 
 Parallelizable task sections add one explicit field:

@@ -5,7 +5,8 @@
 **Phase:** Technical Verification
 **Scope:** Slice A only, tasks T1/T2
 **Spec:** `.specs/features/parallel-slice-executor/spec.md`
-**Diff range:** `d73071c..f8871f2`
+**Diff range:** `d73071c..28b8522`
+**Incremental remediation:** `f8871f2..28b8522`
 **Verifier:** independent Verifier, author != verifier
 
 This report does not close the feature and does not cover Slices B-D or QA.
@@ -14,110 +15,100 @@ This report does not close the feature and does not cover Slices B-D or QA.
 
 | Task | Recorded status | Technical disposition |
 | --- | --- | --- |
-| T1 | complete | FAIL: EXE-01, EXE-02, EXE-05, SEC-001, and SEC-004 are not proven; EXE-01 has a concrete deviation. |
-| T2 | complete | FAIL: restart reconciliation, pre-effect persistence, resource failure coverage, and automatic lease release are not proven; one relevant mutant survived. |
+| T1 | complete | FAIL: disabled-mode and state recovery improved, but EXE-02 remains hollow and SEC-004 still validates an adapter-returned worktree only after the external effect. |
+| T2 | complete | FAIL: worktree pre-effect persistence/reconciliation is now discriminated, but worker persistence and pending resource reconciliation are not. Two targeted mutants survived. |
 
 ## Spec-Anchored Acceptance Criteria
 
 | Requirement | Spec-defined outcome | `file:line` + assertion evidence | Result |
 | --- | --- | --- | --- |
-| EXE-01 | Disabled returns serial and calls no worktree, worker, event, Git, or resource adapter. | `tools/test_parallel_executor.py:157-161` asserts serial result and no constructed worker adapter. However `.agents/skills/autonomous/scripts/parallel_execute.py:344-348` resolves repository/state through Git before `start`, and `:443-448` plans before the disabled return. A diagnostic spy observed `git rev-parse --show-toplevel` twice and `git rev-parse --git-common-dir` once during construction. | FAIL |
-| EXE-02 | At most one active worker receipt per slice; declared task order is preserved. | `tools/test_parallel_executor.py:49-59` asserts only one lane-state transition and rejection of its duplicate. No assertion drives two tasks in one slice or proves worker count/order. | GAP |
-| EXE-03 | Before each external action, persist a key derived from feature, slice, task, action, and source checkpoint. | Key composition exists at `.agents/skills/autonomous/scripts/parallel_execute.py:261-263,428-435`; pre-effect save is at `:481-485`. No assertion observes persistence before the effect or proves all five inputs discriminate. Sensor mutation M1 removed `:482`; all 12 tests still passed. | FAIL |
-| EXE-04 | Restart reconciles persisted receipts with adapter and never recreates accepted worktree, worker, or lease. | `tools/test_parallel_executor.py:215-224` proves accepted worktree/worker receipts are skipped on a second start. It does not exercise adapter reconciliation, leases, or a crash window. A pending receipt reaches `.agents/skills/autonomous/scripts/parallel_execute.py:434-435` and raises `ExecutorError: unreconciled pending action: worktree` instead of reconciling. | FAIL |
-| EXE-05 | Malformed, foreign, or unreconcilable state selects serial recovery with decisive reason and no adapter effect. | `tools/test_parallel_executor.py:62-75` only asserts direct schema rejection. It does not assert coordinator serial recovery, decisive reason, or zero adapter effects; pending state is an uncaught error at `.agents/skills/autonomous/scripts/parallel_execute.py:434-435`. | FAIL |
-| EXE-18 | `Resources: none` permits worktree concurrency without runtime lease acquisition. | `tools/test_parallel_executor.py:265-272` asserts `fallback is False`, zero provider construction, and worktree/worker effects. | PASS |
-| EXE-19 | Resource lanes call the provider before worker start using argv-only input containing repository, feature, slice, task, worktree, and key. | Request construction exists at `.agents/skills/autonomous/scripts/parallel_execute.py:508-516` and argv-only provider invocation at `:289-293`. `tools/test_parallel_executor.py:235-245` asserts only `resources` and a key condition; it does not assert the other required fields, argv shape, or acquire-before-worker order. | GAP |
-| EXE-20 | Accept only a correlated JSON receipt with unique lease ID, declared resources, prepared worktree, and redacted environment keys. | `tools/test_parallel_executor.py:287-293,339-374` asserts acquisition, prepared state, redaction, resource mismatch, unprepared receipt, foreign key, and malformed JSON. No valid receipt with a reused live lease ID is rejected, so uniqueness is evidence-zero. | GAP |
-| EXE-21 | Missing/unsupported/timed-out/malformed/duplicate/cleanup-failed provider refuses dispatch and reports serial fallback. | `tools/test_parallel_executor.py:339-374` covers malformed and some uncorrelated acquire receipts only. No assertion covers missing provider, timeout, live-lease reuse, cleanup failure, no worker dispatch, or serial fallback. Cleanup failure raises at `.agents/skills/autonomous/scripts/parallel_execute.py:581-587`, not a serial result. | FAIL |
-| EXE-22 | Accepted, halted, or abandoned workers release a lease exactly once and retain cleanup evidence. | `tools/test_parallel_executor.py:298-334` proves an explicit `release_lane` call is owned and idempotent. No assertion or coordinator path releases on worker accepted, halted, or abandoned; `start` returns after worker acceptance at `.agents/skills/autonomous/scripts/parallel_execute.py:527-545`. | FAIL |
+| EXE-01 | Disabled returns serial and calls no worktree, worker, event, Git, or resource adapter. | `tools/test_parallel_executor.py:553-567` forbids planner/Git/adapter calls and asserts `reason == "disabled-mode"`; production returns before repository/planner preparation at `.agents/skills/autonomous/scripts/parallel_execute.py:515-525`. | PASS |
+| EXE-02 | A valid safe/full plan exposes at most one active worker per slice and preserves declared task order. | `tools/test_parallel_executor.py:574-589` supplies two ordered tasks in one slice but asserts serial fallback and zero effects. It does not assert one active task or subsequent ordered progress, so UT-001 does not assert its contracted result from `.specs/features/parallel-slice-executor/tests.md:7`. | GAP |
+| EXE-03 | Before every external action, persist a key derived from feature, slice, task, action, and source checkpoint. | Worktree persistence is observed at `tools/test_parallel_executor.py:659-680`, backed by `.agents/skills/autonomous/scripts/parallel_execute.py:581-590`. The same test does not observe worker/acquire/release effects; mutation M2 removed the worker pre-effect save at production line 639 and all 21 tests passed. | FAIL |
+| EXE-04 | Restart reconciles persisted receipts and never recreates an accepted worktree, worker, or lease. | Accepted worktree/worker replay is covered at `tools/test_parallel_executor.py:205-224`; pending worktree recovery is covered at `:594-622`. No pending acquire/worker/release crash case exists; mutation M3 disabled pending-acquire reconciliation at production lines 625-630 and all 21 tests passed. | FAIL |
+| EXE-05 | Malformed, foreign, or unreconcilable state selects serial recovery, names the reason, and causes no adapter effect. | Direct malformed/foreign validation is asserted at `tools/test_parallel_executor.py:62-75`; coordinator foreign and unreconcilable pending outcomes assert fallback, reason, and zero effects at `:627-654`. | PASS |
+| EXE-18 | `Resources: none` permits worktree concurrency without acquiring a runtime lease. | `tools/test_parallel_executor.py:257-275` asserts `fallback is False`, zero provider construction, then worktree and worker effects. | PASS |
+| EXE-19 | Before worker start, resource lanes call an argv-only provider request containing repository, feature, slice, task, worktree, and key. | `tools/test_parallel_executor.py:290-302` asserts every coordinator request field; `:409-427` asserts exact provider argv/input. No assertion observes acquire before worker start, so the ordering clause remains evidence-zero. | GAP |
+| EXE-20 | Accept only a correlated receipt with unique live lease ID, declared resources, prepared worktree, and redacted environment keys. | `tools/test_parallel_executor.py:351-406` rejects resource/key/preparation mismatches, malformed JSON, and live-lease reuse; `:423-427` accepts exact correlated input; `:303-305` asserts preparation and redaction. | PASS |
+| EXE-21 | Missing/unsupported/timed-out/malformed/duplicate/cleanup-failed providers refuse dispatch and report serial fallback. | `tools/test_parallel_executor.py:469-489` asserts fallback reason and zero worker effects for missing, timeout, malformed, and duplicate failures; `:513-527` asserts cleanup-failed fallback and retained failed cleanup receipt. | PASS |
+| EXE-22 | Accepted, halted, or abandoned workers release their lease exactly once and retain cleanup evidence. | `tools/test_parallel_executor.py:494-508` asserts one release and persisted `released is True` for all three terminal outcomes; `:310-346` asserts owned idempotent retry. | PASS |
 
-**Acceptance status:** 1 PASS, 3 GAP, 6 FAIL across the ten Slice A EXE requirements.
+**Acceptance status:** 6 PASS, 2 GAP, 2 FAIL across the ten Slice A EXE requirements.
 
 ## Security Requirements
 
 | Requirement | Surface | Evidence | Result |
 | --- | --- | --- | --- |
-| SEC-001 | S1 | `tools/test_parallel_executor.py:62-75` asserts schema rejection, but not rejection before any adapter effect through the coordinator. | GAP |
-| SEC-002 | S1 | `tools/test_parallel_executor.py:78-105` asserts Git-common placement, exclusion from `.specs`, and preservation of the prior JSON after an injected pre-rename failure. | PASS |
-| SEC-003 | S6 | `tools/test_parallel_executor.py:110-126` asserts `shell is False`, timeout `3`, and literal metacharacter argv. Sensor M2 changing `shell=False` to `shell=True` was killed. | PASS |
-| SEC-004 | S6 | `tools/test_parallel_executor.py:129-141` directly tests the path helper. It does not prove repository/worktree destinations are checked before the first write/process. Adapter receipts are copied at `.agents/skills/autonomous/scripts/parallel_execute.py:485-490` without a bounded-path assertion in this slice. | FAIL |
-| SEC-007 | S11 | `tools/test_parallel_executor.py:287-293` proves a successful prepared lease, but no test proves a worker never starts for absent, timed-out, malformed, or duplicate leases. Sensor M3 bypassing resource acquisition was killed only by the happy-path acquire count. | GAP |
-| SEC-008 | S11 | `tools/test_parallel_executor.py:313-334` asserts foreign duplicate-lease cleanup rejection, one provider release, and idempotent retry. | PASS |
+| SEC-001 | S1 | `tools/test_parallel_executor.py:62-75,627-654` asserts invalid identity/schema rejection plus coordinator fallback with zero adapter effects. | PASS |
+| SEC-002 | S1 | `tools/test_parallel_executor.py:78-105` asserts Git-common placement, exclusion from `.specs`, and preservation of prior JSON after an injected pre-rename failure. | PASS |
+| SEC-003 | S6 | `tools/test_parallel_executor.py:110-126` asserts literal argv, `shell is False`, and timeout `3`. | PASS |
+| SEC-004 | S6 | Declared unsafe paths are rejected before adapter construction at `tools/test_parallel_executor.py:685-697`. However normal adapter worktree creation occurs at `.agents/skills/autonomous/scripts/parallel_execute.py:590` and its returned path is bounded only at `:593-594`; the T1 control requires destination validation before the first write/process. | FAIL |
+| SEC-007 | S11 | `tools/test_parallel_executor.py:469-489` asserts resource-bearing workers never start after missing or rejected acquisition; successful preparation is asserted at `:303-305`. | PASS |
+| SEC-008 | S11 | `tools/test_parallel_executor.py:310-346` asserts foreign cleanup rejection and one destructive release across owned retry. | PASS |
 
-- **Security guidance applied:** `docs/guidelines/SECURITY.md` residual review; no matching dedicated security skill was installed in the packet environment.
-- **Threat model:** missing. Slice A implements S11 isolation behavior, which triggers a scoped threat model under `docs/guidelines/SECURITY.md` section 4.
+- **Security guidance applied:** `docs/guidelines/SECURITY.md` residual review.
+- **Threat model:** `.specs/features/parallel-slice-executor/threat-model.md:1-29`, now present and scoped to Slice A/S11.
 - **Open Critical:** 0.
 - **Open High:** 0.
-- **Security verdict:** FAIL, due SEC-004 and evidence gaps.
+- **Security verdict:** FAIL due to SEC-004 effect-boundary ordering.
 
-## Edge Cases in Slice A
+## Prior Gap Reconciliation
 
-| Edge case | Evidence | Result |
-| --- | --- | --- |
-| Duplicate worktree/branch/terminal/dispatch/live lease IDs serialize. | State validation checks several duplicate external IDs, but no assigned test asserts the full duplicate-receipt outcome; branch duplication is explicitly excluded at `.agents/skills/autonomous/scripts/parallel_execute.py:111-115`. | GAP |
-| External path escape/symlink fails before first write. | Helper-only assertion at `tools/test_parallel_executor.py:129-141`; no effect-boundary assertion. | FAIL |
-| Repeated accepted resource cleanup has no second destructive effect. | `tools/test_parallel_executor.py:330-334` asserts idempotent second result and `provider.releases == 1`. | PASS |
-| Credential-shaped provider values remain redacted. | `tools/test_parallel_executor.py:291-293` asserts `<redacted>` for `PORT`; production redaction is at `.agents/skills/autonomous/scripts/parallel_execute.py:317-323`. | PASS |
+| Prior gap | Current disposition |
+| --- | --- |
+| Disabled mode touched planner/Git before returning. | CLOSED by `tools/test_parallel_executor.py:553-567` and production `:515-525`. |
+| Worktree idempotency key was not observed before its effect. | CLOSED for worktree: sensor M1 is now killed. Still open for other external actions under EXE-03. |
+| Pending restart raised instead of reconciling. | CLOSED for pending worktree at `tools/test_parallel_executor.py:605-622`. Still open for acquire/worker/release under EXE-04. |
+| Resource failures and terminal lease release lacked outcome tests. | CLOSED by `tools/test_parallel_executor.py:469-527`. |
+| Full provider request and live-lease uniqueness were not asserted. | CLOSED by `tools/test_parallel_executor.py:294-302,351-427`. |
+| Scoped S11 threat model was absent. | CLOSED by `.specs/features/parallel-slice-executor/threat-model.md:1-29`. |
+| Same-slice task order was not proven. | OPEN: the new test serializes both tasks instead of proving one active task and ordered progress. |
+| Worktree destination was not checked before its external effect. | OPEN: returned path validation still follows `create_worktree`. |
 
 ## Gate Evidence
 
-### Quick gate
+- **Quick command:** `python3 tools/test_parallel_executor.py`
+- **Quick result:** exit 0, `21 passed, 0 failed`; 0 skipped, 0 warnings.
+- **Before feature:** owning suite absent at `d73071c`; **after remediation:** 21 tests; delta +21.
+- **Spec validator:** `python3 /Users/antoniofulg/Projects/my-workflow/.agents/skills/tlc-spec-driven/scripts/validate_spec.py .specs/features/parallel-slice-executor/spec.md` -> exit 0, 0 errors, 0 warnings.
+- **Tasks validator:** `python3 /Users/antoniofulg/Projects/my-workflow/.agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/parallel-slice-executor/tasks.md` -> exit 0, 0 errors, 0 warnings.
+- **Commit validators:** `check_commit.py` over all three slice commit messages -> 3/3 exit 0.
+- **Compile:** `python3 -m py_compile .agents/skills/autonomous/scripts/parallel_execute.py tools/test_parallel_executor.py` -> exit 0.
+- **Full diff check:** `git diff --check d73071c..28b8522` -> exit 0, no output.
+- **Incremental diff check:** `git diff --check f8871f2..28b8522` -> exit 0, no output.
 
-- **Command:** `python3 tools/test_parallel_executor.py`
-- **Result:** exit 0, `12 passed, 0 failed`; 0 skipped; warnings: none.
-- **Before feature:** `tools/test_parallel_executor.py` did not exist at `d73071c`.
-- **After feature:** 12 tests.
-- **Delta:** +12 tests in the owning suite.
-
-### Structural and diff checks
-
-- **Command:** `python3 .agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/parallel-slice-executor/tasks.md`
-- **Result:** exit 0, `0 error(s), 0 warning(s)`.
-- **Command:** `git diff --check d73071c..f8871f2`
-- **Result:** exit 0, no output.
-- **Command:** `python3 -m py_compile .agents/skills/autonomous/scripts/parallel_execute.py tools/test_parallel_executor.py`
-- **Result:** exit 0, no output.
-- **Command:** `python3 .agents/skills/tlc-spec-driven/scripts/validate_state.py parallel-slice-executor`
-- **Result:** expected exit 1: report verdict is FAIL and ranked gaps must be fixed before feature completion.
-
-Passing gates do not override the spec mismatches and hollow cases above.
+Passing gates do not override surviving mutants or the SEC-004 ordering deviation.
 
 ## Discrimination Sensor
 
-Baseline real-tree porcelain was empty. Mutations ran in detached temporary worktrees at `f8871f2`; the worktree was removed after each run. Final real-tree porcelain matched the empty baseline.
+Baseline real-tree porcelain was empty. Each mutation ran in its own detached temporary worktree at `28b8522`; all were removed. Final real-tree porcelain matched the empty baseline.
 
-| Mutation | Target | Fault | Directed test result | Outcome |
+| Mutation | Target | Fault | Directed result | Outcome |
 | --- | --- | --- | --- | --- |
-| M1 | `.agents/skills/autonomous/scripts/parallel_execute.py:482` | Removed state persistence immediately before `create_worktree`. | exit 0, `12 passed, 0 failed` | SURVIVED: EXE-03 pre-effect durability is not discriminated. |
-| M2 | `.agents/skills/autonomous/scripts/parallel_execute.py:201` | Changed `shell=False` to `shell=True`. | exit 1 | KILLED by the executor suite. |
-| M3 | `.agents/skills/autonomous/scripts/parallel_execute.py:496` | Bypassed resource acquisition for resource-bearing lanes. | exit 1 at `tools/test_parallel_executor.py:290`, expected one acquire. | KILLED. |
+| M1 | `.agents/skills/autonomous/scripts/parallel_execute.py:582` | Removed persisted pending receipt before `create_worktree`. | exit 1 at `tools/test_parallel_executor.py:679` | KILLED |
+| M2 | `.agents/skills/autonomous/scripts/parallel_execute.py:639` | Removed persisted pending receipt before `start_worker`. | exit 0, `21 passed, 0 failed` | SURVIVED -> EXE-03 fix task |
+| M3 | `.agents/skills/autonomous/scripts/parallel_execute.py:625` | Disabled reconciliation of a persisted pending `acquire`, causing the external acquire to repeat. | exit 0, `21 passed, 0 failed` | SURVIVED -> EXE-04 fix task |
 
-**Sensor:** 3 injected, 2 killed, 1 survived. FAIL.
+**Sensor:** 3 injected, 1 killed, 2 survived. FAIL.
 
 ## Code Quality and Contract Integrity
 
 | Check | Result |
 | --- | --- |
-| Minimum/surgical implementation | PASS for the two runtime/test files in Slice A. |
-| No unrelated product-code changes | PASS. Diff contains executor, its owning tests, and feature workflow artifacts. |
-| Tests map to assigned contract IDs | PASS by ownership table at `.specs/features/parallel-slice-executor/tests.md:53-56`. |
-| Assigned cases assert contracted outcomes | FAIL. EXE-02, EXE-03, EXE-05, EXE-19–22, SEC-001, SEC-004, and SEC-007 have missing or partial assertions. |
-| No unclaimed tests | PASS. All 12 functions support assigned ACs/done-when criteria. |
-| Public QA dispatch | Not applicable for Slice A. This is an internal coordinator primitive; no QA was run. |
-
-Guidelines applied: `docs/guidelines/TEST-CONTRACT.md`, `GATES.md`, `VERIFICATION-EVIDENCE.md`, `REVIEW-ROUNDS.md`, and `SECURITY.md`.
+| Minimum/surgical implementation | PASS for the two Slice A runtime/test files. |
+| No unrelated product-code changes | PASS. |
+| Assigned cases map to T1/T2 | PASS at `.specs/features/parallel-slice-executor/tests.md:53-56`. |
+| Cases assert contracted outcomes | FAIL under `docs/guidelines/TEST-CONTRACT.md:53-55`: UT-001 does not prove ordered activation; EXE-03/04/19 lack boundary-order assertions. |
+| Security residual review | FAIL only for concrete SEC-004 ordering path; 0 Critical and 0 High findings. |
+| Public QA dispatch | Not applicable to this technical Slice A verification; QA was not run. |
 
 ## Ranked Gaps / Fix Tasks
 
-1. **Major, EXE-03/EXE-04/EXE-05:** implement and test reconciliation of a persisted `pending` action after a crash. The current path raises instead of consulting the adapter or returning named serial recovery. Add a crash-window test that observes persistence before the external effect and proves at-most-once recovery.
-2. **Major, EXE-01:** short-circuit disabled mode before planner/Git/effect adapter calls, then assert zero calls across every named adapter category.
-3. **Major, EXE-22/EXE-21/SEC-007:** implement and test lease release on worker accepted/halted/abandoned plus missing provider, timeout, duplicate live lease, malformed receipt, and cleanup-failure serial outcomes. Assert no worker starts without an accepted prepared lease.
-4. **Major, SEC-004:** bind `bounded_path` to actual repository/worktree effect boundaries and assert escape/symlink inputs fail before write/process start.
-5. **Major, EXE-02:** add a two-task same-slice case asserting one active worker and declared task order.
-6. **Major, EXE-19/EXE-20:** assert the full provider argv/request contract and valid live-lease duplication rejection.
-7. **Process gap:** add the required scoped S11 threat model before Slice A can receive a clean security verdict.
+1. **Major — EXE-03:** extend the owning integration test to observe persisted pending receipts before worker, acquire, and release effects. M2 proves worker durability can regress undetected.
+2. **Major — EXE-04:** add crash-window reconciliation tests for pending acquire, worker, and release receipts, asserting no repeated external effect. M3 proves pending acquisition can duplicate undetected.
+3. **Major — SEC-004:** validate the concrete worktree destination before `create_worktree` can write/start a process, or make the adapter receive only a prevalidated bounded destination; assert an unsafe adapter path causes zero effects.
+4. **Major — EXE-02/EXE-19:** replace hollow zero-effect/order coverage with one-active-task plus later ordered progress, and assert provider acquisition precedes worker dispatch.
 
 ## Summary
 
-**Overall:** FAIL. Slice A is not technically verified. Quick gate passes, but one mutant survives and multiple assigned criteria lack outcome-level evidence or contradict runtime behavior. Feature status remains open; QA was not executed.
+**Overall:** FAIL. Remediation closes disabled-mode, worktree crash recovery, resource failure/cleanup, provider receipt, and threat-model gaps. Two discrimination mutants survive and SEC-004 remains a concrete pre-effect ordering deviation. Slice A stays technically unverified; feature completion and QA remain untouched.

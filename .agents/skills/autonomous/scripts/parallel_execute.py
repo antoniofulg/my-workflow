@@ -89,7 +89,7 @@ def validate_runtime_state(
     if not isinstance(lanes, Mapping) or not isinstance(actions, Mapping):
         raise StateError("runtime state lanes and actions must be objects")
 
-    seen_slices: set[str] = set()
+    active_slices: set[str] = set()
     seen_external: set[str] = set()
     for lane_id, lane in lanes.items():
         if not isinstance(lane_id, str) or not _ID.fullmatch(lane_id) or not isinstance(lane, Mapping):
@@ -99,9 +99,10 @@ def validate_runtime_state(
         state_name = lane.get("state")
         if state_name not in LANE_STATES:
             raise StateError(f"invalid lane state: {lane_id}")
-        if slice_id in seen_slices:
-            raise StateError(f"duplicate lane slice: {slice_id}")
-        seen_slices.add(slice_id)
+        if state_name in {"needs_resources", "running", "waiting", "needs_sync"}:
+            if slice_id in active_slices:
+                raise StateError(f"duplicate active lane slice: {slice_id}")
+            active_slices.add(slice_id)
         for field in ("worktree_id", "branch", "run_id", "dispatch_id", "terminal_handle"):
             value = lane.get(field)
             if value is not None:
@@ -256,6 +257,33 @@ def runtime_state_path(root: Path, feature: str) -> Path:
         raise PathBoundaryError("unsafe runtime state directory")
     repository_key = hashlib.sha256(str(root).encode("utf-8")).hexdigest()[:16]
     return storage / f"{repository_key}-{feature}.json"
+
+
+def derive_worktree_destination(root: Path, feature: str, slice_id: str, task: str) -> Path:
+    """Return a deterministic, validated sibling destination for a Git worktree."""
+    if not all(_ID.fullmatch(value) for value in (feature, slice_id, task)):
+        raise PathBoundaryError("invalid worktree identity")
+    common = _git_common_dir(Path(root).resolve())
+    anchor = common.parent.parent
+    destination = anchor / f".{Path(root).resolve().name}-parallel-slices" / feature / f"{slice_id}-{task}"
+    return bounded_path(anchor, destination)
+
+
+def create_git_worktree(root: Path, destination: Path, source_head: str) -> dict[str, str]:
+    """Create the already-validated checkout that an adapter will attach a worker to."""
+    bounded_path(destination.parent.parent.parent, destination)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    run_argv(
+        ["git", "worktree", "add", "--detach", str(destination), source_head],
+        cwd=root,
+        timeout=60,
+    )
+    return {
+        "worktree_id": str(destination),
+        "worktree_path": str(destination),
+        "branch": "(detached)",
+        "pre_head": source_head,
+    }
 
 
 def idempotency_key(feature: str, slice_id: str, task: str, action: str, source_checkpoint: str) -> str:
@@ -455,6 +483,25 @@ class Coordinator:
         receipt = reconcile(dict(action))
         return receipt if isinstance(receipt, Mapping) else None
 
+    def _worktree_destination(self, lane: Mapping[str, Any]) -> Path:
+        return derive_worktree_destination(self.root, self.feature, str(lane["slice"]), str(lane["task"]))
+
+    def _create_worktree(
+        self, adapter: Any, lane: Mapping[str, Any], destination: Path, key: str
+    ) -> Mapping[str, Any]:
+        # Test doubles may expose the legacy creator; Orca itself only attaches
+        # a worker after the provider-neutral Git worktree already exists.
+        creator = getattr(adapter, "prepare_worktree", None) or getattr(adapter, "create_worktree", None)
+        if callable(creator):
+            receipt = creator(
+                dict(lane),
+                idempotency_key=key,
+                worktree_path=str(destination),
+                source_head=self._source_head,
+            )
+            return receipt if isinstance(receipt, Mapping) else {}
+        return create_git_worktree(self.root, destination, self._source_head)
+
     def _accept(self, action_receipt: dict[str, Any], **fields: Any) -> None:
         action_receipt.update(fields)
         action_receipt["status"] = "accepted"
@@ -535,23 +582,23 @@ class Coordinator:
             state = new_runtime_state(str(self.root), self.feature, mode, snapshot["git_head"])
         if state["source_git_head"] != snapshot["git_head"]:
             return _serial_result(self.feature, mode, "source-head-changed", lanes)
+        self._source_head = snapshot["git_head"]
         seen_slices: set[str] = set()
         provider: ResourceProvider | None = None
+        destinations: dict[str, Path] = {}
         for plan_lane in lanes:
             slice_id = plan_lane.get("slice")
-            if isinstance(slice_id, str) and slice_id in seen_slices:
-                return _serial_result(self.feature, mode, "slice-order", lanes)
             if isinstance(slice_id, str):
                 seen_slices.add(slice_id)
+            lane_id = str(plan_lane.get("id", ""))
+            try:
+                destination = self._worktree_destination(plan_lane)
+                destinations[lane_id] = bounded_path(_git_common_dir(self.root).parent.parent, destination)
+            except (ExecutorError, PathBoundaryError):
+                return _serial_result(self.feature, mode, "unsafe-worktree-path", lanes)
             resources = self._lane_resources(plan_lane)
             if resources is None:
                 return _serial_result(self.feature, mode, "missing-resource-metadata", lanes)
-            declared_path = plan_lane.get("worktree_path")
-            if declared_path is not None:
-                try:
-                    bounded_path(self.root, declared_path)
-                except PathBoundaryError:
-                    return _serial_result(self.feature, mode, "unsafe-worktree-path", lanes)
             if resources and provider is None:
                 try:
                     provider = self._provider(snapshot)
@@ -561,6 +608,7 @@ class Coordinator:
             return _serial_result(self.feature, mode, "unsupported-adapter", lanes)
         adapter = self.adapter_factory()
         actions: list[dict[str, Any]] = []
+        slice_lane_ids: dict[str, list[str]] = {}
         for plan_lane in lanes:
             lane_id = str(plan_lane.get("id", ""))
             slice_id = plan_lane.get("slice")
@@ -571,11 +619,28 @@ class Coordinator:
             if resources is None:
                 return _serial_result(self.feature, mode, "missing-resource-metadata", lanes)
             existing = state["lanes"].get(lane_id)
+            prior_lane_ids = slice_lane_ids.setdefault(slice_id, [])
+            if prior_lane_ids:
+                prior_lane = state["lanes"].get(prior_lane_ids[-1])
+                if prior_lane is None or prior_lane.get("state") not in {"complete", "failed", "serial"}:
+                    prior_lane_ids.append(lane_id)
+                    continue
+            prior_lane_ids.append(lane_id)
             if existing is None:
                 state["lanes"][lane_id] = {"slice": slice_id, "task": task_id, "state": "ready", "resources": resources}
                 existing = state["lanes"][lane_id]
             elif existing.get("slice") != slice_id or existing.get("task") != task_id:
                 return _serial_result(self.feature, mode, "mismatched-lane-receipt", lanes)
+            release_key = idempotency_key(self.feature, slice_id, task_id, "release", state["source_git_head"])
+            if release_key in state["actions"] and state["actions"][release_key].get("status") == "pending":
+                try:
+                    self._release_lease_state(snapshot, state, lane_id, provider)
+                except ExecutorError:
+                    existing["fallback_reason"] = "cleanup-failed"
+                    if existing["state"] in {"ready", "running"}:
+                        transition_lane(state, lane_id, "serial", expected=existing["state"])
+                    self._save(state)
+                    return _serial_result(self.feature, mode, "cleanup-failed", lanes)
             if existing["state"] in {"complete", "failed", "serial"}:
                 continue
             worktree_key, worktree_action, worktree_created = self._record_action(state, lane_id, existing, "worktree")
@@ -587,11 +652,11 @@ class Coordinator:
                         if receipt is None:
                             raise ExecutorError("unreconciled pending action: worktree")
                     else:
-                        receipt = adapter.create_worktree(dict(plan_lane), idempotency_key=worktree_key)
+                        receipt = self._create_worktree(adapter, plan_lane, destinations[lane_id], worktree_key)
                     if not isinstance(receipt, Mapping):
                         raise ExecutorError("malformed worktree receipt")
                     if receipt.get("worktree_path") is not None:
-                        bounded_path(self.root, receipt["worktree_path"])
+                        bounded_path(_git_common_dir(self.root).parent.parent, receipt["worktree_path"])
                     self._accept(worktree_action, external_id=receipt.get("worktree_id"), receipt=dict(receipt))
                     existing.update({key: receipt[key] for key in ("worktree_id", "worktree_path", "branch", "pre_head") if key in receipt})
                     if existing["state"] == "ready":
@@ -671,6 +736,8 @@ class Coordinator:
                         self._release_lease_state(snapshot, state, lane_id, provider)
                     except ExecutorError:
                         return _serial_result(self.feature, mode, "cleanup-failed", lanes)
+                if terminal and existing["state"] == "running":
+                    transition_lane(state, lane_id, "complete", expected="running")
         self._save(state)
         return {"version": 1, "feature": self.feature, "mode": mode, "fallback": False, "state": state, "actions": actions}
 

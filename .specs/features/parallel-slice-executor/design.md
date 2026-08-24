@@ -14,7 +14,7 @@ resources. Runtime receipts are atomic local Git state, not versioned feature tr
 flowchart LR
     P[parallel_plan.py] --> C[parallel_execute.py core]
     S[(Git common runtime state)] <--> C
-    C -->|actions| O[Orca adapter]
+    C -->|validated Git worktree + worker actions| O[Orca adapter]
     C -->|checkpoint/integrate| G[Git adapter]
     C -->|acquire/release| R[Resource provider]
     O -->|correlated receipts/events| C
@@ -49,7 +49,7 @@ Approaches considered:
 | --- | --- |
 | Frozen workflow | Executor reads `workflow.json`; current mode and optional provider path are authoritative. |
 | Versioned tasks | Planner exposes one task per slice plus explicit `Resources` metadata. |
-| Orca | Adapter executes fixed argv and validates JSON receipts from worktree/worker/event commands. |
+| Orca | Adapter executes fixed argv, attaches workers to an existing validated worktree, and validates JSON worker/event receipts. |
 | Git | Adapter acts only in validated clean worktrees and returns exact pre/post HEADs. |
 | Review workflow | Core marks changed-head evidence invalid; autonomous dispatches existing Verifier/deep-review stages. |
 
@@ -67,16 +67,22 @@ State is written atomically below `git rev-parse --git-common-dir` under a repos
 Before replacement the core validates the real Git directory, rejects symlinks in the owned state
 path, fsyncs the temporary file, and renames it within the same directory.
 
+Before any worktree effect the core derives a deterministic sibling destination from the repository,
+feature, slice, and task, bounds it under the repository's Git common-directory ancestor, and checks every existing
+component for unsafe symlinks. The core creates that Git worktree with fixed argv; an adapter never
+chooses or writes an unvalidated destination.
+
 ### Orca adapter
 
 - **Purpose:** Materialize validated worktrees/workers and translate Orca events into core receipts.
 - **Location:** `.agents/skills/autonomous/scripts/orca_adapter.py`
-- **Interfaces:** `create_worktree`, `start_worker`, `read_worker`, `wait_events`, `follow_up`, `release`.
+- **Interfaces:** `start_worker(existing_worktree)`, `read_worker`, `wait_events`, `follow_up`, `release`.
 - **Dependencies:** Orca CLI contract `orchestration.contract.v1`; fixed subprocess argv.
 - **Reuses:** Orca idempotency keys, run/task/dispatch/terminal ownership, and blocking `check --wait`.
 
-Worktree creation is separate from worker start so a resource provider can prepare the checkout before
-the worker sees it. The adapter accepts one Orca JSON schema; unknown/missing fields are failures.
+The provider-neutral core creates the validated Git worktree before resource preparation. Orca does
+not expose a path-taking worktree-create command, so its adapter only attaches a worker to the
+existing checkout. The adapter accepts one Orca JSON schema; unknown/missing fields are failures.
 
 ### Git adapter
 

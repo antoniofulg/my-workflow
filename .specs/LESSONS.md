@@ -80,6 +80,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: .specs/features/parallel-slice-dispatch/validation.md:519 (planner)
 - last seen: 2026-08-24T05:56:16Z
 
+### L-012 - Assert persisted intent at every external-effect boundary, not only one representative boundary
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `workflow-executor` · harmful: 0
+- features: parallel-slice-executor
+- evidence: validation.md:M2 (workflow-executor)
+- last seen: 2026-08-24T12:17:07Z
+
+### L-013 - Exercise pending-receipt reconciliation for every effect type before claiming restart safety
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `workflow-executor` · harmful: 0
+- features: parallel-slice-executor
+- evidence: validation.md:M3 (workflow-executor)
+- last seen: 2026-08-24T12:17:07Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

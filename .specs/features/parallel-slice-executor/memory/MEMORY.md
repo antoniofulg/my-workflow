@@ -11,3 +11,4 @@
 - Adapter effects are intentionally absent from T1; disabled or unsupported execution must return serial fallback before adapter construction.
 - T2 persists action receipts before effects, redacts provider environment values, and rejects cross-lane lease cleanup.
 - T2R1 requires lazy disabled-mode startup, pending receipt reconciliation, preflight path/provider checks, and terminal lease cleanup evidence.
+- T2R2 derives and validates sibling Git worktree destinations before writes; Orca adapters attach workers to existing checkouts rather than allocating paths.

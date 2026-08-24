@@ -160,4 +160,13 @@ Idle.
 - **Scope**: Autonomous parallel execution, workflow snapshots and task resource metadata, Orca/Git
   adapters, consumer resource providers, and future IDE adapters.
 - **Date**: 2026-08-24
+- **Status**: superseded by AD-011
+
+### AD-011
+
+- **Decision**: The provider-neutral coordinator derives and validates a deterministic sibling Git worktree destination, creates that checkout with fixed argv, and gives Orca only an existing worktree to attach a worker to.
+- **Reason**: Orca's public worktree-create command does not accept a destination path, while SEC-004 requires destination validation before the first writer or worker process.
+- **Trade-off**: The core owns this narrow Git worktree primitive; adapter-specific worker and event effects remain behind the provider-neutral protocol.
+- **Scope**: Parallel slice executor worktree creation, adapter contracts, and future worktree/worker providers.
+- **Date**: 2026-08-24
 - **Status**: active
