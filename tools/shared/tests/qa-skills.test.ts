@@ -663,7 +663,7 @@ describe("adoption and public setup", () => {
     expect(adopt).toContain('".agents/skills/qa-plan"');
     expect(adopt).toContain('".agents/skills/qa-execute"');
     expect(adopt).toContain(
-      'COPY_MISSING_PATHS = ["docs/qa/README.md", "tools/ad-index.py"]',
+      'COPY_MISSING_PATHS = ["docs/qa/README.md", "tools/ad-index.py", ".my-workflow.toml"]',
     );
   });
 

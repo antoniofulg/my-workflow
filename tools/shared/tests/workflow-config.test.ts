@@ -48,6 +48,7 @@ describe("workflow configuration skill", () => {
           { recursive: true },
         );
       }
+      cpSync(join(repositoryRoot, ".my-workflow.toml"), join(temporaryRoot, ".my-workflow.toml"));
       execFileSync("git", ["init", "-q"], { cwd: temporaryRoot });
       execFileSync(
         "git",
@@ -68,6 +69,9 @@ describe("workflow configuration skill", () => {
         repositoryRoot,
         ".agents/skills/workflow-config/scripts/workflow_config.py",
       );
+      execFileSync("python3", [resolver, "--root", temporaryRoot, "--sync-agents"], {
+        encoding: "utf8",
+      });
       const agentNames: Record<string, string> = {
         implementer: "implementer",
         verifier: "verifier",

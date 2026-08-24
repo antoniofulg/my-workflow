@@ -150,7 +150,12 @@ def test_fresh_and_refuse() -> None:
     tmp = Path(tempfile.mkdtemp())
     try:
         config = tmp / ".my-workflow.toml"
-        sentinel = "# consumer-owned\n[deep_review]\ncadence = 'feature'\n"
+        sentinel = (
+            "# consumer-owned\n"
+            + (ROOT / ".my-workflow.toml").read_text(encoding="utf-8").replace(
+                'cadence = "grouped.3"', 'cadence = "feature"'
+            )
+        )
         config.write_text(sentinel, encoding="utf-8")
         original_config = config.read_bytes()
         run(tmp)
@@ -269,11 +274,18 @@ def test_agent_pins_survive_readopt() -> None:
     try:
         run(tmp)
         pin = tmp / ".cursor" / "agents" / "planner.md"
-        pin.write_text("local-pin\n", encoding="utf-8")
+        pin.write_text(
+            pin.read_text(encoding="utf-8").replace(
+                "You are the **planner**", "Consumer-specific planner instructions"
+            ),
+            encoding="utf-8",
+        )
+        original_model = pin.read_text(encoding="utf-8").splitlines()[4]
         explorer = tmp / ".cursor" / "agents" / "explorer.md"
         explorer.unlink()
         run(tmp)
-        assert pin.read_text(encoding="utf-8") == "local-pin\n"
+        assert "Consumer-specific planner instructions" in pin.read_text(encoding="utf-8")
+        assert pin.read_text(encoding="utf-8").splitlines()[4] == original_model
         assert explorer.read_text(encoding="utf-8") == (
             ROOT / ".cursor" / "agents" / "explorer.md"
         ).read_text(encoding="utf-8")
@@ -282,6 +294,44 @@ def test_agent_pins_survive_readopt() -> None:
         profile.write_text("consumer-owned profile\n", encoding="utf-8")
         run(tmp)
         assert profile.read_text(encoding="utf-8") == "consumer-owned profile\n"
+    finally:
+        shutil.rmtree(tmp)
+
+
+def test_adoption_installs_v2_config_and_syncs_fifteen_packets() -> None:
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        run(tmp)
+        config = (tmp / ".my-workflow.toml").read_text(encoding="utf-8")
+        assert config.startswith("version = 2\n")
+        for provider in ("claude", "codex", "cursor"):
+            for role in ("planner", "implementer", "verifier", "explorer", "deep-reviewer"):
+                extension = "toml" if provider == "codex" else "md"
+                packet = tmp / f".{provider}/agents/{role}.{extension}"
+                assert packet.is_file()
+                text = packet.read_text(encoding="utf-8")
+                assert "model" in text
+                assert "effort" in text or "model_reasoning_effort" in text
+    finally:
+        shutil.rmtree(tmp)
+
+
+def test_adoption_rejects_invalid_packet_before_sync_writes() -> None:
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        run(tmp)
+        packet = tmp / ".cursor/agents/verifier.md"
+        packet.write_text(packet.read_text(encoding="utf-8").replace("model:", "model-old:"), encoding="utf-8")
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            try:
+                run(tmp)
+            except SystemExit as exc:
+                assert exc.code == 1
+            else:
+                raise AssertionError("expected malformed packet rejection")
+        assert "verifier" in stderr.getvalue()
+        assert "model-old:" in packet.read_text(encoding="utf-8")
     finally:
         shutil.rmtree(tmp)
 
@@ -467,6 +517,8 @@ if __name__ == "__main__":
     test_skip_agents_preserves_product_files_and_adopts_rest()
     test_skip_agents_preserves_absent_claude_file()
     test_agent_pins_survive_readopt()
+    test_adoption_installs_v2_config_and_syncs_fifteen_packets()
+    test_adoption_rejects_invalid_packet_before_sync_writes()
     test_gitignore_rules_merge_without_overwrite()
     test_deep_review_learnings_survive_consumer_parent_ignore()
     test_feature_specs_are_versioned_and_legacy_ignore_is_removed()

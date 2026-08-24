@@ -140,11 +140,13 @@ T3 -> T4 -> T5
 
 **Done when**:
 
-- [ ] Fresh adoption installs `.my-workflow.toml` and matching packets.
-- [ ] Re-adoption preserves config and non-model packet content while applying configured metadata.
-- [ ] Invalid packet synchronization fails with its path.
-- [ ] `IT-001`, `IT-002`, and `IT-003` pass.
-- [ ] Full gate passes with zero failures.
+- [x] Fresh adoption installs `.my-workflow.toml` and matching packets.
+- [x] Re-adoption preserves config and non-model packet content while applying configured metadata.
+- [x] Invalid packet synchronization fails with its path.
+- [x] `IT-001`, `IT-002`, and `IT-003` pass.
+- [x] Full gate passes with zero failures.
+
+**Status:** complete — `python3 scripts/test_adopt.py && npm test` (adoption checks passed; 108 Vitest tests passed).
 
 **Tests**: integration, `IT-001`, `IT-002`, `IT-003`
 **Gate**: Full, `python3 scripts/test_adopt.py && npm test`
