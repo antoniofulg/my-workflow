@@ -215,6 +215,26 @@ T3 + T4 + T6 -> T7
 **Tests:** IT-007 in `tools/shared/tests/autonomous-parallelization.test.ts` and executor capability tests; E2E-001 handoff in `qa-pilot.md` (untested)
 **Gate:** Full. Commit `feat(workflow): execute parallel slices autonomously`.
 
+### T7R1: Make the parallel pilot executable
+
+**Remediation status:** complete
+**Slice:** D
+**Remediation resources:** none
+**Observable behaviour:** The E2E-001 handoff creates a disposable safe-mode fixture with two explicit `Resources: none` lanes, proves both lanes through the public planner before Orca mutation, and provides exact cleanup.
+**Where:** `tools/qa_parallel_pilot.py`
+**Remediation depends on:** T7
+**Remediation requirements:** E2E-001, EXE-06, EXE-18
+**Remediation done when:**
+
+- [x] Setup creates a temporary Git source HEAD, frozen `safe` snapshot, and two pending independent lanes without touching product files.
+- [x] Dry-run asserts exactly two ready resource-free lanes and rejects disabled/completed feature targets.
+- [x] Handoff runs public planner/executor against `parallel-pilot` and defines explicit cleanup; the real Orca start remains fresh-QA-only.
+- [x] Canonical QA contract test covers setup, dry-run, cleanup, and handoff target identity.
+
+**Remediation tests:** `tools/test_qa_parallel_pilot.py`, shared IT-007, full Python discovery.
+**Remediation gate:** Directed QA fixture, `npm run test:all`, strict validators/index, compile, diff check, adequacy review.
+**Remediation commit:** `fix(workflow): make parallel pilot executable`.
+
 ## Review Remediation
 
 The human rejected a slice-global cap because the prior rounds closed different blockers. T2R4

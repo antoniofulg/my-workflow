@@ -79,3 +79,11 @@ complete definition; all other edits are short pointers.
 | TLC preservation | Pass | Policy states TLC remains unchanged; no TLC skill or task semantics were modified. |
 | Shared contract | Pass | IT-007 asserts policy, executor, adapter capability, and QA handoff markers. |
 | QA boundary | Pass | `qa-pilot.md` marks E2E-001 untested and forbids author-run Orca pilot claims. |
+
+## T7R1 delta
+
+| Item | Result | Evidence |
+| --- | --- | --- |
+| Disposable fixture | Pass | `tools/qa_parallel_pilot.py` owns setup, safe snapshot, dry-run assertion, and cleanup without product files. |
+| Handoff identity | Pass | `tools/test_qa_parallel_pilot.py` rejects the disabled/completed feature and requires `parallel-pilot`. |
+| QA boundary | Pass | The handoff remains `untested`; no Orca worker is created by author gates. |

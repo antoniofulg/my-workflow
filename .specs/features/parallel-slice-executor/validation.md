@@ -400,3 +400,101 @@ increment it and therefore does not trigger the third-remediation halt.
 **Overall:** PASS for Slice C after T4R2. Six of six ACs and all three contracted cases pass; 62
 scoped tests are green; all three behavior mutants die. Feature-level `FAIL` remains intentional
 until Slice D, grouped C-D deep-review, the real Orca pilot, and separate QA phases complete.
+
+## Slice D / T5-T7 Technical Verification
+
+**Date:** 2026-08-24
+**Diff range:** `a26e7f4^..2a155b7`
+**Verifier:** independent Technical Verifier (author != verifier)
+**Slice verdict:** FAIL. The configuration, resource planning, provider lifecycle, capability
+fallback, checkpoint, merge, and cleanup contracts are technically discriminated. The checked-in
+E2E-001 handoff cannot start its declared journey: it targets this feature's frozen `disabled`
+snapshot after all tasks are complete, so the documented plan has zero lanes and executor `start`
+returns `disabled-mode` before Orca can create either lane. No real Orca pilot was attempted in this
+technical phase.
+
+### Task Completion
+
+| Task | Result | Evidence |
+| --- | --- | --- |
+| T5 | PASS | `tools/test_workflow_config.py:145-218` freezes a safe executable and preserves the prior snapshot for absolute, traversal, missing, directory, non-executable, and symlink inputs. |
+| T6 | PASS | `tools/test_parallel_plan.py:361-392` asserts stable normalized resource arrays and exact serial reasons for missing or ambiguous metadata. |
+| T7 | FAIL | `tools/test_parallel_executor.py:665-704` discriminates the capability/zero-effect fallback, but `.specs/features/parallel-slice-executor/qa-pilot.md:6-14` directs QA to a frozen disabled/completed feature and therefore cannot create its two required lanes. |
+
+### Spec-Anchored Acceptance Criteria
+
+| Criterion | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| EXE-18 | `Resources: none` starts without a provider. | `tools/test_parallel_executor.py:307-356` - `provider_calls == 0`, worktree/worker effects occur, while a resource lane requires a prepared correlated lease; `tools/test_parallel_plan.py:361-369` - `none` becomes `[]`. | PASS |
+| EXE-19 | Resource lanes invoke the frozen provider with the exact argv-only correlated request. | `tools/test_parallel_executor.py:345-353,459-478` - exact request keys/body and executable-only argv; `tools/test_workflow_config.py:145-156` - normalized frozen path persists. | PASS |
+| EXE-20 | Only a unique correlated prepared lease is accepted and persisted with redacted environment values. | `tools/test_parallel_executor.py:355-356,404-471` - prepared receipt, correlation failures, duplicate live lease, exact resource names, and `<redacted>` environment assertion. | PASS |
+| EXE-21 | Missing/unsupported/timeout/malformed/duplicate/cleanup failure refuses parallel dispatch with an exact serial reason. | `tools/test_parallel_executor.py:522-580` - worker count remains zero for acquisition failures and cleanup returns `cleanup-failed`; `tools/test_parallel_plan.py:373-392` - invalid resource metadata falls back before execution. | PASS |
+| EXE-22 | Terminal or abandoned lanes release an owned lease exactly once and retain cleanup evidence. | `tools/test_parallel_executor.py:363-399,547-580` - foreign duplicate cleanup is rejected, repeated owned release is idempotent, terminal statuses release once, and failed cleanup receipt persists. | PASS |
+| SEC-007 | A resource-bearing lane cannot start without a proven lease/prepared checkout. | `tools/test_parallel_executor.py:307-356,522-540` - no worker starts without the provider or after acquisition failure. | PASS |
+| SEC-008 | Cleanup targets the current lane's lease and is idempotent. | `tools/test_parallel_executor.py:363-399` - cross-lane duplicate lease is rejected and the second owned release returns its existing receipt with one provider release. | PASS |
+| IT-005 | Provider configuration freezes only a safe repository-relative executable without replacing valid state on failure. | `tools/test_workflow_config.py:145-218` - exact frozen snapshot and byte-identical prior state after every unsafe case. | PASS |
+| IT-006 | Planning exposes exact resource names or serializes missing/ambiguous metadata. | `tools/test_parallel_plan.py:361-392` - stable sorted names and seven exact invalid-metadata outcomes. | PASS |
+| IT-007 | Autonomous capability/fallback and unchanged lifecycle boundaries remain mandatory. | `tools/test_parallel_executor.py:665-704,1027-1097`; `tools/test_git_adapter.py:163-208`; `tools/shared/tests/autonomous-parallelization.test.ts:12-107` assert capability fallback, checkpoint/gate/follow-up, deterministic preserved-commit merge, conflict abort, and TLC/review/QA/full-gate policy. | PASS |
+| E2E-001 handoff readiness | Fresh QA can execute the documented two-lane disposable Orca journey. | Dry-run of the exact `.specs/features/parallel-slice-executor/qa-pilot.md:6-14` commands returned `mode: disabled`, `lanes: []`, then `fallback: true`, `reason: disabled-mode`; no Orca effect occurred. | FAIL |
+
+**Spec-anchored status:** 10 PASS, 1 FAIL, 0 spec-precision gaps in Slice D scope.
+
+### Gate Evidence
+
+- `python3 tools/test_workflow_config.py` -> exit 0, 18 passed, 0 failed, 0 skipped.
+- `python3 tools/test_parallel_plan.py` -> exit 0, 16 passed, 0 failed, 0 skipped.
+- `python3 tools/test_parallel_executor.py` -> exit 0, 37 passed, 0 failed, 0 skipped.
+- `npm run test:all` -> exit 0: 110 Vitest tests in 9 files plus all 11 discovered Python suites; reported Python case totals were 145 passed with 0 failed/skipped, with the contract smoke suite additionally reporting `ok`.
+- `python3 .agents/skills/tlc-spec-driven/scripts/validate_spec.py .specs/features/parallel-slice-executor/spec.md --strict` -> exit 0, 0 errors, 0 warnings.
+- `python3 .agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/parallel-slice-executor/tasks.md --strict` -> exit 0, 0 errors, 0 warnings.
+- `python3 tools/ad-index.py --check` -> exit 0, index up to date.
+- `git diff --check a26e7f4^..2a155b7` -> exit 0, no output.
+- `python3 -m py_compile` over all four changed Python implementation files and their three directed suites -> exit 0.
+- `check_commit.py` accepted all three T5-T7 Conventional Commit messages.
+
+### Discrimination Sensor
+
+Baseline real-tree porcelain was empty. Mutations ran in detached temporary worktree
+`/tmp/parallel-slice-d-sensor.JE20ri/tree` at `2a155b7`; the scratch was removed and real-tree
+porcelain matched the baseline before this report/ledger update.
+
+| Mutation | Behavior fault | Directed result | Outcome |
+| --- | --- | --- | --- |
+| M1 | Force `Resources: none` lanes through resource acquisition instead of bypassing the provider. | Executor suite exits 1 before dispatching the expected lane state. | KILLED |
+| M2 | Accept an Orca adapter whose declared capability is not `orchestration.contract.v1`. | Executor suite exits 1 at `tools/test_parallel_executor.py:675`. | KILLED |
+| M3 | Treat missing `Resources` metadata as an explicit empty resource list. | Planner suite exits 1 at `tools/test_parallel_plan.py:387`. | KILLED |
+
+**Sensor:** lightweight, 3 behavior mutations, 3 killed, 0 survived. PASS.
+
+### Fingerprint Accounting
+
+Fingerprint `5ea1f781dc2dd658fbad3fcf0a4ebcc17575f004bd0897db1e6edb48c9c25082`
+is open with `failed_remediations: 1` for `E2E-001/EXE-06/EXE-18 + QA handoff targets the
+frozen disabled completed feature + documented plan returns zero lanes and executor returns
+disabled-mode before two Orca lanes can start`. The full gate passed, so this count records the
+failed Technical Verifier outcome, not a build failure.
+
+### Ranked Gaps
+
+1. **Major / fix task - E2E-001, T7:** Replace the unusable self-feature commands in
+   `qa-pilot.md` with a deterministic disposable pilot setup that creates a temporary feature
+   snapshot in `full` mode and two pending `Resources: none` lanes, points both executor commands
+   at that fixture, and defines cleanup for the fixture's state/worktrees. Add a directed contract
+   assertion proving the handoff cannot silently target a disabled or completed plan. Do not run
+   the real Orca pilot in the remediation; fresh QA Execute owns it.
+
+### Slice D Summary
+
+**Overall:** FAIL for Slice D. Automated implementation evidence is green and all three mutations
+die, but T7's only real-pilot interface deterministically cannot reach the journey it hands to QA.
+Grouped deep-review C-D, the actual Orca pilot, final QA, and feature closure remain pending.
+
+## T7R1 post-remediation
+
+The Major E2E-001 handoff gap is closed by `tools/qa_parallel_pilot.py`: setup creates a disposable
+Git fixture with frozen `safe` mode and two pending independent `Resources: none` lanes; dry-run
+asserts exactly two ready lanes before any Orca mutation; cleanup removes only the marked fixture and
+owned sibling worktrees. `tools/test_qa_parallel_pilot.py` rejects the disabled/completed production
+feature target and proves setup/dry-run/cleanup. The real Orca start remains untested and owned by a
+fresh QA Verifier. Fingerprint `5ea1f781...` remains at count 1; this successful remediation does
+not increment it.
