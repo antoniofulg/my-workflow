@@ -75,8 +75,9 @@ Acceptance criteria:
 
 - **AIM-11:** WHEN release `0.4.0` is prepared THEN `package.json`, both root `package-lock.json` version fields, the newest `CHANGELOG.md` heading, and canonical version assertions SHALL all report `0.4.0`.
 
-Independent test: inspect the opt-in integration contract and run repository gates without an
-ai-memory server; normal adoption remains unchanged and produces no ai-memory runtime state.
+Independent test: inspect `package.json`, both root lockfile version fields, the newest changelog
+heading, and the canonical `tools/shared/tests/qa-skills.test.ts` IT-005 assertion, then run the
+release gates without changing the remote or machine.
 
 ## Edge Cases
 

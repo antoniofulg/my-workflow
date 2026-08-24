@@ -32,7 +32,7 @@ Commit. The last code-changing task is followed by a fresh Verifier.
 One vertical slice, executed sequentially:
 
 ```text
-T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9 → T10 → T11
+T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9 → T10 → T11 → T12
 ```
 
 ## Task Breakdown
@@ -178,6 +178,20 @@ T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9 → T10 → T11
 **Gate:** Adoption, AD, Deep Review contract/symlink/token metrics, workflow config, TLC validators, npm test, knowledge, version consistency, and `git diff --check`.
 **Commit:** `build(release): prepare 0.4.0`
 
+### T12: Enforce release version parity
+
+**Status:** complete
+**What:** Extend the existing canonical release-consistency test to assert the newest changelog heading matches the package and lockfile versions, and narrow the 0.4.0 QA claim to its recorded evidence.
+**Where:** `tools/shared/tests/qa-skills.test.ts`
+**Contract updates:** `.specs/features/ai-memory-handoff/spec.md`, `CHANGELOG.md`
+**Depends on:** T11
+**Reuses:** Existing IT-017 release-consistency test, renamed to IT-005/AIM-11.
+**Requirement:** AIM-11.
+**Tests:** IT-005/AIM-11; package and changelog mutations must fail the canonical suite.
+**QA:** No QA artifacts changed; existing WFL pass and release evidence remain preserved.
+**Gate:** Scoped/full/release gates, validators, and `git diff --check`.
+**Commit:** `test(release): enforce 0.4.0 version parity`
+
 ## Diagram-Definition Cross-Check
 
 | Task | Depends On | Diagram Shows | Status |
@@ -190,6 +204,7 @@ T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9 → T10 → T11
 | T9 | T8 | T8 → T9 | match |
 | T10 | T9 | T9 → T10 | match |
 | T11 | T10 | T10 → T11 | match |
+| T12 | T11 | T11 → T12 | match |
 
 ## Test Co-location Validation
 
@@ -203,3 +218,4 @@ T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9 → T10 → T11
 | T9 | reviewer context and threat model | contract review | SEC-003 | match |
 | T10 | lifecycle documentation | manual contract review | IT-004 | match |
 | T11 | release authorities | integration | IT-005 | match |
+| T12 | release consistency | integration | IT-005/AIM-11 | match |

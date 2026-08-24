@@ -17,7 +17,7 @@ All notable changes to this project are documented here.
 ### Fixed
 
 - Noninteractive and informational Codex commands no longer finalize an unrelated open session.
-- Release QA covers the ai-memory integration, lifecycle controls, reviewer isolation, and the noninteractive-finalization fix.
+- QA runtime walks cover the ai-memory handoff and lifecycle-control paths; reviewer isolation remains technical validation unless a later release QA session covers its documentation contract.
 
 ## [0.3.6] - 2026-08-23
 

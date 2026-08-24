@@ -747,7 +747,7 @@ describe("adoption and public setup", () => {
     expect(qaExecute).toContain("does not write product code, install a framework, invent a");
   });
 
-  it("IT-017 reports release version 0.4.0 consistently", () => {
+  it("IT-005 / AIM-11 reports release version 0.4.0 consistently", () => {
     const manifest = JSON.parse(readRepositoryFile("package.json")) as {
       version?: string;
       scripts?: { test?: string };
@@ -756,10 +756,14 @@ describe("adoption and public setup", () => {
       version?: string;
       packages?: { ""?: { version?: string } };
     };
+    const changelog = readRepositoryFile("CHANGELOG.md");
+    const latestHeading = changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m)?.[1];
 
     expect(manifest.version).toBe("0.4.0");
     expect(manifest.scripts?.test).toBe("vitest run --dir tools");
     expect(lockfile.version).toBe("0.4.0");
     expect(lockfile.packages?.[""]?.version).toBe("0.4.0");
+    expect(latestHeading).toBe("0.4.0");
+    expect(latestHeading).toBe(manifest.version);
   });
 });
