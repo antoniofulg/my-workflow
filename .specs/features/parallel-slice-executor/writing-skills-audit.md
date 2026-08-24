@@ -60,7 +60,7 @@ complete definition; all other edits are short pointers.
 | --- | --- | --- |
 | Canonical convergence remains singular | Pass | `REVIEW-ROUNDS.md` remains the complete prose rule; skills point to `review_convergence.py` for executable state. |
 | Failed Verifier with green gate is counted | Pass | Canonical wording and shared contract assertion cover the changed rule. |
-| C/D contract scope is explicit | Pass | Design/DX state T4/T7-only fields and EXE-18–22 remain Planned. |
+| C/D contract scope is explicit | Pass | Design/DX distinguish implemented T4/T5/T6/T7 contracts from the untested E2E-001 QA handoff. |
 
 ## TDR2 delta
 
@@ -70,3 +70,12 @@ complete definition; all other edits are short pointers.
 | Durable lifecycle wording | Pass | Design names persisted completion, delivery acknowledgement, delivery ID, dispatch ID, and receipt fields used by runtime state. |
 | Gate discovery | Pass | `package.json` uses deterministic `find tools -name 'test_*.py' | sort` discovery and the convergence suite asserts the contract. |
 | Convergence boundaries | Pass | Feature state uses strict kebab slugs and `previous_fingerprint` must already exist for the same requirement. |
+
+## T7 delta
+
+| Item | Result | Evidence |
+| --- | --- | --- |
+| Policy source of truth | Pass | `parallelization.md` owns executor commands, capability gate, event lifecycle, checkpoint/gate-required, cleanup, and serial recovery wording. |
+| TLC preservation | Pass | Policy states TLC remains unchanged; no TLC skill or task semantics were modified. |
+| Shared contract | Pass | IT-007 asserts policy, executor, adapter capability, and QA handoff markers. |
+| QA boundary | Pass | `qa-pilot.md` marks E2E-001 untested and forbids author-run Orca pilot claims. |

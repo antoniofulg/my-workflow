@@ -17,10 +17,35 @@ TLC remains unchanged, and tasks inside a slice remain sequential.
 
 4. Dispatch parallel lanes only when the frozen mode, plan, and executor capability all allow it.
 
+5. The `auto`/`orca` executor capability gate is proven only when the `orca` runtime is
+   discoverable and the adapter declares `orchestration.contract.v1`; otherwise return serial
+   recovery with zero worktree, worker, Git, or provider effects.
+
+6. A lane with `Resources: none` bypasses the consumer provider; any declared resource names
+   require the frozen executable and a prepared correlated lease before worker start.
+
 `disabled`, an invalid or fallback plan, a missing frozen snapshot, or no capable isolated executor
 uses the existing serial path without creating a worker or worktree. Any uncertainty or failure
 serializes safely; a capability that cannot prove worktree, runtime, port, and persistence isolation
 is not capable for this contract.
+
+## Executor commands
+
+From the repository root, the public verbs are:
+
+```bash
+python3 .agents/skills/autonomous/scripts/parallel_execute.py start \
+  --root . --feature <feature-slug> --adapter auto
+python3 .agents/skills/autonomous/scripts/parallel_execute.py resume \
+  --root . --feature <feature-slug> --adapter auto --wait-seconds <1..3600>
+python3 .agents/skills/autonomous/scripts/parallel_execute.py status \
+  --root . --feature <feature-slug>
+```
+
+Each verb emits one JSON object naming `command`; `status` is read-only. `resume` consumes persisted
+receipts and at most one correlated delivery, while `start` runs the point-in-time plan. A rejected
+capability, invalid plan, missing snapshot, unsupported provider, dirty checkpoint, failed gate,
+or cleanup failure returns serial recovery without creating a replacement effect.
 
 ## Dispatch boundary
 
@@ -36,6 +61,20 @@ The plan's `ready` lane is permission to start the named task, not permission to
 the dispatch decision.
 
 ## Waiting and follow-up
+
+The event lifecycle is run-scoped and receipt-scoped:
+
+```text
+check --run <run> --wait --types worker_done,question,escalation
+check --run <run> --ack <delivery-id>
+worker-read --dispatch <dispatch-id>
+worker-release --dispatch <dispatch-id>
+```
+
+The coordinator reads and accepts the correlated worker result before release. A clean waiter is
+ended before the dependency event can follow up on the same terminal; a timeout leaves state
+unchanged. Missing, duplicate, foreign, escalated, dirty, or failed receipts serialize without a
+replacement worker.
 
 When a worker reaches an unavailable dependency, it must first leave a clean committed checkpoint
 and report the exact dependency and current head. It must then end the clean worker turn. The
@@ -57,6 +96,13 @@ second worker for the same task.
   the final base, final reconciliation is a no-op.
 - A conflict, ambiguous integration, failed gate, or missing checkpoint serializes safely or halts
   the lane; it never silently chooses one side.
+- A changed checkpoint persists `current_head` and invalidates `gate`, Technical Verifier, and
+  deep-review evidence. The lane remains `gate_required` until the affected gate receipt matches
+  the lane and current head; only then may waiting follow-up continue.
+
+Verified slices are merged into the feature integration branch in deterministic slice order with
+preserved commits. Merge conflicts abort and return serial recovery; no automatic resolution is
+attempted.
 
 ## Evidence invalidation
 
@@ -72,6 +118,12 @@ The normal evidence contract remains intact:
 
 Parallel dispatch may reduce wall time, but it never removes, merges, or postpones these readiness
 stages past their required source freeze.
+
+## QA handoff
+
+E2E-001 is an explicit fresh-QA handoff, not an author-run pilot. Its interface, expected receipts,
+and cleanup assertions are recorded in `.specs/features/parallel-slice-executor/qa-pilot.md` and
+E2E-001 remains untested until a fresh QA Verifier runs the disposable Orca journey.
 
 ## Serial fallback
 

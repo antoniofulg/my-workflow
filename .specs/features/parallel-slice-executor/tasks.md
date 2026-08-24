@@ -195,7 +195,7 @@ T3 + T4 + T6 -> T7
 
 ### T7: Bind autonomous execution and prove Orca concurrency
 
-**Status:** pending
+**Status:** complete
 **Slice:** D
 **Resources:** none
 **Observable behaviour:** Autonomous invokes the deterministic executor when its frozen mode and capabilities allow, otherwise runs serially; a real disposable Orca run proves two isolated worktrees active concurrently and cleans only owned workers.
@@ -206,13 +206,13 @@ T3 + T4 + T6 -> T7
 **Tools:** Skills `ponytail`, `writing-skills`, `orca-cli`, `qa-plan`, and `qa-execute` as their stages fire.
 **Done when:**
 
-- [ ] Policy names the exact executor commands, capability gate, event lifecycle, checkpoint/merge split, evidence invalidation, resource provider, and serial recovery.
-- [ ] Shared contract tests prove TLC tasks, gates, Verifier, grouped deep-review, final QA, and full gate are unchanged.
-- [ ] Writing-skills audit records every checklist item Pass.
-- [ ] E2E-001 records two distinct Orca worktree/branch/dispatch/terminal receipts active in one run, correlated completion events, clean status, and owned cleanup.
-- [ ] Full gate and strict feature/state/index validators pass with zero failures.
+- [x] Policy names the exact executor commands, capability gate, event lifecycle, checkpoint/merge split, evidence invalidation, resource provider, and serial recovery.
+- [x] Shared contract tests prove TLC tasks, gates, Verifier, grouped deep-review, final QA, and full gate are unchanged.
+- [x] Writing-skills audit records every checklist item Pass.
+- [ ] E2E-001 records two distinct Orca worktree/branch/dispatch/terminal receipts active in one run, correlated completion events, clean status, and owned cleanup. **QA status:** untested; fresh QA Verifier required.
+- [x] Full gate and strict feature/state/index validators pass for authored implementation; feature-level state remains incomplete until E2E-001 QA.
 
-**Tests:** IT-007 in `tools/shared/tests/autonomous-parallelization.test.ts`; E2E-001 in the feature QA report
+**Tests:** IT-007 in `tools/shared/tests/autonomous-parallelization.test.ts` and executor capability tests; E2E-001 handoff in `qa-pilot.md` (untested)
 **Gate:** Full. Commit `feat(workflow): execute parallel slices autonomously`.
 
 ## Review Remediation

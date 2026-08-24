@@ -10,6 +10,9 @@ from typing import Any, Callable, Mapping
 import parallel_execute as core
 
 
+CAPABILITY = "orchestration.contract.v1"
+
+
 class AdapterError(core.ExecutorError):
     """Orca returned an unsupported, foreign, or failed lifecycle receipt."""
 

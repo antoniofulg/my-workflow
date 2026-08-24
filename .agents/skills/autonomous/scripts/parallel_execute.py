@@ -14,6 +14,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -1145,6 +1146,8 @@ def _adapter_factory(name: str, root: Path, feature: str) -> Callable[[], Any] |
     try:
         import orca_adapter  # type: ignore[import-not-found]
     except ImportError:
+        return None
+    if shutil.which("orca") is None or getattr(orca_adapter, "CAPABILITY", None) != "orchestration.contract.v1":
         return None
     factory = getattr(orca_adapter, "Adapter", None) or getattr(orca_adapter, "OrcaAdapter", None)
     if factory is None:

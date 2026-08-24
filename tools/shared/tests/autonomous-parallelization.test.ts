@@ -9,6 +9,36 @@ function readRepositoryFile(relativePath: string): string {
 }
 
 describe("autonomous parallel slice dispatch contract", () => {
+  it("IT-007 binds the executor capability gate and preserves every lifecycle boundary", () => {
+    const executor = readRepositoryFile(
+      ".agents/skills/autonomous/scripts/parallel_execute.py",
+    );
+    const adapter = readRepositoryFile(
+      ".agents/skills/autonomous/scripts/orca_adapter.py",
+    );
+    const policy = readRepositoryFile(
+      ".agents/skills/autonomous/references/parallelization.md",
+    );
+    const qa = readRepositoryFile(
+      ".specs/features/parallel-slice-executor/qa-pilot.md",
+    );
+
+    expect(executor).toContain('parser.add_argument("--adapter", choices=("auto", "orca")');
+    expect(executor).toContain('"unsupported-adapter"');
+    expect(executor).toContain("resource_provider");
+    expect(executor).toContain("gate_required");
+    expect(adapter).toContain('CAPABILITY = "orchestration.contract.v1"');
+    expect(policy).toContain("orchestration.contract.v1");
+    expect(policy).toContain("check --run <run> --wait");
+    expect(policy).toContain("ack");
+    expect(policy).toContain("same terminal");
+    expect(policy).toContain("merge");
+    expect(policy).toContain("Resources: none");
+    expect(policy).toContain("E2E-001 remains untested");
+    expect(qa).toContain("**Status:** untested");
+    expect(qa).toContain("--adapter auto");
+  });
+
   it("IT-006 preserves safe orchestration and every existing evidence gate", () => {
     const autonomous = readRepositoryFile(".agents/skills/autonomous/SKILL.md");
     const policy = readRepositoryFile(

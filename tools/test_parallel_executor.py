@@ -662,6 +662,48 @@ def test_executor_cli_selects_orca_adapter_and_threads_non_default_wait_budget()
         shutil.rmtree(root)
 
 
+def test_auto_adapter_requires_orca_runtime_and_contract_capability() -> None:
+    import orca_adapter
+
+    original_which = parallel_execute.shutil.which
+    original_capability = getattr(orca_adapter, "CAPABILITY", None)
+    try:
+        parallel_execute.shutil.which = lambda _: None  # type: ignore[assignment]
+        assert parallel_execute._adapter_factory("auto", Path("."), "fixture") is None
+        parallel_execute.shutil.which = lambda _: "/usr/local/bin/orca"  # type: ignore[assignment]
+        orca_adapter.CAPABILITY = "unsupported"  # type: ignore[attr-defined]
+        assert parallel_execute._adapter_factory("auto", Path("."), "fixture") is None
+        orca_adapter.CAPABILITY = "orchestration.contract.v1"  # type: ignore[attr-defined]
+        assert parallel_execute._adapter_factory("auto", Path("."), "fixture") is not None
+    finally:
+        parallel_execute.shutil.which = original_which  # type: ignore[assignment]
+        if original_capability is None:
+            delattr(orca_adapter, "CAPABILITY")
+        else:
+            orca_adapter.CAPABILITY = original_capability
+
+
+def test_auto_adapter_missing_capability_returns_serial_without_worktree_effect() -> None:
+    root = make_repo()
+    original_which = parallel_execute.shutil.which
+    original_plan = parallel_execute.Coordinator._plan
+    try:
+        parallel_execute.shutil.which = lambda _: None  # type: ignore[assignment]
+        parallel_execute.Coordinator._plan = lambda self: lane_plan(resources=[])  # type: ignore[method-assign]
+        stdout = io.StringIO()
+        with redirect_stdout(stdout):
+            exit_code = parallel_execute.main(["start", "--root", str(root), "--feature", "fixture", "--adapter", "auto"])
+        result = json.loads(stdout.getvalue())
+        assert exit_code == 0
+        assert result["fallback"] is True
+        assert result["reason"] == "unsupported-adapter"
+        assert not list(root.parent.glob(f".{root.name}-parallel-slices"))
+    finally:
+        parallel_execute.shutil.which = original_which  # type: ignore[assignment]
+        parallel_execute.Coordinator._plan = original_plan  # type: ignore[method-assign]
+        shutil.rmtree(root)
+
+
 def test_executor_cli_safe_resume_reconciles_pending_worker_through_injected_adapter() -> None:
     root = make_repo()
     try:
