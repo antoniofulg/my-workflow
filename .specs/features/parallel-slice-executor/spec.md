@@ -181,12 +181,12 @@ scoped to the blocker that is not converging so unrelated findings do not waste 
 | EXE-09 | Orca adapter | B | Complete |
 | EXE-10 | Orca adapter | B | Complete |
 | EXE-11 | Orca adapter | B | Complete |
-| EXE-12 | Git checkpoint and integration adapter | C | Planned |
-| EXE-13 | Git checkpoint and integration adapter | C | Planned |
-| EXE-14 | Git checkpoint and integration adapter | C | Planned |
-| EXE-15 | Git checkpoint and integration adapter | C | Planned |
-| EXE-16 | Git checkpoint and integration adapter | C | Planned |
-| EXE-17 | Git checkpoint and integration adapter | C | Planned |
+| EXE-12 | Git checkpoint and integration adapter | C | Complete |
+| EXE-13 | Git checkpoint and integration adapter | C | Complete |
+| EXE-14 | Git checkpoint and integration adapter | C | Complete |
+| EXE-15 | Git checkpoint and integration adapter | C | Complete |
+| EXE-16 | Git checkpoint and integration adapter | C | Complete |
+| EXE-17 | Git checkpoint and integration adapter | C | Complete |
 | EXE-18 | Resource provider and autonomous integration | D | Planned |
 | EXE-19 | Resource provider and autonomous integration | D | Planned |
 | EXE-20 | Resource provider and autonomous integration | D | Planned |

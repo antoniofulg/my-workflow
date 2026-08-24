@@ -130,7 +130,7 @@ T3 + T4 + T6 -> T7
 
 ### T4: Reconcile Git checkpoints and verified slices
 
-**Status:** pending
+**Status:** complete
 **Slice:** C
 **Resources:** none
 **Observable behaviour:** A clean dependent lane rebases onto one exact producer checkpoint, restores itself on conflict, invalidates changed-head evidence, and merges verified slices deterministically without rewriting their commits.
@@ -141,14 +141,14 @@ T3 + T4 + T6 -> T7
 **Tools:** Skill `ponytail`; Git CLI only.
 **Done when:**
 
-- [ ] Exact-commit sync and ancestor no-op receipts include pre/post HEAD and changed paths.
-- [ ] Rebase/merge conflicts abort and restore the original clean state; no side is auto-selected.
-- [ ] Incomparable multiple checkpoints return serial recovery.
-- [ ] Changed HEAD invalidates affected gate, Technical Verifier, and deep-review receipts.
-- [ ] Verified slice commits survive deterministic feature-branch integration.
-- [ ] `python3 tools/test_git_adapter.py` reports all assigned cases passing with zero failures.
+- [x] Exact-commit sync and ancestor no-op receipts include pre/post HEAD and changed paths.
+- [x] Rebase/merge conflicts abort and restore the original clean state; no side is auto-selected.
+- [x] Incomparable multiple checkpoints return serial recovery.
+- [x] Changed HEAD invalidates affected gate, Technical Verifier, and deep-review receipts.
+- [x] Verified slice commits survive deterministic feature-branch integration.
+- [x] `python3 tools/test_git_adapter.py` reports all assigned cases passing with zero failures.
 
-**Tests:** UT-004–UT-006 in `tools/test_git_adapter.py`
+**Tests:** UT-004–UT-006 in `tools/test_git_adapter.py` (7 cases)
 **Gate:** Quick. Commit `feat(workflow): reconcile slice checkpoints`.
 
 ### T5: Freeze the consumer resource provider
