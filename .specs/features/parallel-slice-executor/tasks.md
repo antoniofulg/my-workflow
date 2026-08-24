@@ -236,7 +236,7 @@ remain blocked only until Slice A passes its Technical Verifier.
 
 ### T2R5: Prove safe-mode CLI resume
 
-**Remediation status:** pending
+**Remediation status:** complete
 **Slice:** A
 **Remediation resources:** none
 **Observable behaviour:** Public CLI `resume` loads persisted pending safe-mode state, constructs the selected adapter, reconciles the receipt without a duplicate effect, and emits its own correlated JSON result.

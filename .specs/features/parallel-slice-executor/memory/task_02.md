@@ -8,3 +8,5 @@
 - T2R2 regression gate: `python3 tools/test_parallel_executor.py` passed with 25 cases during implementation; pending action boundaries and Git destination contract are covered.
 - T2R3 regression gate: `python3 tools/test_parallel_executor.py` passed with 26 cases during implementation; pending worker, nested lease, no-legacy-adapter, and CLI resume cases are covered.
 - T2R4 gate: targeted IT-008 passed with 23 tests; full npm gate and strict documentation/task/index checks remain the commit gate.
+- T2R5 gate: `python3 tools/test_parallel_executor.py` passed with 27 cases; public safe-mode `resume` uses the injected adapter seam to reconcile a persisted pending worker without a duplicate effect.
+- T2R5 evidence preserves the prior `validation.md` FAIL report and L-015 lesson while closing its IT-001 persisted-state resume gap.

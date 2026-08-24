@@ -823,13 +823,18 @@ def _adapter_factory(name: str, root: Path, feature: str) -> Callable[[], Any] |
     return lambda: factory(root=root, feature=feature)
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(
+    argv: list[str] | None = None, *, adapter_factory: Callable[[], Any] | None = None
+) -> int:
     args = _parser().parse_args(argv)
     try:
+        selected_adapter_factory = adapter_factory
+        if selected_adapter_factory is None and args.command != "status":
+            selected_adapter_factory = _adapter_factory(args.adapter, args.root, args.feature)
         coordinator = Coordinator(
             args.root,
             args.feature,
-            adapter_factory=None if args.command == "status" else _adapter_factory(args.adapter, args.root, args.feature),
+            adapter_factory=None if args.command == "status" else selected_adapter_factory,
         )
         if args.command == "status":
             result = coordinator.status()

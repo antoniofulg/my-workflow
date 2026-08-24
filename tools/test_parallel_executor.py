@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+import io
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / ".agents/skills/autonomous/scripts"))
@@ -601,6 +603,87 @@ def test_executor_cli_start_resume_status_emit_one_json_object_and_status_has_no
         assert resumed["command"] == "resume"
         assert resumed["reason"] == "disabled-mode"
         assert resumed["fallback"] is True
+    finally:
+        shutil.rmtree(root)
+
+
+def test_executor_cli_safe_resume_reconciles_pending_worker_through_injected_adapter() -> None:
+    root = make_repo()
+    try:
+        probe = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter())
+        snapshot = probe._workflow()
+        source_head = snapshot["git_head"]
+        probe._prepare_repository()
+        worker_key = parallel_execute.idempotency_key("fixture", "A", "T1", "worker", source_head)
+        worktree_key = parallel_execute.idempotency_key("fixture", "A", "T1", "worktree", source_head)
+        destination = parallel_execute.derive_worktree_destination(root, "fixture", "A", "T1")
+        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "safe", source_head)
+        state["lanes"]["slice-A"] = {
+            "slice": "A",
+            "task": "T1",
+            "state": "running",
+            "resources": [],
+            "worktree_id": "wt-A",
+            "worktree_path": str(destination),
+            "branch": "slice/A",
+            "pre_head": source_head,
+        }
+        state["actions"][worktree_key] = {
+            "key": worktree_key,
+            "action": "worktree",
+            "status": "accepted",
+            "lane": "slice-A",
+            "external_id": "wt-A",
+            "receipt": {
+                "worktree_id": "wt-A",
+                "worktree_path": str(destination),
+                "branch": "slice/A",
+                "pre_head": source_head,
+            },
+        }
+        state["actions"][worker_key] = {
+            "key": worker_key,
+            "action": "worker",
+            "status": "pending",
+            "lane": "slice-A",
+        }
+        parallel_execute.atomic_write_json(probe.state_path, state)  # type: ignore[arg-type]
+
+        class ResumeRecordingAdapter(RecordingAdapter):
+            def __init__(self) -> None:
+                super().__init__()
+                self.reconciled: list[str] = []
+
+            def reconcile_action(self, action: dict[str, object]) -> dict[str, str]:
+                self.reconciled.append(str(action["action"]))
+                return {"dispatch_id": "dispatch-resumed", "status": "running"}
+
+        adapter = ResumeRecordingAdapter()
+        original_plan = parallel_execute.Coordinator._plan
+        parallel_execute.Coordinator._plan = lambda self: lane_plan(resources=[])  # type: ignore[method-assign]
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        try:
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                exit_code = parallel_execute.main(
+                    ["resume", "--root", str(root), "--feature", "fixture"],
+                    adapter_factory=lambda: adapter,
+                )
+        finally:
+            parallel_execute.Coordinator._plan = original_plan  # type: ignore[method-assign]
+        assert exit_code == 0
+        assert stderr.getvalue() == ""
+        lines = stdout.getvalue().splitlines()
+        assert len(lines) == 1
+        result = json.loads(lines[0])
+        assert result["command"] == "resume"
+        assert result["fallback"] is False
+        assert result["state"]["lanes"]["slice-A"]["state"] == "running"
+        assert result["state"]["actions"][worker_key]["status"] == "accepted"
+        assert result["state"]["actions"][worker_key]["external_id"] == "dispatch-resumed"
+        assert result["state"]["actions"][worker_key]["receipt"]["dispatch_id"] == "dispatch-resumed"
+        assert adapter.reconciled == ["worker"]
+        assert adapter.effects == []
     finally:
         shutil.rmtree(root)
 
