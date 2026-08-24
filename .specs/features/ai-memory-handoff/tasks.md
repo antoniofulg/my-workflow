@@ -63,7 +63,7 @@ T1 → T2 → T3 → T4 → T5
 
 ### T3: Publish the optional integration entry point
 
-**Status:** pending
+**Status:** complete
 **What:** Add the public optional-integration pointer without changing `scripts/adopt.py`.
 **Where:** `README.md`
 **Depends on:** T2

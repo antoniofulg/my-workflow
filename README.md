@@ -141,9 +141,13 @@ available:
 - **Graft** can enrich deep-review context; absence or failure falls back to repository inspection.
 - **OpenDesign** can support visual iteration; the repository stores only the approved handoff, and
   absence or failure falls back to normal repository artifacts.
+- **ai-memory** can carry one pending handoff between Claude Code, Codex, and Cursor after provider
+  exhaustion; it is optional, is not installed by adoption, and never replaces repository authority.
+  Use the [minimal handoff contract](docs/workflow/ai-memory.md) for pinned local setup and the
+  Codex `handoff` fallback.
 
 No integration is mandatory or installed by adoption. Keep daemon, port, CLI and version details in
-the relevant skill.
+the relevant integration documentation.
 
 Paste this once to an agent, replacing the pack and target paths:
 
