@@ -3,13 +3,13 @@
 **Verdict**: FAIL
 **Date:** 2026-08-24
 **Phase:** Technical Verification
-**Scope:** Slice A prior PASS retained; Slice B/T3 technical verification added below
+**Scope:** Slice A prior PASS retained; Slice B/T3 re-verified after T3R2
 **Spec:** `.specs/features/parallel-slice-executor/spec.md`
-**Diff range:** `d73071c..fac5577`
-**Incremental remediation:** `2ae0482..fac5577`
+**Diff range:** `d73071c..591e68e`
+**Incremental remediation:** `f0c3e5d..591e68e`
 **Verifier:** independent Verifier, author != verifier
 
-This report retains the prior Slice A PASS and records a Slice B FAIL. It does not mark the feature
+This report retains the prior Slice A PASS and records a Slice B PASS. It does not mark the feature
 complete, run deep-review, run the Orca pilot, or perform QA Plan/QA Execute.
 
 ## Verdict
@@ -133,100 +133,94 @@ deep-review, QA Plan, and QA Execute remain outside this verdict.
 
 ## Slice B / T3 Technical Verification
 
-**Verdict:** FAIL
+**Verdict:** PASS
 **Date:** 2026-08-24
-**Diff range:** `cbf5b62..f0c3e5d` (T3R1 focus: `77736e6..f0c3e5d`)
+**Diff range:** `cbf5b62..591e68e` (T3R2 focus: `f0c3e5d..591e68e`)
 **Tests in scope:** IT-002–IT-004, SEC-005, SEC-006
 **Verifier:** independent Verifier, author != verifier
 
-T3R1 closes release-before-validation and adds the live Run-delivery completion path, but Slice B is
-not technically verified. The coordinator still accepts a sparse worker receipt and marks the lane
-running, never calls `end_waiter` before dependency follow-up, and persists an unredacted live waiter
-payload. One strict-correlation mutant also survives. The prior Slice A PASS remains unchanged.
+T3R2 closes all five Slice B fingerprints. Exact worker receipts are checked before `running`, clean
+waiters end and persist before restart-safe same-terminal follow-up, nested Delivery secrets are
+redacted, and missing/duplicate receipts select serial recovery. The prior Slice A PASS remains
+unchanged.
 
 ### Spec-Anchored Acceptance Criteria
 
 | Requirement | Spec-defined outcome | Evidence | Result |
 | --- | --- | --- | --- |
-| EXE-06 | Validated child Git worktree exists before provider preparation and Orca attaches only to that checkout. | Destination preflight is `.agents/skills/autonomous/scripts/parallel_execute.py:698-707`; accepted worktree precedes `start_worker` at `:755-836`. `tools/test_parallel_executor.py:1192-1221` asserts creation before attachment, and `tools/test_orca_adapter.py:111-129` asserts `path:<existing>` with no Orca worktree creation. | PASS |
-| EXE-07 | Exact worktree, branch, run, task, dispatch, terminal, and source HEAD are validated before lane becomes running. | Orca validates the complete authoritative receipt at `.agents/skills/autonomous/scripts/orca_adapter.py:161-222,224-250`. The coordinator only checks `Mapping`, accepts it, copies whichever four fields happen to exist, then transitions at `.agents/skills/autonomous/scripts/parallel_execute.py:827-845`. `tools/test_parallel_executor.py:1183-1221` supplies only `dispatch_id/status` and still asserts successful parallel start. | FAIL |
-| EXE-08 | `worker_done` is read, correlated to the dispatched task, accepted by the coordinator, then released. | Live Delivery correlation is `.agents/skills/autonomous/scripts/orca_adapter.py:252-310`; read/redaction/accept/release is `:312-405`; coordinator order is `.agents/skills/autonomous/scripts/parallel_execute.py:565,596-600`. `tools/test_parallel_executor.py:691-753` asserts `check, read, accept, release`; sensor M1 kills release-before-validation and M3 kills lifecycle bypass. | PASS |
-| EXE-09 | Clean waiter ends its turn; only the declared dependency event starts follow-up on the same terminal. | Coordinator persists `waiting` at `.agents/skills/autonomous/scripts/parallel_execute.py:568-573` and can call `follow_up` at `:574-595`, but never calls `end_waiter`. Orca requires its instance-local `_ended_waiters` marker at `.agents/skills/autonomous/scripts/orca_adapter.py:407-439`. The public test explicitly observes only `wait` for waiting at `tools/test_parallel_executor.py:758-805`; only the direct same-instance adapter test at `tools/test_orca_adapter.py:173-196` reaches follow-up. | FAIL |
-| EXE-10 | Missing dependency uses Orca blocking wait and emits no model polling instruction; timeout leaves state unchanged. | `.agents/skills/autonomous/scripts/orca_adapter.py:363-386` issues run-scoped `check --wait`; `tools/test_orca_adapter.py:199-230` asserts blocking argv and no follow-up/release. `tools/test_parallel_executor.py:758-805` asserts timeout keeps the lane running with only one wait call. | PASS |
-| EXE-11 | Missing, mismatched, dirty, duplicate, escalated, or failed receipts halt the lane, choose serial recovery, and start no replacement. | Adapter rejection is `.agents/skills/autonomous/scripts/orca_adapter.py:252-299`; coordinator serial recovery is `.agents/skills/autonomous/scripts/parallel_execute.py:611-616`. `tools/test_parallel_executor.py:758-805` proves invalid/escalated public outcomes, while `tools/test_orca_adapter.py:265-285` proves mismatch/dirty/escalation/failure directly. No assertion supplies a duplicate Delivery or missing authoritative field through the public coordinator. | GAP |
-| SEC-005 | Every Orca response is correlated to current idempotency key and declared lane. | Strict worker and Delivery checks exist at `.agents/skills/autonomous/scripts/orca_adapter.py:161-195,252-279`. Sensor M2 replaced missing-field rejection with local expected values and all 10 adapter tests still passed, so the contracted missing-field boundary is not discriminated. | GAP |
-| SEC-006 | Logs, errors, and state redact environment values and worker transcript bodies. | Worker transcript is redacted at `.agents/skills/autonomous/scripts/orca_adapter.py:312-343`, asserted at `tools/test_orca_adapter.py:154-168,213-227`. `_delivery` returns raw nested `payload` at `.agents/skills/autonomous/scripts/orca_adapter.py:300-310`, and coordinator persists that object for a waiter at `.agents/skills/autonomous/scripts/parallel_execute.py:568-572`. A live-shaped probe returned `secret_survives=true` and `environment_survives=true`. | FAIL |
+| EXE-06 | Validated child Git worktree exists before provider preparation and Orca attaches only to that checkout. | Destination preflight is `.agents/skills/autonomous/scripts/parallel_execute.py:725-745`; accepted worktree is persisted before worker start at `:782-808,854-866`. `tools/test_orca_adapter.py:111-129` asserts `path:<existing>` plus all receipt IDs; `tools/test_parallel_executor.py:1298-1328` proves a precreated worktree is observed even when a sparse worker receipt is rejected. | PASS |
+| EXE-07 | Exact worktree, branch, run, task, dispatch, terminal, and source HEAD are validated before lane becomes running. | Adapter validation is `.agents/skills/autonomous/scripts/orca_adapter.py:180-215`; coordinator validation precedes acceptance/transition at `.agents/skills/autonomous/scripts/parallel_execute.py:621-643,854-873`. `tools/test_orca_adapter.py:311-329` rejects every missing authoritative field; `tools/test_parallel_executor.py:1298-1328` rejects a sparse receipt. | PASS |
+| EXE-08 | `worker_done` is read, correlated to the dispatched task, accepted by the coordinator, then released. | Delivery correlation is `.agents/skills/autonomous/scripts/orca_adapter.py:271-330`; read/accept/release is `:332-425`; coordinator order is `.agents/skills/autonomous/scripts/parallel_execute.py:599-612`. `tools/test_parallel_executor.py:702-764` asserts exact `check, read, accept, release`; `tools/test_orca_adapter.py:154-168` asserts the adapter order. | PASS |
+| EXE-09 | Clean waiter ends its turn; only the declared dependency event starts follow-up on the same terminal. | Coordinator calls `end_waiter`, persists `ended`, then handles dependency follow-up at `.agents/skills/autonomous/scripts/parallel_execute.py:565-598`; adapter enforces ended state and same terminal at `.agents/skills/autonomous/scripts/orca_adapter.py:427-459`. `tools/test_parallel_executor.py:833-881` asserts end-before-restart-follow-up and terminal identity. Sensor M3 kills omission of `end_waiter`. | PASS |
+| EXE-10 | Missing dependency uses Orca blocking wait and emits no model polling instruction; timeout leaves state unchanged. | `.agents/skills/autonomous/scripts/orca_adapter.py:383-406` issues run-scoped `check --wait`; `tools/test_orca_adapter.py:203-212` asserts timeout and no send/start/release, while `tools/test_parallel_executor.py:769-826` asserts running state remains unchanged. | PASS |
+| EXE-11 | Missing, mismatched, dirty, duplicate, escalated, or failed receipts halt the lane, choose serial recovery, and start no replacement. | Adapter rejection is `.agents/skills/autonomous/scripts/orca_adapter.py:271-301`; coordinator serial recovery is `.agents/skills/autonomous/scripts/parallel_execute.py:614-619,874-883`. `tools/test_orca_adapter.py:280-294,311-354` asserts duplicate, missing, mismatch, dirty, escalation, and failure; `tools/test_parallel_executor.py:769-826` asserts public missing/duplicate outcomes become serial with no release/replacement. | PASS |
+| SEC-005 | Every Orca response is correlated to current idempotency key and declared lane. | Strict adapter correlation is `.agents/skills/autonomous/scripts/orca_adapter.py:180-215,271-298`; coordinator independently validates the full receipt at `.agents/skills/autonomous/scripts/parallel_execute.py:621-643`. `tools/test_orca_adapter.py:311-329` asserts each missing field halts; sensor M1 kills local-value substitution. | PASS |
+| SEC-006 | Logs, errors, and state redact environment values and worker transcript bodies. | Recursive redaction is `.agents/skills/autonomous/scripts/orca_adapter.py:17-33,318-329`; transcript redaction is `:332-363`. `tools/test_orca_adapter.py:257-275` asserts nested token/password removal; `tools/test_parallel_executor.py:822-825,881` asserts persisted waiter/state contains no secret. Sensor M2 kills raw payload persistence. | PASS |
 
-**Spec-anchored status:** 3 PASS, 3 FAIL, 2 GAP for Slice B.
+**Spec-anchored status:** 8 PASS, 0 FAIL, 0 GAP for Slice B.
 
 ### Test Contract Disposition
 
 | Case | Contracted outcome | Evidence | Result |
 | --- | --- | --- | --- |
-| IT-002 | Worktree precedes worker start; receipt contains every correlated ID. | Worktree ordering is proven, but `tools/test_parallel_executor.py:1183-1221` contradicts the receipt half by accepting a sparse worker receipt into running state. | FAIL |
-| IT-003 | Read before release; same-terminal follow-up; timeout unchanged. | Completion and timeout are proven at `tools/test_parallel_executor.py:691-805`; public follow-up is not. Coordinator omits `end_waiter` before `.agents/skills/autonomous/scripts/parallel_execute.py:586`. | FAIL |
-| IT-004 | Invalid receipt halts lane and no replacement starts. | `tools/test_parallel_executor.py:758-805` proves invalid/escalated serial recovery; `tools/test_orca_adapter.py:265-285` proves four direct invalid classes. Missing and duplicate public cases have no assertion. | GAP |
-| SEC-005 | Different lane or idempotency key is rejected and lane halted. | Code is strict, but sensor M2 survived the removal of missing-field rejection. Under `docs/guidelines/TEST-CONTRACT.md:53-55`, the case remains hollow for absent correlation fields. | HOLLOW / GAP |
-| SEC-006 | Secret values never survive in output/state; only keys/redaction markers remain. | Transcript assertion passes at `tools/test_orca_adapter.py:154-168`; a live waiter with nested environment secret survives `_delivery` and is persisted by the coordinator. | FAIL |
+| IT-002 | Worktree precedes worker start; receipt contains every correlated ID. | `tools/test_orca_adapter.py:111-129` asserts existing-worktree attachment and exact IDs; `tools/test_parallel_executor.py:1298-1328` asserts sparse receipt rejection before `running`. | PASS |
+| IT-003 | Read before release; same-terminal follow-up; timeout unchanged. | `tools/test_parallel_executor.py:702-764` asserts completion order, `:769-826` asserts timeout/waiter outcomes, and `:833-881` asserts persisted end before restart follow-up on the same terminal. | PASS |
+| IT-004 | Invalid receipt halts lane and no replacement starts. | `tools/test_orca_adapter.py:280-294,311-354` covers duplicate, missing, mismatched, dirty, escalated, and failed receipts; `tools/test_parallel_executor.py:769-826` proves public serial recovery for missing/duplicate delivery. | PASS |
+| SEC-005 | Different lane, idempotency key, or absent authoritative field is rejected and lane halted. | `tools/test_orca_adapter.py:311-329,334-354` asserts missing/mismatched correlation; `tools/test_parallel_executor.py:1298-1328` asserts the coordinator rejects sparse receipts. Sensor M1 dies. | PASS |
+| SEC-006 | Secret values never survive in output/state; only keys/redaction markers remain. | `tools/test_orca_adapter.py:154-168,257-275` asserts transcript and nested Delivery redaction; `tools/test_parallel_executor.py:822-825,881` asserts persisted state excludes the secret. Sensor M2 dies. | PASS |
 
-Hollow-case disposition follows `docs/guidelines/TEST-CONTRACT.md:53-55`: a present test does not
-cover a contracted outcome it cannot discriminate. Live schemas used by the implementation and
-fixtures are the Run Delivery at `.agents/skills/autonomous/scripts/orca_adapter.py:252-310` /
-`tools/test_orca_adapter.py:89-108` and worker output at `.agents/skills/autonomous/scripts/orca_adapter.py:312-343` /
-`tools/test_orca_adapter.py:100-108`. No real worker or pilot was created.
+All five cases assert their contracted outcomes at the owning adapter and public coordinator layers.
+No hollow-case consultation was needed for T3R2. No real worker or Orca pilot was created.
 
 ### Gate Evidence
 
-- `python3 tools/test_orca_adapter.py` -> exit 0, `10 passed, 0 failed`; 0 skipped.
-- `python3 tools/test_parallel_executor.py` -> exit 0, `29 passed, 0 failed`; 0 skipped.
-- Adapter suite at `cbf5b62`: absent; at `f0c3e5d`: 10 tests; delta +10.
-- `python3 .../tlc-spec-driven/scripts/validate_spec.py .specs/features/parallel-slice-executor/spec.md` -> exit 0, 0 errors, 0 warnings.
-- `python3 .../tlc-spec-driven/scripts/validate_tasks.py .specs/features/parallel-slice-executor/tasks.md` -> exit 0, 0 errors, 0 warnings.
-- `git diff --check cbf5b62..f0c3e5d` and `git diff --check 77736e6..f0c3e5d` -> exit 0, no output.
+- `python3 tools/test_orca_adapter.py` -> exit 0, `13 passed, 0 failed`; 0 skipped.
+- `python3 tools/test_parallel_executor.py` -> exit 0, `30 passed, 0 failed`; 0 skipped.
+- Adapter suite at `cbf5b62`: absent; at `591e68e`: 13 tests; delta +13. Executor suite: 30 tests at `591e68e`.
+- `python3 .../tlc-spec-driven/scripts/validate_spec.py .specs/features/parallel-slice-executor/spec.md --strict` -> exit 0, 0 errors, 0 warnings.
+- `python3 .../tlc-spec-driven/scripts/validate_tasks.py .specs/features/parallel-slice-executor/tasks.md --strict` -> exit 0, 0 errors, 0 warnings.
+- `python3 tools/ad-index.py --check` -> exit 0, `AD-INDEX.md up to date`.
+- `git diff --check cbf5b62..591e68e` and `git diff --check f0c3e5d..591e68e` -> exit 0, no output.
 - `python3 -m py_compile .agents/skills/autonomous/scripts/orca_adapter.py tools/test_orca_adapter.py .agents/skills/autonomous/scripts/parallel_execute.py tools/test_parallel_executor.py` -> exit 0.
+- `python3 .../tlc-spec-driven/scripts/validate_state.py parallel-slice-executor` -> exit 1 because the report-level feature verdict remains `FAIL`; expected, since Slice B PASS does not close T4-T7, pilot, deep-review, or QA.
 
 ### Discrimination Sensor
 
 Baseline real-tree porcelain was empty. Each mutation ran in its own detached temporary worktree at
-`f0c3e5d`; all scratches were removed. Real-tree porcelain matched the baseline before this report
+`591e68e`; all scratches were removed. Real-tree porcelain matched the baseline before this report
 edit.
 
 | Mutation | Behavior fault | Directed result | Outcome |
 | --- | --- | --- | --- |
-| M1 | `release` performs `worker-release` before checking `accepted`. | Adapter suite exit 1 at `tools/test_orca_adapter.py:242`; unexpected destructive call. | KILLED |
-| M2 | Missing worker receipt fields are filled from local expectations instead of rejected. | Adapter suite exit 0, `10 passed, 0 failed`. | SURVIVED -> fix task |
-| M3 | Coordinator resume marks a running lane complete without `check/read/accept/release`. | Executor suite exit 1 at `tools/test_parallel_executor.py:753`. | KILLED |
+| M1 | Missing worker receipt fields are filled from local expectations instead of rejected. | Adapter suite exit 1 at `tools/test_orca_adapter.py:328`: `missing worktree_id must halt`. | KILLED |
+| M2 | Nested Delivery payload bypasses `_redact_payload` and returns raw secrets. | Adapter suite exit 1 at `tools/test_orca_adapter.py:272`: expected `TOKEN == "<redacted>"`. | KILLED |
+| M3 | Coordinator marks waiter ended without calling `end_waiter`. | Executor suite exit 1 at `tools/test_parallel_executor.py:826`: expected `wait, end_waiter` order. | KILLED |
 
-**Sensor:** lightweight, 3 injected, 2 killed, 1 survived. FAIL.
+**Sensor:** lightweight, 3 injected, 3 killed, 0 survived. PASS.
 
 ### Prior Fingerprint Re-derivation and AD-012 Counts
 
-`docs/guidelines/REVIEW-ROUNDS.md:89-91` is canonical for AD-012 accounting: identity is requirement +
-root cause + failure path, and only failed scoped post-fix verification increments that fingerprint.
+AD-012 identity remains requirement + root cause + concrete failure path. A passing scoped
+re-verification adds zero failed-remediation increments; historical counts remain durable.
 
-| Prior fingerprint | T3R1 disposition | Failed-remediation count |
-| --- | --- | --- |
-| `EXE-08/IT-003 + release validates after destructive cleanup + invalid supplied result reaches release` | CLOSED; `tools/test_orca_adapter.py:235-247` and sensor M1 reject release before acceptance. | 0 |
-| `EXE-08–EXE-11 + coordinator never drives live Orca deliveries + started lane is never reconciled through check` | CLOSED for completion/check by `.agents/skills/autonomous/scripts/parallel_execute.py:553-610` and sensor M3. A distinct EXE-09 waiter fingerprint remains below. | 0 |
-| `EXE-07 + lane transitions running after worktree only + worker receipt validation occurs later` | REMAINS: coordinator accepts a sparse receipt at `.agents/skills/autonomous/scripts/parallel_execute.py:837-845`; `tools/test_parallel_executor.py:1183-1221` reaches running without the exact IDs. | 1 |
-| `SEC-005/SEC-006 + recording double invents receipt/event fields + live worker output/delivery schema bypasses claimed correlation and redaction` | PARTIAL: live schemas are separated and start correlation is strict, but M2 survives and nested Delivery secrets remain unredacted. | 1 |
+| Fingerprint | T3R2 disposition | Prior count | T3R2 increment | Resulting count |
+| --- | --- | ---: | ---: | ---: |
+| `SEC-006 + raw nested Delivery payload is returned + waiting coordinator persists environment secret` | CLOSED by recursive redaction at `.agents/skills/autonomous/scripts/orca_adapter.py:17-33,318-329`, assertions at `tools/test_orca_adapter.py:257-275` / `tools/test_parallel_executor.py:822-825,881`, and killed M2. | 1 | 0 | 1 |
+| `EXE-09/IT-003 + coordinator omits end_waiter + dependency follow-up reaches adapter without ended-turn marker` | CLOSED by `.agents/skills/autonomous/scripts/parallel_execute.py:565-598`, restart assertion at `tools/test_parallel_executor.py:833-881`, and killed M3. | 1 | 0 | 1 |
+| `EXE-07 + coordinator accepts incomplete worker receipt + lane becomes running without exact IDs` | CLOSED by coordinator validation at `.agents/skills/autonomous/scripts/parallel_execute.py:621-643,854-873` and sparse-receipt rejection at `tools/test_parallel_executor.py:1298-1328`. | 1 | 0 | 1 |
+| `SEC-005 + missing-field rejection has no negative assertion + local-value substitution survives` | CLOSED by all-field negative cases at `tools/test_orca_adapter.py:311-329` and killed M1. | 1 | 0 | 1 |
+| `EXE-11/IT-004 + missing/duplicate public outcomes are unasserted + serial recovery is not discriminated` | CLOSED by direct duplicate/missing assertions at `tools/test_orca_adapter.py:280-329` and public serial outcomes at `tools/test_parallel_executor.py:769-826`. | 1 | 0 | 1 |
 
-Distinct fingerprints first observed in this pass start independently at one: `EXE-09/IT-003 +
-coordinator omits end_waiter + dependency follow-up reaches adapter without the ended-turn marker` and
-`EXE-11/IT-004 + no missing/duplicate public assertion + those serial-recovery branches are not
-discriminated`.
+Earlier T3 fingerprints already closed in T3R1 remain closed with their recorded count 0; T3R2
+does not reopen or increment them.
 
-### Ranked Gaps and Fix Tasks
+### Ranked Gaps
 
-1. **Blocker, count 1** — fingerprint `SEC-006 + raw nested Delivery payload is returned + waiting coordinator persists environment secret`: redact credential-shaped values before `_delivery` returns and assert the public persisted state contains keys/markers only.
-2. **Blocker, count 1** — fingerprint `EXE-09/IT-003 + coordinator omits end_waiter + dependency follow-up reaches adapter without ended-turn marker`: drive end-waiter and dependency follow-up through public resume, including restart-safe state, then assert same terminal and no premature follow-up.
-3. **Major, count 1** — fingerprint `EXE-07 + coordinator accepts incomplete worker receipt + lane becomes running without exact IDs`: validate the full worker receipt at the coordinator boundary and make the sparse `WorkerOnlyAdapter` path serialize.
-4. **Major, count 1** — fingerprint `SEC-005 + missing-field rejection has no negative assertion + local-value substitution survives`: add live-shaped absent-field cases at the canonical adapter suite; sensor M2 must die.
-5. **Major, count 1** — fingerprint `EXE-11/IT-004 + missing/duplicate public outcomes are unasserted + serial recovery is not discriminated`: exercise missing and duplicate Deliveries through coordinator resume and assert serial lane/no replacement.
+None for Slice B technical verification.
 
 ### Slice B Summary
 
-**Overall:** FAIL. T3R1 closes two prior blocker paths, but one sensor survives and four public/security
-outcomes remain failed or hollow. Route the ranked gaps to an Implementer, then use a fresh Technical
-Verifier. This verdict does not complete the feature and does not authorize deep-review, a real Orca
-pilot, QA Plan, or QA Execute.
+**Overall:** PASS for Slice B only. EXE-06–EXE-11, IT-002–IT-004, SEC-005, and SEC-006 match their
+spec-defined outcomes; 43 scoped tests pass and all three behavior mutants die. This verdict does
+not complete the feature and does not authorize deep-review, a real Orca pilot, QA Plan, or QA
+Execute.

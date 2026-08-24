@@ -3,10 +3,10 @@
 ## Handoff
 
 - **Feature**: `.specs/features/parallel-slice-executor`
-- **Phase / Task**: Execute / Slice B / T3
-- **Completed**: T1, T2, T2R1, T2R2, T2R3, T2R4, T2R5; Slice A Technical Verifier PASS
+- **Phase / Task**: Execute / grouped deep-review slices A-B
+- **Completed**: T1, T2, T2R1-T2R5, T3, T3R1, T3R2; Slice A and Slice B Technical Verifier PASS
 - **In-progress** (file:line): none
-- **Next step**: Implement T3 Orca worker lifecycle, then dispatch its fresh Technical Verifier.
+- **Next step**: Run the first frozen deep-review group over slices A-B, remediate blocking findings within its cap, then start Slice C/T4.
 - **Blockers**: none
 - **Uncommitted files**: none after the blocker-record commit
 - **Branch**: `feat/parallel-slice-executor`
