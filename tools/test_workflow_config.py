@@ -338,6 +338,30 @@ def test_cli_rejects_non_roundtrip_model_identifier_before_writes() -> None:
         shutil.rmtree(root)
 
 
+def test_cli_rejects_codex_backslash_model_identifier_before_writes() -> None:
+    root = make_packet_root()
+    try:
+        before = {path: path.read_bytes() for path in packet_paths(root)}
+        config = root / ".my-workflow.toml"
+        config.write_text(
+            config.read_text(encoding="utf-8").replace(
+                'model = "codex-planner"', 'model = "foo\\\\bar"', 1
+            ),
+            encoding="utf-8",
+        )
+        resolver = Path(__file__).resolve().parent.parent / ".agents/skills/workflow-config/scripts/workflow_config.py"
+        result = subprocess.run(
+            [sys.executable, str(resolver), "--root", str(root), "--sync-agents"],
+            text=True, capture_output=True, check=False,
+        )
+        assert result.returncode == 2
+        assert result.stdout == ""
+        assert "models.codex.planner.model must be a valid native model identifier" in result.stderr
+        assert {path: path.read_bytes() for path in before} == before
+    finally:
+        shutil.rmtree(root)
+
+
 def test_sync_requires_native_header_metadata_for_every_provider() -> None:
     for provider in workflow_config.PROVIDERS:
         for duplicate in (False, True):
@@ -362,7 +386,7 @@ def test_sync_requires_native_header_metadata_for_every_provider() -> None:
                     if duplicate:
                         text = text.replace('model = "old-model"\n', 'model = "old-model"\nmodel = "duplicate"\n', 1)
                     else:
-                        text = text.replace('model = "old-model"\n', "", 1) + 'model = "body-model"\nmodel_reasoning_effort = "low"\n'
+                        text = text.replace('model = "old-model"\n', "", 1) + 'model = "body-model"\n'
                 packet.write_text(text, encoding="utf-8")
                 before = {path: path.read_bytes() for path in packet_paths(root)}
                 try:

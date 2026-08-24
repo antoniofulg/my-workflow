@@ -31,7 +31,7 @@ CONFIG_KEYS = {"version", "deep_review", "profiles", "models"}
 DEEP_REVIEW_KEYS = {"cadence"}
 MODEL_PROVIDERS = set(PROVIDERS)
 MODEL_KEYS = {"model", "effort"}
-MODEL_IDENTIFIER_RE = re.compile(r"^[^\s\[\]\"\r\n]+$")
+MODEL_IDENTIFIER_RE = re.compile(r"^[^\\\s\[\]\"\x00-\x1f\x7f]+$")
 FRONTMATTER_RE = re.compile(
     r"\A---(?P<open_newline>\r\n|\n)(?P<header>.*?)(?P<close_newline>\r\n|\n)---(?P<after_newline>\r\n|\n|\Z)",
     re.DOTALL,
@@ -277,6 +277,8 @@ def _codex_fields(content: str, path: Path) -> dict[str, list[tuple[int, int, re
         if table:
             current_table = table.group(1)
             continue
+        if current_table is None and re.match(r"^[ \t]*developer_instructions[ \t]*=", body):
+            break
         if current_table is None:
             model_match = CODEX_MODEL_ASSIGNMENT_RE.match(content, line_match.start())
             if model_match:

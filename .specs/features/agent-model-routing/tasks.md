@@ -318,13 +318,36 @@ the true top-level Codex model and effort fields.
 **Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
 **Commit**: `fix(config): parse Codex metadata at top level`
 
+### T12: Enforce Codex header boundaries and native round trips
+
+**What**: Stop Codex metadata scanning at the top-level `developer_instructions` assignment and
+reject backslash/control identifiers that cannot round-trip through generated TOML strings.
+**Where**: `.agents/skills/workflow-config/scripts/workflow_config.py`,
+`tools/test_workflow_config.py`
+**Depends on**: T11
+**Requirement**: AMR-01, AMR-03, AMR-07
+
+**Done when**:
+
+- [x] Top-level Codex model/effort assignments after `developer_instructions` do not satisfy the
+  native header; body/multiline bytes remain unchanged and sync fails before writes.
+- [x] Codex model IDs containing backslashes fail exact config validation before writes.
+- [x] Previous parser regressions are red in disposable worktrees and the corrected tree is green.
+- [x] Resolver, adoption, Vitest, validators, and diff gates pass.
+
+**Status:** complete — previous boundary and escaping behavior red; corrected tree 28 resolver tests, adoption suite, and 108 Vitest tests passed.
+
+**Tests**: unit and CLI/manual, `UT-002`, `UT-003`, `UT-006`
+**Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
+**Commit**: `fix(config): enforce Codex native header boundaries`
+
 ## Phase Execution Map
 
 ```text
 Phase 1 -> Phase 2
 
 Phase 1: T1 -> T2 -> T3
-Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11
+Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12
 ```
 
 ## Task Granularity Check
@@ -342,6 +365,7 @@ Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11
 | T9 | Configured cadence integration | PASS |
 | T10 | Packet grammar, bytes, and QA evidence | PASS |
 | T11 | Codex top-level metadata parsing | PASS |
+| T12 | Codex header boundary and native round trip | PASS |
 
 ## Diagram-Definition Cross-Check
 
@@ -358,6 +382,7 @@ Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11
 | T9 | T8 | T8 -> T9 | PASS |
 | T10 | T9 | T9 -> T10 | PASS |
 | T11 | T10 | T10 -> T11 | PASS |
+| T12 | T11 | T11 -> T12 | PASS |
 
 ## Test Co-location Validation
 
@@ -374,3 +399,4 @@ Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11
 | T9 | Configured cadence integration | unit + CLI/manual | unit + CLI/manual | PASS |
 | T10 | Packet grammar and public QA reset | unit + CLI/manual | unit + CLI/manual | PASS |
 | T11 | Codex top-level metadata | unit + CLI/manual | unit + CLI/manual | PASS |
+| T12 | Codex native boundary and round trip | unit + CLI/manual | unit + CLI/manual | PASS |
