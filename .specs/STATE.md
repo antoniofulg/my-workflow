@@ -3,11 +3,11 @@
 ## Handoff
 
 - **Feature**: `.specs/features/parallel-slice-executor`
-- **Phase / Task**: Execute / Slice A / T2R4
-- **Completed**: T1, T2, T2R1, T2R2, T2R3
+- **Phase / Task**: Execute / Slice B / T3
+- **Completed**: T1, T2, T2R1, T2R2, T2R3, T2R4, T2R5; Slice A Technical Verifier PASS
 - **In-progress** (file:line): none
-- **Next step**: Implement blocker-scoped convergence in T2R4, then T2R5 safe-mode resume and a fresh Technical Verifier before T3-T7.
-- **Blockers**: none; the human cleared the global-cap halt and retained IT-001 as the active blocker fingerprint.
+- **Next step**: Implement T3 Orca worker lifecycle, then dispatch its fresh Technical Verifier.
+- **Blockers**: none
 - **Uncommitted files**: none after the blocker-record commit
 - **Branch**: `feat/parallel-slice-executor`
 
