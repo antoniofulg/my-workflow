@@ -643,23 +643,50 @@ def test_graft_ignore_contract_and_search_visibility() -> None:
         shutil.rmtree(tmp)
 
 
+TESTS = (
+    "test_fresh_and_refuse",
+    "test_consumer_ad_index_is_preserved_on_readopt",
+    "test_skip_agents_preserves_product_files_and_adopts_rest",
+    "test_skip_agents_preserves_absent_claude_file",
+    "test_runtime_edits_are_overwritten_from_templates_on_readopt",
+    "test_adoption_installs_v2_config_and_syncs_fifteen_packets",
+    "test_adoption_rejects_invalid_template_before_runtime_writes",
+    "test_adoption_rejects_malformed_local_config_without_partial_writes",
+    "test_existing_config_drives_all_native_values_and_preserves_non_model_bytes",
+    "test_gitignore_rules_merge_without_overwrite",
+    "test_deep_review_learnings_survive_consumer_parent_ignore",
+    "test_feature_specs_are_versioned_and_legacy_ignore_is_removed",
+    "test_graft_ignore_contract_and_search_visibility",
+    "test_deep_review_skill_adoption_and_artifact_hygiene",
+    "test_pack_guide_stays_source_only_and_tour_has_no_dead_link",
+    "test_external_security_step_is_printed_without_installing_security_trees",
+    "test_global_tlc_paths_reject_without_mutation",
+    "test_project_local_tlc_path_is_accepted",
+)
+
+
+def run_registered_tests() -> None:
+    defined = {
+        name for name, value in globals().items()
+        if name.startswith("test_") and callable(value)
+    }
+    registered = set(TESTS)
+    missing = sorted(defined - registered)
+    duplicates = sorted({name for name in TESTS if TESTS.count(name) > 1})
+    unknown = sorted(registered - defined)
+    errors = []
+    if missing:
+        errors.append(f"missing: {', '.join(missing)}")
+    if duplicates:
+        errors.append(f"duplicate: {', '.join(duplicates)}")
+    if unknown:
+        errors.append(f"unknown: {', '.join(unknown)}")
+    if errors:
+        raise SystemExit("test registry mismatch: " + "; ".join(errors))
+    for name in TESTS:
+        globals()[name]()
+
+
 if __name__ == "__main__":
-    test_fresh_and_refuse()
-    test_consumer_ad_index_is_preserved_on_readopt()
-    test_skip_agents_preserves_product_files_and_adopts_rest()
-    test_skip_agents_preserves_absent_claude_file()
-    test_runtime_edits_are_overwritten_from_templates_on_readopt()
-    test_adoption_installs_v2_config_and_syncs_fifteen_packets()
-    test_adoption_rejects_invalid_template_before_runtime_writes()
-    test_adoption_rejects_malformed_local_config_without_partial_writes()
-    test_existing_config_drives_all_native_values_and_preserves_non_model_bytes()
-    test_gitignore_rules_merge_without_overwrite()
-    test_deep_review_learnings_survive_consumer_parent_ignore()
-    test_feature_specs_are_versioned_and_legacy_ignore_is_removed()
-    test_graft_ignore_contract_and_search_visibility()
-    test_deep_review_skill_adoption_and_artifact_hygiene()
-    test_pack_guide_stays_source_only_and_tour_has_no_dead_link()
-    test_external_security_step_is_printed_without_installing_security_trees()
-    test_global_tlc_paths_reject_without_mutation()
-    test_project_local_tlc_path_is_accepted()
+    run_registered_tests()
     print("ok")

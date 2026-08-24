@@ -562,6 +562,28 @@ local config, native values, and non-model bytes.
 **Gate**: Build, `python3 scripts/test_adopt.py && npm test && python3 tools/test_workflow_config.py`
 **Commit**: `test(adopt): run customized local config contract`
 
+### T22: Enforce complete adoption smoke registry
+
+**What**: Replace manual adoption test calls with a deterministic registry that rejects missing,
+duplicate, or unknown test registrations before execution.
+**Where**: canonical adoption integration runner
+**Depends on**: T21
+**Requirement**: AMR-07
+
+**Done when**:
+
+- [x] The registry names every module-global callable `test_*` exactly once and preserves the
+  existing deterministic execution order and `ok` output.
+- [x] Removing the customized-config registration makes the canonical runner fail non-zero with
+  the missing function name; the real registry executes all 18 tests successfully.
+- [x] Full Build, validators, diff, and commit checks pass without modifying `validation.md`.
+
+**Status:** complete — registry completeness is enforced and the removal mutant is red.
+
+**Tests**: integration, `IT-002`
+**Gate**: Build, `python3 scripts/test_adopt.py && npm test && python3 tools/test_workflow_config.py`
+**Commit**: `test(adopt): enforce complete smoke registry`
+
 ## Phase Execution Map
 
 ```text
@@ -569,7 +591,7 @@ Phase 1 -> Phase 2 -> Phase 3
 
 Phase 1: T1 -> T2 -> T3
 Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -> T14
-Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19 -> T20 -> T21
+Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19 -> T20 -> T21 -> T22
 ```
 
 ## Task Granularity Check
@@ -597,6 +619,7 @@ Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19 -> T20 -> T21
 | T19 | Revised architecture contract coverage | PASS |
 | T20 | Local write preflight and clean-clone contract | PASS |
 | T21 | Customized adoption runner contract | PASS |
+| T22 | Complete adoption smoke registry | PASS |
 
 ## Diagram-Definition Cross-Check
 
@@ -623,6 +646,7 @@ Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19 -> T20 -> T21
 | T19 | T18 | T18 -> T19 | PASS |
 | T20 | T19 | T19 -> T20 | PASS |
 | T21 | T20 | T20 -> T21 | PASS |
+| T22 | T21 | T21 -> T22 | PASS |
 
 ## Test Co-location Validation
 
@@ -649,3 +673,4 @@ Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19 -> T20 -> T21
 | T19 | Mixed profile and malformed adoption config | unit + integration | unit + integration | PASS |
 | T20 | Local collision and clean-clone ownership | unit + integration | unit + integration | PASS |
 | T21 | Customized local config adoption | integration | integration | PASS |
+| T22 | Complete adoption runner registry | integration | integration | PASS |
