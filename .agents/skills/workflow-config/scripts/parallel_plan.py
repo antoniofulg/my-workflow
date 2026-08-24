@@ -47,7 +47,9 @@ def _snapshot(root: Path, feature: str) -> dict[str, Any]:
         source_git_head = snapshot["git_head"]
     except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
         raise ValueError("invalid workflow snapshot") from exc
-    if mode not in MODES or not isinstance(source_git_head, str) or not source_git_head:
+    if not isinstance(mode, str) or mode not in MODES:
+        raise ValueError("invalid workflow snapshot")
+    if not isinstance(source_git_head, str) or not source_git_head:
         raise ValueError("invalid workflow snapshot")
     return {"mode": mode, "source_git_head": source_git_head}
 

@@ -92,8 +92,9 @@ T3 → T4
 | --- | --- | --- | --- | --- | --- | --- |
 | T2R1 | T2 | complete | Dependency eligibility precedes write-conflict evaluation; incomplete dependencies remain blocked; `in_progress` is never redispatched; `waiting` becomes `follow_up` only after dependencies complete. | Regression cases in `tools/test_parallel_plan.py` | `python3 tools/test_parallel_plan.py`, `python3 tools/test_workflow_config.py`, `git diff --check`, task validator | `fix(workflow): harden parallel planner readiness` |
 | T3R1 | T3 | complete | IT-006 proves exact dependency/head reporting, dirty-worker refusal, gate reruns after checkpoint and invalidation, affected evidence invalidation, and final reconciliation no-op. | Existing `tools/shared/tests/autonomous-parallelization.test.ts` IT-006 | Targeted Vitest, full npm/Python suites, validators, `git diff --check` | `test(workflow): enforce parallel orchestration safety` |
-| TDR1 | T3/T4 | complete | Deep-review blockers are closed: unreadable task input fails non-zero, planner validates snapshot identity/schema, checked-in v1 snapshots resume with disabled mode, and IT-006 pins clean checkpoints and sync ordering. | Existing workflow-config and autonomous contract suites | Full npm/Python suites, validators, AD index, `git diff --check` | `fix(workflow): close parallel dispatch review blockers` |
-| TDR1R1 | TDR1 | complete | Feature-mismatch and version-mismatch snapshots are independently rejected while all other snapshot fields remain valid. | Existing `tools/test_parallel_plan.py` snapshot validation test | Planner, config, full npm/Python suites, validators, `git diff --check` | `test(workflow): isolate snapshot identity invariants` |
+| TDR1 | T3/T4 | complete | Deep-review blockers are closed: unreadable task input fails non-zero, planner validates snapshot identity/schema, checked-in v1 snapshots resume with disabled mode, and IT-006 pins clean checkpoints and sync ordering. | UT-008 in `tools/test_parallel_plan.py`; existing workflow-config and autonomous contract suites | `npm_config_offline=true npm test`; `for test_file in tools/test_*.py; do python3 "$test_file" || exit 1; done`; `python3 .agents/skills/tlc-spec-driven/scripts/validate_spec.py .specs/features/parallel-slice-dispatch/spec.md`; `python3 .agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/parallel-slice-dispatch/tasks.md`; `python3 tools/ad-index.py --check`; `git diff --check` | `fix(workflow): close parallel dispatch review blockers` |
+| TDR1R1 | TDR1 | complete | Feature-mismatch and version-mismatch snapshots are independently rejected while all other snapshot fields remain valid. | Existing `tools/test_parallel_plan.py` snapshot validation test | `python3 tools/test_parallel_plan.py`; `python3 tools/test_workflow_config.py`; `python3 .agents/skills/tlc-spec-driven/scripts/validate_spec.py .specs/features/parallel-slice-dispatch/spec.md`; `python3 .agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/parallel-slice-dispatch/tasks.md`; `git diff --check` | `test(workflow): isolate snapshot identity invariants` |
+| TDR2 | TDR1R1 | complete | Malformed snapshot modes fail with the exact invalid-snapshot error, UT-008 is canonical, and remediation gates/cross-checks are executable and deterministic. | UT-008 and malformed-mode cases in `tools/test_parallel_plan.py` | `npm_config_offline=true npm test`; `for test_file in tools/test_*.py; do python3 "$test_file" || exit 1; done`; `python3 .agents/skills/tlc-spec-driven/scripts/validate_spec.py .specs/features/parallel-slice-dispatch/spec.md`; `python3 .agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/parallel-slice-dispatch/tasks.md`; `python3 tools/ad-index.py --check`; `git diff --check` | `fix(workflow): close second review defects` |
 
 ## Diagram-Definition Cross-Check
 
@@ -103,6 +104,14 @@ T3 → T4
 | T2 | T1 | Phase 1 precedes Phase 2 | Match |
 | T3 | T2 | Phase 2 precedes Phase 3 | Match |
 | T4 | T3 | `T3 → T4` | Match |
+
+## Remediation Dependency Cross-Check
+
+| Task | Depends On | Sequence | Status |
+| --- | --- | --- | --- |
+| TDR1 | T3/T4 | T3/T4 → TDR1 | Match |
+| TDR1R1 | TDR1 | TDR1 → TDR1R1 | Match |
+| TDR2 | TDR1R1 | TDR1R1 → TDR2 | Match |
 
 ## Test Co-location Validation
 

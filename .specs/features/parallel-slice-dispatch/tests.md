@@ -11,6 +11,7 @@
 | UT-005 | PAR-10 | Graph failure | Cycle, unknown dependency, missing slice, or ambiguous path | Plan falls back with the exact decisive reason. |
 | UT-006 | PAR-10 | Write collision | Two candidates share one exact `Where` path | Plan falls back and names both tasks. |
 | UT-007 | PAR-11 | Determinism | Same files and Git head planned twice | JSON bytes are equal. |
+| UT-008 | PAR-10 | Missing task input | `tasks.md` is missing or unreadable | CLI exits non-zero, emits empty stdout, and reports the read failure. |
 
 ## Integration
 
@@ -37,4 +38,5 @@ None. Inputs are local versioned workflow files; malformed input is covered by f
 | --- | --- |
 | IT-001–IT-004 | T1 |
 | UT-001–UT-007, IT-005 | T2 |
+| UT-008 | T2/TDR1 |
 | IT-006 | T3 |

@@ -118,6 +118,7 @@ that reduced wall time never weakens readiness.
 - IF two candidates declare the same exact write path THEN the planner SHALL select serial fallback.
 - IF a task depends on an unknown task ID THEN the planner SHALL select serial fallback and name the unknown ID.
 - IF `tasks.md` is missing or unreadable THEN the planner CLI SHALL exit non-zero and SHALL emit no plan JSON.
+- IF a frozen snapshot's `parallelization.mode` is not a string or supported mode THEN the planner CLI SHALL exit non-zero with `invalid workflow snapshot` and no traceback.
 - IF a worker stops while its worktree is dirty THEN the orchestrator SHALL refuse waiting status and select serial recovery.
 - WHEN the last consumed dependency checkpoint already equals the final upstream base THEN final reconciliation SHALL be a no-op.
 

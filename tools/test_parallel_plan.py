@@ -289,6 +289,32 @@ def test_snapshot_identity_and_version_are_validated_before_mode_and_head() -> N
         shutil.rmtree(root)
 
 
+def test_malformed_snapshot_modes_exit_with_invalid_snapshot_error() -> None:
+    root = make_repo(task("T1", "A"))
+    path = root / ".specs/features/fixture/workflow.json"
+    resolver = ROOT / ".agents/skills/workflow-config/scripts/parallel_plan.py"
+    try:
+        for mode in ({}, []):
+            snapshot = {
+                "feature": "fixture",
+                "git_head": "head",
+                "parallelization": {"mode": mode},
+                "version": 1,
+            }
+            path.write_text(json.dumps(snapshot), encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, str(resolver), "--root", str(root), "--feature", "fixture"],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            assert result.returncode == 1
+            assert result.stdout == ""
+            assert result.stderr == "parallel plan: invalid workflow snapshot\n"
+    finally:
+        shutil.rmtree(root)
+
+
 def test_cli_emits_the_point_in_time_plan() -> None:
     root = make_repo(
         task("T1", "A", status="complete") + task("T2", "B", depends_on="T1"), mode="full"
