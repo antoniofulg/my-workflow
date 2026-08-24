@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 3,
+  "next_id": 12,
   "lessons": [
     {
       "id": "L-001",
@@ -40,6 +40,168 @@
       ],
       "created": "2026-08-23T06:43:47Z",
       "last_seen": "2026-08-23T06:43:47Z"
+    },
+    {
+      "id": "L-003",
+      "key": "ac_gap::evaluate dependency eligibility before write conflicts so blocked consumers cannot become dispatch candidates",
+      "text": "Evaluate dependency eligibility before write conflicts so blocked consumers cannot become dispatch candidates.",
+      "signal": "ac_gap",
+      "scope": "planner",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-dispatch"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/parallel-slice-dispatch/validation.md:103 (PAR-09) (planner)"
+      ],
+      "created": "2026-08-24T05:56:15Z",
+      "last_seen": "2026-08-24T05:56:15Z"
+    },
+    {
+      "id": "L-004",
+      "key": "ac_gap::assert the complete ordered fallback reason set for malformed task graphs",
+      "text": "Assert the complete ordered fallback reason set for malformed task graphs.",
+      "signal": "ac_gap",
+      "scope": "planner",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-dispatch"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/parallel-slice-dispatch/validation.md:104 (PAR-10) (planner)"
+      ],
+      "created": "2026-08-24T05:56:15Z",
+      "last_seen": "2026-08-24T05:56:15Z"
+    },
+    {
+      "id": "L-005",
+      "key": "spec_precision_gap::define and assert dispatch behavior for every accepted task status",
+      "text": "Define and assert dispatch behavior for every accepted task status.",
+      "signal": "spec_precision_gap",
+      "scope": "planner",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-dispatch"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/parallel-slice-dispatch/validation.md:152 (planner)"
+      ],
+      "created": "2026-08-24T05:56:15Z",
+      "last_seen": "2026-08-24T05:56:15Z"
+    },
+    {
+      "id": "L-006",
+      "key": "ac_gap::pin every waiting worker checkpoint and event precondition with an exact contract assertion",
+      "text": "Pin every waiting-worker checkpoint and event precondition with an exact contract assertion.",
+      "signal": "ac_gap",
+      "scope": "orchestration",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-dispatch"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/parallel-slice-dispatch/validation.md:274 (PAR-13) (orchestration)"
+      ],
+      "created": "2026-08-24T05:56:15Z",
+      "last_seen": "2026-08-24T05:56:15Z"
+    },
+    {
+      "id": "L-007",
+      "key": "ac_gap::assert checkpoint synchronization ordering and the affected gate rerun before continuation",
+      "text": "Assert checkpoint synchronization ordering and the affected gate rerun before continuation.",
+      "signal": "ac_gap",
+      "scope": "orchestration",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-dispatch"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/parallel-slice-dispatch/validation.md:275 (PAR-14) (orchestration)"
+      ],
+      "created": "2026-08-24T05:56:15Z",
+      "last_seen": "2026-08-24T05:56:15Z"
+    },
+    {
+      "id": "L-008",
+      "key": "ac_gap::assert reviewed tree invalidation and repeated evidence before the next workflow stage",
+      "text": "Assert reviewed-tree invalidation and repeated evidence before the next workflow stage.",
+      "signal": "ac_gap",
+      "scope": "orchestration",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-dispatch"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/parallel-slice-dispatch/validation.md:276 (PAR-15) (orchestration)"
+      ],
+      "created": "2026-08-24T05:56:16Z",
+      "last_seen": "2026-08-24T05:56:16Z"
+    },
+    {
+      "id": "L-009",
+      "key": "surviving_mutant::assert conditional reconciliation no ops so unconditional rebases fail the contract suite",
+      "text": "Assert conditional reconciliation no-ops so unconditional rebases fail the contract suite.",
+      "signal": "surviving_mutant",
+      "scope": "orchestration",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-dispatch"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/parallel-slice-dispatch/validation.md:310 (orchestration)"
+      ],
+      "created": "2026-08-24T05:56:16Z",
+      "last_seen": "2026-08-24T05:56:16Z"
+    },
+    {
+      "id": "L-010",
+      "key": "surviving_mutant::use an otherwise valid snapshot when testing feature identity rejection",
+      "text": "Use an otherwise valid snapshot when testing feature identity rejection.",
+      "signal": "surviving_mutant",
+      "scope": "planner",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-dispatch"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/parallel-slice-dispatch/validation.md:518 (planner)"
+      ],
+      "created": "2026-08-24T05:56:16Z",
+      "last_seen": "2026-08-24T05:56:16Z"
+    },
+    {
+      "id": "L-011",
+      "key": "surviving_mutant::use an otherwise valid snapshot when testing schema version rejection",
+      "text": "Use an otherwise valid snapshot when testing schema version rejection.",
+      "signal": "surviving_mutant",
+      "scope": "planner",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-dispatch"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/parallel-slice-dispatch/validation.md:519 (planner)"
+      ],
+      "created": "2026-08-24T05:56:16Z",
+      "last_seen": "2026-08-24T05:56:16Z"
     }
   ]
 }

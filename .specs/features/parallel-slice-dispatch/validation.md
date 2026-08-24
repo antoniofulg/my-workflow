@@ -443,4 +443,106 @@ Technical verification is complete. The feature changes public configuration/CLI
 - Sensor: 3/3 targeted mutations killed, including the prior survivor.
 - Historical FAIL retained above; T3R1 is the closing remediation.
 
-Verdict: PASS
+Historical verdict: PASS
+
+## Deep Review Round 1 Remediation Verification
+
+**Date:** 2026-08-24
+**Diff range:** `6675d5574e692a7534b676519e89fbc484289b46..d226742`
+**Remediation commit:** `d226742`
+**Verifier:** fresh independent Verifier (author != verifier)
+**Feature status:** NEEDS FIX
+
+This verification preserves every preceding result as historical evidence. It rechecks the Round 1
+Critical/Major findings on the final tree and repeats the full gates and targeted discrimination
+sensor. The implementation fixes are present, but the new snapshot identity/version regression case
+is hollow: two required behavior mutations survive because unrelated invalid fixture fields mask the
+missing validation.
+
+### Round 1 Critical/Major closure
+
+| Finding | Current evidence | Result |
+| --- | --- | --- |
+| Critical — missing or unreadable `tasks.md` exits successfully | `.agents/skills/workflow-config/scripts/parallel_plan.py:195-199` raises before plan emission; `tools/test_parallel_plan.py:245-258` asserts exit 1, empty stdout, and the exact stderr reason. Removing the raise made the canonical suite fail. | PASS |
+| Major — planner accepts another feature's or schema version's snapshot | `.agents/skills/workflow-config/scripts/parallel_plan.py:35-51` validates `version == 1` and exact feature identity, but `tools/test_parallel_plan.py:263-287` combines each target fault with invalid `mode` and empty `git_head`. Removing either target validation left all 13 planner tests green. | FAIL |
+| Major — checked-in v1 snapshots cannot resume | `.specs/features/optional-design-tools/workflow.json:12-14`, `.specs/features/parallel-slice-dispatch/workflow.json:12-14`, and `.specs/features/security-skills/workflow.json:13-15` freeze `disabled`; `tools/test_workflow_config.py:546-556` resumes all three. Removing one checked-in field made the suite fail. | PASS |
+| Major — final validation overclaims PAR-13/PAR-14 | This appended independent result replaces the prior closing claim for current readiness; it does not rewrite the historical PASS. | PASS |
+| Major — IT-006 omits clean committed checkpoint and sync-before-consumption ordering | `tools/shared/tests/autonomous-parallelization.test.ts:34` pins the clean committed checkpoint; `:42-44` pins synchronization before consumption. Both policy mutations failed the canonical test. | PASS |
+
+### Affected requirements
+
+| Requirement | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| PAR-04 | Resume keeps the frozen feature snapshot and checked-in v1 snapshots remain resumable. | `tools/test_workflow_config.py:115-131` asserts a frozen `full` snapshot remains authoritative; `tools/test_workflow_config.py:546-556` asserts version, feature, and `disabled` for every checked-in snapshot. | PASS |
+| PAR-10 | Invalid planner input fails closed with its decisive outcome; missing task input emits no successful JSON plan. | `tools/test_parallel_plan.py:126-187` asserts graph fallback reasons; `tools/test_parallel_plan.py:245-258` asserts missing tasks exits 1 with empty stdout. Snapshot identity/version rejection lacks an isolated discriminating fixture at `tools/test_parallel_plan.py:263-287`. | FAIL |
+| PAR-13 | Waiting starts only from a clean committed checkpoint and remains event-driven. | `tools/shared/tests/autonomous-parallelization.test.ts:34-41` asserts clean checkpoint, exact dependency/head, turn end, event-only follow-up, dirty refusal, and serial recovery. | PASS |
+| PAR-14 | A newer checkpoint is synchronized before consumption and the affected gate reruns before continuation. | `tools/shared/tests/autonomous-parallelization.test.ts:42-51` asserts sync ordering, exact event commit, no per-task rebase, conditional final no-op, and gate-before-continuation. | PASS |
+
+Traceability updates are limited to PAR-04, PAR-13, and PAR-14. PAR-10 remains `Implementing` until
+isolated valid snapshots prove that wrong feature identity and wrong version are each rejected for
+the intended reason.
+
+### Regression check across PAR-01–PAR-16
+
+| Requirement group | Evidence | Result |
+| --- | --- | --- |
+| PAR-01–PAR-04 | `tools/test_workflow_config.py:36-131,546-556`; resolver suite 15/15 green. | PASS |
+| PAR-05–PAR-09 | `tools/test_parallel_plan.py:74-121,157-167,192-228`; planner suite 13/13 green. | PASS |
+| PAR-10 | `tools/test_parallel_plan.py:126-187,245-287`; green gate, but identity/version mutations survive. | FAIL |
+| PAR-11 | `tools/test_parallel_plan.py:233-240,292-327` asserts byte determinism and exact CLI projection. | PASS |
+| PAR-12–PAR-16 | `tools/shared/tests/autonomous-parallelization.test.ts:29-62`; IT-006 green and both Round 1 policy mutations killed. | PASS |
+
+### Fresh full and structural gates
+
+| Command | Result |
+| --- | --- |
+| `npm_config_offline=true npm test` | PASS — 9 files, 109 tests passed, 0 failed, 0 skipped. |
+| `for test_file in tools/test_*.py; do python3 "$test_file" || exit 1; done` | PASS — ad-index `ok`; numbered suites 8 + 5 + 19 + 13 + 9 + 15 = 69 passed, 0 failed, 0 skipped. |
+| `python3 /Users/antoniofulg/Projects/my-workflow/.agents/skills/tlc-spec-driven/scripts/validate_spec.py .specs/features/parallel-slice-dispatch/spec.md` | PASS — 0 errors, 0 warnings. |
+| `python3 /Users/antoniofulg/Projects/my-workflow/.agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/parallel-slice-dispatch/tasks.md` | PASS — 0 errors, 0 warnings. |
+| `python3 tools/ad-index.py --check` | PASS — `AD-INDEX.md up to date`. |
+| `git diff --check 6675d5574e692a7534b676519e89fbc484289b46..d226742` | PASS — no output. |
+
+Compared with the feature baseline at `6675d5574e692a7534b676519e89fbc484289b46`, the final tree
+retains 109 versus 108 Vitest tests and 69 versus 52 numbered Python tests. No test was deleted or
+skipped.
+
+### Fresh discrimination sensor
+
+The sensor ran only in a detached temporary worktree at `d226742`. The scratch was removed after all
+attempts; real-tree porcelain matched its empty pre-sensor baseline before this report update.
+
+| Mutation | Expected regression | Result |
+| --- | --- | --- |
+| Restore successful fallback JSON for missing `tasks.md`. | CLI must exit non-zero and emit no stdout plan. | KILLED at `tools/test_parallel_plan.py:256-258`. |
+| Remove exact feature identity validation while leaving other snapshot validation intact. | Another feature's otherwise valid snapshot must be rejected. | SURVIVED — `tools/test_parallel_plan.py:263-287` also supplies invalid mode and empty head. |
+| Remove exact `version == 1` validation while leaving other snapshot validation intact. | An otherwise valid wrong-version snapshot must be rejected. | SURVIVED — `tools/test_parallel_plan.py:263-287` also supplies invalid mode and empty head. |
+| Permit an uncommitted waiting checkpoint. | PAR-13 clean-state safety must fail. | KILLED at `tools/shared/tests/autonomous-parallelization.test.ts:34`. |
+| Synchronize after the dependent consumes the newer commit. | PAR-14 ordering must fail. | KILLED at `tools/shared/tests/autonomous-parallelization.test.ts:42-44`. |
+| Remove `parallelization` from one checked-in v1 snapshot. | Resume compatibility must fail. | KILLED at `tools/test_workflow_config.py:546-556`. |
+
+**Sensor depth:** lightweight, 6 targeted behavior mutations covering every Round 1 blocker.
+**Sensor result:** FAIL — 4/6 killed, 2 survived.
+
+### Ranked gaps
+
+1. **Major — snapshot identity/version test is non-discriminating.** Create one otherwise-valid
+   snapshot with only `feature` wrong and one otherwise-valid snapshot with only `version` wrong;
+   assert each independently raises `ValueError("invalid workflow snapshot")`. Then repeat both
+   mutations and the full gate. Source: `tools/test_parallel_plan.py:263-287`; surviving mutants 2–3.
+
+### Lessons disposition
+
+Historical verifier signals and the two current surviving mutants are distilled through the TLC
+lessons script after this report update. A clean result is not claimed.
+
+## Deep Review Round 1 Remediation Summary
+
+**Overall:** TECHNICAL FAIL
+
+- Spec-anchored check: 15/16 requirements retain discriminating evidence; PAR-10 remains open.
+- Gate: 109 Vitest + 69 numbered Python tests passed, 0 failed, 0 skipped.
+- Sensor: 4/6 targeted mutations killed; wrong-feature and wrong-version mutations survived.
+- Round 1 closure: Critical fixed; 3/4 Major findings closed; snapshot-validation Major remains.
+
+Verdict: FAIL

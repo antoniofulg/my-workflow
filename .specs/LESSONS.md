@@ -26,6 +26,60 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: .specs/features/release-0.3.6/validation.md:66 (release)
 - last seen: 2026-08-23T06:43:47Z
 
+### L-003 - Evaluate dependency eligibility before write conflicts so blocked consumers cannot become dispatch candidates.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `planner` · harmful: 0
+- features: parallel-slice-dispatch
+- evidence: .specs/features/parallel-slice-dispatch/validation.md:103 (PAR-09) (planner)
+- last seen: 2026-08-24T05:56:15Z
+
+### L-004 - Assert the complete ordered fallback reason set for malformed task graphs.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `planner` · harmful: 0
+- features: parallel-slice-dispatch
+- evidence: .specs/features/parallel-slice-dispatch/validation.md:104 (PAR-10) (planner)
+- last seen: 2026-08-24T05:56:15Z
+
+### L-005 - Define and assert dispatch behavior for every accepted task status.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `planner` · harmful: 0
+- features: parallel-slice-dispatch
+- evidence: .specs/features/parallel-slice-dispatch/validation.md:152 (planner)
+- last seen: 2026-08-24T05:56:15Z
+
+### L-006 - Pin every waiting-worker checkpoint and event precondition with an exact contract assertion.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `orchestration` · harmful: 0
+- features: parallel-slice-dispatch
+- evidence: .specs/features/parallel-slice-dispatch/validation.md:274 (PAR-13) (orchestration)
+- last seen: 2026-08-24T05:56:15Z
+
+### L-007 - Assert checkpoint synchronization ordering and the affected gate rerun before continuation.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `orchestration` · harmful: 0
+- features: parallel-slice-dispatch
+- evidence: .specs/features/parallel-slice-dispatch/validation.md:275 (PAR-14) (orchestration)
+- last seen: 2026-08-24T05:56:15Z
+
+### L-008 - Assert reviewed-tree invalidation and repeated evidence before the next workflow stage.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `orchestration` · harmful: 0
+- features: parallel-slice-dispatch
+- evidence: .specs/features/parallel-slice-dispatch/validation.md:276 (PAR-15) (orchestration)
+- last seen: 2026-08-24T05:56:16Z
+
+### L-009 - Assert conditional reconciliation no-ops so unconditional rebases fail the contract suite.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `orchestration` · harmful: 0
+- features: parallel-slice-dispatch
+- evidence: .specs/features/parallel-slice-dispatch/validation.md:310 (orchestration)
+- last seen: 2026-08-24T05:56:16Z
+
+### L-010 - Use an otherwise valid snapshot when testing feature identity rejection.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `planner` · harmful: 0
+- features: parallel-slice-dispatch
+- evidence: .specs/features/parallel-slice-dispatch/validation.md:518 (planner)
+- last seen: 2026-08-24T05:56:16Z
+
+### L-011 - Use an otherwise valid snapshot when testing schema version rejection.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `planner` · harmful: 0
+- features: parallel-slice-dispatch
+- evidence: .specs/features/parallel-slice-dispatch/validation.md:519 (planner)
+- last seen: 2026-08-24T05:56:16Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.
