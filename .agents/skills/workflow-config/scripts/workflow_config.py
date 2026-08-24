@@ -410,6 +410,18 @@ def _write_bytes_atomic(path: Path, content: bytes) -> None:
                 pass
 
 
+def _preflight_destination(root: Path, destination: Path, label: str) -> None:
+    relative = destination.relative_to(root).as_posix()
+    if destination.exists() and not destination.is_file():
+        raise _error(f"{label} destination {relative} must be a file")
+    parent = destination.parent
+    while parent != root:
+        if parent.exists() and not parent.is_dir():
+            parent_relative = parent.relative_to(root).as_posix()
+            raise _error(f"{label} parent {parent_relative} must be a directory")
+        parent = parent.parent
+
+
 def _sync_config(root: Path) -> tuple[dict[str, Any], bytes | None]:
     local = root / ".my-workflow.toml"
     if local.exists():
@@ -422,6 +434,10 @@ def _sync_config(root: Path) -> tuple[dict[str, Any], bytes | None]:
 def sync_agents(root: Path) -> dict[str, list[str]]:
     """Validate templates and materialize complete ignored runtime packets."""
     root = root.resolve()
+    if not root.is_dir():
+        raise _error(f"root is not a directory: {root}")
+    local_config = root / ".my-workflow.toml"
+    _preflight_destination(root, local_config, "local config")
     config, config_bytes = _sync_config(root)
     plans: list[tuple[Path, bytes]] = []
     for provider in PROVIDERS:
@@ -439,8 +455,10 @@ def sync_agents(root: Path) -> dict[str, list[str]]:
             )
             assert isinstance(rendered, bytes)
             plans.append((relative, rendered))
+    for relative, _ in plans:
+        _preflight_destination(root, root / relative, "runtime")
     if config_bytes is not None:
-        _write_bytes_atomic(root / ".my-workflow.toml", config_bytes)
+        _write_bytes_atomic(local_config, config_bytes)
     changed: list[str] = []
     unchanged: list[str] = []
     for relative, rendered in plans:

@@ -178,10 +178,12 @@ T15 -> T16 -> T17 -> T18
   instruction sources, and native fields/runtime packets as generated.
 - [x] Obsolete model-pin ownership language and example-copy steps are removed.
 - [x] Contract tests compare every native packet with the central matrix.
-- [x] `E2E-001` and `E2E-002` have terminal QA evidence.
+- [x] `E2E-001` and `E2E-002` are mapped to the affected public scenarios, which are reset to
+  `untested` until a fresh QA plan/execute cycle.
 - [x] Build gate passes with zero failures.
 
-**Status:** complete — `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py` (108 Vitest tests plus adoption and resolver suites passed); QA scenarios `CFG-centralize-agent-model-routing` and `CFG-freeze-feature-workflow` are terminal `pass`.
+**Status:** complete — automated contract/build gates passed; affected QA scenarios remain
+`untested` pending a fresh QA plan/execute cycle.
 
 **Tests**: unit and CLI/manual, `E2E-001`, `E2E-002`
 **Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
@@ -515,6 +517,30 @@ and 110 Vitest tests; malformed local-config adoption is byte-preservation cover
 **Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
 **Commit**: `test(config): close revised architecture contract gaps`
 
+### T20: Preflight local ownership and clean-clone contracts
+
+**What**: Preflight every local config/runtime destination before writing, make contract tests
+independent of ignored checkout state, and remove stale terminal QA claims.
+**Where**: canonical synchronization, contract, adoption, and QA task artifacts
+**Depends on**: T19
+**Requirement**: AMR-02, AMR-07, AMR-08, AMR-09
+
+**Done when**:
+
+- [x] Fresh and late runtime destination collisions, plus parent-type collisions, fail with
+  actionable paths before local config initialization or any runtime replacement.
+- [x] The contract suite reads tracked templates or disposable generated outputs and passes in a
+  detached clean worktree with no ignored runtime/config files.
+- [x] T5 no longer claims terminal QA; affected scenarios remain `untested` pending fresh QA.
+- [x] Resolver, adoption, Vitest, clean-clone, packaging, ownership, validator, and diff gates pass.
+
+**Status:** complete — 31 resolver, 18 adoption, and 110 Vitest tests pass; clean-clone contract
+execution and collision preflight are covered.
+
+**Tests**: unit and integration, `UT-002`, `IT-003`, `E2E-001`, `E2E-002`
+**Gate**: Build, `npm test && python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py`
+**Commit**: `fix(config): preflight local runtime ownership`
+
 ## Phase Execution Map
 
 ```text
@@ -522,7 +548,7 @@ Phase 1 -> Phase 2 -> Phase 3
 
 Phase 1: T1 -> T2 -> T3
 Phase 2: T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -> T14
-Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19
+Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19 -> T20
 ```
 
 ## Task Granularity Check
@@ -548,6 +574,7 @@ Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19
 | T17 | Adoption integration | PASS |
 | T18 | Public contract publication | PASS |
 | T19 | Revised architecture contract coverage | PASS |
+| T20 | Local write preflight and clean-clone contract | PASS |
 
 ## Diagram-Definition Cross-Check
 
@@ -572,6 +599,7 @@ Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19
 | T17 | T16 | T16 -> T17 | PASS |
 | T18 | T17 | T17 -> T18 | PASS |
 | T19 | T18 | T18 -> T19 | PASS |
+| T20 | T19 | T19 -> T20 | PASS |
 
 ## Test Co-location Validation
 
@@ -596,3 +624,4 @@ Phase 3 handoff: T14 -> T15 -> T16 -> T17 -> T18 -> T19
 | T17 | Adoption integration | integration | integration | PASS |
 | T18 | Contract/docs | unit + CLI/manual | unit + CLI/manual | PASS |
 | T19 | Mixed profile and malformed adoption config | unit + integration | unit + integration | PASS |
+| T20 | Local collision and clean-clone ownership | unit + integration | unit + integration | PASS |

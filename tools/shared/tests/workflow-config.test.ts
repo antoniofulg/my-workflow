@@ -43,7 +43,7 @@ describe("workflow configuration skill", () => {
     for (const provider of providers) {
       for (const role of roles) {
         const extension = provider === "codex" ? "toml" : "md";
-        const path = `.${provider}/agents/${role}.${extension}`;
+        const path = `templates/agents/${provider}/${role}.${extension}`;
         expect(existsSync(join(repositoryRoot, path)), path).toBe(true);
         expect(readRepositoryFile(path).trim(), path).not.toBe("");
       }

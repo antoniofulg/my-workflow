@@ -49,9 +49,9 @@ function normalizePacket(source: string): string {
 }
 
 const verifierPacketPaths = [
-  ".cursor/agents/verifier.md",
-  ".claude/agents/verifier.md",
-  ".codex/agents/verifier.toml",
+  "templates/agents/cursor/verifier.md",
+  "templates/agents/claude/verifier.md",
+  "templates/agents/codex/verifier.toml",
 ] as const;
 
 describe("QA workflow artifact policy", () => {

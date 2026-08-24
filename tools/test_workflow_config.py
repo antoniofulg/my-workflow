@@ -254,6 +254,61 @@ def test_sync_initializes_local_config_and_generates_fifteen_runtime_packets() -
         shutil.rmtree(root)
 
 
+def test_sync_preflights_early_and_late_runtime_collisions_before_local_init() -> None:
+    cases = (
+        ("early", Path(".claude/agents/planner.md"), "destination"),
+        ("late", Path(".cursor/agents/deep-reviewer.md"), "destination"),
+        ("parent", Path(".codex/agents"), "parent"),
+    )
+    for _, collision, kind in cases:
+        root = make_root()
+        try:
+            write_config(root, filename=".my-workflow.toml.example")
+            write_packets(root)
+            runtime_relatives = [
+                workflow_config._runtime_relative(provider, role)
+                for provider in workflow_config.PROVIDERS
+                for role in workflow_config.ROLES
+            ]
+
+            def state() -> dict[Path, tuple[str, bytes | None]]:
+                result: dict[Path, tuple[str, bytes | None]] = {}
+                for relative in runtime_relatives:
+                    path = root / relative
+                    if path.is_file():
+                        result[relative] = ("file", path.read_bytes())
+                    elif path.is_dir():
+                        result[relative] = ("directory", None)
+                    else:
+                        result[relative] = ("missing", None)
+                return result
+
+            if kind == "destination":
+                target = root / collision
+                target.unlink()
+                target.mkdir()
+            else:
+                target = root / collision
+                shutil.rmtree(target)
+                target.write_bytes(b"parent collision\n")
+            before = state()
+            try:
+                workflow_config.sync_agents(root)
+            except workflow_config.ConfigError as exc:
+                expected = (
+                    f"workflow-config: runtime destination {collision.as_posix()} must be a file"
+                    if kind == "destination"
+                    else f"workflow-config: runtime parent {collision.as_posix()} must be a directory"
+                )
+                assert str(exc) == expected
+            else:
+                raise AssertionError(f"expected {kind} collision rejection")
+            assert not (root / ".my-workflow.toml").exists()
+            assert state() == before
+        finally:
+            shutil.rmtree(root)
+
+
 def test_sync_rebuilds_runtime_from_immutable_templates() -> None:
     root = make_packet_root()
     try:
