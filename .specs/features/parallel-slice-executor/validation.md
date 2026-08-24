@@ -3,10 +3,10 @@
 **Verdict**: FAIL
 **Date:** 2026-08-24
 **Phase:** Technical Verification
-**Scope:** Slice A prior PASS retained; Slice B/T3 PASS retained; Slice C/T4R1 independently re-verified
+**Scope:** Slice A prior PASS retained; Slice B/T3 PASS retained; Slice C/T4R2 independently re-verified
 **Spec:** `.specs/features/parallel-slice-executor/spec.md`
-**Diff range:** `b797777..4c0a7fc`
-**Incremental remediation:** `a799eac..4c0a7fc`
+**Diff range:** `b797777..c33425e`
+**Incremental remediation:** `4c0a7fc..c33425e`
 **Verifier:** independent Verifier, author != verifier
 
 This report retains the prior Slice A PASS and records a Slice B PASS. It does not mark the feature
@@ -333,3 +333,70 @@ delivery now consumes its changed `sync_after` checkpoint before event handling,
 `follow_up` effect before a correlated passing gate, restores `waiting` after gate acceptance, and
 performs exactly one same-terminal follow-up across restart. The fingerprint ledger is now at
 `failed_remediations: 2`; this successful final remediation does not increment it again.
+
+## Slice C / T4R2 Final Technical Re-verification
+
+**Slice verdict:** PASS. EXE-12–EXE-17 match their spec-defined outcomes. T4R2 closes the prior
+EXE-15 waiting-lane gap: checkpoint synchronization precedes dependency-event consumption, a changed
+HEAD blocks all follow-up behind the exact affected gate, and the accepted follow-up remains
+exactly-once across restart. This slice verdict does not close the feature, Slice D, grouped C-D
+deep-review, the real Orca pilot, QA Plan, or QA Execute.
+
+### Spec-Anchored Acceptance Criteria
+
+| Criterion | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| EXE-12 | A clean consumer rebases onto the exact recorded producer commit before dependent work. | `tools/test_git_adapter.py:54-65` — `status == "synced"`, exact pre/post HEAD, changed path, invalidations, and producer ancestry; `tools/test_git_adapter.py:101-110` rejects a dirty consumer without touching it. | PASS |
+| EXE-13 | An already-ancestor producer makes synchronization a byte-stable no-op. | `tools/test_git_adapter.py:67-70` — `status == "noop"`, identical pre/post HEAD, and no changed paths. | PASS |
+| EXE-14 | Rebase conflict or undeclared change restores pre-sync HEAD and clean state and returns serial recovery. | `tools/test_git_adapter.py:76-95,147-157` — exact serial receipt, restored HEAD, clean porcelain, and empty invalidations. | PASS |
+| EXE-15 | Changed checkpoint HEAD invalidates gate, Technical Verifier, and deep-review evidence and requires the exact affected gate before follow-up. | `tools/test_parallel_executor.py:985-1057` — waiting checkpoint enters `gate_required`, records `waiting-checkpoint-head`, performs zero pre-gate event/follow-up effects, accepts a correlated passing gate, and performs one same-terminal follow-up across restart; `tools/test_parallel_executor.py:1183-1211` rejects wrong-HEAD gate receipts and removes only gate invalidation. | PASS |
+| EXE-16 | Technically verified slice commits merge in deterministic slice order without rewriting them. | `tools/test_git_adapter.py:163-183` — merged result is `[commit_a, commit_b]`, both original commits remain ancestors, and changed paths are stable. | PASS |
+| EXE-17 | Integration conflict aborts, restores the clean pre-operation HEAD, and delegates to serial recovery. | `tools/test_git_adapter.py:188-208` — exact `merge-conflict` serial receipt, identical HEAD, and clean porcelain. | PASS |
+
+**Spec-anchored status:** 6 PASS, 0 FAIL, 0 spec-precision gaps for Slice C.
+
+### Test Contract Disposition
+
+| Case | Evidence | Result |
+| --- | --- | --- |
+| UT-004 | `tools/test_git_adapter.py:54-70` asserts exact checkpoint rebase and ancestor no-op. | PASS |
+| UT-005 | `tools/test_git_adapter.py:76-95,147-157` asserts conflict/undeclared-path serial recovery and unchanged clean state. | PASS |
+| UT-006 | `tools/test_parallel_executor.py:985-1057,1183-1211` asserts waiting-lane invalidation, pre-gate blocking, exact gate identity, and exactly-once follow-up; `tools/test_git_adapter.py:163-208` asserts deterministic integration and conflict abort. | PASS |
+
+### Gate Evidence
+
+- `python3 tools/test_git_adapter.py` -> exit 0, `7 passed, 0 failed`; 0 skipped.
+- `python3 tools/test_parallel_executor.py` -> exit 0, `35 passed, 0 failed`; 0 skipped.
+- `python3 tools/test_orca_adapter.py` -> exit 0, `20 passed, 0 failed`; 0 skipped.
+- Scoped total: 62 passed, 0 failed, 0 skipped. T4R2 adds one executor case; Git remains 7 and Orca remains 20.
+- `python3 .agents/skills/tlc-spec-driven/scripts/validate_spec.py .specs/features/parallel-slice-executor/spec.md --strict` -> exit 0, 0 errors, 0 warnings.
+- `python3 .agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/parallel-slice-executor/tasks.md --strict` -> exit 0, 0 errors, 0 warnings.
+- `python3 tools/ad-index.py --check` -> exit 0, `AD-INDEX.md up to date`.
+- `git diff --check b797777..c33425e` and `git diff --check 4c0a7fc..c33425e` -> exit 0, no output.
+- `python3 -m py_compile .agents/skills/autonomous/scripts/git_adapter.py tools/test_git_adapter.py .agents/skills/autonomous/scripts/orca_adapter.py tools/test_orca_adapter.py .agents/skills/autonomous/scripts/parallel_execute.py tools/test_parallel_executor.py` -> exit 0.
+
+### Discrimination Sensor
+
+Real-tree porcelain was empty before sensor setup and unchanged after scratch cleanup. Mutations ran
+in detached temporary worktree `/tmp/exe15-sensor.QDzflF/tree` at `c33425e`; scratch and parent were
+removed.
+
+| Mutation | Behavior fault | Directed result | Outcome |
+| --- | --- | --- | --- |
+| M1 | Exclude a `waiting` lane from changed-checkpoint invalidation, allowing dependency handling before a fresh gate. | Executor exits 1 at `tools/test_parallel_executor.py:1037`; expected `gate_required`. | KILLED |
+| M2 | Accept a passing gate receipt whose `current_head` does not match the lane checkpoint. | Executor exits 1 at `tools/test_parallel_executor.py:1202`; wrong-HEAD receipt advanced the lane. | KILLED |
+| M3 | Repeat the `follow_up` side effect after the correlated gate instead of preserving exactly-once execution. | Directed T4R2 case exits 1 at `tools/test_parallel_executor.py:1049`; observed call list contains a duplicate follow-up. | KILLED |
+
+**Sensor:** lightweight, 3 injected, 3 killed, 0 survived. PASS.
+
+### Fingerprint Accounting
+
+Fingerprint `da76f3bbc70678913965eb0efd1c1590a01bad1f1aa2cdffbbd381c96a0bf00b`
+is `closed`. Historical `failed_remediations: 2` is preserved; this passing verification does not
+increment it and therefore does not trigger the third-remediation halt.
+
+### Slice C Summary
+
+**Overall:** PASS for Slice C after T4R2. Six of six ACs and all three contracted cases pass; 62
+scoped tests are green; all three behavior mutants die. Feature-level `FAIL` remains intentional
+until Slice D, grouped C-D deep-review, the real Orca pilot, and separate QA phases complete.

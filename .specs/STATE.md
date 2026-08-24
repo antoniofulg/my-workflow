@@ -3,10 +3,10 @@
 ## Handoff
 
 - **Feature**: `.specs/features/parallel-slice-executor`
-- **Phase / Task**: Execute / Slice C / T4
-- **Completed**: T1, T2, T2R1-T2R5, T3, T3R1, T3R2, TDR1, TDR2; Slice A/B Technical Verifiers PASS; grouped deep-review A-B closed by round-2 post-fix gate
+- **Phase / Task**: Execute / Slice D / T5
+- **Completed**: T1, T2, T2R1-T2R5, T3, T3R1, T3R2, TDR1, TDR2, T4, T4R1, T4R2; Slice A-C Technical Verifiers PASS; grouped deep-review A-B closed
 - **In-progress** (file:line): none
-- **Next step**: Implement T4 Git checkpoint reconciliation, then dispatch its fresh Technical Verifier.
+- **Next step**: Implement T5 frozen consumer ResourceProvider, then T6 resource-aware plan and T7 autonomous binding/pilot in order.
 - **Blockers**: none
 - **Uncommitted files**: none after the blocker-record commit
 - **Branch**: `feat/parallel-slice-executor`
