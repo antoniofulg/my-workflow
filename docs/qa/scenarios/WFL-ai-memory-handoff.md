@@ -6,11 +6,11 @@ persona: Workflow adopter
 journey: J-adopt-workflow
 expected: A normal Codex exit or manual fallback leaves one project-scoped handoff that another supported agent consumes once without loading a recurring briefing or changing repository authority.
 entry_points: docs/workflow/ai-memory.md; scripts/ai-memory.zsh; ai-memory install-hooks; codex; claude; cursor
-qa_status: fail
+qa_status: pass
 bug_ids: BUG-20260824-noninteractive-codex-finalizes-open-session
-fix_status: pending
-retest_status:
-fix_commits:
+fix_status: fixed
+retest_status: pass
+fix_commits: e30aae6
 evidence: docs/qa/evidence/2026-08-24-ai-memory-handoff/session.md
 last_report: docs/qa/reports/2026-08-24-ai-memory-handoff.md
 overlaps:
@@ -43,3 +43,10 @@ QA on 2026-08-24 stopped at the mandatory noninteractive-wrapper risk probe. A s
 `finalize-session` after `codex --version` and ended the latest controlled interactive Codex session
 even though the child created no session. See
 `BUG-20260824-noninteractive-codex-finalizes-open-session`.
+
+Fresh QA on 2026-08-24 retested the fix through the real `codex --version` path and a controlled
+`exec` canary; neither ended the pre-existing session. A normal Claude Code CLI session then created
+one project-scoped handoff, the installed Cursor SessionStart hook consumed it once, and the next
+Codex SessionStart received no replay or briefing. Interactive status preservation, visible
+finalization failure, SIGKILL cleanup, manual fallback, external-only runtime, and fresh adoption all
+passed. See `docs/qa/reports/2026-08-24-ai-memory-handoff.md`.

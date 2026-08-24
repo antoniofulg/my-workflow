@@ -1,6 +1,6 @@
 # BUG-20260824-noninteractive-codex-finalizes-open-session
 
-- **Status:** open
+- **Status:** fixed — retest passed
 - **Severity:** major
 - **Scenario:** `WFL-ai-memory-handoff`
 - **Expected:** A noninteractive or informational Codex invocation through the sourced helper exits
@@ -15,8 +15,8 @@
   `zsh -fc 'source ./scripts/ai-memory.zsh; codex --version'`; inspect the session through the
   external ai-memory SQLite read path
 - **Evidence:** `docs/qa/evidence/2026-08-24-ai-memory-handoff/session.md`
-- **Fix commit:**
-- **Retest:** pending fresh technical verification and resumed QA journey
+- **Fix commit:** `e30aae6`
+- **Retest:** passed on 2026-08-24 after technical validation `55664f7`; real `codex --version` and the adjacent controlled `exec` dispatch both left pre-existing sessions open
 
 ## Reproduction
 
@@ -37,3 +37,12 @@ noninteractive/informational/admin invocation and retain `handoff` as the explic
 Add a regression assertion that a pre-existing open session remains open after at least
 `codex --version` and `codex exec`; keep the existing exactly-once and child-status assertions for
 interactive invocation.
+
+## Retest
+
+A fresh Verifier resumed the original report after fix `e30aae6` and technical validation
+`55664f7`. The real public path printed `codex-cli 0.149.0`, returned `0`, and independent SQLite
+inspection showed controlled session `11111111-1111-4111-8111-111111111111` remained open. The
+adjacent `exec` dispatch also returned `0` without ending its controlled session. The rest of the
+handoff charter and adoption canary then passed. See
+`docs/qa/evidence/2026-08-24-ai-memory-handoff/session.md`.
