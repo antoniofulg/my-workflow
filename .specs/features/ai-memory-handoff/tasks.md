@@ -51,7 +51,7 @@ T1 → T2 → T3 → T4 → T5
 
 ### T2: Document the minimal ai-memory operating contract
 
-**Status:** pending
+**Status:** complete
 **What:** Document pinned local installation, loopback service, three-agent hooks, repo-root/sticky routing, disabled features, capture exclusions, fallback, upgrade, and uninstall procedures.
 **Where:** `docs/workflow/ai-memory.md`
 **Depends on:** T1
