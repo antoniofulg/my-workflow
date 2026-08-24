@@ -143,7 +143,7 @@ def validate_runtime_state(
         if not isinstance(key, str) or not _ID.fullmatch(key) or not isinstance(action, Mapping):
             raise StateError("invalid action receipt")
         if action.get("key") != key or action.get("action") not in {
-            "worktree", "worker", "follow_up", "acquire", "release", "worker_release"
+            "worktree", "worker", "follow_up", "acquire", "release", "worker_ack", "worker_release"
         }:
             raise StateError("invalid action receipt")
         if action.get("status") not in {"pending", "accepted", "released", "failed"}:
@@ -568,7 +568,12 @@ class Coordinator:
             if not isinstance(worker_action, dict):
                 raise ExecutorError("missing worker action receipt")
             completion = worker_action.get("completion")
-            delivery = dict(completion) if isinstance(completion, Mapping) else adapter.wait_events(dict(lane), timeout=wait_seconds)
+            persisted_delivery = worker_action.get("delivery")
+            delivery = (
+                dict(persisted_delivery)
+                if isinstance(persisted_delivery, Mapping)
+                else adapter.wait_events(dict(lane), timeout=wait_seconds)
+            )
             if delivery.get("event") == "timeout":
                 return "handled"
             if delivery.get("event") in {"waiting", "question"}:
@@ -607,16 +612,26 @@ class Coordinator:
             if delivery.get("event") != "worker_done":
                 raise ExecutorError("unhandled worker delivery")
             if not isinstance(completion, Mapping):
+                worker_action["delivery"] = dict(delivery)
+                self._save(state)
                 output = adapter.read_worker(dict(lane))
                 accepted = adapter.accept_worker_done(dict(lane), dict(delivery), dict(output))
+                accepted = {**dict(accepted), "delivery_id": delivery["delivery_id"]}
                 worker_action["completion"] = dict(accepted)
                 self._save(state)
             else:
                 accepted = dict(completion)
-            if not worker_action.get("delivery_ack"):
-                ack = adapter.ack_delivery(dict(lane), dict(delivery))
+            ack_key, ack_action, ack_created = self._record_action(state, lane_id, lane, "worker_ack")
+            ack_action["delivery_id"] = delivery["delivery_id"]
+            ack_action["run_id"] = lane["run_id"]
+            self._save(state)
+            if ack_action["status"] == "pending":
+                ack = adapter.ack_delivery(dict(lane), dict(delivery)) if ack_created else self._reconcile_pending(adapter, ack_action)
                 if not isinstance(ack, Mapping) or ack.get("acknowledged") is not True:
                     raise ExecutorError("delivery was not acknowledged")
+                if ack.get("delivery_id") != delivery["delivery_id"]:
+                    raise ExecutorError("delivery acknowledgement is uncorrelated")
+                self._accept(ack_action, external_id="ack:" + str(delivery["delivery_id"]), receipt=dict(ack))
                 worker_action["delivery_ack"] = dict(ack)
                 self._save(state)
             release_key, release_action, release_created = self._record_action(state, lane_id, lane, "worker_release")
@@ -629,7 +644,11 @@ class Coordinator:
                         raise ExecutorError("unreconciled pending action: release")
                 else:
                     release_receipt = adapter.release(dict(lane), dict(accepted))
-                if not isinstance(release_receipt, Mapping) or release_receipt.get("released") is not True:
+                if (
+                    not isinstance(release_receipt, Mapping)
+                    or release_receipt.get("released") is not True
+                    or release_receipt.get("dispatch_id") != lane["dispatch_id"]
+                ):
                     raise ExecutorError("worker release receipt was not accepted")
                 self._accept(release_action, external_id="release:" + str(lane["dispatch_id"]), receipt=dict(release_receipt))
                 self._save(state)

@@ -3,12 +3,57 @@
 from __future__ import annotations
 
 import shutil
+import json
 import sys
 import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / ".agents/skills/tlc-spec-driven/scripts"))
 import review_convergence
+
+
+def test_feature_path_is_strict_kebab_and_bounded() -> None:
+    root = Path(tempfile.mkdtemp())
+    try:
+        for feature in ("../escape", "feature/sub", ".", "Feature", "feature_name", "feature."):
+            try:
+                review_convergence.state_path(root, feature)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError(f"unsafe feature slug accepted: {feature}")
+        path = review_convergence.state_path(root, "parallel-slice-executor")
+        assert path.resolve().parent == (root / ".specs/features/parallel-slice-executor").resolve()
+    finally:
+        shutil.rmtree(root)
+
+
+def test_previous_fingerprint_must_exist_and_belong_to_same_requirement() -> None:
+    root = Path(tempfile.mkdtemp())
+    try:
+        try:
+            review_convergence.record_failure(root, "fixture", "EXE-08", "root", "path", previous_fingerprint="unknown")
+        except ValueError as exc:
+            assert "previous" in str(exc)
+        else:
+            raise AssertionError("unknown previous fingerprint must not create state")
+        first = review_convergence.record_failure(root, "fixture", "EXE-08", "root", "path")
+        try:
+            review_convergence.record_failure(root, "fixture", "EXE-09", "changed", "path", previous_fingerprint=first["fingerprint"])
+        except ValueError as exc:
+            assert "requirement" in str(exc)
+        else:
+            raise AssertionError("foreign previous fingerprint must halt")
+    finally:
+        shutil.rmtree(root)
+
+
+def test_python_gate_discovers_every_tools_test_suite() -> None:
+    package = json.loads((Path(__file__).resolve().parent.parent / "package.json").read_text(encoding="utf-8"))
+    script = package["scripts"]["test:python"]
+    assert "find tools" in script and "test_*.py" in script and "sort" in script
+    discovered = sorted(path.name for path in (Path(__file__).resolve().parent).rglob("test_*.py"))
+    assert Path(__file__).name in discovered
 
 
 def test_same_fingerprint_counts_failed_verifier_even_when_gate_is_green_and_halts_third() -> None:

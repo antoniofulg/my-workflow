@@ -354,6 +354,28 @@ remain blocked only until Slice A passes its Technical Verifier.
 **Remediation gate:** `npm run test:all`; strict spec/tasks/state/index validators; Python compile; `git diff --check`; deep-review incremental round 2.
 **Remediation commit:** `fix(workflow): close executor group review blockers`.
 
+### TDR2: Close final grouped deep-review defects
+
+**Remediation status:** complete
+**Slice:** A-B review group
+**Remediation resources:** none
+**Observable behaviour:** Final-round remediation accepts the supported nested Orca envelope, redacts the whole persisted delivery, persists and reconciles delivery acknowledgement/release correctly, rejects unsafe convergence paths/aliases, and makes the declared full gate run every Python suite.
+**Where:** `.agents/skills/autonomous/scripts/parallel_execute.py`
+**Remediation depends on:** TDR1
+**Remediation requirements:** EXE-03, EXE-04, EXE-07–EXE-11, EXE-23–EXE-25, SEC-001, SEC-005, SEC-006
+**Remediation done when:**
+
+- [x] Nested worker envelopes normalize into the strict schema without retaining the envelope; whole Delivery projection/redaction leaves no top-level or nested credential value.
+- [x] Ack requires a positively correlated receipt, has a persisted pending action before the call, and restart consumes the persisted completion/delivery/ack shape without replay.
+- [x] Worker release requires a correlated receipt before completing the lane.
+- [x] Convergence state rejects traversal-capable feature names and accepts `previous_fingerprint` only when that stored fingerprint exists and belongs to the same requirement.
+- [x] Design/threat-model fields match persisted lifecycle state and all final-round negative paths have failing-capable tests.
+- [x] `npm run test:python` discovers and executes every `tools/test_*.py`; `npm run test:all` remains the declared full gate.
+
+**Remediation tests:** 20 adapter, 32 executor, 6 convergence, every discovered Python suite, shared contracts, and every final-round reproduction.
+**Remediation gate:** `npm run test:all`; strict spec/tasks/state/index validators; Python compile; `git diff --check`; no deep-review round 3.
+**Remediation commit:** `fix(workflow): close final executor review defects`.
+
 ## Phase Execution Map
 
 ```text

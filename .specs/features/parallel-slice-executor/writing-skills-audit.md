@@ -61,3 +61,12 @@ complete definition; all other edits are short pointers.
 | Canonical convergence remains singular | Pass | `REVIEW-ROUNDS.md` remains the complete prose rule; skills point to `review_convergence.py` for executable state. |
 | Failed Verifier with green gate is counted | Pass | Canonical wording and shared contract assertion cover the changed rule. |
 | C/D contract scope is explicit | Pass | Design/DX state T4/T7-only fields and EXE-18–22 remain Planned. |
+
+## TDR2 delta
+
+| Item | Result | Evidence |
+| --- | --- | --- |
+| Delivery projection | Pass | Orca adapter projects correlated IDs/type and recursively redacts payload before state reaches the coordinator. |
+| Durable lifecycle wording | Pass | Design names persisted completion, delivery acknowledgement, delivery ID, dispatch ID, and receipt fields used by runtime state. |
+| Gate discovery | Pass | `package.json` uses deterministic `find tools -name 'test_*.py' | sort` discovery and the convergence suite asserts the contract. |
+| Convergence boundaries | Pass | Feature state uses strict kebab slugs and `previous_fingerprint` must already exist for the same requirement. |

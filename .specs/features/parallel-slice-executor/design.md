@@ -125,7 +125,8 @@ LaneReceipt {
 }
 
 ActionReceipt {
-  key, action, status, lane, external_id, receipt
+  key, action, status, lane, external_id, receipt,
+  dispatch_id, run_id, delivery_id, completion, delivery_ack
 }
 
 LeaseReceipt {

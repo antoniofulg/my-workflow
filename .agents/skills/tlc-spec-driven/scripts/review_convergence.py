@@ -23,9 +23,15 @@ def fingerprint(requirement: str, root_cause: str, failure_path: str) -> str:
 
 
 def state_path(root: Path, feature: str) -> Path:
-    if not re.fullmatch(r"[A-Za-z0-9_.:/-]+", feature):
+    if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", feature):
         raise ValueError("invalid feature")
-    return Path(root) / ".specs" / "features" / feature / "review-fingerprints.json"
+    resolved_root = Path(root).resolve()
+    feature_dir = (resolved_root / ".specs" / "features" / feature).resolve()
+    try:
+        feature_dir.relative_to(resolved_root)
+    except ValueError as exc:
+        raise ValueError("feature path escapes root") from exc
+    return feature_dir / "review-fingerprints.json"
 
 
 def _load(path: Path, feature: str) -> dict[str, Any]:
@@ -69,6 +75,10 @@ def record_result(
     state = _load(path, feature)
     key = previous_fingerprint or fingerprint(requirement, root_cause, failure_path)
     current = state["fingerprints"].get(key)
+    if previous_fingerprint is not None and current is None:
+        raise ValueError("unknown previous fingerprint")
+    if current is not None and _normalize(str(current.get("requirement", ""))) != _normalize(requirement):
+        raise ValueError("previous fingerprint requirement mismatch")
     if current is None:
         current = {
             "fingerprint": key,

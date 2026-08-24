@@ -309,7 +309,7 @@ def test_duplicate_delivery_is_rejected_before_follow_up_or_release() -> None:
 def test_delivery_ack_is_run_scoped_and_available_before_release() -> None:
     root, lane, worktree = fixture()
     try:
-        cli = RecordingCLI(start_responses(worktree) + [{"deliveries": [live_delivery()]}, {"acknowledged": True}])
+        cli = RecordingCLI(start_responses(worktree) + [{"deliveries": [live_delivery()]}, {"acknowledged": True, "delivery_id": "delivery-A"}])
         worker = adapter(root, cli)
         receipt = worker.start_worker(lane, worktree, idempotency_key=KEY)
         delivery = worker.wait_events(receipt)
@@ -319,6 +319,39 @@ def test_delivery_ack_is_run_scoped_and_available_before_release() -> None:
         assert ack_call[2] == "check"
         assert ack_call[ack_call.index("--run") + 1] == "run-A"
         assert ack_call[ack_call.index("--ack") + 1] == "delivery-A"
+    finally:
+        shutil.rmtree(root)
+
+
+def test_delivery_ack_requires_explicit_positive_correlated_receipt() -> None:
+    root, lane, worktree = fixture()
+    try:
+        cli = RecordingCLI(start_responses(worktree) + [{"deliveries": [live_delivery()]}, {}])
+        worker = adapter(root, cli)
+        receipt = worker.start_worker(lane, worktree, idempotency_key=KEY)
+        delivery = worker.wait_events(receipt)
+        try:
+            worker.ack_delivery(receipt, delivery)
+        except orca_adapter.AdapterError as exc:
+            assert "acknowledgement" in str(exc)
+        else:
+            raise AssertionError("missing positive acknowledgement must halt")
+    finally:
+        shutil.rmtree(root)
+
+
+def test_worker_release_requires_explicit_dispatch_ownership() -> None:
+    root, lane, worktree = fixture()
+    try:
+        cli = RecordingCLI(start_responses(worktree) + [{"released": True}])
+        worker = adapter(root, cli)
+        receipt = worker.start_worker(lane, worktree, idempotency_key=KEY)
+        try:
+            worker.release(receipt, {"accepted": True})
+        except orca_adapter.AdapterError as exc:
+            assert "release" in str(exc)
+        else:
+            raise AssertionError("release without dispatch correlation must halt")
     finally:
         shutil.rmtree(root)
 
@@ -386,6 +419,35 @@ def test_incomplete_start_receipt_uses_authoritative_worker_show() -> None:
         receipt = adapter(root, cli).start_worker(lane, worktree, idempotency_key=KEY)
         assert [call[0][2] for call in cli.calls] == ["run-list", "run-create", "task-list", "task-create", "worker-start", "worker-show"]
         assert receipt["dispatch_id"] == "dispatch-A"
+    finally:
+        shutil.rmtree(root)
+
+
+def test_supported_nested_worker_envelope_is_removed_before_strict_validation() -> None:
+    root, lane, worktree = fixture()
+    try:
+        cli = RecordingCLI(start_responses(worktree)[:4] + [{"worker": worker_payload(worktree)}])
+        receipt = adapter(root, cli).start_worker(lane, worktree, idempotency_key=KEY)
+        assert receipt["dispatch_id"] == "dispatch-A"
+        assert "worker" not in receipt
+    finally:
+        shutil.rmtree(root)
+
+
+def test_delivery_projection_drops_top_level_free_text_and_credentials() -> None:
+    root, lane, worktree = fixture()
+    try:
+        delivery = live_delivery()
+        delivery.update({"subject": "top-secret", "body": "free secret", "environment": {"api_key": "credential"}})
+        cli = RecordingCLI(start_responses(worktree) + [{"deliveries": [delivery]}])
+        worker = adapter(root, cli)
+        receipt = worker.start_worker(lane, worktree, idempotency_key=KEY)
+        observed = worker.wait_events(receipt)
+        serialized = json.dumps(observed)
+        assert "top-secret" not in serialized
+        assert "free secret" not in serialized
+        assert "credential" not in serialized
+        assert set(observed) <= {"event", "status", "delivery_id", "run_id", "from_handle", "payload", "task_id", "dispatch_id", "dependency"}
     finally:
         shutil.rmtree(root)
 

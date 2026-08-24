@@ -63,7 +63,9 @@ def _payload(value: Any) -> dict[str, Any]:
         value = result
     for nested in ("run", "task", "worker", "dispatch", "worktree"):
         if isinstance(value.get(nested), dict):
-            value = {**value, **value[nested]}
+            nested_value = value[nested]
+            value = {key: item for key, item in value.items() if key != nested}
+            value = {**value, **nested_value}
     for field, aliases in {
         "run_id": ("run_id", "runId"),
         "task_id": ("task_id", "taskId"),
@@ -441,13 +443,17 @@ class OrcaAdapter:
         delivery_id = _text(delivery.get("delivery_id"), "delivery id")
         run_id = _text(receipt.get("run_id"), "run id")
         response = self._call("check", "--run", run_id, "--ack", delivery_id)
-        if response.get("acknowledged") is False:
+        if response.get("acknowledged") is not True:
             raise AdapterError("Orca delivery acknowledgement failed")
-        if response.get("delivery_id") not in (None, delivery_id):
+        if response.get("delivery_id") != delivery_id:
             raise AdapterError("uncorrelated Orca acknowledgement")
         return {"acknowledged": True, "delivery_id": delivery_id}
 
     def reconcile_action(self, action: Mapping[str, Any]) -> Mapping[str, Any] | None:
+        if action.get("action") == "worker_ack":
+            delivery_id = _text(action.get("delivery_id"), "delivery id")
+            run_id = _text(action.get("run_id"), "run id")
+            return self.ack_delivery({"run_id": run_id}, {"delivery_id": delivery_id})
         if action.get("action") != "worker_release":
             return None
         dispatch_id = _text(action.get("dispatch_id"), "dispatch id")
@@ -464,7 +470,7 @@ class OrcaAdapter:
         response = self._call("worker-release", "--dispatch", dispatch_id)
         if response.get("released") is not True:
             raise AdapterError("Orca worker release was not accepted")
-        if response.get("dispatch_id") not in (None, dispatch_id):
+        if response.get("dispatch_id") != dispatch_id:
             raise AdapterError("uncorrelated Orca release receipt")
         result = {"released": True, "dispatch_id": dispatch_id}
         self._released[key] = result

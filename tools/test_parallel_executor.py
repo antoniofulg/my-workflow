@@ -794,6 +794,9 @@ def test_executor_resume_consumes_run_delivery_reads_accepts_then_releases_worke
                 return {**dict(receipt), "status": "accepted", "accepted": True}
 
             def ack_delivery(self, receipt: dict[str, object], delivery: dict[str, object]) -> dict[str, object]:
+                if self.state_path is not None:
+                    persisted = json.loads(self.state_path.read_text(encoding="utf-8"))
+                    assert any(action["action"] == "worker_ack" and action["status"] == "pending" for action in persisted["actions"].values())
                 self.calls.append("ack")
                 return {"acknowledged": True, "delivery_id": "delivery-A"}
 
@@ -820,6 +823,9 @@ def test_executor_resume_consumes_run_delivery_reads_accepts_then_releases_worke
         assert result["fallback"] is False
         assert result["state"]["lanes"]["slice-A"]["state"] == "complete"
         assert adapter.calls == ["check", "read", "accept", "ack", "release"]
+        worker_state = result["state"]["actions"][worker_key]
+        assert worker_state["delivery"]["delivery_id"] == "delivery-A"
+        assert worker_state["completion"]["delivery_id"] == "delivery-A"
 
         class RestartAdapter(LiveResumeAdapter):
             def wait_events(self, receipt: dict[str, object], *, timeout: float = 30) -> dict[str, object]:
@@ -837,6 +843,22 @@ def test_executor_resume_consumes_run_delivery_reads_accepts_then_releases_worke
         restart_result = json.loads(out.getvalue())
         assert restart_result["state"]["lanes"]["slice-A"]["state"] == "complete"
         assert restarted.calls == []
+
+        persisted = json.loads(probe.state_path.read_text(encoding="utf-8"))
+        persisted["lanes"]["slice-A"]["state"] = "running"
+        parallel_execute.atomic_write_json(probe.state_path, persisted)
+        resumed_running = RestartAdapter()
+        out = io.StringIO()
+        old_plan = parallel_execute.Coordinator._plan
+        parallel_execute.Coordinator._plan = lambda self: lane_plan(resources=[])  # type: ignore[method-assign]
+        try:
+            with redirect_stdout(out):
+                parallel_execute.main(["resume", "--root", str(root), "--feature", "fixture"], adapter_factory=lambda: resumed_running)
+        finally:
+            parallel_execute.Coordinator._plan = old_plan  # type: ignore[method-assign]
+        exact_shape_result = json.loads(out.getvalue())
+        assert exact_shape_result["state"]["lanes"]["slice-A"]["state"] == "complete"
+        assert resumed_running.calls == []
     finally:
         shutil.rmtree(root)
 

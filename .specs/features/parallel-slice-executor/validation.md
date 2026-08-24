@@ -231,3 +231,12 @@ The grouped A-B deep-review result invalidates earlier PASS claims for unknown r
 credential suffix redaction, durable delivery/release replay, CLI wait controls, and convergence
 state. TDR1 closes only those A-B findings. C/D implementation findings remain Planned and are not
 implemented by this batch.
+
+## TDR2 final grouped-review remediation
+
+TDR2 closes the remaining A-B verification defects: supported nested worker envelopes are
+projected before strict validation, complete Run Deliveries are projected to correlated identifiers
+and recursively redacted payloads, acknowledgement and release receipts are durable and
+correlated across restart, convergence paths/aliases are bounded and existing-only, and the
+declared Python gate discovers every `tools/test_*.py`. C/D implementation findings remain Planned;
+there is no review round 3 or real Orca pilot in this remediation.
