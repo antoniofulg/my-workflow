@@ -1,89 +1,84 @@
 # AI Memory Handoff Validation
 
 **Verdict**: PASS
-**Date**: 2026-08-23
+**Date**: 2026-08-24
 **Spec**: `.specs/features/ai-memory-handoff/spec.md`
-**Diff range**: `6675d55..6bcc372`
+**Diff range**: `6675d55..88458a0`
 **Verifier**: independent Verifier, author != verifier
 
 ## Task Completion
 
-| Task | Status | Evidence |
+| Scope | Status | Evidence |
 | --- | --- | --- |
-| T1 | Done | `scripts/ai-memory.zsh:3`, `scripts/test_ai_memory.py:79` |
-| T2 | Done | `docs/workflow/ai-memory.md:1` |
-| T3 | Done | `README.md:144` |
-| T4 | Done | `docs/qa/scenarios/WFL-ai-memory-handoff.md:1` |
-| T5 | Done | `.specs/AD-INDEX.md:16` and the `AD-008` addition in the reviewed diff |
-| T6 | Done | `scripts/test_ai_memory.py:128`, `.specs/features/ai-memory-handoff/tasks.md:100` |
+| T1-T6 implementation and contract | Done | `scripts/ai-memory.zsh:3`, `docs/workflow/ai-memory.md:1` |
+| T7 noninteractive Codex remediation | Done | `scripts/ai-memory.zsh:14`, `scripts/test_ai_memory.py:138` |
+| T8 discrimination remediation | Done | `scripts/test_ai_memory.py:153`, `scripts/test_ai_memory.py:173`; all three required verifier mutants killed |
 
 ## Spec-Anchored Acceptance Criteria
 
 | Criterion | Spec-defined outcome | `file:line` evidence and assertion | Result |
 | --- | --- | --- | --- |
-| AIM-01 | Normal Claude Code or Cursor end creates one project/cwd-compatible pending handoff. | `docs/workflow/ai-memory.md:73` installs all three lifecycle hooks with repo-root resolution; `docs/workflow/ai-memory.md:136` defines the lifecycle; `docs/qa/scenarios/WFL-ai-memory-handoff.md:21` owns the live provider check. | PASS for technical contract; QA execution pending |
-| AIM-02 | Codex exit calls finalization exactly once and preserves Codex status. | `scripts/test_ai_memory.py:83` — `assert calls == ["finalize-session"]`; `scripts/test_ai_memory.py:88` — `assert result.returncode == 42`; implementation at `scripts/ai-memory.zsh:17` and `scripts/ai-memory.zsh:23`. | PASS |
-| AIM-03 | Failed automatic finalization emits the exact visible error and leaves a working fallback. | `scripts/test_ai_memory.py:95` — exact stderr assertion; `scripts/test_ai_memory.py:96` — one failed call; `scripts/test_ai_memory.py:130` — fallback returns status 23; `scripts/test_ai_memory.py:131` — fallback calls finalization once. | PASS |
-| AIM-04 | A compatible next agent receives zero or one single-use handoff, not briefing or managed transcript. | `docs/workflow/ai-memory.md:55` disables startup briefing; `docs/workflow/ai-memory.md:66` excludes managed workstreams; `docs/workflow/ai-memory.md:140` defines zero-or-one delivery and `docs/workflow/ai-memory.md:144` single consumption; `docs/qa/scenarios/WFL-ai-memory-handoff.md:28` owns the live provider check. | PASS for technical contract; QA execution pending |
-| AIM-05 | Claude Code, Codex, and Cursor hooks use repo-root and sticky routing. | `docs/workflow/ai-memory.md:53` configures sticky routing; `docs/workflow/ai-memory.md:78` enumerates the three agents; `docs/workflow/ai-memory.md:81` sets repo-root. | PASS |
-| AIM-06 | Briefing, MCP, routing skills, managed workstreams, LLMs, embeddings, consolidation, and auto-improvement remain disabled. | `docs/workflow/ai-memory.md:48` omits providers; `docs/workflow/ai-memory.md:55` disables briefing; `docs/workflow/ai-memory.md:58` disables auto-improvement; `docs/workflow/ai-memory.md:66` excludes consolidation, embeddings, and managed mode; `docs/workflow/ai-memory.md:86` forbids MCP/instruction/skill installation. | PASS |
-| AIM-07 | Runtime data remains outside the repository and repository artifacts remain authoritative. | `docs/workflow/ai-memory.md:6` names authoritative artifacts; `docs/workflow/ai-memory.md:7` places runtime outside the checkout; `README.md:145` keeps adoption optional; `.specs/AD-INDEX.md:16` indexes AD-008. | PASS |
-| AIM-08 | Setup documents loopback, bounded capture, secret exclusions, and incomplete-DLP residual. | `docs/workflow/ai-memory.md:39` binds loopback; `docs/workflow/ai-memory.md:97` bounds capture with exclusions; `docs/workflow/ai-memory.md:101` states lexical bounds and incomplete DLP. | PASS |
+| AIM-01 | Normal Claude Code or Cursor end creates one project/cwd-compatible pending handoff. | `docs/workflow/ai-memory.md:73` installs only lifecycle hooks for all three agents; `docs/workflow/ai-memory.md:78` enumerates `claude-code`, `codex`, and `cursor`; `docs/workflow/ai-memory.md:81` asserts `repo-root`. Live provider behavior remains owned by the existing QA scenario. | PASS |
+| AIM-02 | Interactive Codex exit finalizes exactly once and preserves Codex status. | `scripts/test_ai_memory.py:90` — `assert result.returncode == 42`; `scripts/test_ai_memory.py:91` — `assert calls == ["finalize-session"]`; `scripts/test_ai_memory.py:173`-`184` asserts no-argument, prompt, `resume`, and `fork` preserve status/argv and finalize once. | PASS |
+| AIM-03 | Failed automatic finalization emits a visible error and leaves a working fallback. | `scripts/test_ai_memory.py:97` — `assert result.returncode == 42`; `scripts/test_ai_memory.py:98` — exact error assertion; `scripts/test_ai_memory.py:99` — one finalization call; `scripts/test_ai_memory.py:134`-`135` asserts `handoff` returns ai-memory status and calls `finalize-session`. | PASS |
+| AIM-04 | Compatible next agent receives at most one single-use handoff, never briefing or managed transcript. | `docs/workflow/ai-memory.md:55`-`56` disables startup briefing; `docs/workflow/ai-memory.md:66`-`69` excludes managed mode; `docs/workflow/ai-memory.md:143`-`147` defines zero-or-one delivery and single consumption. Live provider behavior remains owned by the existing QA scenario. | PASS |
+| AIM-05 | Claude Code, Codex, and Cursor hooks use repo-root and sticky routing. | `docs/workflow/ai-memory.md:52`-`53` configures sticky routing; `docs/workflow/ai-memory.md:78`-`82` installs all three hooks with `--project-strategy repo-root`. | PASS |
+| AIM-06 | Briefing, MCP, routing skills, managed workstreams, LLMs, embeddings, consolidation, and auto-improvement remain disabled. | `docs/workflow/ai-memory.md:48`-`64` omits providers and disables briefing/auto-improvement; `docs/workflow/ai-memory.md:66`-`69` excludes consolidation, embeddings, and managed mode; `docs/workflow/ai-memory.md:86`-`88` excludes MCP, instructions, and skills. | PASS |
+| AIM-07 | Runtime data remains outside the repository; repository artifacts stay authoritative. | `docs/workflow/ai-memory.md:6`-`8` names repository authority and external runtime paths; `README.md:144`-`147` exposes the integration as optional and non-authoritative. | PASS |
+| AIM-08 | Setup documents loopback, bounded capture, exclusions, and incomplete-DLP residual. | `docs/workflow/ai-memory.md:39`-`44` requires loopback; `docs/workflow/ai-memory.md:97`-`103` defines exclusions, bounded lexical behavior, and incomplete-DLP residual. | PASS |
 
-**Spec-anchored status**: 8/8 technical outcomes matched. AIM-01 and AIM-04 retain their separate live QA execution.
+**Spec-anchored status**: 8/8 technical outcomes matched; 0 spec-precision gaps. Provider lifecycle confirmation stays in separate QA Execute scope.
 
 ## Edge Cases
 
-- **PASS, Codex child receives `kill -9` while wrapper survives**: isolated fake child returned wrapper status 137 and recorded exactly one `finalize-session` call, matching `.specs/features/ai-memory-handoff/spec.md:72` and cleanup at `scripts/ai-memory.zsh:23`.
-- **PASS, wrapper/shell cannot clean up**: `docs/workflow/ai-memory.md:120` directs the operator to `handoff`; the fallback is behaviorally asserted at `scripts/test_ai_memory.py:128`.
-- **PASS, concurrent Codex sessions**: `docs/workflow/ai-memory.md:128` requires `ai-memory finalize-session --session-id <uuid>`.
-- **PASS for technical contract, QA execution pending, no handoff**: `docs/workflow/ai-memory.md:140` defines no startup payload; `docs/qa/scenarios/WFL-ai-memory-handoff.md:30` owns the live check.
+- Interrupted child/manual fallback: documented at `docs/workflow/ai-memory.md:123`-`129`; fallback behavior asserted at `scripts/test_ai_memory.py:132`-`135`.
+- Multiple sessions: explicit `--session-id` path at `docs/workflow/ai-memory.md:131`-`135`.
+- No pending handoff: zero startup payload contract at `docs/workflow/ai-memory.md:143`-`144`.
+- Noninteractive/admin Codex invocations: bypass table at `scripts/test_ai_memory.py:153`-`170` asserts status, zero finalization, and exact argv.
+- Interactive launch modes: `scripts/test_ai_memory.py:173`-`184` asserts no-argument, prompt, `resume`, and `fork` finalize once and preserve status/argv.
 
 ## Gate Check
 
-- **Build command**: `npm_config_offline=true npm test && npm run knowledge && git diff --check`
-- **Build result**: exit 0; 8 files and 108 Vitest tests passed; 0 failed; 0 skipped. Knowledge reported 0 errors and 16 warnings; `git diff --check` passed.
-- **Scoped/full command**: `python3 scripts/test_ai_memory.py && python3 scripts/test_adopt.py && python3 tools/test_ad_index.py && python3 tools/ad-index.py --check`
-- **Scoped/full result**: exit 0; 5 helper tests passed; 14 adoption and 2 AD-index test functions completed; index current; 0 failed or skipped.
-- **Validators**: `validate_spec.py` and `validate_tasks.py` each reported 0 errors and 0 warnings; `git diff --check 6675d55..6bcc372` passed.
-- **Before/after count**: base `6675d55` had 108 Vitest tests plus 16 Python test functions. Head has the same 108 plus 21 Python test functions: 124 -> 129, delta +5. No test deletion, weakening, or skip found.
+- **Scoped**: `python3 scripts/test_ai_memory.py` — exit 0; 9 passed, 0 failed, 0 skipped.
+- **Full Python/AD**: `python3 scripts/test_adopt.py && python3 tools/test_ad_index.py && python3 tools/ad-index.py --check` — exit 0; 14 adoption test functions, 2 AD-index test functions, index current; 0 failed or skipped.
+- **Build**: `npm_config_offline=true npm test && npm run knowledge && git diff --check` — exit 0; 8 Vitest files, 108 tests passed, 0 failed, 0 skipped; knowledge 0 errors and 16 warnings; diff check passed.
+- **Before/after count**: base `6675d55` had 124 counted tests/functions; head has 133, delta +9. The branch adds the 9 helper tests and changes no pre-existing test suite.
 
 ## Discrimination Sensor
 
-Scratch: detached temporary worktree at `6bcc372`. Real checkout baseline included the pre-existing untracked `validation.md` and remained byte/status equivalent after scratch removal.
+Three detached temporary worktrees at `88458a0`; real checkout porcelain was ` M .specs/features/ai-memory-handoff/validation.md` before and after cleanup.
 
-| Mutation | Evidence target | Result |
-| --- | --- | --- |
-| Make public `handoff()` a no-op (`return 0`) | `scripts/ai-memory.zsh:27`; killed by `scripts/test_ai_memory.py:130` | KILLED |
-| Lose Codex status by returning 0 | `scripts/ai-memory.zsh:24`; killed by `scripts/test_ai_memory.py:88` | KILLED |
-| Lose failed ai-memory status by returning 1 instead of 23 | `scripts/ai-memory.zsh:11`; killed by `scripts/test_ai_memory.py:130` | KILLED |
+| Mutation | File:line | Discriminating assertion | Result |
+| --- | --- | --- | --- |
+| Remove `mcp` from noninteractive bypass | `scripts/ai-memory.zsh:16` | `scripts/test_ai_memory.py:169` — `assert calls == []` | KILLED |
+| Wrongly add `resume` to noninteractive bypass | `scripts/ai-memory.zsh:16` | `scripts/test_ai_memory.py:183` — `assert calls == ["finalize-session"]` | KILLED |
+| On ai-memory failure, return its status instead of the nonzero Codex child status | `scripts/ai-memory.zsh:35` | `scripts/test_ai_memory.py:97` — `assert result.returncode == 42` | KILLED |
 
-**Sensor result**: 3/3 behavior mutations killed. Scratch removed. Real checkout porcelain and report hash matched the captured pre-sensor baseline before this report was overwritten.
+**Sensor depth**: lightweight, targeted at the remediated T7/T8 launch-mode and status branches.
+**Sensor result**: 3/3 killed — PASS.
 
 ## Code Quality and Security
 
 | Principle | Result |
 | --- | --- |
 | Minimum code; no speculative abstraction | PASS |
-| Surgical scope; no mandatory dependency or machine mutation | PASS |
-| Argument vector remains literal | PASS — `scripts/test_ai_memory.py:124` and `scripts/test_ai_memory.py:125` |
-| Exit and failure statuses are discriminated | PASS |
-| Every automated test maps to the test contract | PASS |
-| Documentation-only provider lifecycle outcomes route to durable QA | PASS |
+| Surgical helper and tests; no mandatory runtime dependency | PASS |
+| Original argv and Codex status preserved | PASS |
+| Failure visible and manual fallback preserved | PASS |
+| Every documented wrapper launch class discriminated | PASS |
+| Tests map to AIM-02/AIM-03 and the listed wrapper edge cases | PASS |
 
-- **SEC-001**: `scripts/test_ai_memory.py:100` sends spaces, command substitution, separators, and globs; lines 124-125 assert literal argv and no injected file.
-- **SEC-002**: `docs/workflow/ai-memory.md:39`, `docs/workflow/ai-memory.md:48`, `docs/workflow/ai-memory.md:97`, and `docs/workflow/ai-memory.md:101` cover loopback, no provider keys, exclusions, and DLP residual.
-- **Security verdict**: PASS; no Critical or High residual introduced by this diff.
+Argument safety remains asserted at `scripts/test_ai_memory.py:128`-`129`. Loopback, no-provider, capture exclusions, and incomplete-DLP residual remain documented at `docs/workflow/ai-memory.md:39`, `docs/workflow/ai-memory.md:48`, and `docs/workflow/ai-memory.md:97`-`103`.
 
 ## QA Disposition
 
-This diff changes a public CLI/documentation workflow. Technical validation passes. Scenario `WFL-ai-memory-handoff` remains `untested` at `docs/qa/scenarios/WFL-ai-memory-handoff.md:9`; dispatch fresh QA Plan, then fresh QA Execute on a workstation with ai-memory 1.31.0 and the three agent integrations.
+Technical verdict only. Existing `docs/qa/scenarios/WFL-ai-memory-handoff.md:9` remains `fail`, with `fix_status: pending` at line 11. This session did not change QA status, configuration, evidence, reports, or product code. A fresh QA Execute session must retest the provider lifecycle and the recorded noninteractive-wrapper defect.
 
 ## Summary
 
-**Overall**: PASS — technically ready for QA phases.
+**Overall**: PASS — ready for fresh QA Execute.
 
 - **Spec-anchored check**: 8/8 technical outcomes matched; 0 precision gaps.
-- **Sensor**: 3/3 mutations killed.
-- **Gate**: 129 total automated checks/tests passed; 0 failed; 0 skipped.
-- **Fix gaps**: none.
+- **Gate**: 133 counted tests/functions passed; 0 failed; 0 skipped.
+- **Sensor**: 3/3 required mutants killed.
+- **Ranked gaps**: none in technical scope.
