@@ -3,12 +3,12 @@
 ## Handoff
 
 - **Feature**: `.specs/features/parallel-slice-executor`
-- **Phase / Task**: Execute / QA fix loop for parallel pilot lifecycle
+- **Phase / Task**: Complete / release v0.6.0
 - **Completed**: T1, T2, T2R1-T2R5, T3, T3R1, T3R2, TDR1, TDR2, T4, T4R1, T4R2, T5, T6, T7, T7R1-T7R5; grouped C-D round 1 and post-cap round 2 remediation; Slice A-C Technical Verifiers PASS; grouped deep-review A-B closed
 - **In-progress** (file:line): none
-- **Next step**: Fresh QA retests both parallel pilot charters and the fallback canary after this product fix, then feature closure records final evidence.
-- **Blockers**: prior QA report is FAIL for worker-start partial effects and incomplete cleanup; no author-run Orca pilot.
-- **Uncommitted files**: QA fix loop product/spec/test batch; preserve dirty `docs/qa/**` artifacts.
+- **Next step**: Deliver v0.6.0 locally; remote publication remains separately authorized.
+- **Blockers**: External Orca/Codex lifecycle remains terminal `BLOCKED-VERIFY`; this is non-blocking for local release readiness, and no author-run Orca pilot is claimed.
+- **Uncommitted files**: none.
 - **Branch**: `feat/parallel-slice-executor`
 
 ## Decisions

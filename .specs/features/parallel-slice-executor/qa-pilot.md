@@ -1,6 +1,6 @@
 # E2E-001 QA handoff — parallel Orca slices
 
-**Status:** untested
+**Status:** blocked-verify
 **Owner:** fresh QA Verifier / QA Execute session
 **Author pilot:** not run
 

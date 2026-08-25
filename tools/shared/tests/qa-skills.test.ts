@@ -806,7 +806,7 @@ describe("adoption and public setup", () => {
     expect(qaExecute).toContain("does not write product code, install a framework, invent a");
   });
 
-  it("IT-005 / AIM-11 reports release version 0.5.0 consistently", () => {
+  it("IT-005 / AIM-11 reports release version 0.6.0 consistently", () => {
     const manifest = JSON.parse(readRepositoryFile("package.json")) as {
       version?: string;
       scripts?: { test?: string };
@@ -821,15 +821,14 @@ describe("adoption and public setup", () => {
     const nextRelease = changelog.indexOf("\n## [", releaseStart + 1);
     const latestRelease = changelog.slice(releaseStart, nextRelease === -1 ? undefined : nextRelease);
 
-    expect(manifest.version).toBe("0.5.0");
+    expect(manifest.version).toBe("0.6.0");
     expect(manifest.scripts?.test).toBe("vitest run --dir tools");
-    expect(lockfile.version).toBe("0.5.0");
-    expect(lockfile.packages?.[""]?.version).toBe("0.5.0");
-    expect(latestHeading).toBe("0.5.0");
+    expect(lockfile.version).toBe("0.6.0");
+    expect(lockfile.packages?.[""]?.version).toBe("0.6.0");
+    expect(latestHeading).toBe("0.6.0");
     expect(latestHeading).toBe(manifest.version);
-    expect(latestRelease).toContain("Bounded parallel Deep Review");
-    expect(latestRelease).toContain("remediation stall bound");
-    expect(latestRelease).toContain("direct-correction workflow");
-    expect(latestRelease).toContain("centralized local provider runtime configuration");
+    expect(latestRelease).toContain("opt-in parallel slice executor");
+    expect(latestRelease).toContain("resource preflight");
+    expect(latestRelease).toContain("BLOCKED-VERIFY");
   });
 });

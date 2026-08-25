@@ -122,8 +122,9 @@ stages past their required source freeze.
 ## QA handoff
 
 E2E-001 is an explicit fresh-QA handoff, not an author-run pilot. Its interface, expected receipts,
-and cleanup assertions are recorded in `.specs/features/parallel-slice-executor/qa-pilot.md` and
-E2E-001 remains untested until a fresh QA Verifier runs the disposable Orca journey.
+and cleanup assertions are recorded in `.specs/features/parallel-slice-executor/qa-pilot.md`.
+Canonical final QA records E2E-001 as terminal `BLOCKED-VERIFY` at the external Orca/Codex
+lifecycle boundary; no completed pilot is claimed.
 
 ## Serial fallback
 

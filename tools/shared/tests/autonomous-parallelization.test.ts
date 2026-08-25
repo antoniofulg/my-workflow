@@ -35,8 +35,8 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(policy).toContain("same terminal");
     expect(policy).toContain("merge");
     expect(policy).toContain("Resources: none");
-    expect(policy).toContain("E2E-001 remains untested");
-    expect(qa).toContain("**Status:** untested");
+    expect(policy).toContain("E2E-001 as terminal `BLOCKED-VERIFY`");
+    expect(qa).toContain("**Status:** blocked-verify");
     expect(qa).toContain("--adapter auto");
   });
 

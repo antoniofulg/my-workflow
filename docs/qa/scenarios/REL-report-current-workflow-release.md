@@ -16,7 +16,7 @@ last_report: docs/qa/reports/2026-08-25-release-0-5-0.md
 overlaps:
 ---
 
-Version-neutral owner for public release consistency. For release `0.5.0`, the reader compares the
+Version-neutral owner for public release consistency. For release `0.6.0`, the reader compares the
 newest changelog heading with both package authorities and checks its claims against the shipped
 public contracts. The release walk reuses the current ai-memory handoff and adoption verdicts as
 canaries instead of repeating their feature-level runtime probes.

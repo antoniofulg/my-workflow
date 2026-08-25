@@ -7,7 +7,7 @@ file before every atomic commit, and close every code-changing slice with a fres
 The feature's frozen mode is authoritative; absent a capable executor, use the existing serial path.
 
 **Design:** `.specs/features/parallel-slice-executor/design.md`
-**Status:** In Progress
+**Status:** Complete
 
 ## Test Coverage Matrix
 
@@ -195,7 +195,7 @@ T3 + T4 + T6 -> T7
 
 ### T7: Bind autonomous execution and prove Orca concurrency
 
-**Status:** complete (implementation); E2E-001 is owned by the feature-closing fresh-QA step.
+**Status:** complete (implementation); E2E-001 is terminal `BLOCKED-VERIFY` from canonical final QA.
 **Slice:** D
 **Resources:** none
 **Observable behaviour:** Autonomous invokes the deterministic executor when its frozen mode and capabilities allow, otherwise runs serially; a real disposable Orca run proves two isolated worktrees active concurrently and cleans only owned workers.
@@ -209,10 +209,10 @@ T3 + T4 + T6 -> T7
 - [x] Policy names the exact executor commands, capability gate, event lifecycle, checkpoint/merge split, evidence invalidation, resource provider, and serial recovery.
 - [x] Shared contract tests prove TLC tasks, gates, Verifier, grouped deep-review, final QA, and full gate are unchanged.
 - [x] Writing-skills audit records every checklist item Pass.
-- [x] T7 hands E2E-001 to the feature-closing fresh-QA step outside this implementation task; the real Orca journey remains untested until that step.
+- [x] T7 hands E2E-001 to the feature-closing fresh-QA step outside this implementation task; canonical final QA records terminal `BLOCKED-VERIFY` at the external Orca/Codex lifecycle boundary, with no completed-pilot claim.
 - [x] Full gate and strict feature/state/index validators pass for authored implementation; feature-level state remains incomplete until E2E-001 QA.
 
-**Tests:** IT-007 in `tools/shared/tests/autonomous-parallelization.test.ts` and executor capability tests; E2E-001 handoff in `qa-pilot.md` (untested)
+**Tests:** IT-007 in `tools/shared/tests/autonomous-parallelization.test.ts` and executor capability tests; canonical final QA disposition for E2E-001 is `BLOCKED-VERIFY` in `docs/qa/reports/2026-08-25-parallel-slice-executor-final.md`.
 **Gate:** Full. Commit `feat(workflow): execute parallel slices autonomously`.
 
 ### T7R1: Make the parallel pilot executable
