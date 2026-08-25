@@ -268,9 +268,35 @@ describe("canonical QA skills", () => {
       "Deep-review is a separate stage, not a Verifier phase.",
     );
     expect(workflowConfig).toContain("[remediation]` table");
-    expect(reviewRounds).toContain("equal-size set, including one with different members");
-    expect(reviewRounds).toContain("gate is unavailable");
-    expect(reviewRounds).toContain("never starts round 3");
+    const remediation = reviewRounds.slice(
+      reviewRounds.indexOf("When a cap is reached"),
+      reviewRounds.indexOf("## Requirement and contract parity"),
+    );
+    expect(remediation).toContain("run its scoped gate after every attempt");
+    expect(remediation).toContain(
+      "stable signature from sorted failing-test identifiers after removing timings, absolute paths, and line numbers",
+    );
+    expect(remediation).toContain(
+      "current failing-test set that is a strict subset of the running minimum failing-test set resets the counter",
+    );
+    expect(remediation).toContain("equal-size set, including one with different members");
+    expect(remediation).toContain("`stall_attempts = 0` is unbounded");
+    expect(remediation).toContain(
+      "when a nonzero threshold is reached, halt with the repeated signature, attempt count, and fixes tried",
+    );
+    expect(remediation).toContain(
+      "If the gate is unavailable, halt immediately without another deep-review round",
+    );
+    expect(remediation).toContain("never starts round 3");
+    expect(remediation.indexOf("run its scoped gate after every attempt")).toBeLessThan(
+      remediation.indexOf("stable signature from sorted failing-test identifiers"),
+    );
+    expect(remediation.indexOf("stable signature from sorted failing-test identifiers")).toBeLessThan(
+      remediation.indexOf("strict subset of the running minimum"),
+    );
+    expect(remediation.indexOf("strict subset of the running minimum")).toBeLessThan(
+      remediation.indexOf("when a nonzero threshold is reached"),
+    );
   });
 
   it("IT-004 keeps QA scenario fields and statuses in one authoritative guideline", () => {

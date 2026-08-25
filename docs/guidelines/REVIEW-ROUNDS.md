@@ -145,7 +145,7 @@ Batch aggressively. One commit per remediation batch is already the commit rule,
 
 ## Escalation
 
-When a cap is reached, finish approved remediation and run its scoped gate after every attempt; the cap forbids another review round, does not require new approval for the round-2 fix, and the existing loop never starts round 3. Each attempt derives a stable signature from sorted failing-test identifiers after removing timings, absolute paths, and line numbers; a strictly smaller current set resets the counter, while an equal-size set, including one with different members, or a larger set increments it, and `stall_attempts = 0` is unbounded.
+When a cap is reached, finish approved remediation and run its scoped gate after every attempt; the cap forbids another review round, does not require new approval for the round-2 fix, and the existing loop never starts round 3. Each attempt derives a stable signature from sorted failing-test identifiers after removing timings, absolute paths, and line numbers; a current failing-test set that is a strict subset of the running minimum failing-test set resets the counter, while an equal-size set, including one with different members, or a larger set increments it, and `stall_attempts = 0` is unbounded.
 If the gate is unavailable, halt immediately without another deep-review round; when a nonzero threshold is reached, halt with the repeated signature, attempt count, and fixes tried. An open blocker alone does not halt while attempts establish new minima; autonomous uses the same unavailable-gate or reached-threshold halt contract.
 
 ## Requirement and contract parity
