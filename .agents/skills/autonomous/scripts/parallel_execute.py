@@ -1125,6 +1125,20 @@ class Coordinator:
         if provider is None:
             raise ExecutorError("missing resource provider")
         key, action, created = self._record_action(state, lane_id, lane, "release")
+        prior_receipt = action.get("receipt") if isinstance(action, Mapping) else None
+        if (
+            action.get("status") in {"accepted", "released"}
+            and isinstance(prior_receipt, Mapping)
+            and prior_receipt.get("lease_id") != lease_id
+        ):
+            key = idempotency_key(
+                self.feature, str(lane["slice"]), str(lane["task"]), f"release-retry-{lease_id}", snapshot["git_head"]
+            )
+            action = state["actions"].get(key)
+            created = action is None
+            if action is None:
+                action = {"key": key, "action": "release", "status": "pending", "lane": lane_id}
+                state["actions"][key] = action
         self._save(state)
         if action["status"] in {"accepted", "released"}:
             lease["released"] = True
@@ -1261,6 +1275,21 @@ class Coordinator:
             )
             if pending_worker_retry:
                 transition_lane(state, lane_id, "ready", expected="serial")
+                if resources:
+                    retry_key = existing.get("retry_acquire_key")
+                    retry_action = state["actions"].get(retry_key) if isinstance(retry_key, str) else None
+                    if not isinstance(retry_action, Mapping) or retry_action.get("status") in {"accepted", "released"}:
+                        attempt = int(existing.get("resource_retry_attempt", 0)) + 1
+                        retry_key = idempotency_key(
+                            self.feature, slice_id, task_id, f"acquire-retry-{attempt}", state["source_git_head"]
+                        )
+                        retry_action = {
+                            "key": retry_key, "action": "acquire", "status": "pending", "lane": lane_id,
+                        }
+                        state["actions"][retry_key] = retry_action
+                        existing["resource_retry_attempt"] = attempt
+                        existing["retry_acquire_key"] = retry_key
+                        self._save(state)
             if existing["state"] in {"complete", "failed", "serial"}:
                 continue
             worktree_key, worktree_action, worktree_created = self._record_action(state, lane_id, existing, "worktree")
@@ -1331,7 +1360,12 @@ class Coordinator:
                     transition_lane(state, lane_id, "serial")
                     self._save(state)
                     return _serial_result(self.feature, mode, "missing-resource-provider", lanes)
-                acquire_key, acquire_action, acquire_created = self._record_action(state, lane_id, existing, "acquire")
+                retry_key = existing.get("retry_acquire_key") if pending_worker_retry else None
+                retry_action = state["actions"].get(retry_key) if isinstance(retry_key, str) else None
+                if isinstance(retry_key, str) and isinstance(retry_action, dict):
+                    acquire_key, acquire_action, acquire_created = retry_key, retry_action, True
+                else:
+                    acquire_key, acquire_action, acquire_created = self._record_action(state, lane_id, existing, "acquire")
                 self._save(state)
                 if acquire_action["status"] == "pending":
                     request = {
@@ -1394,7 +1428,15 @@ class Coordinator:
                 except Exception as exc:
                     details = getattr(exc, "details", None)
                     if isinstance(details, Mapping):
-                        worker_action["partial_effect"] = dict(details)
+                        previous = worker_action.get("partial_effect")
+                        merged = dict(previous) if isinstance(previous, Mapping) else {}
+                        for key, value in details.items():
+                            if key in {"run_id", "task_id", "orchestration_task_id", "dispatch_id"}:
+                                if isinstance(value, str) and value:
+                                    merged[key] = value
+                            else:
+                                merged[key] = value
+                        worker_action["partial_effect"] = merged
                     worker_action["error"] = str(exc)
                     existing["fallback_reason"] = "worker:" + str(exc)
                     transition_lane(state, lane_id, "serial")
@@ -1407,8 +1449,8 @@ class Coordinator:
                     result = _serial_result(self.feature, mode, "worker-failed", lanes)
                     result["state"] = state
                     result["actions"] = [{"action": "worker", "lane": lane_id, "key": worker_key}]
-                    if isinstance(details, Mapping):
-                        result["partial_effects"] = dict(details)
+                    if isinstance(worker_action.get("partial_effect"), Mapping):
+                        result["partial_effects"] = dict(worker_action["partial_effect"])
                     return result
                 self._save(state)
                 terminal = receipt.get("terminal") is True or receipt.get("status") in {

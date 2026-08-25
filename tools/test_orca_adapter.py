@@ -322,6 +322,30 @@ def test_nested_delivery_credentials_are_redacted_before_adapter_returns_payload
         shutil.rmtree(root)
 
 
+def test_structured_failure_redacts_credentials_inside_freeform_nested_strings() -> None:
+    failure = subprocess.CalledProcessError(
+        17,
+        ["orca", "worker-start"],
+        output=json.dumps({
+            "error": {
+                "code": "selector_not_found",
+                "stage": "worker-start",
+                "message": "code=selector_not_found password=secret token=tok api-key=api client-secret=client cookie=cookie Authorization: Bearer bearer-secret",
+                "nested": [{"message": "Authorization Bearer list-secret token=list-token"}],
+            }
+        }),
+    )
+    details = orca_adapter._failure_details(failure)
+    serialized = json.dumps(details)
+    assert details["code"] == "selector_not_found"
+    assert details["stage"] == "worker-start"
+    assert "password=secret" not in serialized
+    assert "token=tok" not in serialized
+    assert "api" in details["message"]
+    for secret in ("password=secret", "list-secret", "list-token", "bearer-secret"):
+        assert secret not in serialized
+
+
 def test_duplicate_delivery_is_rejected_before_follow_up_or_release() -> None:
     root, lane, worktree = fixture()
     try:

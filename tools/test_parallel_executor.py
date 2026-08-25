@@ -284,6 +284,7 @@ def test_worker_start_partial_orca_effect_is_durable_and_retry_reconciles_withou
                 super().__init__()
                 self.failed = True
                 self.reconciled = False
+                self.reconcile_attempts = 0
 
             def start_worker(self, lane: dict[str, object], receipt: dict[str, object], *, idempotency_key: str) -> dict[str, str]:
                 if self.failed:
@@ -294,6 +295,9 @@ def test_worker_start_partial_orca_effect_is_durable_and_retry_reconciles_withou
             def reconcile_action(self, action: dict[str, object]) -> dict[str, str] | None:
                 assert action["partial_effect"]["run_id"] == "run-A"  # type: ignore[index]
                 assert action["partial_effect"]["task_id"] == "task-A"  # type: ignore[index]
+                self.reconcile_attempts += 1
+                if self.reconcile_attempts == 1:
+                    raise orca_adapter.AdapterError("retry still pending", details={"code": "retryable"})
                 self.reconciled = True
                 return self.start_worker(action["worker_plan"], action["worktree_receipt"], idempotency_key=str(action["key"]))  # type: ignore[arg-type,index]
 
@@ -302,7 +306,7 @@ def test_worker_start_partial_orca_effect_is_durable_and_retry_reconciles_withou
         first._plan = lambda: lane_plan(resources=[])  # type: ignore[method-assign]
         failed = first.start()
         assert failed["fallback"] is True
-        assert failed["reason"] == "worker-failed"
+        assert failed["reason"] == "worker-failed", failed
         assert failed["actions"] and failed["actions"][0]["action"] == "worker"
         action = failed["state"]["actions"][failed["actions"][0]["key"]]  # type: ignore[index]
         assert action["status"] == "pending"
@@ -310,7 +314,14 @@ def test_worker_start_partial_orca_effect_is_durable_and_retry_reconciles_withou
         second = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: adapter)
         second._plan = lambda: lane_plan(resources=[])  # type: ignore[method-assign]
         retried = second.start(resume=True)
-        assert retried["fallback"] is False
+        assert retried["fallback"] is True
+        partial = retried["state"]["actions"][failed["actions"][0]["key"]]["partial_effect"]  # type: ignore[index]
+        assert partial["code"] == "retryable"
+        assert partial["run_id"] == "run-A" and partial["task_id"] == "task-A"
+        third = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: adapter)
+        third._plan = lambda: lane_plan(resources=[])  # type: ignore[method-assign]
+        completed = third.start(resume=True)
+        assert completed["fallback"] is False
         assert adapter.reconciled is True
     finally:
         shutil.rmtree(root)
@@ -399,6 +410,67 @@ def test_none_resources_bypass_provider_and_resource_lane_requires_correlated_le
         shutil.rmtree(root)
         if "resource_root" in locals():
             shutil.rmtree(resource_root)
+
+
+def test_partial_worker_retry_reacquires_fresh_resource_lease_before_reconcile() -> None:
+    root = make_repo()
+    resource_provider = RecordingProvider(lease_id="unused")
+    resource_provider.lease_ids = ["lease-A", "lease-B"]  # type: ignore[attr-defined]
+    original_acquire = resource_provider.acquire
+
+    def fresh_acquire(request: dict[str, object], live_lease_ids: set[str]) -> dict[str, object]:
+        result = original_acquire(request, live_lease_ids)
+        result["lease_id"] = resource_provider.lease_ids[resource_provider.acquires - 1]  # type: ignore[attr-defined]
+        return result
+
+    resource_provider.acquire = fresh_acquire  # type: ignore[method-assign]
+    def fresh_release(request: dict[str, object], lease_id: str) -> dict[str, object]:
+        resource_provider.releases += 1
+        return {"lease_id": lease_id, "released": True}
+    resource_provider.release = fresh_release  # type: ignore[method-assign]
+    workflow = json.loads((root / ".specs/features/fixture/workflow.json").read_text(encoding="utf-8"))
+    workflow["parallelization"]["resource_provider"] = "provider"
+    (root / ".specs/features/fixture/workflow.json").write_text(json.dumps(workflow), encoding="utf-8")
+    (root / "provider").write_text("#!/bin/sh\n", encoding="utf-8")
+    (root / "provider").chmod(0o755)
+
+    class FailOnce(RecordingAdapter):
+        def __init__(self) -> None:
+            super().__init__()
+            self.failed = False
+            self.reconciles = 0
+
+        def start_worker(self, lane: dict[str, object], receipt: dict[str, object], *, idempotency_key: str) -> dict[str, str]:
+            if not self.failed:
+                self.failed = True
+                raise orca_adapter.AdapterError("worker failed", details={"run_id": "run-A", "task_id": "task-A"})
+            result = super().start_worker(lane, receipt, idempotency_key=idempotency_key)
+            result["status"] = "complete"
+            return result
+
+        def reconcile_action(self, action: dict[str, object]) -> dict[str, str] | None:
+            self.reconciles += 1
+            return self.start_worker(action["worker_plan"], action["worktree_receipt"], idempotency_key=str(action["key"]))  # type: ignore[arg-type,index]
+
+    adapter = FailOnce()
+    try:
+        first = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: adapter, provider_factory=lambda _: resource_provider)
+        first._plan = lambda: lane_plan(resources=["port"])  # type: ignore[method-assign]
+        failed = first.start()
+        assert failed["reason"] == "worker-failed", failed
+        first_lease = failed["state"]["lanes"]["slice-A"]["lease"]  # type: ignore[index]
+        assert first_lease["released"] is True  # type: ignore[index]
+        second = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: adapter, provider_factory=lambda _: resource_provider)
+        second._plan = lambda: lane_plan(resources=["port"])  # type: ignore[method-assign]
+        retried = second.start(resume=True)
+        assert retried["fallback"] is False, retried
+        assert resource_provider.acquires == 2
+        assert resource_provider.releases == 2, retried
+        assert resource_provider.requests[0]["idempotency_key"] != resource_provider.requests[1]["idempotency_key"]
+        assert adapter.reconciles == 1
+        assert retried["state"]["lanes"]["slice-A"]["lease"]["lease_id"] == "lease-B"  # type: ignore[index]
+    finally:
+        shutil.rmtree(root)
 
 
 def test_resource_cleanup_is_owned_and_idempotent() -> None:

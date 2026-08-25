@@ -267,7 +267,41 @@ def authorize_lifecycle(root_value: str) -> dict[str, object]:
     return {"authorized": True, "lifecycle_version": LIFECYCLE_VERSION, "lifecycle_digest": record["lifecycle_digest"], "root": root_value}
 
 
-def _lane_worktree_ids(status: dict[str, object], worktree_root: Path) -> dict[str, str]:
+def _reject_symlink_components(root: Path, candidate: Path) -> None:
+    anchor = root.absolute()
+    path = candidate.absolute()
+    try:
+        relative = path.relative_to(anchor)
+    except ValueError as exc:
+        raise ValueError("pilot lane path escapes worktree boundary") from exc
+    current = anchor
+    for part in relative.parts:
+        current /= part
+        if current.is_symlink():
+            raise ValueError("pilot lane path contains a symlink")
+
+
+def _registered_worktree_paths(owner: Path) -> set[Path]:
+    output = git(owner, "worktree", "list", "--porcelain")
+    paths: set[Path] = set()
+    for line in output.splitlines():
+        if line.startswith("worktree "):
+            paths.add(Path(line.removeprefix("worktree ")).absolute())
+    return paths
+
+
+def _attested_worktree_is_gone(owner: Path, path: Path, worktree_id: str) -> bool:
+    if path.exists():
+        return False
+    if path.absolute() in _registered_worktree_paths(owner):
+        return False
+    return not Path(worktree_id).exists()
+
+
+def _lane_worktree_ids(
+    status: dict[str, object], worktree_root: Path, *, attested: dict[str, str] | None = None,
+    owner: Path | None = None, allow_removed: bool = False,
+) -> dict[str, str]:
     state = status.get("state")
     lanes = state.get("lanes") if isinstance(state, dict) else None
     if not isinstance(lanes, dict) or set(lanes) != set(EXPECTED_LANES):
@@ -278,18 +312,42 @@ def _lane_worktree_ids(status: dict[str, object], worktree_root: Path) -> dict[s
         expected_path = worktree_root / OWNED_WORKTREES[EXPECTED_LANES.index(lane_id)]
         if not isinstance(lane, dict) or lane.get("worktree_path") != str(expected_path) or not isinstance(lane.get("worktree_id"), str):
             raise ValueError("pilot lane worktree ownership is incomplete")
-        if not expected_path.is_dir() or _gitdir(expected_path) != lane["worktree_id"]:
-            raise ValueError("pilot lane worktree identity is stale")
-        result[lane_id] = lane["worktree_id"]
+        lane_id_value = lane["worktree_id"]
+        if attested is not None and attested.get(lane_id) != lane_id_value:
+            raise ValueError("pilot lane worktree identity changed")
+        _reject_symlink_components(worktree_root, expected_path)
+        if expected_path.is_dir() and _gitdir(expected_path) == lane_id_value:
+            result[lane_id] = lane_id_value
+            continue
+        if allow_removed and owner is not None and _attested_worktree_is_gone(owner, expected_path, lane_id_value):
+            result[lane_id] = lane_id_value
+            continue
+        raise ValueError("pilot lane worktree identity is stale")
     return result
 
 
-def _remove_owned_worktrees(owner: Path, worktree_root: Path) -> list[str]:
+def _owned_identities_are_gone(owner: Path, root: Path, worktree_root: Path, lane_ids: dict[str, str], source_id: str) -> bool:
+    for lane_id in EXPECTED_LANES:
+        path = worktree_root / OWNED_WORKTREES[EXPECTED_LANES.index(lane_id)]
+        _reject_symlink_components(worktree_root, path)
+        if not _attested_worktree_is_gone(owner, path, lane_ids[lane_id]):
+            return False
+    if root.exists() or root.absolute() in _registered_worktree_paths(owner) or Path(source_id).exists():
+        return False
+    return True
+
+
+def _remove_owned_worktrees(owner: Path, worktree_root: Path, expected_ids: dict[str, str] | None = None) -> list[str]:
     residual: list[str] = []
     for relative in OWNED_WORKTREES:
         worktree = worktree_root / relative
+        _reject_symlink_components(worktree_root, worktree)
         if not worktree.exists():
             continue
+        if expected_ids is not None:
+            lane_id = EXPECTED_LANES[OWNED_WORKTREES.index(relative)]
+            if _gitdir(worktree) != expected_ids.get(lane_id):
+                raise ValueError("pilot lane worktree identity is stale")
         result = subprocess.run(["git", "worktree", "remove", "--force", str(worktree)], cwd=owner, check=False, capture_output=True)
         if result.returncode != 0 or worktree.exists():
             residual.append(str(worktree))
@@ -360,7 +418,13 @@ def cleanup(root_value: str, *, abort_incomplete: bool = False) -> dict[str, obj
         record = json.loads(attestation.read_text(encoding="utf-8"))
         worktree_root = _validate_tombstone(root, record)
         if record["status"] in {"authorized", "diagnostic-authorized"}:
-            raise ValueError("pilot cleanup authorization is incomplete")
+            owner = Path(str(record["owner_root"])).resolve()
+            lane_ids = record.get("lane_worktree_ids")
+            if not isinstance(lane_ids, dict) or not all(isinstance(lane_ids.get(lane), str) for lane in EXPECTED_LANES):
+                raise ValueError("pilot cleanup authorization is invalid")
+            if not _owned_identities_are_gone(owner, root, worktree_root, lane_ids, str(record["source_worktree_id"])):
+                raise ValueError("pilot cleanup authorization has unreconciled owned identities")
+            _prune_empty_worktree_dirs(worktree_root)
         residual = _residual_paths(worktree_root)
         if residual:
             if record["status"] == "cleaned":
@@ -391,15 +455,28 @@ def cleanup(root_value: str, *, abort_incomplete: bool = False) -> dict[str, obj
         return {"cleaned": False, "aborted": False, "diagnostic_cleanup": False, "reason": "lifecycle-incomplete", "root": root_value}
     if abort_incomplete and _accepted_worker_effect(status):
         return {"cleaned": False, "aborted": False, "diagnostic_cleanup": True, "reason": "worker-may-be-live", "instruction": "release accepted workers before diagnostic abort", "root": root_value}
-    lane_ids = _lane_worktree_ids(status, worktree_root) if lifecycle else {lane_id: "unverified" for lane_id in EXPECTED_LANES}
+    if lifecycle:
+        attested_ids = prior_authorization.get("lane_worktree_ids") if isinstance(prior_authorization, dict) else None
+        lane_ids = _lane_worktree_ids(
+            status, worktree_root,
+            attested=attested_ids if isinstance(attested_ids, dict) else None,
+            owner=owner,
+            allow_removed=prior_authorization is not None and not abort_incomplete,
+        )
+    else:
+        lane_ids = {lane_id: "unverified" for lane_id in EXPECTED_LANES}
     if not abort_incomplete and (prior_authorization is None or prior_authorization.get("lifecycle_digest") != _state_digest(status)):
         raise ValueError("pilot cleanup authorization digest is stale")
     residual: list[str] = []
-    record = _authorization_record(root, ownership, snapshot, status, lane_ids, diagnostic=abort_incomplete)
+    record = (
+        dict(prior_authorization)
+        if prior_authorization is not None and not abort_incomplete
+        else _authorization_record(root, ownership, snapshot, status, lane_ids, diagnostic=abort_incomplete)
+    )
     record["residual_paths"] = residual
     if abort_incomplete:
         _write_tombstone(attestation, record)
-    residual = _remove_owned_worktrees(owner, worktree_root)
+    residual = _remove_owned_worktrees(owner, worktree_root, lane_ids if lifecycle and not abort_incomplete else None)
     _prune_empty_worktree_dirs(worktree_root)
     residual.extend(_residual_paths(worktree_root))
     source_result = subprocess.run(["git", "worktree", "remove", "--force", str(root)], cwd=owner, check=False, capture_output=True)

@@ -354,6 +354,90 @@ def test_cleanup_rejects_every_non_head_ownership_tamper_before_any_effect() -> 
             (fixture_root.parent / f".{fixture_root.name}.parallel-pilot-cleaned").unlink(missing_ok=True)
 
 
+def _prepare_authorized_fixture() -> tuple[str, Path, Path, dict[str, dict[str, object]]]:
+    setup = subprocess.run([sys.executable, str(HARNESS), "setup"], text=True, capture_output=True, check=True)
+    fixture = json.loads(setup.stdout)["root"]
+    fixture_root = Path(fixture)
+    sibling_root = qa_parallel_pilot._worktree_root(fixture_root)
+    source_head = json.loads((fixture_root / ".specs/features/parallel-pilot/workflow.json").read_text(encoding="utf-8"))["git_head"]
+    lanes: dict[str, dict[str, object]] = {}
+    actions: dict[str, dict[str, object]] = {}
+    for lane_id, slice_id, task_id, relative in (("slice-A", "A", "T1", OWNED_WORKTREES[0]), ("slice-B", "B", "T2", OWNED_WORKTREES[1])):
+        child = sibling_root / relative
+        child.parent.mkdir(parents=True, exist_ok=True)
+        subprocess.run(["git", "worktree", "add", "--detach", str(child), source_head], cwd=fixture_root, check=True, capture_output=True)
+        dispatch = f"dispatch-{slice_id}"
+        lanes[lane_id] = {"slice": slice_id, "task": task_id, "state": "complete", "resources": [], "worktree_id": qa_parallel_pilot._gitdir(child), "worktree_path": str(child), "dispatch_id": dispatch, "lifecycle_events": ["worker_done", "worker_read", "worker_ack", "worker_release"]}
+        actions.update({
+            f"worker-{slice_id}": {"key": f"worker-{slice_id}", "action": "worker", "status": "accepted", "lane": lane_id, "external_id": dispatch, "receipt": {"dispatch_id": dispatch}, "completion": {"delivery_id": f"delivery-{slice_id}"}, "delivery": {"event": "worker_done"}},
+            f"ack-{slice_id}": {"key": f"ack-{slice_id}", "action": "worker_ack", "status": "accepted", "lane": lane_id, "external_id": f"ack-{slice_id}", "receipt": {"acknowledged": True, "delivery_id": f"delivery-{slice_id}"}},
+            f"release-{slice_id}": {"key": f"release-{slice_id}", "action": "worker_release", "status": "accepted", "lane": lane_id, "external_id": f"release-{slice_id}", "receipt": {"released": True, "dispatch_id": dispatch}},
+        })
+    state = parallel_execute.new_runtime_state(str(fixture_root.resolve()), "parallel-pilot", "safe", source_head)
+    state["lanes"] = lanes
+    state["actions"] = actions
+    parallel_execute.atomic_write_json(parallel_execute.runtime_state_path(fixture_root, "parallel-pilot"), state)
+    authorized = subprocess.run([sys.executable, str(HARNESS), "lifecycle-check", "--root", fixture], text=True, capture_output=True, check=True)
+    assert json.loads(authorized.stdout)["authorized"] is True
+    return fixture, fixture_root, sibling_root, lanes
+
+
+def test_symlink_lane_sentinel_is_rejected_before_diagnostic_deletion() -> None:
+    setup = subprocess.run([sys.executable, str(HARNESS), "setup"], text=True, capture_output=True, check=True)
+    fixture = json.loads(setup.stdout)["root"]
+    fixture_root = Path(fixture)
+    sibling_root = qa_parallel_pilot._worktree_root(fixture_root)
+    sentinel = sibling_root / "parallel-pilot" / "sentinel-target"
+    lane = sibling_root / OWNED_WORKTREES[0]
+    try:
+        sentinel.mkdir(parents=True)
+        (sentinel / "keep").write_text("keep\n", encoding="utf-8")
+        lane.parent.mkdir(parents=True, exist_ok=True)
+        lane.symlink_to(sentinel, target_is_directory=True)
+        rejected = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], text=True, capture_output=True, check=False)
+        assert rejected.returncode != 0
+        assert lane.is_symlink() and (sentinel / "keep").read_text(encoding="utf-8") == "keep\n"
+        assert fixture_root.exists()
+    finally:
+        if lane.is_symlink():
+            lane.unlink()
+        if fixture_root.exists():
+            subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], check=False)
+        (fixture_root.parent / f".{fixture_root.name}.parallel-pilot-cleaned").unlink(missing_ok=True)
+
+
+def test_authorized_cleanup_reconciles_interrupted_lane_and_removed_source() -> None:
+    fixture, fixture_root, sibling_root, lanes = _prepare_authorized_fixture()
+    attestation = fixture_root.parent / f".{fixture_root.name}.parallel-pilot-cleaned"
+    try:
+        removed_lane = sibling_root / OWNED_WORKTREES[0]
+        subprocess.run(["git", "worktree", "remove", "--force", str(removed_lane)], cwd=fixture_root, check=True, capture_output=True)
+        retry = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--root", fixture], text=True, capture_output=True, check=False)
+        assert retry.returncode == 0, retry.stdout + retry.stderr
+        assert json.loads(retry.stdout)["cleaned"] is True
+        assert not fixture_root.exists()
+        assert json.loads(attestation.read_text(encoding="utf-8"))["status"] == "cleaned"
+    finally:
+        if fixture_root.exists():
+            subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], check=False)
+        attestation.unlink(missing_ok=True)
+
+
+def test_authorized_cleanup_finalizes_after_all_effects_removed_before_tombstone() -> None:
+    fixture, fixture_root, sibling_root, lanes = _prepare_authorized_fixture()
+    attestation = fixture_root.parent / f".{fixture_root.name}.parallel-pilot-cleaned"
+    try:
+        for relative in OWNED_WORKTREES:
+            subprocess.run(["git", "worktree", "remove", "--force", str(sibling_root / relative)], cwd=fixture_root, check=True, capture_output=True)
+        subprocess.run(["git", "worktree", "remove", "--force", str(fixture_root)], cwd=ROOT, check=True, capture_output=True)
+        finalized = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--root", fixture], text=True, capture_output=True, check=False)
+        assert finalized.returncode == 0, finalized.stdout + finalized.stderr
+        assert json.loads(finalized.stdout)["cleaned"] is True
+        assert json.loads(attestation.read_text(encoding="utf-8"))["status"] == "cleaned"
+    finally:
+        attestation.unlink(missing_ok=True)
+
+
 if __name__ == "__main__":
     tests = [function for name, function in sorted(globals().items()) if name.startswith("test_")]
     for function in tests:

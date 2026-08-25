@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from pathlib import Path
 from typing import Any, Callable, Mapping
@@ -23,12 +24,23 @@ class AdapterError(core.ExecutorError):
 
 _SENSITIVE_KEYS = {"environment", "env", "credentials", "secrets", "token", "password", "authorization", "transcript", "body"}
 
+_CREDENTIAL_TEXT = re.compile(
+    r"(?i)(\b(?:password|token|api[_-]?key|client[_-]?secret|cookie)\b\s*[:=]\s*)([^\s,;}'\"]+)"
+)
+_BEARER_TEXT = re.compile(r"(?i)(\b(?:authorization\s*[:=]\s*)?bearer\s+)([^\s,;}'\"]+)")
+
 
 def _is_sensitive_key(key: str) -> bool:
     normalized = key.strip().lower().replace("-", "_")
     if normalized in _SENSITIVE_KEYS or normalized in {"access_token", "refresh_token", "api_key", "client_secret", "cookie"}:
         return True
     return normalized.endswith(("_token", "_secret", "_key", "_cookie", "_password", "_credential"))
+
+
+def _redact_text(value: str) -> str:
+    """Remove credential-shaped values while retaining diagnostic code and stage text."""
+    value = _CREDENTIAL_TEXT.sub(r"\1<redacted>", value)
+    return _BEARER_TEXT.sub(r"\1<redacted>", value)
 
 
 def _redact_payload(value: Any, *, container: bool = False) -> Any:
@@ -44,6 +56,8 @@ def _redact_payload(value: Any, *, container: bool = False) -> Any:
         return result
     if isinstance(value, list):
         return [_redact_payload(item, container=container) for item in value]
+    if isinstance(value, str):
+        return "<redacted>" if container else _redact_text(value)
     return "<redacted>" if container else value
 
 
