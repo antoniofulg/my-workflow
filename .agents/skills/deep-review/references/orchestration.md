@@ -57,9 +57,10 @@ Sweeps are **opt-in and rare** — default to none. Each sweep is one extra agen
 
 The jobs contract makes engines interchangeable — pick one per run, record it in walkthrough.md's Review details (`Mode: workflow | agent-fallback | subagent:<runtime>`), and always close the loop with `run_jobs.py --validate-only`. Validation rejects missing coverage rows, unaccounted rules, wrong-lane results, and silent suppressions.
 
-**Named native dispatch (default when host supports it).** Dispatch pending jobs one at a time to the
-custom `deep-reviewer` agent. A retry also occupies the sole reviewer slot; never start a second
-reviewer while one is active. Use the host's real selector:
+**Named native dispatch (default when host supports it).** Dispatch up to the manifest concurrency
+bound to the custom `deep-reviewer` agent, refill slots as jobs complete, and keep retries inside
+the owning worker slot. After a provider block, let active attempts finish and do not refill. Use
+the host's real selector:
 
 - Claude Code Task: `subagent_type: "deep-reviewer"`.
 - Cursor `cursor/task`: `subagentType: { custom: "deep-reviewer" }`.
@@ -67,10 +68,10 @@ reviewer while one is active. Use the host's real selector:
   configuration.
 
 Metrics are optional provider-neutral hooks. An adapter may call `start_metrics`,
-`checkpoint_metrics`, and `finalize_metrics` around the serial dispatch; hooks record cumulative
-snapshots only and never choose jobs or change exits. Record `Mode: native` in walkthrough.md, then
-run the validate-only gate. Provider-specific telemetry setup belongs in the runtime adapter
-guidance, not in this orchestration contract.
+`checkpoint_metrics`, and `finalize_metrics` around the bounded dispatch; the main thread records
+serialized cumulative snapshots only and never assigns overlapping deltas to jobs or changes exits.
+Record `Mode: native` in walkthrough.md, then run the validate-only gate. Provider-specific
+telemetry setup belongs in the runtime adapter guidance, not in this orchestration contract.
 
 Before prompts are materialized, `build_jobs.py` automatically attempts the pinned Graft CLI:
 `graft build`, repository-map lookup, blast-radius tracing, and symbol lookup are written to the
@@ -79,8 +80,10 @@ command falls back to plain repository inspection and does not block review. Gra
 dot-directories, so selected `.agents` paths always carry an explicit plain-inspection fallback.
 
 **Workflow fallback (when named native dispatch is unavailable).** One generic script executes any
-stage's pending jobs — pass the pending list from the validate-only status file as `args.jobs`.
-This path intentionally stays role-free; it does not assume a named-agent parameter.
+stage's pending jobs — pass the pending list from the validate-only status file as `args.jobs` and
+launch at most the manifest concurrency. Refill completed slots, stop refilling after a provider
+block, and preserve jobs-file order when the stage returns. This path intentionally stays role-free;
+it does not assume a named-agent parameter.
 
 ```js
 export const meta = {
@@ -88,25 +91,74 @@ export const meta = {
   description: 'Execute pending deep-review jobs; each agent reads a prompt file and writes one output file',
   phases: [{ title: 'Execute' }],
 }
-// args: { jobs: [{label, prompt, output}] } — PENDING jobs only
+// args: { jobs: [{label, prompt, output}], concurrency?: integer } — PENDING jobs only
 phase('Execute')
 let returned = 0
-for (const j of args.jobs) {
-  if (await agent(`Read ${j.prompt} and follow it exactly. It defines the review task, the JSON ` +
-        `schema, and the single file you write (${j.output}). Repo files are read-only. ` +
-        `Reply with one sentence once the artifact is written.`,
-    { label: j.label, phase: 'Execute' })) returned += 1
+const inputJobs = [...(args.jobs ?? [])]
+const pending = [...inputJobs]
+const requestedConcurrency = args?.concurrency
+if (requestedConcurrency !== undefined &&
+    (!Number.isInteger(requestedConcurrency) || requestedConcurrency < 1 || requestedConcurrency > 6)) {
+  throw new Error('concurrency must be an integer from 1 through 6')
 }
-return { dispatched: args.jobs.length, returned }
+const resolvedConcurrency = requestedConcurrency === undefined ? 3 : requestedConcurrency
+const workerLimit = Math.min(resolvedConcurrency, pending.length)
+const active = []
+const resultsByLabel = new Map()
+let providerBlock = null
+while (pending.length || active.length) {
+  while (!providerBlock && pending.length && active.length < workerLimit) {
+    const j = pending.shift()
+    const promise = agent(`Read ${j.prompt} and follow it exactly. It defines the review task, the JSON ` +
+      `schema, and the single file you write (${j.output}). Repo files are read-only. ` +
+      `Reply with one sentence once the artifact is written.`,
+      { label: j.label, phase: 'Execute' }).then(
+        () => ({ label: j.label, status: 'pass' }),
+        (error) => {
+          const message = String(error?.message ?? error)
+          return { label: j.label, status: message.includes('usageLimitExceeded') ? 'blocked' : 'fail', error: message }
+        },
+      )
+    active.push({ label: j.label, promise })
+  }
+  if (!active.length) break
+  const finished = await Promise.race(active.map(({ promise }) => promise))
+  const index = active.findIndex(({ label }) => label === finished.label)
+  active.splice(index, 1)
+  resultsByLabel.set(finished.label, finished)
+  if (finished.status === 'blocked' && providerBlock === null) providerBlock = finished
+  if (finished.status === 'pass') returned += 1
+}
+const orderedJobs = inputJobs.map(({ label }) => resultsByLabel.get(label) ?? ({ label, status: 'pending' }))
+const unfinished = orderedJobs.filter(({ status }) => status !== 'pass')
+return {
+  dispatched: inputJobs.length,
+  returned,
+  jobs: orderedJobs,
+  blocker: providerBlock,
+  pending: unfinished,
+}
 ```
 
 After the workflow returns, run the validate-only gate; re-invoke with the still-pending jobs (interrupted runs can also resume via `resumeFromRunId`). Two re-dispatches without progress → inspect a failing output by hand before continuing.
 
 **Agent fallback (`--no-workflow` or no Workflow tool).** Same contract through the Agent tool: use
 the named native selectors above when available. If the host has no named-agent path, use the
-generic prompt-only subagent dispatch ("Read `<prompt>` and follow it exactly…") one at a time; do
-not add an unsupported role argument. Then run the validate-only gate.
+generic prompt-only subagent dispatch ("Read `<prompt>` and follow it exactly…") with the manifest
+concurrency bound; do not add an unsupported role argument. Then run the validate-only gate.
 
-**External runtimes (`--subagent` ≠ `native`).** `run_jobs.py --command` drives `compozy exec` per subagent-runtimes.md — the runner owns serial execution, retries, output validation, provider-block detection, and the freeze check.
+**External runtimes (`--subagent` ≠ `native`).** `run_jobs.py --command` drives `compozy exec` per
+subagent-runtimes.md — the runner owns bounded execution, retries, output validation,
+provider-block detection, and the freeze check.
 
 The orchestrator never reviews inline, regardless of PR size: reviewers spend their own context on their cohort; the orchestrator plans, dispatches, gates, and reports.
+
+### Bounded dispatch
+
+The manifest builder resolves reviewer concurrency once, with precedence `--concurrency N` over
+`.deep-review.yaml` over the default `3`, validates `1` through `6`, and pins the result in
+`manifest.json`. Every execution engine consumes that pinned value. It launches up to
+`min(concurrency, pending jobs)`, refills a worker slot after completion, and never schedules a
+new job after the first provider block. Active attempts finish; pending and blocked jobs remain in
+the blocker ledger. Results are stored by label and emitted in jobs-file order, regardless of
+completion order. The removed legacy `--workers` option is rejected.

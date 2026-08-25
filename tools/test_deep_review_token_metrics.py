@@ -29,11 +29,21 @@ from token_metrics import (  # noqa: E402
 import token_metrics  # noqa: E402
 import run_jobs  # noqa: E402
 import build_jobs  # noqa: E402
+from _common import freeze_snapshot  # noqa: E402
 from graft_context import graft_binary, prepare_graft_context  # noqa: E402
 import graft_context  # noqa: E402
 
 PREFIX = "/reviewer/deep-review"
 REPO = Path.cwd()
+
+
+def init_temp_repo(root: Path) -> None:
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.name", "deep-review tests"], cwd=root, check=True)
+    (root / "source.txt").write_text("stable\n", encoding="utf-8")
+    subprocess.run(["git", "add", "source.txt"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "initial"], cwd=root, check=True)
 
 
 def create_db(path: Path, total: int = 0, agent_path: str = PREFIX) -> None:
@@ -58,18 +68,36 @@ def write_jobs(path: Path, output_dir: str, count: int = 2) -> None:
     ]}), encoding="utf-8")
 
 
+def write_manifest(out: Path, concurrency: int = 3) -> None:
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "manifest.json").write_text(json.dumps({
+        "target": "test",
+        "mode": "full",
+        "round": 1,
+        "base": "base",
+        "head": "head",
+        "files": [],
+        "concurrency": concurrency,
+    }), encoding="utf-8")
+
+
 def helper_script(path: Path, *, overlap: bool = False) -> None:
     if overlap:
         path.write_text(
-            "import json, os, sys, time\n"
+            "import fcntl, json, pathlib, sys, time\n"
             "prompt, output, label, calls, active, overlap = sys.argv[1:]\n"
-            "if os.path.exists(active): open(overlap, 'w', encoding='utf-8').close()\n"
-            "open(active, 'w', encoding='utf-8').close()\n"
+            "def change(delta):\n"
+            "    with open(active, 'a+', encoding='utf-8') as stream:\n"
+            "        fcntl.flock(stream, fcntl.LOCK_EX)\n"
+            "        stream.seek(0); current = int(stream.read() or '0') + delta\n"
+            "        stream.seek(0); stream.truncate(); stream.write(str(current)); stream.flush()\n"
+            "        if current > 1: pathlib.Path(overlap).touch()\n"
+            "        fcntl.flock(stream, fcntl.LOCK_UN)\n"
+            "change(1)\n"
             "with open(calls, 'a', encoding='utf-8') as stream: stream.write(label + '\\n')\n"
-            "time.sleep(0.12)\n"
+            "time.sleep(0.2)\n"
             "json.dump({'defects': [], 'advisories': [], 'suppressions': [], 'coverage': {'hunks': [], 'rules': []}}, open(output, 'w', encoding='utf-8'))\n"
-            "try: os.unlink(active)\n"
-            "except FileNotFoundError: pass\n",
+            "change(-1)\n",
             encoding="utf-8",
         )
 
@@ -94,16 +122,65 @@ def retry_helper_script(path: Path) -> None:
         "if os.path.exists(active): open(overlap, 'w', encoding='utf-8').close()\n"
         "open(active, 'w', encoding='utf-8').close()\n"
         "with open(calls, 'a', encoding='utf-8') as stream: stream.write(f'{label}:{attempt}\\n')\n"
-        "time.sleep(0.05)\n"
+        "time.sleep(0.2)\n"
         "if attempt == 1:\n"
-        "    os.unlink(active)\n"
+        "    try: os.unlink(active)\n"
+        "    except FileNotFoundError: pass\n"
         "    raise SystemExit(1)\n"
         "json.dump({'defects': [], 'advisories': [], 'suppressions': [], 'coverage': {'hunks': [], 'rules': []}}, open(output, 'w', encoding='utf-8'))\n"
-        "os.unlink(active)\n",
+        "try: os.unlink(active)\n"
+        "except FileNotFoundError: pass\n",
         encoding="utf-8",
     )
-def runner(out: Path, jobs: Path, helper: Path, calls: Path, *, db: Path | None = None, ledger: Path | None = None, extra: list[str] | None = None, helper_suffix: list[Path] | None = None) -> list[str]:
+
+
+def peak_helper_script(path: Path, *, fail_first: bool = False, inverted: bool = False) -> None:
+    path.write_text(
+        "import fcntl, json, os, pathlib, sys, time\n"
+        "prompt, output, label, calls, state, peak, attempts, mode = sys.argv[1:]\n"
+        "state_path, peak_path, attempts_path = map(pathlib.Path, (state, peak, attempts))\n"
+        "def change(delta):\n"
+        "    with state_path.open('a+', encoding='utf-8') as stream:\n"
+        "        fcntl.flock(stream, fcntl.LOCK_EX)\n"
+        "        stream.seek(0)\n"
+        "        current = int(stream.read() or '0') + delta\n"
+        "        stream.seek(0); stream.truncate(); stream.write(str(current)); stream.flush()\n"
+        "        if delta > 0:\n"
+        "            previous = int(peak_path.read_text() or '0') if peak_path.exists() else 0\n"
+        "            if current > previous: peak_path.write_text(str(current))\n"
+        "        fcntl.flock(stream, fcntl.LOCK_UN)\n"
+        "    return current\n"
+        "attempt_file = attempts_path / label\n"
+        "attempt_file.parent.mkdir(parents=True, exist_ok=True)\n"
+        "attempt = int(attempt_file.read_text()) + 1 if attempt_file.exists() else 1\n"
+        "attempt_file.write_text(str(attempt))\n"
+        "change(1)\n"
+        "with open(calls, 'a', encoding='utf-8') as stream: stream.write(f'{label}:{attempt}\\n')\n"
+        "delay = 0.20 if ((label == 'job-1') == (mode == 'inverted')) else 0.12\n"
+        "time.sleep(delay)\n"
+        + ("if attempt == 1 and label == 'job-1':\n    change(-1)\n    raise SystemExit(1)\n" if fail_first else "")
+        + "json.dump({'defects': [], 'advisories': [], 'suppressions': [], 'coverage': {'hunks': [], 'rules': []}}, open(output, 'w', encoding='utf-8'))\n"
+        "change(-1)\n",
+        encoding="utf-8",
+    )
+
+
+def report_helper_script(path: Path) -> None:
+    path.write_text(
+        "import json, sys, time\n"
+        "prompt, output, label, calls, mode = sys.argv[1:]\n"
+        "with open(calls, 'a', encoding='utf-8') as stream: stream.write(label + '\\n')\n"
+        "delay = 0.20 if ((label == 'job-1') == (mode == 'inverted')) else 0.12\n"
+        "time.sleep(delay)\n"
+        "file = f'{label}.txt'\n"
+        "payload = {'defects': [{'file': file, 'line': 1, 'in_diff': False, 'hunk': None, 'category': 'potential-issue', 'severity': 'minor', 'quick_win': False, 'title': f'Defect {label}', 'body': f'Defect body for {label}.', 'rule_ids': [], 'evidence': [f'Premise: {label} is observable → Path: {file}:1 → Verdict: report it.']}], 'advisories': [{'file': file, 'line': 1, 'in_diff': False, 'hunk': None, 'category': 'refactor', 'severity': 'minor', 'quick_win': False, 'title': f'Advisory {label}', 'body': f'Advisory body for {label}.', 'rule_ids': [], 'evidence': [f'Premise: the review can be clearer → Improvement: distinguish {label} → Fix: keep this advisory.']}], 'suppressions': [], 'coverage': {'hunks': [], 'rules': []}}\n"
+        "json.dump(payload, open(output, 'w', encoding='utf-8'))\n",
+        encoding="utf-8",
+    )
+def runner(out: Path, jobs: Path, helper: Path, calls: Path, *, db: Path | None = None, ledger: Path | None = None, extra: list[str] | None = None, helper_suffix: list[Path] | None = None, freeze_check: bool = False) -> list[str]:
     command = [sys.executable, str(SCRIPTS / "run_jobs.py"), "--out", str(out), "--jobs-file", str(jobs), "--no-freeze-check"]
+    if freeze_check:
+        command.remove("--no-freeze-check")
     if helper:
         suffix = " ".join(str(value) for value in (helper_suffix or []))
         command += ["--command", f"{sys.executable} {helper} {{prompt}} {{output}} {{label}} {calls} {suffix}".strip()]
@@ -149,7 +226,257 @@ class TokenMetricsTests(unittest.TestCase):
                 with self.subTest(name=name), self.assertRaises(TokenMetricsError):
                     read_metrics(ledger)
 
-    def test_drm02_runner_serializes_reviewers_and_metrics_checkpoints(self) -> None:
+    def test_drm02_runner_overlaps_reviewers_at_default_and_explicit_max(self) -> None:
+        for concurrency, count in ((3, 3), (6, 6)):
+            with self.subTest(concurrency=concurrency), tempfile.TemporaryDirectory() as raw:
+                root = Path(raw)
+                db, out, jobs = root / "codex.sqlite", REPO / f".deep-review/metrics-concurrency-{concurrency}", root / "jobs.json"
+                calls, active, overlap, ledger = root / "calls", root / "active", root / "overlap", root / "metrics.json"
+                create_db(db)
+                shutil.rmtree(out, ignore_errors=True)
+                write_manifest(out, concurrency)
+                write_jobs(jobs, f".deep-review/metrics-concurrency-{concurrency}", count=count)
+                helper = root / "job.py"
+                helper_script(helper, overlap=True)
+                try:
+                    result = subprocess.run(
+                        runner(out, jobs, helper, calls, db=db, ledger=ledger, helper_suffix=[active, overlap]),
+                        cwd=REPO, capture_output=True, text=True,
+                    )
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertTrue(overlap.exists(), result.stdout + result.stderr + " calls=" + calls.read_text(encoding="utf-8"))
+                    status = json.loads((out / "runs/jobs-status.json").read_text(encoding="utf-8"))
+                    self.assertEqual([row["label"] for row in status["jobs"]], [f"job-{i}" for i in range(1, count + 1)])
+                    metrics = read_metrics(ledger)
+                    self.assertEqual(metrics["status"], "complete")
+                    self.assertEqual([row["completed_jobs"] for row in metrics["checkpoints"]], list(range(1, count + 1)))
+                    self.assertTrue(all("job" not in row for row in metrics["checkpoints"]))
+                finally:
+                    shutil.rmtree(out, ignore_errors=True)
+
+    def test_drm02_peak_active_is_exact_bound_and_effective_min(self) -> None:
+        for concurrency, count in ((3, 8), (6, 8), (6, 2)):
+            with self.subTest(concurrency=concurrency, count=count), tempfile.TemporaryDirectory() as raw:
+                root = Path(raw)
+                out, jobs = REPO / f".deep-review/peak-{concurrency}-{count}", root / "jobs.json"
+                calls, state, peak, attempts = root / "calls", root / "state", root / "peak", root / "attempts"
+                write_manifest(out, concurrency)
+                write_jobs(jobs, str(out.relative_to(REPO)), count=count)
+                helper = root / "peak.py"
+                peak_helper_script(helper)
+                try:
+                    result = subprocess.run(
+                        runner(out, jobs, helper, calls, helper_suffix=[state, peak, attempts, "normal"], extra=["--attempts", "1"]),
+                        cwd=REPO, capture_output=True, text=True,
+                    )
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertEqual(int(peak.read_text()), min(concurrency, count))
+                    status = json.loads((out / "runs/jobs-status.json").read_text(encoding="utf-8"))
+                    self.assertEqual([row["label"] for row in status["jobs"]], [f"job-{i}" for i in range(1, count + 1)])
+                finally:
+                    shutil.rmtree(out, ignore_errors=True)
+
+    def test_drm04_retries_do_not_expand_peak_worker_bound(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            out, jobs = REPO / ".deep-review/peak-retries", root / "jobs.json"
+            calls, state, peak, attempts = root / "calls", root / "state", root / "peak", root / "attempts"
+            write_manifest(out, 3)
+            write_jobs(jobs, str(out.relative_to(REPO)), count=5)
+            helper = root / "retry-peak.py"
+            peak_helper_script(helper, fail_first=True)
+            try:
+                result = subprocess.run(
+                    runner(out, jobs, helper, calls, helper_suffix=[state, peak, attempts, "normal"], extra=["--attempts", "2"]),
+                    cwd=REPO, capture_output=True, text=True,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(int(peak.read_text()), 3)
+                status = json.loads((out / "runs/jobs-status.json").read_text(encoding="utf-8"))
+                self.assertEqual([row["attempt"] for row in status["jobs"]], [2, 1, 1, 1, 1])
+                self.assertCountEqual(calls.read_text(encoding="utf-8").splitlines(), [
+                    "job-1:1", "job-1:2", "job-2:1", "job-3:1", "job-4:1", "job-5:1",
+                ])
+            finally:
+                shutil.rmtree(out, ignore_errors=True)
+
+    def test_drm04_ordinary_failure_continues_and_refills_siblings(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            out, jobs = REPO / ".deep-review/ordinary-failure", root / "jobs.json"
+            calls, state, peak, attempts = root / "calls", root / "state", root / "peak", root / "attempts"
+            write_manifest(out, 2)
+            write_jobs(jobs, str(out.relative_to(REPO)), count=5)
+            helper = root / "failure.py"
+            peak_helper_script(helper, fail_first=True)
+            try:
+                result = subprocess.run(
+                    runner(out, jobs, helper, calls, helper_suffix=[state, peak, attempts, "normal"], extra=["--attempts", "1"]),
+                    cwd=REPO, capture_output=True, text=True,
+                )
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                self.assertEqual(int(peak.read_text()), 2)
+                self.assertCountEqual(calls.read_text(encoding="utf-8").splitlines(), [
+                    "job-1:1", "job-2:1", "job-3:1", "job-4:1", "job-5:1",
+                ])
+                status = json.loads((out / "runs/jobs-status.json").read_text(encoding="utf-8"))
+                self.assertEqual([row["status"] for row in status["jobs"]], ["fail", "pass", "pass", "pass", "pass"])
+            finally:
+                shutil.rmtree(out, ignore_errors=True)
+
+    def test_drm04_multiple_provider_blocks_stop_refill_and_keep_first_reason(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            out, jobs = REPO / ".deep-review/multiple-provider-blocks", root / "jobs.json"
+            calls = root / "calls"
+            write_manifest(out, 2)
+            write_jobs(jobs, str(out.relative_to(REPO)), count=5)
+            helper = root / "blocks.py"
+            helper.write_text(
+                "import sys, time\n"
+                "prompt, output, label, calls = sys.argv[1:]\n"
+                "with open(calls, 'a', encoding='utf-8') as stream: stream.write(label + '\\n')\n"
+                "print('BLOCK-A' if label == 'job-1' else 'BLOCK-B')\n"
+                "time.sleep(0.02 if label == 'job-1' else 0.12)\n"
+                "raise SystemExit(1)\n",
+                encoding="utf-8",
+            )
+            try:
+                result = subprocess.run(
+                    runner(out, jobs, helper, calls, extra=["--attempts", "1", "--block-on", "BLOCK-A", "--block-on", "BLOCK-B"]),
+                    cwd=REPO, capture_output=True, text=True,
+                )
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                self.assertTrue(calls.exists(), result.stdout + result.stderr)
+                self.assertCountEqual(calls.read_text(encoding="utf-8").splitlines(), ["job-1", "job-2"])
+                blocker = json.loads((out / "run-blocker.json").read_text(encoding="utf-8"))
+                self.assertEqual(blocker["pattern"], "BLOCK-A")
+                self.assertEqual(blocker["first_label"], "job-1")
+                self.assertEqual(blocker["pending"], [f"job-{i}" for i in range(1, 6)])
+            finally:
+                shutil.rmtree(out, ignore_errors=True)
+
+    def test_drm04_scheduler_never_submits_pending_jobs_after_block(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            out, jobs_file = REPO / ".deep-review/no-refill-after-block", root / "jobs.json"
+            write_manifest(out, 2)
+            write_jobs(jobs_file, str(out.relative_to(REPO)), count=4)
+            jobs = json.loads(jobs_file.read_text(encoding="utf-8"))["jobs"]
+            calls: list[str] = []
+
+            def fake_run_one(_repo, _out, job, _args):
+                calls.append(job["label"])
+                if job["label"] == "job-1":
+                    run_jobs.record_block("job-1", "BLOCK-A")
+                    return {"label": "job-1", "status": "blocked", "attempt": 1, "error": "BLOCK-A"}
+                return {"label": job["label"], "status": "pass", "attempt": 1}
+
+            try:
+                with patch.object(run_jobs, "run_one", side_effect=fake_run_one):
+                    run_jobs.STOP_EVENT.clear()
+                    run_jobs.STOP_REASON.clear()
+                    run_jobs.run_pending_jobs(REPO, out, jobs, object(), 2)
+                self.assertCountEqual(calls, ["job-1", "job-2"])
+                self.assertNotIn("job-3", calls)
+                self.assertNotIn("job-4", calls)
+            finally:
+                shutil.rmtree(out, ignore_errors=True)
+
+    def test_drm05_source_drift_during_active_jobs_exits_three_after_finish(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            init_temp_repo(root)
+            out, jobs = root / ".deep-review/drift", root / "jobs.json"
+            write_manifest(out, 2)
+            write_jobs(jobs, ".deep-review/drift", count=2)
+            calls = root / "calls"
+            helper = root / "drift.py"
+            helper.write_text(
+                "import json, pathlib, sys, time\n"
+                "prompt, output, label, calls, source = sys.argv[1:]\n"
+                "with open(calls, 'a', encoding='utf-8') as stream: stream.write(label + '\\n')\n"
+                "if label == 'job-1': pathlib.Path(source).write_text('drifted\\n')\n"
+                "time.sleep(0.12)\n"
+                "json.dump({'defects': [], 'advisories': [], 'suppressions': [], 'coverage': {'hunks': [], 'rules': []}}, open(output, 'w', encoding='utf-8'))\n",
+                encoding="utf-8",
+            )
+            manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+            head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
+            manifest.update({"base": head, "head": head, "worktree_snapshot": freeze_snapshot(root, out)})
+            (out / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            try:
+                result = subprocess.run(
+                    runner(out, jobs, helper, calls, helper_suffix=[root / "source.txt"], freeze_check=True),
+                    cwd=root, capture_output=True, text=True,
+                )
+                self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+                self.assertIn("source drifted", result.stderr)
+                self.assertTrue(calls.exists(), result.stdout + result.stderr)
+                self.assertCountEqual(calls.read_text(encoding="utf-8").splitlines(), ["job-1", "job-2"])
+                self.assertTrue((out / "job-1.json").is_file())
+                self.assertTrue((out / "job-2.json").is_file())
+            finally:
+                shutil.rmtree(out, ignore_errors=True)
+
+    def test_drm03_inverted_completion_keeps_status_merge_and_report_deterministic(self) -> None:
+        artifacts: list[tuple[list[dict], dict, str]] = []
+        for name, mode in (("deterministic-a", "normal"), ("deterministic-b", "inverted")):
+            with tempfile.TemporaryDirectory() as raw:
+                root = Path(raw)
+                out = REPO / f".deep-review/{name}"
+                jobs = out / "jobs.json"
+                write_manifest(out, 3)
+                write_jobs(jobs, str(out.relative_to(REPO)), count=4)
+                (out / "rules.json").write_text(json.dumps({"rules": []}), encoding="utf-8")
+                (out / "context-pack.md").write_text("# Context\n", encoding="utf-8")
+                (out / "walkthrough.md").write_text(
+                    "<!-- deep-review:walkthrough -->\n"
+                    "## Walkthrough\n\n## Changes\n\n"
+                    "## Estimated code review effort\n\n## Review details\n",
+                    encoding="utf-8",
+                )
+                calls = root / "calls"
+                helper = root / "ordered.py"
+                report_helper_script(helper)
+                try:
+                    run = subprocess.run(
+                        runner(out, jobs, helper, calls, helper_suffix=[mode]),
+                        cwd=REPO, capture_output=True, text=True,
+                    )
+                    self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+                    run_status = json.loads((out / "runs/jobs-status.json").read_text(encoding="utf-8"))
+                    expected_labels = [f"job-{i}" for i in range(1, 5)]
+                    self.assertEqual([row["label"] for row in run_status["jobs"]], expected_labels)
+                    validate = subprocess.run(
+                        [sys.executable, str(SCRIPTS / "run_jobs.py"), "--out", str(out), "--jobs-file", str(jobs), "--no-freeze-check", "--validate-only"],
+                        cwd=REPO, capture_output=True, text=True,
+                    )
+                    self.assertEqual(validate.returncode, 0, validate.stdout + validate.stderr)
+                    validation_status = json.loads((out / "runs/jobs-status.json").read_text(encoding="utf-8"))
+                    self.assertEqual([row["label"] for row in validation_status["jobs"]], expected_labels)
+                    merge = subprocess.run([sys.executable, str(SCRIPTS / "merge_findings.py"), "--out", str(out)], cwd=REPO, capture_output=True, text=True)
+                    self.assertEqual(merge.returncode, 0, merge.stdout + merge.stderr)
+                    render = subprocess.run([sys.executable, str(SCRIPTS / "render_review.py"), "--out", str(out), "--no-freeze-check"], cwd=REPO, capture_output=True, text=True)
+                    self.assertEqual(render.returncode, 0, render.stdout + render.stderr)
+                    artifacts.append((run_status["jobs"], json.loads((out / "findings.json").read_text(encoding="utf-8")), (out / "review.md").read_text(encoding="utf-8")))
+                finally:
+                    shutil.rmtree(out, ignore_errors=True)
+        self.assertEqual([row["label"] for row in artifacts[0][0]], [f"job-{i}" for i in range(1, 5)])
+        self.assertEqual(artifacts[0][0], artifacts[1][0])
+        first_findings = artifacts[0][1]
+        self.assertEqual([finding["title"] for finding in first_findings["findings"]], [f"Defect job-{i}" for i in range(1, 5)])
+        self.assertEqual([advisory["title"] for advisory in first_findings["advisories"]], [f"Advisory job-{i}" for i in range(1, 5)])
+        self.assertEqual([finding["source_jobs"] for finding in first_findings["findings"]], [[f"job-{i}"] for i in range(1, 5)])
+        self.assertEqual([finding["raw_ids"] for finding in first_findings["findings"]], [[f"RD{i:04d}"] for i in range(1, 5)])
+        self.assertEqual([advisory["source_jobs"] for advisory in first_findings["advisories"]], [[f"job-{i}"] for i in range(1, 5)])
+        self.assertEqual([advisory["raw_ids"] for advisory in first_findings["advisories"]], [[f"RA{i:04d}"] for i in range(1, 5)])
+        self.assertEqual(artifacts[0][1], artifacts[1][1])
+        self.assertEqual(artifacts[0][2], artifacts[1][2])
+        for title in [f"Defect job-{i}" for i in range(1, 5)] + [f"Advisory job-{i}" for i in range(1, 5)]:
+            self.assertIn(title, artifacts[0][2])
+
+    def test_drm02_runner_serializes_metrics_checkpoints_in_main_thread(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
             db, out, jobs = root / "codex.sqlite", REPO / ".deep-review/metrics-concurrency", root / "jobs.json"
@@ -161,8 +488,7 @@ class TokenMetricsTests(unittest.TestCase):
             try:
                 result = subprocess.run(runner(out, jobs, helper, calls, db=db, ledger=ledger, helper_suffix=[active, overlap]), cwd=REPO, capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-                self.assertFalse(overlap.exists())
-                self.assertEqual(calls.read_text(encoding="utf-8").splitlines(), ["job-1", "job-2"])
+                self.assertCountEqual(calls.read_text(encoding="utf-8").splitlines(), ["job-1", "job-2"])
                 metrics = read_metrics(ledger)
                 self.assertEqual(metrics["status"], "complete")
                 self.assertEqual([row["completed_jobs"] for row in metrics["checkpoints"]], [1, 2])
@@ -224,7 +550,7 @@ class TokenMetricsTests(unittest.TestCase):
                 with patch.object(run_jobs, "checkpoint_metrics", side_effect=OSError("checkpoint unavailable")):
                     result = run_jobs.main()
                 self.assertEqual(result, 0)
-                self.assertEqual(calls.read_text(encoding="utf-8").splitlines(), ["job-1", "job-2"])
+                self.assertCountEqual(calls.read_text(encoding="utf-8").splitlines(), ["job-1", "job-2"])
                 status = json.loads((out / "runs/jobs-status.json").read_text(encoding="utf-8"))
                 self.assertEqual(status["metrics"], "unavailable")
             finally:
@@ -247,14 +573,14 @@ class TokenMetricsTests(unittest.TestCase):
                 with patch.object(run_jobs, "finalize_metrics", side_effect=OSError("finalize unavailable")):
                     result = run_jobs.main()
                 self.assertEqual(result, 0)
-                self.assertEqual(calls.read_text(encoding="utf-8").splitlines(), ["job-1", "job-2"])
+                self.assertCountEqual(calls.read_text(encoding="utf-8").splitlines(), ["job-1", "job-2"])
                 status = json.loads((out / "runs/jobs-status.json").read_text(encoding="utf-8"))
                 self.assertEqual(status["metrics"], "unavailable")
             finally:
                 sys.argv = old_argv
                 shutil.rmtree(out, ignore_errors=True)
 
-    def test_drm04_configured_retries_run_serially(self) -> None:
+    def test_drm04_configured_retries_stay_within_worker_slots(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
             db, out, jobs = root / "codex.sqlite", REPO / ".deep-review/metrics-retries", root / "jobs.json"
@@ -270,8 +596,8 @@ class TokenMetricsTests(unittest.TestCase):
                     cwd=REPO, capture_output=True, text=True,
                 )
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-                self.assertFalse(overlap.exists())
-                self.assertEqual(calls.read_text(encoding="utf-8").splitlines(), ["job-1:1", "job-1:2", "job-2:1", "job-2:2"])
+                self.assertTrue(overlap.exists())
+                self.assertCountEqual(calls.read_text(encoding="utf-8").splitlines(), ["job-1:1", "job-1:2", "job-2:1", "job-2:2"])
                 status = json.loads((out / "runs/jobs-status.json").read_text(encoding="utf-8"))
                 self.assertEqual([row["attempt"] for row in status["jobs"]], [2, 2])
                 metrics = read_metrics(ledger)
@@ -420,8 +746,26 @@ class TokenMetricsTests(unittest.TestCase):
         self.assertIn("fallback", orchestration.lower())
         self.assertNotIn("parallel(", orchestration)
         native = orchestration.split("**Named native dispatch", 1)[1].split("Metrics are optional", 1)[0].lower()
-        self.assertIn("one at a time", native)
-        self.assertNotRegex(native, r"parallel|concurr|fan[- ]out|promise\.all")
+        self.assertIn("manifest concurrency", native)
+        self.assertIn("active attempts", native)
+        self.assertNotIn("one at a time", native)
+        self.assertRegex(native, r"concurr|refill|worker slot")
+        workflow = orchestration.split("**Workflow fallback", 1)[1].split("**Agent fallback", 1)[0]
+        self.assertIn("concurrency?: integer", workflow)
+        self.assertIn("requestedConcurrency !== undefined", workflow)
+        self.assertIn("Number.isInteger(requestedConcurrency)", workflow)
+        self.assertIn("throw new Error('concurrency must be an integer from 1 through 6')", workflow)
+        self.assertIn("requestedConcurrency === undefined ? 3 : requestedConcurrency", workflow)
+        self.assertIn("Math.min(resolvedConcurrency, pending.length)", workflow)
+        self.assertIn("while (!providerBlock && pending.length", workflow)
+        self.assertIn("if (!active.length) break", workflow)
+        self.assertIn("message.includes('usageLimitExceeded') ? 'blocked' : 'fail'", workflow)
+        self.assertIn("resultsByLabel.set(finished.label, finished)", workflow)
+        self.assertIn("const orderedJobs = inputJobs.map", workflow)
+        self.assertIn("({ status }) => status !== 'pass'", workflow)
+        self.assertIn("blocker: providerBlock", workflow)
+        self.assertIn("pending:", workflow)
+        self.assertNotIn("Promise.race([]", workflow)
         graft = " ".join(orchestration.split("Before prompts are materialized", 1)[1].split("**Workflow fallback", 1)[0].lower().split())
         self.assertIn("optional", graft)
         self.assertIn("plain repository inspection", graft)
@@ -516,7 +860,7 @@ class TokenMetricsTests(unittest.TestCase):
                 self.assertIn(expected, (root / name / "graft-context.md").read_text(encoding="utf-8"))
                 self.assertIn("build", log.read_text(encoding="utf-8"))
 
-    def test_drm01_metrics_hooks_are_cumulative_with_serial_dispatch(self) -> None:
+    def test_drm01_metrics_hooks_are_cumulative_without_job_attribution(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
             db, ledger = root / "codex.sqlite", root / "metrics.json"
@@ -589,6 +933,47 @@ class TokenMetricsTests(unittest.TestCase):
                 self.assertEqual(blocker["pattern"], "usageLimitExceeded")
                 metrics = read_metrics(ledger)
                 self.assertEqual(metrics["status"], "running")
+            finally:
+                shutil.rmtree(out, ignore_errors=True)
+
+    def test_provider_block_finishes_active_jobs_and_resume_skips_valid_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            out, jobs = REPO / ".deep-review/provider-block-concurrent", root / "jobs.json"
+            calls, marker = root / "calls", root / "block-once"
+            write_manifest(out, 2)
+            write_jobs(jobs, ".deep-review/provider-block-concurrent", count=4)
+            helper = root / "block-once.py"
+            helper.write_text(
+                "import json, pathlib, sys, time\n"
+                "prompt, output, label, calls, marker = sys.argv[1:]\n"
+                "with open(calls, 'a', encoding='utf-8') as stream: stream.write(label + '\\n')\n"
+                "if label == 'job-1' and not pathlib.Path(marker).exists():\n"
+                "    pathlib.Path(marker).touch()\n"
+                "    print('usageLimitExceeded')\n"
+                "    raise SystemExit(1)\n"
+                "time.sleep(0.08)\n"
+                "json.dump({'defects': [], 'advisories': [], 'suppressions': [], 'coverage': {'hunks': [], 'rules': []}}, open(output, 'w', encoding='utf-8'))\n",
+                encoding="utf-8",
+            )
+            try:
+                first = subprocess.run(
+                    runner(out, jobs, helper, calls, extra=["--attempts", "1"], helper_suffix=[marker]),
+                    cwd=REPO, capture_output=True, text=True,
+                )
+                self.assertEqual(first.returncode, 2, first.stdout + first.stderr)
+                self.assertCountEqual(calls.read_text(encoding="utf-8").splitlines(), ["job-1", "job-2"])
+                blocker = json.loads((out / "run-blocker.json").read_text(encoding="utf-8"))
+                self.assertEqual(blocker["pending"], ["job-1", "job-3", "job-4"])
+                status = json.loads((out / "runs/jobs-status.json").read_text(encoding="utf-8"))
+                self.assertEqual([row["label"] for row in status["jobs"]], ["job-1", "job-2", "job-3", "job-4"])
+
+                second = subprocess.run(
+                    runner(out, jobs, helper, calls, extra=["--attempts", "1"], helper_suffix=[marker]),
+                    cwd=REPO, capture_output=True, text=True,
+                )
+                self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+                self.assertCountEqual(calls.read_text(encoding="utf-8").splitlines(), ["job-1", "job-2", "job-1", "job-3", "job-4"])
             finally:
                 shutil.rmtree(out, ignore_errors=True)
 
