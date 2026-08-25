@@ -30,10 +30,10 @@ feature snapshots freeze delegated settings. Cursor also sees `.claude/` and `.c
   mirrors the implementation proves nothing.
 - **Never add a test just to raise coverage.** Name the invariant, the owning layer, and the canonical
   suite; extend that suite. If no invariant exists, do not write the test.
-- **Approval authorizes local work only.** A spec or task approval covers scoped local changes and
-  atomic local commits. Readiness is evidence, not authorization: push, pull request, merge, deploy
-  and production database changes each need an explicit go-ahead for that action in the current
-  prompt or session.
+- **Remote delivery follows `autonomous`.** Invoking it authorizes this run's feature-branch push,
+  one pull request, and merge after readiness is rechecked. Readiness is evidence, not authorization
+  for deploy/release, production mutations, force-push, direct push to `main`, or unrelated remote
+  actions; those require explicit instruction.
 - **Instruction files cost every turn.** This file and `docs/guidelines/*.md` load into prompts.
   Growing one with restated or redundant prose is a defect. Read `docs/guidelines/CONTEXT-BUDGET.md`
   before editing either.
@@ -121,4 +121,5 @@ Conventional Commits: `<type>(<scope>): <description>`, types `feat|fix|refactor
 One commit per task. One commit per review-remediation batch. If a pre-commit hook fails, fix the
 issue and make a new commit — never `--amend`.
 
-Never push to `main`, force-push, or merge without an explicit instruction.
+Never push directly to `main` or force-push. Use `autonomous` for its scoped feature-branch delivery;
+ask explicitly for deploy/release, production mutations, or unrelated remote actions.
