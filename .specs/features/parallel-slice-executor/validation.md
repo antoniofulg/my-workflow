@@ -1383,3 +1383,119 @@ None in this remediation scope.
 **Overall:** PASS at `e24228c7e1e285a1b718e1c87466cfad29e1a078`. Exact persisted nested
 dispatch restart recovery is spec-correlated, idempotent, and discriminating. Real Orca QA remains
 outside this technical phase.
+
+## Authoritative Orca terminal recovery technical verification
+
+**Date:** 2026-08-25  
+**Diff range:** `40de33e..c17e274bbe66739c203857122b54e0186b929718`  
+**Verifier:** independent Technical Verifier (author != verifier)  
+**Verdict:** FAIL. Production correlates dispatch before terminal, extracts and validates the
+authoritative terminal from nested `worker-show`, persists it, then releases and retries the
+original Run/Task once. The exact missing-persisted-terminal contract is not discriminating:
+removing the persistence write leaves the complete adapter suite green.
+
+### Spec-anchored outcomes
+
+| Criterion | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| EXE-04 / SEC-005 dispatch-before-terminal correlation | Persisted dispatch identity is validated against authoritative `worker-show` before terminal recovery or mutation. | `.agents/skills/autonomous/scripts/orca_adapter.py:642-668` orders dispatch correlation before terminal extraction/persistence; `tools/test_orca_adapter.py:393-415` asserts missing, malformed, and conflicting authoritative terminals halt after one `worker-show`. | PASS |
+| EXE-04 authoritative terminal recovery | A persisted partial containing valid nested Run/Task/dispatch but no terminal obtains the owned terminal from nested `worker-show` and persists it before release/retry. | Production writes the recovered handle at `.agents/skills/autonomous/scripts/orca_adapter.py:654-668`. Canonical positive cases already provide a persisted terminal at `tools/test_orca_adapter.py:167,206,360`; no assertion starts without it. Removing line 668 leaves 34/34 adapter tests green. | FAIL |
+| EXE-04 exact release/retry/replay | Only after correlation, recovery performs one release and one `worker-start --retry-of` for the original task; replay creates no fifth command. | `tools/test_orca_adapter.py:158-177` asserts exact `worker-show, worker-release, show, worker-start`, original task/dispatch, equal replay receipt, and four total calls. | PASS |
+| EXE-11 / SEC-005 invalid terminal safety | Missing, malformed, or conflicting authoritative terminal halts after one show with zero release, retry, or persisted-terminal mutation. | `tools/test_orca_adapter.py:393-415` supplies all three invalid forms, asserts `uncorrelated_terminal`, and asserts the sole CLI command is `worker-show`; mutation occurs only after the guards at `.agents/skills/autonomous/scripts/orca_adapter.py:654-668`. | PASS |
+
+**Spec-anchored status:** 3 PASS, 1 FAIL, 0 spec-precision gaps in this remediation scope.
+
+### Gate evidence
+
+- `python3 tools/test_orca_adapter.py` -> 34 passed, 0 failed; 0 skipped.
+- `python3 tools/test_parallel_executor.py` -> 43 passed, 0 failed; 0 skipped.
+- `npm run test:all` -> exit 0: 110 Vitest tests plus 184 Python tests, 294 passed,
+  0 failed/skipped.
+- Adapter suite changed from 33 tests at `40de33e` to 34 at `c17e274`; delta +1.
+- `git diff --check 40de33e c17e274bbe66739c203857122b54e0186b929718` and
+  `python3 -m py_compile .agents/skills/autonomous/scripts/orca_adapter.py tools/test_orca_adapter.py`
+  -> exit 0.
+- No real Orca command/state, product code, test, or retained `docs/qa/**` artifact was mutated by
+  this verification.
+
+### Discrimination sensor
+
+One detached temporary worktree at `c17e274bbe66739c203857122b54e0186b929718` received the
+behavior fault and was removed afterward. Retained-checkout porcelain exactly matched its baseline
+except for this report and convergence ledger.
+
+| Mutation | Directed result | Outcome |
+| --- | --- | --- |
+| Remove `partial["terminal_handle"] = authoritative_terminal` after successful authoritative `worker-show` correlation. | `python3 tools/test_orca_adapter.py` exited 0 with 34/34 passing. | SURVIVED |
+
+**Sensor:** lightweight, 1 mutation, 0 killed, 1 survived. FAIL.
+
+### Fingerprint accounting
+
+- `f75de026b0aedf16589fe20f53a89fcf013196c731ff602b7a181d33a04e10b8` opened at
+  failed-remediation count 1 for EXE-04/SEC-005. Prior fingerprints remain unchanged.
+
+### Ranked gap
+
+1. **Major / EXE-04, SEC-005.** Add one canonical positive restart case whose persisted partial has
+   nested Run/Task/dispatch but no terminal. Return the owned terminal only from the real nested
+   `worker-show` envelope; assert it is persisted before the one release and one exact retry, then
+   assert replay adds no command. The test must fail when the persistence write is removed.
+
+**Overall:** FAIL for `c17e274bbe66739c203857122b54e0186b929718`. Runtime logic matches the
+requested recovery path, but evidence-or-zero rejects completion because the exact persistence
+behavior has a surviving mutant. Real Orca QA remains outside this technical phase.
+
+## Authoritative Orca terminal recovery re-verification
+
+**Date:** 2026-08-25  
+**Diff range:** `c17e274bbe66739c203857122b54e0186b929718..35a49bf8d5ddb3e3d836fa4963b3665c0f8a17cd`  
+**Verifier:** independent Technical Verifier (author != verifier)  
+**Verdict:** PASS. The canonical positive restart case now begins with nested Run/Task/dispatch and
+no terminal, obtains the owned terminal solely from nested `worker-show`, proves persistence before
+release, then proves one exact retry and idempotent replay.
+
+### Spec-anchored outcomes
+
+| Criterion | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| EXE-04 / SEC-005 missing-terminal recovery | A persisted partial with Run/Task/dispatch but no terminal recovers and persists the authoritative owned terminal before mutation. | `tools/test_orca_adapter.py:380-402` creates the exact terminal-free partial, asserts absence, supplies the terminal only in nested `worker-show`, and observes persistence before `worker-release`. | PASS |
+| EXE-04 single release/retry | Recovery issues one release and one retry of the same dispatch and original task. | `tools/test_orca_adapter.py:393-406` asserts exact `worker-show, worker-release, show, worker-start`, `--retry-of == ctx_5f619d0f6298`, and `--task == task-A`. | PASS |
+| EXE-04 replay idempotency | Replaying the accepted action returns the cached receipt and creates no external call. | `tools/test_orca_adapter.py:407-408` asserts equal receipt and four total calls after replay. | PASS |
+| EXE-11 / SEC-005 invalid terminal safety | Missing, malformed, or conflicting authoritative terminal still halts after one show with zero release/retry. | `tools/test_orca_adapter.py:432-454` retains all three fail-closed cases and asserts only `worker-show`. | PASS |
+
+**Spec-anchored status:** 4 PASS, 0 FAIL, 0 spec-precision gaps.
+
+### Gate evidence
+
+- `python3 tools/test_orca_adapter.py` -> 35 passed, 0 failed; 0 skipped.
+- `python3 tools/test_parallel_executor.py` -> 43 passed, 0 failed; 0 skipped.
+- `npm run test:all` -> exit 0: 110 Vitest tests plus 185 Python tests, 295 passed,
+  0 failed/skipped.
+- Adapter suite changed from 34 tests at `c17e274` to 35 at `35a49bf`; delta +1.
+- `git diff --check c17e274bbe66739c203857122b54e0186b929718 35a49bf8d5ddb3e3d836fa4963b3665c0f8a17cd`
+  -> exit 0.
+- No real Orca command/state, product code, test, or retained `docs/qa/**` artifact was mutated by
+  this verification.
+
+### Discrimination sensor
+
+One detached temporary worktree at `35a49bf8d5ddb3e3d836fa4963b3665c0f8a17cd` removed
+`partial["terminal_handle"] = authoritative_terminal`. The directed adapter suite exited 1 in the
+new canonical case before release because the expected persisted terminal was absent. Scratch was
+removed; retained-checkout porcelain returned to its baseline except for this report and ledger.
+
+**Sensor:** lightweight, 1 mutation, 1 killed, 0 survived. PASS.
+
+### Fingerprint accounting
+
+- `f75de026b0aedf16589fe20f53a89fcf013196c731ff602b7a181d33a04e10b8` is CLOSED at historical
+  failed-remediation count 1. No new fingerprint opened.
+
+### Ranked gaps
+
+None in this remediation scope.
+
+**Overall:** PASS at `35a49bf8d5ddb3e3d836fa4963b3665c0f8a17cd`. The exact authoritative
+terminal persistence contract is now spec-correlated, ordered, idempotent, and discriminating.
+Real Orca QA remains outside this technical phase.
