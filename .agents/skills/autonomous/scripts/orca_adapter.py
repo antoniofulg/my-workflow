@@ -286,7 +286,7 @@ class OrcaAdapter:
         return self._json_call([self.executable, "orchestration", *arguments, "--json"], timeout=timeout)
 
     def _reconcile_tab_not_found_release(
-        self, dispatch_id: str, terminal_handle: str, action_key: str, error: AdapterError
+        self, dispatch_id: str, terminal_handle: str, request_key: str, error: AdapterError
     ) -> dict[str, Any]:
         post = self._call("worker-show", "--dispatch", dispatch_id)
         actual_dispatch = post.get("dispatch_id") or post.get("dispatchId")
@@ -318,6 +318,7 @@ class OrcaAdapter:
         return {
             "released": True,
             "reconciled": True,
+            "idempotency_key": request_key,
             "reason": "tab_not_found",
             "error": "tab_not_found",
             "release_error": "tab_not_found",
@@ -727,11 +728,25 @@ class OrcaAdapter:
                 partial["terminal_handle"] = authoritative_terminal
             status = status_response.get("status") or status_response.get("state")
             release = partial.get("recovery_release")
+            expected_release_key = action_key + ":recovery-release"
             release_accepted = (
                 isinstance(release, Mapping)
                 and release.get("released") is True
                 and release.get("dispatch_id") == dispatch_id
+                and release.get("idempotency_key") == expected_release_key
             )
+            if release_accepted and release.get("reconciled") is True:
+                release_accepted = all(
+                    release.get(field) == expected
+                    for field, expected in {
+                        "terminal_handle": authoritative_terminal,
+                        "terminal_status": "exited",
+                        "connected": False,
+                        "writable": False,
+                        "reason": "tab_not_found",
+                        "error": "tab_not_found",
+                    }.items()
+                )
             if status == "released" and not release_accepted:
                 raise AdapterError(
                     "Orca released dispatch lacks its recovery receipt",
@@ -746,7 +761,7 @@ class OrcaAdapter:
                 except AdapterError as exc:
                     if exc.details.get("code") != "tab_not_found":
                         raise
-                    release = self._reconcile_tab_not_found_release(dispatch_id, authoritative_terminal, action_key, exc)
+                    release = self._reconcile_tab_not_found_release(dispatch_id, authoritative_terminal, expected_release_key, exc)
                 partial["recovery_release"] = dict(release)
             worker_path = self._discover_worktree(_text(receipt.get("worktree_path"), "worktree path"))
             response = self._call(
@@ -775,14 +790,14 @@ class OrcaAdapter:
     def _release(self, receipt: Mapping[str, Any]) -> dict[str, Any]:
         key = _text(receipt.get("idempotency_key"), "idempotency key")
         if key in self._released:
-            return {**self._released[key], "idempotent": True}
+            return {**self._released[key], "idempotency_key": key, "idempotent": True}
         dispatch_id = _opaque_token(receipt.get("dispatch_id"), "dispatch id")
         response = self._call("worker-release", "--dispatch", dispatch_id)
         if response.get("released") is not True:
             raise AdapterError("Orca worker release was not accepted")
         if response.get("dispatch_id") != dispatch_id:
             raise AdapterError("uncorrelated Orca release receipt")
-        result = {"released": True, "dispatch_id": dispatch_id}
+        result = {"released": True, "dispatch_id": dispatch_id, "idempotency_key": key}
         self._released[key] = result
         self._revoked_dispatches.add(dispatch_id)
         return dict(result)

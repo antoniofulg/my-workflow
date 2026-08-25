@@ -315,7 +315,7 @@ def test_persisted_release_receipt_allows_retry_when_dispatch_status_is_released
             "action": "worker", "key": KEY,
             "partial_effect": {
                 "run_id": "run-A", "task_id": "task-A", "dispatch_id": "dispatch-A", "terminal_handle": "terminal-A",
-                "recovery_release": {"released": True, "dispatch_id": "dispatch-A"},
+                "recovery_release": {"released": True, "dispatch_id": "dispatch-A", "idempotency_key": KEY + ":recovery-release"},
             },
             "worker_plan": lane, "worktree_receipt": worktree,
         }
@@ -427,12 +427,34 @@ def test_tab_not_found_release_reconciles_exited_terminal_and_retries_once() -> 
         adapter_instance = adapter(root, cli)
         receipt = adapter_instance.reconcile_action(action)
         release = action["partial_effect"]["recovery_release"]  # type: ignore[index]
-        assert release["released"] is True and release["reconciled"] is True and release["reason"] == "tab_not_found"
+        assert release == {
+            "released": True,
+            "reconciled": True,
+            "idempotency_key": KEY + ":recovery-release",
+            "reason": "tab_not_found",
+            "error": "tab_not_found",
+            "release_error": "tab_not_found",
+            "dispatch_id": dispatch_id,
+            "terminal_handle": terminal,
+            "terminal_status": "exited",
+            "connected": False,
+            "writable": False,
+        }
         assert receipt is not None and receipt["run_id"] == "run-A" and receipt["task_id"] == "task-A"
         assert [call[0][2] for call in cli.calls] == ["worker-show", "worker-release", "worker-show", "show", "worker-start"]
         assert cli.calls[-1][0][cli.calls[-1][0].index("--retry-of") + 1] == dispatch_id
+        cli.responses.append({"deliveries": [{
+            "id": "late-delivery", "run_id": "run-A", "type": "worker_done", "from_handle": terminal,
+            "payload": json.dumps({"taskId": "task-A", "dispatchId": dispatch_id, "outcome": "succeeded"}),
+        }]})
+        try:
+            adapter_instance.wait_events(receipt)
+        except orca_adapter.AdapterError as exc:
+            assert "stale" in str(exc)
+        else:
+            raise AssertionError("reconciled release must revoke late delivery")
         assert adapter_instance.reconcile_action(action) == receipt
-        assert len(cli.calls) == 5
+        assert len(cli.calls) == 6
     finally:
         shutil.rmtree(root)
 
