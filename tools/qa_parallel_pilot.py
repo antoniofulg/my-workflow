@@ -269,6 +269,8 @@ def authorize_lifecycle(root_value: str) -> dict[str, object]:
 
 def _reject_symlink_components(root: Path, candidate: Path) -> None:
     anchor = root.absolute()
+    if anchor.is_symlink():
+        raise ValueError("pilot lane path contains a symlink")
     path = candidate.absolute()
     try:
         relative = path.relative_to(anchor)

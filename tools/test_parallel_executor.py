@@ -473,6 +473,72 @@ def test_partial_worker_retry_reacquires_fresh_resource_lease_before_reconcile()
         shutil.rmtree(root)
 
 
+def test_restart_reconciles_existing_pending_retry_acquire_without_duplicate_provider_effect() -> None:
+    root = make_repo()
+    workflow = json.loads((root / ".specs/features/fixture/workflow.json").read_text(encoding="utf-8"))
+    workflow["parallelization"]["resource_provider"] = "provider"
+    (root / ".specs/features/fixture/workflow.json").write_text(json.dumps(workflow), encoding="utf-8")
+    (root / "provider").write_text("#!/bin/sh\n", encoding="utf-8")
+    (root / "provider").chmod(0o755)
+
+    class ReconcilingProvider:
+        def __init__(self) -> None:
+            self.acquires = 0
+            self.reconciles = 0
+            self.releases = 0
+
+        def acquire(self, request: dict[str, object], live_lease_ids: set[str]) -> dict[str, object]:
+            self.acquires += 1
+            return {"lease_id": "lease-A", "idempotency_key": request["idempotency_key"], "resources": ["port"], "prepared_worktree": True, "environment_keys": ["PORT"], "environment": {"PORT": "<redacted>"}, "released": False}
+
+        def reconcile_action(self, action: dict[str, object]) -> dict[str, object]:
+            self.reconciles += 1
+            return {"lease_id": "lease-B", "idempotency_key": action["key"], "resources": ["port"], "prepared_worktree": True, "environment_keys": ["PORT"], "environment": {"PORT": "<redacted>"}, "released": False}
+
+        def release(self, request: dict[str, object], lease_id: str) -> dict[str, object]:
+            self.releases += 1
+            return {"lease_id": lease_id, "released": True}
+
+    class FailingAdapter(RecordingAdapter):
+        def __init__(self) -> None:
+            super().__init__()
+            self.failed = True
+
+        def start_worker(self, lane: dict[str, object], receipt: dict[str, object], *, idempotency_key: str) -> dict[str, str]:
+            if self.failed:
+                self.failed = False
+                raise orca_adapter.AdapterError("worker failed", details={"run_id": "run-A", "task_id": "task-A"})
+            result = super().start_worker(lane, receipt, idempotency_key=idempotency_key)
+            result["status"] = "complete"
+            return result
+
+        def reconcile_action(self, action: dict[str, object]) -> dict[str, str] | None:
+            return self.start_worker(action["worker_plan"], action["worktree_receipt"], idempotency_key=str(action["key"]))  # type: ignore[arg-type,index]
+
+    provider = ReconcilingProvider()
+    adapter = FailingAdapter()
+    try:
+        first = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: adapter, provider_factory=lambda _: provider)
+        first._plan = lambda: lane_plan(resources=["port"])  # type: ignore[method-assign]
+        failed = first.start()
+        assert failed["reason"] == "worker-failed"
+        state_path = parallel_execute.runtime_state_path(root, "fixture")
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        retry_key = parallel_execute.idempotency_key("fixture", "A", "T1", "acquire-retry-1", state["source_git_head"])
+        state["lanes"]["slice-A"]["resource_retry_attempt"] = 1
+        state["lanes"]["slice-A"]["retry_acquire_key"] = retry_key
+        state["actions"][retry_key] = {"key": retry_key, "action": "acquire", "status": "pending", "lane": "slice-A"}
+        parallel_execute.atomic_write_json(state_path, state)
+        resumed = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: adapter, provider_factory=lambda _: provider)
+        resumed._plan = lambda: lane_plan(resources=["port"])  # type: ignore[method-assign]
+        result = resumed.start(resume=True)
+        assert result["fallback"] is False
+        assert provider.acquires == 1 and provider.reconciles == 1
+        assert result["state"]["actions"][retry_key]["status"] == "accepted"  # type: ignore[index]
+    finally:
+        shutil.rmtree(root)
+
+
 def test_resource_cleanup_is_owned_and_idempotent() -> None:
     root = make_repo()
     try:

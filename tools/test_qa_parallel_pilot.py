@@ -406,6 +406,29 @@ def test_symlink_lane_sentinel_is_rejected_before_diagnostic_deletion() -> None:
         (fixture_root.parent / f".{fixture_root.name}.parallel-pilot-cleaned").unlink(missing_ok=True)
 
 
+def test_symlinked_cleanup_anchor_is_rejected_before_destructive_deletion() -> None:
+    setup = subprocess.run([sys.executable, str(HARNESS), "setup"], text=True, capture_output=True, check=True)
+    fixture = json.loads(setup.stdout)["root"]
+    fixture_root = Path(fixture)
+    worktree_root = qa_parallel_pilot._worktree_root(fixture_root)
+    target_root = worktree_root.parent / f"{worktree_root.name}-redirect"
+    try:
+        (target_root / "parallel-pilot" / "A-T1").mkdir(parents=True)
+        worktree_root.symlink_to(target_root, target_is_directory=True)
+        rejected = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], text=True, capture_output=True, check=False)
+        assert rejected.returncode != 0
+        assert worktree_root.is_symlink() and (target_root / "parallel-pilot" / "A-T1").exists()
+        assert fixture_root.exists()
+    finally:
+        if worktree_root.is_symlink():
+            worktree_root.unlink()
+        if target_root.exists():
+            shutil.rmtree(target_root)
+        if fixture_root.exists():
+            subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], check=False)
+        (fixture_root.parent / f".{fixture_root.name}.parallel-pilot-cleaned").unlink(missing_ok=True)
+
+
 def test_authorized_cleanup_reconciles_interrupted_lane_and_removed_source() -> None:
     fixture, fixture_root, sibling_root, lanes = _prepare_authorized_fixture()
     attestation = fixture_root.parent / f".{fixture_root.name}.parallel-pilot-cleaned"

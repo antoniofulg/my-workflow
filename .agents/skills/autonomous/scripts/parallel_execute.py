@@ -1276,6 +1276,7 @@ class Coordinator:
             if pending_worker_retry:
                 transition_lane(state, lane_id, "ready", expected="serial")
                 if resources:
+                    retry_acquire_created = False
                     retry_key = existing.get("retry_acquire_key")
                     retry_action = state["actions"].get(retry_key) if isinstance(retry_key, str) else None
                     if not isinstance(retry_action, Mapping) or retry_action.get("status") in {"accepted", "released"}:
@@ -1289,7 +1290,10 @@ class Coordinator:
                         state["actions"][retry_key] = retry_action
                         existing["resource_retry_attempt"] = attempt
                         existing["retry_acquire_key"] = retry_key
+                        retry_acquire_created = True
                         self._save(state)
+            else:
+                retry_acquire_created = False
             if existing["state"] in {"complete", "failed", "serial"}:
                 continue
             worktree_key, worktree_action, worktree_created = self._record_action(state, lane_id, existing, "worktree")
@@ -1363,7 +1367,7 @@ class Coordinator:
                 retry_key = existing.get("retry_acquire_key") if pending_worker_retry else None
                 retry_action = state["actions"].get(retry_key) if isinstance(retry_key, str) else None
                 if isinstance(retry_key, str) and isinstance(retry_action, dict):
-                    acquire_key, acquire_action, acquire_created = retry_key, retry_action, True
+                    acquire_key, acquire_action, acquire_created = retry_key, retry_action, retry_acquire_created
                 else:
                     acquire_key, acquire_action, acquire_created = self._record_action(state, lane_id, existing, "acquire")
                 self._save(state)

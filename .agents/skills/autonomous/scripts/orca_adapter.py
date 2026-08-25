@@ -25,9 +25,17 @@ class AdapterError(core.ExecutorError):
 _SENSITIVE_KEYS = {"environment", "env", "credentials", "secrets", "token", "password", "authorization", "transcript", "body"}
 
 _CREDENTIAL_TEXT = re.compile(
-    r"(?i)(\b(?:password|token|api[_-]?key|client[_-]?secret|cookie)\b\s*[:=]\s*)([^\s,;}'\"]+)"
+    r'''(?ix)(?P<prefix>\b(?:password|token|access[_-]?token|api[_-]?key|client[_-]?secret|cookie|secret|credential)\b\s*[:=]\s*)
+        (?:(?P<quote>["'])(?P<quoted>.*?)(?P=quote)|(?P<bare>[^\s,;}'"]+))'''
 )
-_BEARER_TEXT = re.compile(r"(?i)(\b(?:authorization\s*[:=]\s*)?bearer\s+)([^\s,;}'\"]+)")
+_AUTH_TEXT = re.compile(
+    r'''(?ix)(?P<prefix>\bauthorization\b\s*[:=]\s*)(?!bearer\b)
+        (?:(?P<quote>["'])(?P<quoted>.*?)(?P=quote)|(?P<bare>[^\s,;}'"]+))'''
+)
+_BEARER_TEXT = re.compile(
+    r'''(?ix)(?P<prefix>\b(?:authorization\s*[:=]\s*)?bearer\s+)
+        (?:(?P<quote>["'])(?P<quoted>.*?)(?P=quote)|(?P<bare>[^\s,;}'"]+))'''
+)
 
 
 def _is_sensitive_key(key: str) -> bool:
@@ -39,8 +47,13 @@ def _is_sensitive_key(key: str) -> bool:
 
 def _redact_text(value: str) -> str:
     """Remove credential-shaped values while retaining diagnostic code and stage text."""
-    value = _CREDENTIAL_TEXT.sub(r"\1<redacted>", value)
-    return _BEARER_TEXT.sub(r"\1<redacted>", value)
+    def replace(match: re.Match[str]) -> str:
+        quote = match.group("quote")
+        return match.group("prefix") + (f"{quote}<redacted>{quote}" if quote else "<redacted>")
+
+    value = _BEARER_TEXT.sub(replace, value)
+    value = _AUTH_TEXT.sub(replace, value)
+    return _CREDENTIAL_TEXT.sub(replace, value)
 
 
 def _redact_payload(value: Any, *, container: bool = False) -> Any:
@@ -407,7 +420,7 @@ class OrcaAdapter:
             "payload": safe_payload,
             "task_id": task_id,
             "dispatch_id": dispatch_id,
-            **({"dependency": payload["dependency"]} if "dependency" in payload else {}),
+            **({"dependency": safe_payload["dependency"]} if "dependency" in safe_payload else {}),
         }
 
     def read_worker(self, receipt: Mapping[str, Any]) -> dict[str, Any]:

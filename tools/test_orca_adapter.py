@@ -295,7 +295,7 @@ def test_nested_delivery_credentials_are_redacted_before_adapter_returns_payload
         delivery = live_delivery()
         delivery["payload"] = json.dumps({
             "taskId": "task-A", "dispatchId": "dispatch-A", "outcome": "waiting", "status": "waiting",
-            "dependency": "producer-A", "environment": {"TOKEN": "secret-token"},
+            "dependency": "password=dependency-secret", "environment": {"TOKEN": "secret-token"},
             "nested": {"credentials": {"password": "secret-password", "access_token": "access-secret", "refresh_token": "refresh-secret", "api_key": "api-secret", "client_secret": "client-secret", "cookie": "cookie-secret"}},
         })
         delivery["type"] = "question"
@@ -305,6 +305,7 @@ def test_nested_delivery_credentials_are_redacted_before_adapter_returns_payload
         observed = worker.wait_events(receipt)
         serialized = json.dumps(observed)
         assert observed["payload"]["environment"]["TOKEN"] == "<redacted>"
+        assert observed["dependency"] == "password=<redacted>"
         assert observed["payload"]["nested"]["credentials"]["password"] == "<redacted>"
         assert observed["payload"]["nested"]["credentials"]["access_token"] == "<redacted>"
         assert observed["payload"]["nested"]["credentials"]["refresh_token"] == "<redacted>"
@@ -330,8 +331,8 @@ def test_structured_failure_redacts_credentials_inside_freeform_nested_strings()
             "error": {
                 "code": "selector_not_found",
                 "stage": "worker-start",
-                "message": "code=selector_not_found password=secret token=tok api-key=api client-secret=client cookie=cookie Authorization: Bearer bearer-secret",
-                "nested": [{"message": "Authorization Bearer list-secret token=list-token"}],
+                "message": "code=selector_not_found password=secret token=tok api-key=api client-secret=client cookie=cookie access_token=access authorization=auth secret='quoted-secret' credential=\"quoted-credential\" Authorization: Bearer bearer-secret",
+                "nested": [{"message": "Authorization Bearer list-secret token='list-token'"}],
             }
         }),
     )
@@ -341,8 +342,17 @@ def test_structured_failure_redacts_credentials_inside_freeform_nested_strings()
     assert details["stage"] == "worker-start"
     assert "password=secret" not in serialized
     assert "token=tok" not in serialized
-    assert "api" in details["message"]
-    for secret in ("password=secret", "list-secret", "list-token", "bearer-secret"):
+    for redacted in (
+        "password=<redacted>", "token=<redacted>", "api-key=<redacted>",
+        "client-secret=<redacted>", "cookie=<redacted>", "access_token=<redacted>",
+        "authorization=<redacted>", "secret='<redacted>'", "credential=\"<redacted>\"",
+    ):
+        assert redacted in details["message"]
+    for secret in (
+        "password=secret", "list-secret", "list-token", "bearer-secret", "api-key=api",
+        "client-secret=client", "cookie=cookie", "access_token=access", "authorization=auth",
+        "quoted-secret", "quoted-credential",
+    ):
         assert secret not in serialized
 
 
