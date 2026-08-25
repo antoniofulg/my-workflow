@@ -33,6 +33,10 @@ only actions allowed by the current frozen plan. `resume` reconciles persisted r
 most the available correlated events, and may block inside the adapter without model polling.
 `status` is read-only.
 
+For a real pilot, `start` is followed by bounded public `status`/`resume` calls. Cleanup is allowed
+only after status shows every lane terminal and the persisted worker acknowledgement/release
+receipts are accepted; timeout or incomplete lifecycle retains the fixture for diagnosis.
+
 `--adapter auto` selects a proven installed adapter; the first supported adapter is `orca`. If none
 qualifies, the command returns a successful serial-fallback result and creates no worktree or worker.
 
@@ -103,8 +107,9 @@ state, survive coordinator restart, and are never committed under `.specs/featur
 ## Exports
 
 The Python coordinator exposes an adapter protocol used by the bundled Orca adapter and test doubles.
-Checkpoint reconciliation is an internal seam: tests may inject a deterministic Git adapter and
-gate-receipt factory, while the public CLI continues to emit the same command JSON contract.
+Checkpoint reconciliation and final verified-slice integration are internal seams: tests may inject
+deterministic Git/gate adapters, while the public CLI persists exact checkpoint, cleanup, and
+integration receipts and continues to emit the same command JSON contract.
 
 ## Removals
 

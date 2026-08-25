@@ -210,6 +210,29 @@ def test_integration_conflict_aborts_without_touching_pre_operation_head() -> No
         shutil.rmtree(root, ignore_errors=True)
 
 
+def test_external_worktree_is_rejected_before_any_git_effect() -> None:
+    root, _ = repo()
+    external, _ = repo()
+    try:
+        external_head = run(external, "rev-parse", "HEAD")
+        adapter = git_adapter.GitAdapter(root)
+        for operation in (
+            lambda: adapter.sync_checkpoint(external, external_head),
+            lambda: adapter.integrate_slices(external, []),
+        ):
+            try:
+                operation()
+            except git_adapter.GitAdapterError as exc:
+                assert "repository" in str(exc) or "worktree" in str(exc)
+            else:
+                raise AssertionError("external worktree must be rejected")
+        assert run(external, "rev-parse", "HEAD") == external_head
+        assert run(external, "status", "--porcelain") == ""
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+        shutil.rmtree(external, ignore_errors=True)
+
+
 if __name__ == "__main__":
     tests = [function for name, function in sorted(globals().items()) if name.startswith("test_")]
     for function in tests:

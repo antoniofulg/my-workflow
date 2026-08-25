@@ -94,8 +94,10 @@ existing checkout. The adapter accepts one Orca JSON schema; unknown/missing fie
 
 Checkpoint sync rebases only a private dependent lane. It records pre-HEAD, exact producer commit,
 post-HEAD, and changed paths. A conflict runs `rebase --abort` and verifies the original clean HEAD.
-Verified slice integration uses a merge on the feature branch, preserving reviewed commit IDs. A
-merge conflict runs `merge --abort` and returns serial recovery.
+Verified slice integration is invoked by the coordinator only after every participating lane is
+complete with a successful worker_done packet and an owned current_head. It persists one ordered
+integration action and receipt; accepted integration is replayed without a second merge. A merge
+conflict runs `merge --abort` and returns serial recovery.
 
 Checkpoint receipts are consumed by the provider-neutral coordinator before worker start or
 follow-up. A changed HEAD persists `current_head`, the exact sync receipt, changed paths, and
@@ -126,8 +128,9 @@ RuntimeState {
 LaneReceipt {
   slice, task, state, worktree_id, worktree_path, branch,
   run_id, orchestration_task_id, dispatch_id, terminal_handle,
-  pre_head, lease, fallback_reason
-  # T4 adds current_head and invalidated_evidence[] during checkpoint sync.
+  pre_head, current_head, lease, worktree_cleanup, fallback_reason,
+  invalidated_evidence[]
+  # current_head is derived from the exact owned worktree after accepted worker_done.
 }
 
 ActionReceipt {
@@ -181,7 +184,7 @@ ready -> needs_resources -> running -> waiting -> needs_sync -> running -> compl
 | Local recovery state | Git common directory | Survives reboot, stays repository-scoped, and never pollutes versioned specs. |
 | Resource integration | Consumer executable, fixed JSON protocol | Projects control real runtime/DB semantics without a speculative plugin framework. |
 | Checkpoint reconciliation | Rebase dependent private lane | The consumer sees the exact producer before its dependent task. |
-| Final slice integration | Merge verified slice | Preserves commit identity and review evidence. |
+| Final slice integration | Coordinator invokes one ordered merge after all verified lanes complete | Preserves commit identity and review evidence without integrating incomplete or serial lanes. |
 
 The policy/effect boundary is recorded by active `AD-011`; blocker-scoped convergence follows
 `AD-012`. `AD-010` is the superseded predecessor. Checkpoint fields remain T4 scope, and provider

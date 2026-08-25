@@ -118,3 +118,11 @@ complete definition; all other edits are short pointers.
 | Public adverse coverage | Pass | Cleanup is invoked as a separate CLI process for root, feature, and all non-exact worktree-list variants; assertions target rejection and filesystem state. |
 | Test necessity | Pass | Each variant maps to SEC-008 ownership binding and proves no tombstone or Git/filesystem effect. |
 | QA boundary | Pass | No real Orca pilot or product file is touched. |
+
+## Grouped C-D review remediation delta
+
+| Item | Result | Evidence |
+| --- | --- | --- |
+| Trust boundary | Pass | Git consumers are checked against the adapter's exact Git common directory before head/rebase/merge/reset. |
+| Lifecycle wording | Pass | QA handoff drives public status/resume and inspects terminal, acknowledgement, and release receipts before cleanup. |
+| Scope honesty | Pass | T7 implementation completion explicitly hands E2E-001 to feature-closing fresh QA; no real pilot result is claimed. |

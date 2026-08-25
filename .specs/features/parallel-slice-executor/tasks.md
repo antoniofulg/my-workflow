@@ -195,7 +195,7 @@ T3 + T4 + T6 -> T7
 
 ### T7: Bind autonomous execution and prove Orca concurrency
 
-**Status:** complete
+**Status:** complete (implementation); E2E-001 is owned by the feature-closing fresh-QA step.
 **Slice:** D
 **Resources:** none
 **Observable behaviour:** Autonomous invokes the deterministic executor when its frozen mode and capabilities allow, otherwise runs serially; a real disposable Orca run proves two isolated worktrees active concurrently and cleans only owned workers.
@@ -209,7 +209,7 @@ T3 + T4 + T6 -> T7
 - [x] Policy names the exact executor commands, capability gate, event lifecycle, checkpoint/merge split, evidence invalidation, resource provider, and serial recovery.
 - [x] Shared contract tests prove TLC tasks, gates, Verifier, grouped deep-review, final QA, and full gate are unchanged.
 - [x] Writing-skills audit records every checklist item Pass.
-- [ ] E2E-001 records two distinct Orca worktree/branch/dispatch/terminal receipts active in one run, correlated completion events, clean status, and owned cleanup. **QA status:** untested; fresh QA Verifier required.
+- [x] T7 hands E2E-001 to the feature-closing fresh-QA step outside this implementation task; the real Orca journey remains untested until that step.
 - [x] Full gate and strict feature/state/index validators pass for authored implementation; feature-level state remains incomplete until E2E-001 QA.
 
 **Tests:** IT-007 in `tools/shared/tests/autonomous-parallelization.test.ts` and executor capability tests; E2E-001 handoff in `qa-pilot.md` (untested)
@@ -319,6 +319,25 @@ T3 + T4 + T6 -> T7
 The human rejected a slice-global cap because the prior rounds closed different blockers. T2R4
 corrects the durable convergence rule before T2R5 resumes the remaining IT-001 fingerprint. T3-T7
 remain blocked only until Slice A passes its Technical Verifier.
+
+### Grouped C-D round 1: close parallel executor review blockers
+
+**Remediation status:** complete
+**Slice:** C-D review group
+**Remediation resources:** none
+**Observable behaviour:** Git, checkpoint, integration, planner, pilot, and handoff boundaries fail closed, persist exact recovery receipts, and leave the real Orca journey to feature-closing fresh QA.
+**Where:** `.agents/skills/autonomous/scripts/parallel_execute.py`, `.agents/skills/autonomous/scripts/git_adapter.py`, `.agents/skills/workflow-config/scripts/parallel_plan.py`
+**Remediation requirements:** EXE-06–EXE-17, SEC-003, SEC-004, E2E-001
+**Remediation done when:**
+
+- [x] External Git worktrees, malformed checkpoints, undeclared paths, and rejected checkpoint worktrees serialize before cross-root effects.
+- [x] Accepted worker completion persists the owned producer HEAD; complete verified lanes integrate once in deterministic order.
+- [x] The pilot freezes committed task metadata and documents bounded status/resume/ack/release cleanup owned by fresh QA.
+- [x] STATE Handoff, T7 ownership, design/DX, memory, validation handoff, and writing audit reflect the post-review boundary.
+
+**Remediation tests:** Git adapter, planner, executor, QA pilot, IT-007, and full repository discovery.
+**Remediation gate:** Directed suites, `npm run test:all`, strict spec/tasks, AD index, compile, diff, and check_commit.
+**Remediation commit:** `fix(workflow): close parallel executor review blockers`.
 
 ### T2R4: Count verification attempts per blocker fingerprint
 

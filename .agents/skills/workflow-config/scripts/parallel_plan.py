@@ -9,6 +9,7 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from pathlib import PurePosixPath
 from typing import Any
 
 
@@ -26,6 +27,7 @@ class Task:
     status: str
     slice_id: str | None
     where: str | None
+    declared_paths: tuple[str, ...] | None
     depends_on: tuple[str, ...]
     resources: tuple[str, ...] | None
 
@@ -66,6 +68,19 @@ def _ambiguous_where(value: str | None) -> bool:
     if not value:
         return True
     return "," in value or ";" in value or " and " in value.lower()
+
+
+def _declared_paths(value: str | None) -> tuple[tuple[str, ...] | None, str | None]:
+    if _ambiguous_where(value):
+        return None, "ambiguous-where"
+    if value is None or not value.strip():
+        return None, "missing-where"
+    candidate = value.strip()
+    if "\\" in candidate or PurePosixPath(candidate).is_absolute() or ".." in PurePosixPath(candidate).parts:
+        return None, "invalid-where"
+    if candidate in {".", ""} or any(not part for part in PurePosixPath(candidate).parts):
+        return None, "invalid-where"
+    return (candidate,), None
 
 
 def _resources(value: str | None) -> tuple[tuple[str, ...] | None, str | None]:
@@ -122,12 +137,13 @@ def _parse_tasks(path: Path) -> tuple[list[Task], list[str]]:
         status = fields.get("status", "")
         slice_id = fields.get("slice") or None
         where = fields.get("where") or None
+        declared_paths, where_reason = _declared_paths(where)
         if status not in STATUS_VALUES:
             reasons.append(f"invalid-status:{task_id}")
         if slice_id is None:
             reasons.append(f"missing-slice:{task_id}")
-        if _ambiguous_where(where):
-            reasons.append(f"ambiguous-where:{task_id}")
+        if where_reason:
+            reasons.append(f"{where_reason}:{task_id}")
         resources, resource_reason = _resources(fields.get("resources"))
         if resource_reason:
             if resource_reason.startswith("duplicate-resources:"):
@@ -142,6 +158,7 @@ def _parse_tasks(path: Path) -> tuple[list[Task], list[str]]:
                 status=status,
                 slice_id=slice_id,
                 where=where,
+                declared_paths=declared_paths,
                 depends_on=_dependencies(fields.get("depends on")),
                 resources=resources,
             )
@@ -198,6 +215,7 @@ def _serial_lane(task: Task | None) -> list[dict[str, Any]]:
             "task": task.id,
             "status": "ready",
             "sync_after": [],
+            "declared_paths": list(task.declared_paths or []),
             "resources": list(task.resources or []),
         }
     ]
@@ -302,6 +320,7 @@ def plan(
                 "task": task.id,
                 "status": "follow_up" if task.status == "waiting" else "ready",
                 "sync_after": sync_after,
+                "declared_paths": list(task.declared_paths or []),
                 "resources": list(task.resources or []),
             }
         )

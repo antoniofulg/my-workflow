@@ -36,7 +36,6 @@ def setup() -> dict[str, str]:
         (root / "seed.txt").write_text("seed\n", encoding="utf-8")
         git(root, "add", "seed.txt")
         git(root, "commit", "-qm", "qa fixture seed")
-        head = git(root, "rev-parse", "HEAD")
         feature_dir = root / ".specs" / "features" / FEATURE
         feature_dir.mkdir(parents=True)
         (feature_dir / "tasks.md").write_text(
@@ -44,6 +43,9 @@ def setup() -> dict[str, str]:
             "### T2: pilot B\n**Status:** pending\n**Slice:** B\n**Where:** src/b.py\n**Depends on:** None\n**Resources:** none\n",
             encoding="utf-8",
         )
+        git(root, "add", str(feature_dir / "tasks.md"))
+        git(root, "commit", "-qm", "qa fixture plan")
+        head = git(root, "rev-parse", "HEAD")
         (feature_dir / "workflow.json").write_text(
             json.dumps(
                 {

@@ -90,7 +90,7 @@ def test_disabled_mode_returns_one_serial_lane_in_declared_order() -> None:
         plan = parallel_plan.plan(root=root, feature="fixture")
         assert plan["fallback"] is False
         assert plan["lanes"] == [
-            {"id": "serial", "slice": "A", "task": "T1", "status": "ready", "sync_after": [], "resources": []}
+            {"id": "serial", "slice": "A", "task": "T1", "status": "ready", "sync_after": [], "declared_paths": ["src/t1.py"], "resources": []}
         ]
         assert blocked_task(plan, "T2")["reasons"] == ["disabled-mode"]
     finally:
@@ -120,8 +120,10 @@ def test_full_mode_records_completed_cross_slice_dependency_checkpoint() -> None
     )
     try:
         plan = parallel_plan.plan(root=root, feature="fixture")
-        assert first_task(plan, "T2")["sync_after"] == ["T1"]
-        assert first_task(plan, "T2")["status"] == "ready"
+        lane = first_task(plan, "T2")
+        assert lane["sync_after"] == ["T1"]
+        assert lane["status"] == "ready"
+        assert lane["declared_paths"] == ["src/t2.py"]
     finally:
         shutil.rmtree(root)
 
@@ -155,6 +157,21 @@ def test_write_collision_falls_back_and_names_both_tasks() -> None:
         assert "write-conflict:T1:T2:src/shared.py" in plan["reasons"]
     finally:
         shutil.rmtree(root)
+
+
+def test_invalid_where_metadata_serializes_before_executor_effect() -> None:
+    cases = ("../escape.py", "/absolute.py", "src/a.py,src/b.py", "src/../a.py")
+    missing = "### T1: T1\n**Status:** pending\n**Slice:** A\n**Depends on:** None\n**Resources:** none\n"
+    for where in (None, *cases):
+        tasks = missing if where is None else task("T1", "A", where=where)
+        root = make_repo(tasks)
+        try:
+            plan = parallel_plan.plan(root=root, feature="fixture")
+            assert plan["fallback"] is True
+            assert any("where" in reason for reason in plan["reasons"])
+            assert plan["lanes"][0]["id"] == "serial"
+        finally:
+            shutil.rmtree(root)
 
 
 def test_dependency_blocking_precedes_write_conflict_evaluation() -> None:
@@ -227,6 +244,7 @@ def test_in_progress_is_blocked_and_waiting_follows_up_after_dependencies() -> N
                 "task": "T1",
                 "status": "follow_up",
                 "sync_after": ["T2"],
+                "declared_paths": ["src/t1.py"],
                 "resources": [],
             }
         ]
@@ -345,6 +363,7 @@ def test_cli_emits_the_point_in_time_plan() -> None:
                     "slice": "B",
                     "status": "ready",
                     "sync_after": ["T1"],
+                    "declared_paths": ["src/t2.py"],
                     "resources": [],
                     "task": "T2",
                 }

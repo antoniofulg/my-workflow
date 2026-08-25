@@ -783,6 +783,14 @@ non-HEAD ownership validation still survives the canonical pilot suite. No real 
 repeat of either resolved T7R3 failure. Grouped C-D deep-review, real Orca pilot, QA, and feature
 closure remain pending.
 
+## Grouped C-D round 1 remediation handoff
+
+The grouped review found ten Major blockers. This batch addresses exact Git common-directory
+ownership, coordinator checkpoint/integration lifecycle, planner declared paths, malformed receipt
+serial recovery, owned worktree cleanup, pilot source metadata, QA terminal lifecycle, and the
+stale T7/STATE handoff. The review artifacts remain immutable evidence; fresh grouped verification
+must re-run its findings against the committed batch. No real Orca pilot was executed by the author.
+
 ## T7R5 implementation evidence
 
 - `python3 tools/test_qa_parallel_pilot.py`: 6 tests passed, 0 failed; the ownership matrix covers root, feature, missing, extra, duplicate, outside, and reordered worktree values through subprocess cleanup.

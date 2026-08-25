@@ -27,6 +27,8 @@ class GitAdapter:
         self.root = Path(root).resolve()
         self.runner = runner
         self._validate_repo(self.root)
+        common = self._git(self.root, "rev-parse", "--git-common-dir").stdout.strip()
+        self.common_dir = (self.root / common if not Path(common).is_absolute() else Path(common)).resolve()
 
     def _git(self, cwd: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
         completed = self.runner(["git", *args], cwd=str(cwd), check=False)
@@ -46,8 +48,26 @@ class GitAdapter:
         target = Path(path).resolve()
         if not target.is_dir():
             raise GitAdapterError("worktree is not a directory")
+        common = self._git(target, "rev-parse", "--git-common-dir").stdout.strip()
+        actual_common = (target / common if not Path(common).is_absolute() else Path(common)).resolve()
+        if actual_common != self.common_dir:
+            raise GitAdapterError("worktree belongs to another repository")
         self._git(target, "rev-parse", "--is-inside-work-tree")
         return target
+
+    def reconcile_action(self, action: Mapping[str, Any]) -> Mapping[str, Any] | None:
+        if action.get("action") == "integrate" and isinstance(action.get("receipt"), Mapping):
+            return dict(action["receipt"])
+        return None
+
+    def remove_worktree(self, worktree: Path | str) -> dict[str, Any]:
+        target = self._validate_worktree(worktree)
+        if target == self.root:
+            raise GitAdapterError("cannot remove repository root")
+        result = self._git(self.root, "worktree", "remove", "--force", str(target), check=False)
+        if result.returncode != 0 or target.exists():
+            raise GitAdapterError(result.stderr.strip() or "worktree cleanup failed")
+        return {"removed": True, "worktree_path": str(target)}
 
     def head(self, worktree: Path | str | None = None) -> str:
         target = self.root if worktree is None else self._validate_worktree(worktree)
