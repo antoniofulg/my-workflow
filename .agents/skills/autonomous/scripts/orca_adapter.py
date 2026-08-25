@@ -119,6 +119,19 @@ def _nested_dispatch_id(value: Mapping[str, Any]) -> Any:
     return None
 
 
+def _nested_terminal_handle(value: Mapping[str, Any]) -> Any:
+    for field in ("terminal_handle", "terminalHandle", "agentTerminalHandle", "agent_terminal_handle"):
+        if field in value:
+            return value[field]
+    for key in ("worker", "terminal", "terminalResource", "terminal_resource", "dispatch", "result"):
+        nested = value.get(key)
+        if isinstance(nested, Mapping):
+            handle = _nested_terminal_handle(nested)
+            if handle is not None:
+                return handle
+    return None
+
+
 def _payload(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise AdapterError("malformed Orca response")
@@ -131,6 +144,10 @@ def _payload(value: Any) -> dict[str, Any]:
         nested_dispatch_id = _nested_dispatch_id(value)
         if nested_dispatch_id is not None:
             value["dispatch_id"] = nested_dispatch_id
+    if not any(field in value for field in ("terminal_handle", "terminalHandle", "agentTerminalHandle")):
+        nested_terminal_handle = _nested_terminal_handle(value)
+        if nested_terminal_handle is not None:
+            value["terminal_handle"] = nested_terminal_handle
     for nested in ("run", "task", "worker", "dispatch", "worktree"):
         if isinstance(value.get(nested), dict):
             nested_value = value[nested]
@@ -196,6 +213,10 @@ def _failure_details(exc: subprocess.CalledProcessError) -> dict[str, Any]:
             details["dispatch_id"] = nested_dispatch_id
     if "dispatch_id" in details:
         details["dispatch_id"] = _opaque_token(details["dispatch_id"], "dispatch id")
+    if not any(field in details for field in ("terminal_handle", "terminalHandle", "agentTerminalHandle")):
+        nested_terminal_handle = _nested_terminal_handle(details)
+        if nested_terminal_handle is not None:
+            details["terminal_handle"] = _opaque_token(nested_terminal_handle, "terminal handle")
     details["returncode"] = exc.returncode
     return details
 
@@ -615,7 +636,9 @@ class OrcaAdapter:
                         partial[field] = normalized_partial[field]
             run_id = _text(normalized_partial.get("run_id"), "run id")
             task_id = _text(normalized_partial.get("task_id"), "task id")
-            _text(normalized_partial.get("terminal_handle"), "terminal handle")
+            persisted_terminal = normalized_partial.get("terminal_handle")
+            if persisted_terminal is not None:
+                persisted_terminal = _opaque_token(persisted_terminal, "terminal handle")
             dispatch_id = _opaque_token(normalized_partial.get("dispatch_id"), "dispatch id")
             status_response = self._call("worker-show", "--dispatch", dispatch_id)
             actual_dispatch = status_response.get("dispatch_id") or status_response.get("dispatchId")
@@ -628,6 +651,21 @@ class OrcaAdapter:
                     "uncorrelated Orca dispatch status",
                     details={"code": "uncorrelated_dispatch", "dispatch_id": dispatch_id, "actual_dispatch": normalized_actual},
                 )
+            authoritative_terminal = _nested_terminal_handle(status_response)
+            try:
+                authoritative_terminal = _opaque_token(authoritative_terminal, "terminal handle")
+            except AdapterError:
+                raise AdapterError(
+                    "uncorrelated Orca terminal status",
+                    details={"code": "uncorrelated_terminal", "dispatch_id": dispatch_id},
+                )
+            if persisted_terminal is not None and persisted_terminal != authoritative_terminal:
+                raise AdapterError(
+                    "uncorrelated Orca terminal status",
+                    details={"code": "uncorrelated_terminal", "dispatch_id": dispatch_id},
+                )
+            if isinstance(partial, dict):
+                partial["terminal_handle"] = authoritative_terminal
             status = status_response.get("status") or status_response.get("state")
             release = partial.get("recovery_release")
             release_accepted = (

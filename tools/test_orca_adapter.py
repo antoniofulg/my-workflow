@@ -156,7 +156,7 @@ def test_structured_worker_start_failure_preserves_partial_effect_and_reuses_run
             raise AssertionError("structured worker failure must be reported")
 
         retry_cli = RecordingCLI([
-            {"dispatch_id": "dispatch-A", "status": "failed"},
+            {"dispatch_id": "dispatch-A", "status": "failed", "terminal_handle": "terminal-A"},
             {"released": True, "dispatch_id": "dispatch-A"},
             {"worktree_path": worktree["worktree_path"]},
             worker_payload(worktree),
@@ -196,7 +196,7 @@ def test_nested_dispatch_envelopes_preserve_ctx_identity_through_failure_show_re
             raise AssertionError("nested stalled dispatch must remain a partial effect")
 
         retry_cli = RecordingCLI([
-            {"result": {"dispatch": {"id": dispatch_id, "status": "failed"}}},
+            {"result": {"dispatch": {"id": dispatch_id, "status": "failed"}, "worker": {"agent_terminal_handle": "terminal-A"}, "terminal": {"handle": "terminal-A"}, "terminalResource": {"terminalHandle": "terminal-A"}}},
             {"result": {"dispatch": {"id": dispatch_id, "released": True}}},
             {"worktree_path": worktree["worktree_path"]},
             worker_payload(worktree),
@@ -265,7 +265,7 @@ def test_worktree_discovery_timeout_preserves_run_task_and_never_starts_worker()
 def test_unknown_stalled_dispatch_fails_safely_without_release_or_retry() -> None:
     root, lane, worktree = fixture()
     try:
-        cli = RecordingCLI([{"dispatch_id": "dispatch-A", "status": "unknown"}])
+        cli = RecordingCLI([{"dispatch_id": "dispatch-A", "status": "unknown", "terminal_handle": "terminal-A"}])
         try:
             adapter(root, cli).reconcile_action({
                 "action": "worker", "key": KEY,
@@ -284,7 +284,7 @@ def test_unknown_stalled_dispatch_fails_safely_without_release_or_retry() -> Non
 def test_running_stalled_dispatch_fails_safely_without_release_or_retry() -> None:
     root, lane, worktree = fixture()
     try:
-        cli = RecordingCLI([{"dispatch_id": "dispatch-A", "status": "running"}])
+        cli = RecordingCLI([{"dispatch_id": "dispatch-A", "status": "running", "terminal_handle": "terminal-A"}])
         try:
             adapter(root, cli).reconcile_action({
                 "action": "worker", "key": KEY,
@@ -306,7 +306,7 @@ def test_persisted_release_receipt_allows_retry_when_dispatch_status_is_released
     root, lane, worktree = fixture()
     try:
         cli = RecordingCLI([
-            {"dispatch_id": "dispatch-A", "status": "released"},
+            {"dispatch_id": "dispatch-A", "status": "released", "terminal_handle": "terminal-A"},
             {"worktree_path": worktree["worktree_path"]},
             worker_payload(worktree),
         ])
@@ -350,7 +350,7 @@ def test_restart_normalizes_nested_persisted_partial_effect_and_retries_exact_ct
     dispatch_id = "ctx_5f619d0f6298"
     try:
         cli = RecordingCLI([
-            {"result": {"dispatch": {"id": dispatch_id, "status": "failed"}}},
+            {"result": {"dispatch": {"id": dispatch_id, "status": "failed"}, "worker": {"agent_terminal_handle": "terminal-A"}, "terminal": {"handle": "terminal-A"}, "terminalResource": {"terminalHandle": "terminal-A"}}},
             {"result": {"dispatch": {"id": dispatch_id, "released": True}}},
             {"worktree_path": worktree["worktree_path"]},
             worker_payload(worktree),
@@ -366,6 +366,7 @@ def test_restart_normalizes_nested_persisted_partial_effect_and_retries_exact_ct
         worker_start = cli.calls[-1][0]
         assert worker_start[worker_start.index("--retry-of") + 1] == dispatch_id
         assert action["partial_effect"]["dispatch_id"] == dispatch_id  # type: ignore[index]
+        assert action["partial_effect"]["terminal_handle"] == "terminal-A"  # type: ignore[index]
     finally:
         shutil.rmtree(root)
 
@@ -387,6 +388,33 @@ def test_malformed_nested_persisted_dispatch_id_halts_before_worker_show_mutatio
         assert cli.calls == []
     finally:
         shutil.rmtree(root)
+
+
+def test_worker_show_missing_malformed_or_conflicting_terminal_halts_before_release_or_retry() -> None:
+    cases = (
+        ({"result": {"dispatch": {"id": "ctx_5f619d0f6298", "status": "failed"}}}, None),
+        ({"result": {"dispatch": {"id": "ctx_5f619d0f6298", "status": "failed"}, "terminal": {"handle": "term bad"}}}, None),
+        ({"result": {"dispatch": {"id": "ctx_5f619d0f6298", "status": "failed"}, "terminal": {"handle": "term_new"}}}, "term_old"),
+    )
+    for show_response, persisted_terminal in cases:
+        root, lane, worktree = fixture()
+        try:
+            cli = RecordingCLI([show_response])
+            partial = {"run_id": "run-A", "task_id": "task-A", "dispatch_id": "ctx_5f619d0f6298"}
+            if persisted_terminal is not None:
+                partial["terminal_handle"] = persisted_terminal
+            try:
+                adapter(root, cli).reconcile_action({
+                    "action": "worker", "key": KEY,
+                    "partial_effect": partial, "worker_plan": lane, "worktree_receipt": worktree,
+                })
+            except orca_adapter.AdapterError as exc:
+                assert exc.details["code"] == "uncorrelated_terminal"
+            else:
+                raise AssertionError("invalid worker-show terminal must halt recovery")
+            assert [call[0][2] for call in cli.calls] == ["worker-show"]
+        finally:
+            shutil.rmtree(root)
 
 
 def test_delivery_from_revoked_dispatch_is_rejected_as_stale() -> None:
