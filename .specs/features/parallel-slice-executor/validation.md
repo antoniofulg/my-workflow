@@ -2450,3 +2450,26 @@ preflight scope. Missing and unproven providers now fail closed before any lane 
 of order; dry-run/start parity and replay remain deterministic; proven resource lanes proceed; disabled
 and unsupported behavior remains unchanged. No commit, push, merge, real Orca action, product/test
 edit, or `docs/qa/**` edit was performed.
+
+## Post-main integration verification — 2026-08-25
+
+**Verdict:** **PASS** (technical). **Commit:** `9b606a3c16a5883e513e6e6e8ff418f74c4d1ee0`. **Diff:** `1451afa..9b606a3`. Fresh verifier; author != verifier. **AC status:** 33/33 (EXE-01..25, SEC-001..008) PASS; 0 FAIL.
+
+| Spec outcome / IDs | Evidence | Result |
+| --- | --- | --- |
+| Missing provider is rejected before any lane mutation, independent of lane order (EXE-21, SEC-007). | `.agents/skills/autonomous/scripts/parallel_execute.py:1176-1231`; `tools/test_parallel_executor.py:466-503` asserts exact `missing-resource-provider`, zero actions/adapter/worktree/lease/state/runtime effects. | PASS |
+| Present but unproven provider remains fail-closed (EXE-21, SEC-007). | `.agents/skills/autonomous/scripts/parallel_execute.py:1222-1231`; `tools/test_parallel_executor.py:507-529` asserts fallback before worker/worktree/action/state effects. | PASS |
+| Dry-run/start parity and restart replay preserve fallback and at-most-once effects (EXE-03, EXE-04). | `tools/test_parallel_executor.py:255-274,595-657,1005-1057` plus frozen-route replay assertions in `tools/test_workflow_config.py:186-202,282-296,1023-1119`. | PASS |
+| Proven provider-backed resource lane proceeds with correlated lease (EXE-18..20). | `.agents/skills/autonomous/scripts/parallel_execute.py:398-407,1123-1129`; `tools/test_parallel_executor.py:410-460` asserts bypass for none, exact request, prepared worktree, redacted environment. | PASS |
+| Disabled and unsupported modes remain serial and effect-free (EXE-01). | `.agents/skills/autonomous/scripts/parallel_execute.py:1185-1231`; `tools/test_parallel_executor.py:189-207,984-1002,1414-1435`. | PASS |
+| Accepted/failed/abandoned resource cleanup remains correlated and idempotent (EXE-20..22, SEC-008). | `.agents/skills/autonomous/scripts/parallel_execute.py:399-430`; `tools/test_parallel_executor.py:661-780,820-880`. | PASS |
+
+Config/schema evidence: v2 frozen snapshot and `parallelization`/provider fields in `.specs/features/parallel-slice-executor/workflow.json:1-49`; resolver/schema in `.agents/skills/workflow-config/scripts/workflow_config.py:22-34,130-164,183-285`; `tools/test_workflow_config.py` directed suite 44 passed. Main model/effort/packet/remediation union with parallelization modes/provider passed; AD-001..014 unique/remapped per `.specs/STATE.md:16-225`, `.specs/AD-INDEX.md:9-24`.
+
+Gate evidence already collected: `rtk npm run test:all` author run exit 0 (110 Vitest + all Python, 0 failures); `rtk python3 tools/test_workflow_config.py` 44 passed; DRM04 directed 10/10; executor/planner/git/resource directed 45/18/9/18 passed; strict spec/tasks/state/index and diff-check exit 0.
+
+Discrimination sensor: 7 injected, 7 killed, 0 survived. Config C1-C4 killed by canonical workflow-config assertions; DRM04 M1 initial-attempt guard, M2 retry rendezvous removal, M3 peak evidence removal killed by canonical DRM04 evidence assertions. Scratch worktrees removed; real porcelain baseline/final preserved.
+
+Fingerprints: `aa35ac5db72c69f0dcf0a7f7fb1d5cb744ef017a250470aed9f59a209e2f4174` count 2 **CLOSED**; `884502a08edabdbc14742927f8e8a02aa28a1f4a1ef8f33698b9be1098ba0b1b` count 1 **CLOSED**.
+
+External QA remains **BLOCKED-VERIFY** for terminal Orca/Codex lifecycle and cleanup per `docs/qa/reports/2026-08-25-parallel-slice-executor-final.md:12-32`; this is outside technical verdict and does not claim a real Orca pilot.
