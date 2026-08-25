@@ -1,7 +1,7 @@
 # J-configure-feature-workflow
 
 **Persona:** Workflow adopter
-**Goal:** Configure central provider model/effort settings, then freeze one feature's review cadence and delegated-provider routes.
+**Goal:** Configure central provider model/effort and remediation settings, then freeze one feature's review cadence and delegated-provider routes while keeping its remediation bound live.
 **Entry point:** `.my-workflow.toml.example` → local `.my-workflow.toml` → `workflow-config` resolver CLI
 
 ## Flow
@@ -10,9 +10,10 @@
 2. Initialize the local config, select the documented `mixed` profile, edit one model/effort pair per provider, and run explicit sync; inspect all fifteen generated native packets.
 3. Run sync again and confirm no runtime packet bytes change; confirm tracked templates remain unchanged.
 4. Exercise invalid config, template, metadata, destination, and symlink inputs; confirm each failure names its source and changes no local or outside bytes.
-5. Resolve a feature and confirm delegated model/effort values are frozen while planner remains top-level.
-6. Replace unsynchronized config values, then synchronize deliberate model/effort drift; confirm frozen resume first remains stable, then rejects packet drift until explicit refresh.
-7. Confirm cadence grouping, provider precedence, checkout isolation, and adoption preservation as adjacent paths.
+5. Resolve a feature and confirm delegated model/effort values are frozen while planner remains top-level; confirm current JSON reports the default, positive, or unbounded remediation threshold without persisting it.
+6. Change only the remediation threshold and resume; confirm the new live value is reported while route, cadence, and snapshot bytes remain frozen.
+7. Replace unsynchronized model values, then synchronize deliberate model/effort drift; confirm frozen resume first remains stable, then rejects packet drift until explicit refresh.
+8. Confirm cadence grouping, provider precedence, checkout isolation, and adoption preservation as adjacent paths.
 
 ## Promises
 
