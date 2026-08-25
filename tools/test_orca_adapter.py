@@ -575,6 +575,107 @@ def test_unknown_stalled_dispatch_fails_safely_without_release_or_retry() -> Non
         shutil.rmtree(root)
 
 
+def test_r15_failed_owned_live_terminal_stops_once_then_releases_and_retries() -> None:
+    root, lane, worktree = fixture()
+    dispatch_id = "ctx_d9be12345678"
+    terminal = "term_d33912345678"
+    resource = "wtr_r15owned"
+    try:
+        def show(status: str, connected: bool, writable: bool) -> dict[str, object]:
+            return {"result": {"dispatch": {"id": dispatch_id, "status": status}, "terminal": {"handle": terminal, "status": "running" if connected else "exited", "connected": connected, "writable": writable}, "terminalResource": {"id": resource, "ownershipState": "owned", "owner": {"dispatchId": dispatch_id}, "origin": {"dispatchId": dispatch_id}, "releaseState": "not_requested"}}}
+
+        stop = {"result": {"stopped": True, "dispatch": {"id": dispatch_id, "status": "stopped"}}}
+        worker = {**worker_payload(worktree), "dispatch_id": dispatch_id, "terminal_handle": terminal}
+        cli = RecordingCLI([show("failed", True, True), stop, show("stopped", False, False), {"released": True, "dispatch_id": dispatch_id}, {"worktree_path": worktree["worktree_path"]}, worker])
+        action = {"action": "worker", "key": KEY, "partial_effect": {"run_id": "run-A", "task_id": "task-A", "dispatch_id": dispatch_id, "terminal_handle": terminal}, "worker_plan": lane, "worktree_receipt": worktree}
+        adapter_instance = adapter(root, cli)
+        receipt = adapter_instance.reconcile_action(action)
+        assert receipt is not None and receipt["dispatch_id"] == dispatch_id
+        stop_receipt = action["partial_effect"]["recovery_stop"]  # type: ignore[index]
+        assert stop_receipt["stopped"] is True and stop_receipt["retry_request"] == KEY + ":recovery-stop"
+        assert [call[0][2] for call in cli.calls] == ["worker-show", "worker-stop", "worker-show", "worker-release", "show", "worker-start"]
+        stop_call = cli.calls[1][0]
+        assert stop_call[stop_call.index("--dispatch") + 1] == dispatch_id
+        assert stop_call[stop_call.index("--retry-request") + 1] == KEY + ":recovery-stop"
+        retry_call = cli.calls[-1][0]
+        assert retry_call[retry_call.index("--retry-of") + 1] == dispatch_id
+        assert adapter_instance.reconcile_action(action) == receipt
+        assert len(cli.calls) == 6
+        cli.responses.append({"deliveries": [{"id": "late-r15", "run_id": "run-A", "type": "worker_done", "from_handle": terminal, "payload": json.dumps({"taskId": "task-A", "dispatchId": dispatch_id, "outcome": "succeeded"})}]})
+        try:
+            adapter_instance.wait_events(receipt)
+        except orca_adapter.AdapterError as exc:
+            assert "stale" in str(exc)
+        else:
+            raise AssertionError("stopped/released dispatch must reject late delivery")
+        replay_cli = RecordingCLI([show("stopped", False, False), {"worktree_path": worktree["worktree_path"]}, worker])
+        replay_receipt = adapter(root, replay_cli).reconcile_action(action)
+        assert replay_receipt is not None and replay_receipt["dispatch_id"] == dispatch_id
+        assert [call[0][2] for call in replay_cli.calls] == ["worker-show", "show", "worker-start"]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_r15_live_takeover_or_unsupervised_terminal_blocks_stop_and_release() -> None:
+    dispatch_id = "ctx_d9be12345678"
+    terminal = "term_d33912345678"
+    for ownership, owner, origin in (("user_takeover", "user", "user"), ("owned", "ctx_foreign", dispatch_id)):
+        root, lane, worktree = fixture()
+        try:
+            response = {"result": {"dispatch": {"id": dispatch_id, "status": "failed"}, "terminal": {"handle": terminal, "status": "running", "connected": True, "writable": True}, "terminalResource": {"id": "wtr-r15", "ownershipState": ownership, "owner": {"dispatchId": owner}, "origin": {"dispatchId": origin}}}}
+            cli = RecordingCLI([response])
+            action = {"action": "worker", "key": KEY, "partial_effect": {"run_id": "run-A", "task_id": "task-A", "dispatch_id": dispatch_id, "terminal_handle": terminal}, "worker_plan": lane, "worktree_receipt": worktree}
+            try:
+                adapter(root, cli).reconcile_action(action)
+            except orca_adapter.AdapterError as exc:
+                assert exc.details["code"] in {"recovery_stop_unproven", "correlation_conflict"}
+            else:
+                raise AssertionError("takeover or foreign-owned live terminal must block")
+            assert [call[0][2] for call in cli.calls] == ["worker-show"]
+        finally:
+            shutil.rmtree(root)
+
+
+def test_r15_pending_stop_receipt_reuses_exact_request_on_restart() -> None:
+    root, lane, worktree = fixture()
+    dispatch_id = "ctx_d9be12345678"
+    terminal = "term_d33912345678"
+    request = KEY + ":recovery-stop"
+    try:
+        def show(status: str, connected: bool, writable: bool) -> dict[str, object]:
+            return {"result": {"dispatch": {"id": dispatch_id, "status": status}, "terminal": {"handle": terminal, "status": "running" if connected else "exited", "connected": connected, "writable": writable}, "terminalResource": {"id": "wtr-r15", "ownershipState": "owned", "owner": {"dispatchId": dispatch_id}, "origin": {"dispatchId": dispatch_id}}}}
+
+        cli = RecordingCLI([show("failed", True, True), {"result": {"stopped": True, "dispatch": {"id": dispatch_id, "status": "stopped"}}}, show("stopped", False, False), {"released": True, "dispatch_id": dispatch_id}, {"worktree_path": worktree["worktree_path"]}, {**worker_payload(worktree), "dispatch_id": dispatch_id, "terminal_handle": terminal}])
+        action = {"action": "worker", "key": KEY, "partial_effect": {"run_id": "run-A", "task_id": "task-A", "dispatch_id": dispatch_id, "terminal_handle": terminal, "recovery_stop": {"status": "pending", "dispatch_id": dispatch_id, "retry_request": request}}, "worker_plan": lane, "worktree_receipt": worktree}
+        receipt = adapter(root, cli).reconcile_action(action)
+        assert receipt is not None
+        stop_call = cli.calls[1][0]
+        assert stop_call[stop_call.index("--retry-request") + 1] == request
+        assert [call[0][2] for call in cli.calls].count("worker-stop") == 1
+    finally:
+        shutil.rmtree(root)
+
+
+def test_r15_stop_failure_blocks_without_release_or_retry() -> None:
+    root, lane, worktree = fixture()
+    dispatch_id = "ctx_d9be12345678"
+    terminal = "term_d33912345678"
+    try:
+        show = {"result": {"dispatch": {"id": dispatch_id, "status": "failed"}, "terminal": {"handle": terminal, "status": "running", "connected": True, "writable": True}, "terminalResource": {"id": "wtr-r15", "ownershipState": "owned", "owner": {"dispatchId": dispatch_id}, "origin": {"dispatchId": dispatch_id}}}}
+        failed_stop = {"result": {"stopped": False, "dispatch": {"id": dispatch_id, "status": "failed"}, "error": "stop_failed"}}
+        cli = RecordingCLI([show, failed_stop])
+        action = {"action": "worker", "key": KEY, "partial_effect": {"run_id": "run-A", "task_id": "task-A", "dispatch_id": dispatch_id, "terminal_handle": terminal}, "worker_plan": lane, "worktree_receipt": worktree}
+        try:
+            adapter(root, cli).reconcile_action(action)
+        except orca_adapter.AdapterError as exc:
+            assert exc.details["code"] == "recovery_stop_failed"
+        else:
+            raise AssertionError("failed stop must block recovery")
+        assert [call[0][2] for call in cli.calls] == ["worker-show", "worker-stop"]
+    finally:
+        shutil.rmtree(root)
+
+
 def test_running_stalled_dispatch_fails_safely_without_release_or_retry() -> None:
     root, lane, worktree = fixture()
     try:
@@ -765,7 +866,7 @@ def test_tab_not_found_release_reconciles_exited_terminal_and_retries_once() -> 
                     assert_evidence()
                 return super().__call__(argv, **kwargs)
 
-        cli = ObservingCLI([show(status="failed", connected=True, writable=True), tab_error, show(status="failed", connected=False, writable=False), {"worktree_path": worktree["worktree_path"]}, worker])
+        cli = ObservingCLI([show(status="failed", connected=False, writable=False), tab_error, show(status="failed", connected=False, writable=False), {"worktree_path": worktree["worktree_path"]}, worker])
         adapter_instance = adapter(root, cli)
         receipt = adapter_instance.reconcile_action(action)
         assert_evidence()
@@ -824,7 +925,7 @@ def test_tab_not_found_postcheck_live_unknown_or_mismatched_blocks_retry() -> No
                 return {"result": {"dispatch": dispatch, "terminalHandle": handle, "terminal": {"handle": handle, "status": "exited", "connected": connected, "writable": writable}}}
 
             tab_error = subprocess.CalledProcessError(1, ["orca", "worker-release"], output=json.dumps({"ok": False, "error": {"code": "tab_not_found", "dispatch": {"id": dispatch_id}}}))
-            cli = RecordingCLI([show("failed", True, True), tab_error, show(post["status"], post["connected"], post["writable"], post.get("handle", terminal), post.get("post_dispatch", dispatch_id))])
+            cli = RecordingCLI([show("failed", False, False), tab_error, show(post["status"], post["connected"], post["writable"], post.get("handle", terminal), post.get("post_dispatch", dispatch_id))])
             action = {"action": "worker", "key": KEY, "partial_effect": {"run_id": "run-A", "task_id": "task-A", "dispatch_id": dispatch_id, "terminal_handle": terminal}, "worker_plan": lane, "worktree_receipt": worktree}
             worker = adapter(root, cli)
             try:

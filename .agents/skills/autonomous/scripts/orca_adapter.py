@@ -151,6 +151,28 @@ def _nested_terminal_state(value: Mapping[str, Any]) -> Mapping[str, Any] | None
     return None
 
 
+def _nested_resource(value: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    for key in ("terminalResource", "terminal_resource", "resource"):
+        nested = value.get(key)
+        if isinstance(nested, Mapping):
+            return nested
+    for key in ("worker", "dispatch", "terminal", "result"):
+        nested = value.get(key)
+        if isinstance(nested, Mapping):
+            resource = _nested_resource(nested)
+            if resource is not None:
+                return resource
+    return None
+
+
+def _resource_dispatch_identity(resource: Mapping[str, Any], field: str) -> Any:
+    aliases = (field, field.replace("_", ""), field.replace("_", "Id"))
+    value = next((resource.get(alias) for alias in aliases if alias in resource), None)
+    if isinstance(value, Mapping):
+        return _nested_dispatch_id(value) or value.get("dispatch_id") or value.get("dispatchId") or value.get("id")
+    return value
+
+
 _IDENTITY_ALIASES = {
     "run_id": ("run_id", "runId"),
     "task_id": ("task_id", "taskId"),
@@ -416,6 +438,8 @@ class OrcaAdapter:
         self._ended_waiters: set[str] = set()
         self._released: dict[str, dict[str, Any]] = {}
         self._release_failures: dict[str, dict[str, Any]] = {}
+        self._stopped: dict[str, dict[str, Any]] = {}
+        self._stop_failures: dict[str, dict[str, Any]] = {}
         self._revoked_dispatches: set[str] = set()
         self._deliveries: set[str] = set()
 
@@ -964,9 +988,52 @@ class OrcaAdapter:
                     "Orca released dispatch lacks its recovery receipt",
                     details={"code": "worker_outcome_unknown", "dispatch_id": dispatch_id, "status": status},
                 )
-            if status not in {"failed", "stopped", "abandoned", "released"}:
+            if status not in {"failed", "stopped", "abandoned", "revoked", "exited", "released"}:
                 code = "worker_outcome_unknown" if status in {None, "unknown", "outcome_unknown"} else "worker_still_live"
                 raise AdapterError("Orca worker dispatch is not reclaimable", details={"code": code, "dispatch_id": dispatch_id, "status": status or "unknown"})
+            stop_request = action_key + ":recovery-stop"
+            if status in {"failed", "stopped", "revoked"} and self._requires_recovery_stop(status_response, dispatch_id, authoritative_terminal):
+                stop = partial.get("recovery_stop")
+                if isinstance(stop, Mapping):
+                    if stop.get("dispatch_id") != dispatch_id or stop.get("retry_request") != stop_request:
+                        raise AdapterError(
+                            "uncorrelated persisted recovery stop",
+                            details={"code": "recovery_stop_unproven", "dispatch_id": dispatch_id, "retry_request": stop_request},
+                        )
+                    if stop.get("status") == "pending":
+                        stop = self._stop_worker(dispatch_id, stop_request)
+                        if isinstance(partial, dict):
+                            partial["recovery_stop"] = dict(stop)
+                    elif stop.get("stopped") is not True:
+                        raise AdapterError(
+                            "uncorrelated persisted recovery stop",
+                            details={"code": "recovery_stop_unproven", "dispatch_id": dispatch_id, "retry_request": stop_request},
+                        )
+                else:
+                    if isinstance(partial, dict):
+                        partial["recovery_stop"] = {"status": "pending", "dispatch_id": dispatch_id, "retry_request": stop_request}
+                    stop = self._stop_worker(dispatch_id, stop_request)
+                    if isinstance(partial, dict):
+                        partial["recovery_stop"] = dict(stop)
+                stopped_response = self._call("worker-show", "--dispatch", dispatch_id)
+                stopped_dispatch = stopped_response.get("dispatch_id") or stopped_response.get("dispatchId")
+                stopped_terminal = _nested_terminal_handle(stopped_response)
+                stopped_state = _nested_terminal_state(stopped_response)
+                stopped_status = stopped_response.get("status") or stopped_response.get("state")
+                if (
+                    stopped_dispatch != dispatch_id
+                    or stopped_terminal != authoritative_terminal
+                    or stopped_status not in {"stopped", "exited", "released"}
+                    or not isinstance(stopped_state, Mapping)
+                    or stopped_state.get("connected") is not False
+                    or stopped_state.get("writable") is not False
+                ):
+                    raise AdapterError(
+                        "Orca recovery stop did not fence the worker",
+                        details={"code": "recovery_stop_unproven", "dispatch_id": dispatch_id, "terminal_handle": authoritative_terminal},
+                    )
+                status_response = stopped_response
+                status = stopped_status
             persisted_reason = normalized_partial.get("retainedReason") or normalized_partial.get("reason")
             persisted_release_state = normalized_partial.get("releaseState") or normalized_partial.get("release_state")
             if normalized_partial.get("code") == "release_identity_unproven" or (
@@ -1058,6 +1125,48 @@ class OrcaAdapter:
         self._released[key] = result
         self._revoked_dispatches.add(dispatch_id)
         return dict(result)
+
+    def _stop_worker(self, dispatch_id: str, retry_request: str) -> dict[str, Any]:
+        if retry_request in self._stopped:
+            return {**self._stopped[retry_request], "idempotent": True}
+        prior_failure = self._stop_failures.get(retry_request)
+        if prior_failure is not None:
+            raise AdapterError(str(prior_failure["message"]), details={**dict(prior_failure["details"]), "idempotent": True})
+        response = self._call("worker-stop", "--dispatch", dispatch_id, "--retry-request", retry_request)
+        actual_dispatch = response.get("dispatch_id") or response.get("dispatchId")
+        if actual_dispatch != dispatch_id:
+            raise AdapterError(
+                "uncorrelated Orca stop receipt",
+                details={"code": "recovery_stop_uncorrelated", "dispatch_id": dispatch_id, "actual_dispatch": actual_dispatch},
+            )
+        status = response.get("status") or response.get("state")
+        if response.get("stopped") is not True and status not in {"stopped", "exited"}:
+            details = {**dict(response), "code": "recovery_stop_failed", "dispatch_id": dispatch_id, "retry_request": retry_request}
+            failure = {"message": "Orca worker stop was not accepted", "details": details}
+            self._stop_failures[retry_request] = failure
+            raise AdapterError(str(failure["message"]), details=details)
+        result = {**dict(response), "stopped": True, "dispatch_id": dispatch_id, "retry_request": retry_request}
+        self._stopped[retry_request] = result
+        return dict(result)
+
+    def _requires_recovery_stop(self, response: Mapping[str, Any], dispatch_id: str, terminal_handle: str) -> bool:
+        terminal_state = _nested_terminal_state(response)
+        live = isinstance(terminal_state, Mapping) and terminal_state.get("connected") is True and terminal_state.get("writable") is True
+        if not live:
+            return False
+        resource = _nested_resource(response)
+        ownership = None if resource is None else resource.get("ownershipState") or resource.get("ownership_state")
+        owner = None if resource is None else (_resource_dispatch_identity(resource, "owner_dispatch_id") or _resource_dispatch_identity(resource, "owner"))
+        origin = None if resource is None else (_resource_dispatch_identity(resource, "origin_dispatch_id") or _resource_dispatch_identity(resource, "origin"))
+        if ownership != "owned" or owner != dispatch_id or origin != dispatch_id:
+            raise AdapterError(
+                "Orca live failed worker is not safely owned for recovery stop",
+                details={
+                    "code": "recovery_stop_unproven", "dispatch_id": dispatch_id, "terminal_handle": terminal_handle,
+                    "ownershipState": ownership, "owner_dispatch_id": owner, "origin_dispatch_id": origin,
+                },
+            )
+        return True
 
     def release(self, receipt: Mapping[str, Any], result: Mapping[str, Any] | None = None) -> dict[str, Any]:
         if result is None or result.get("accepted") is not True:
