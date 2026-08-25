@@ -1824,3 +1824,66 @@ the real checkout porcelain returned to its pre-sensor baseline.
 **Overall:** **PASS** for `7edfaf5746413b54711b7da7c39c52d4583b5553`. No real Orca state,
 product code, QA artifact, or test outside the committed remediation was touched; no commit, push,
 or merge was performed.
+
+## R9 retained-release evidence technical verification
+
+**Date:** 2026-08-25  
+**Commit under test:** `6975d4e610662c153105e1dac4f69ce0bcee839f`  
+**Base:** `cb919c1`  
+**Diff range:** `cb919c1..6975d4e610662c153105e1dac4f69ce0bcee839f`  
+**Verifier:** fresh independent Technical Verifier (author != verifier)  
+**Scoped verdict:** **PASS**
+
+This verification covers the R9 retained-release behavior in the Orca adapter and coordinator
+fallback. It did not run real Orca, mutate product files, alter tests, or touch the pre-existing
+`docs/qa/**` checkout changes. No release, cleanup, retry, or acknowledgment was sent to a real
+provider.
+
+### Spec-anchored outcomes
+
+| Criterion | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| R9 retained release | A correlated `released: false`, `releaseState: retained`, `retainedReason: identity_unproven` response remains blocked while preserving exact release evidence and a stable error. | `.agents/skills/autonomous/scripts/orca_adapter.py:896-930` stores the correlated failure; `tools/test_orca_adapter.py:737-766` asserts the exact retained/ownership/reason/error/timestamp/Run identity fields and `release_identity_unproven`. | PASS |
+| R9 replay safety | Replaying the retained release returns the same stable error with an idempotent marker and makes no new release, retry, cleanup, or revocation effect. | `tools/test_orca_adapter.py:769-778` asserts one `worker-release`, stable error, one CLI call, and no revoked dispatch; `:822-840` asserts reconcile stops after `worker-show, worker-release` with no `show` or `worker-start`. | PASS |
+| Coordinator persistence/fallback | Retained evidence is persisted into the pending worker action, selects named `worker-failed` serial fallback, and restart does not recreate the worker or worktree. | `tools/test_parallel_executor.py:330-376` asserts all evidence fields on both attempts, one start attempt, one reconcile attempt, zero worker effects, and one worktree effect. | PASS |
+| Explicit completed receipt | A correlated `releaseState: completed` receipt is accepted as released; full reconciliation permits exactly one same-Run/Task retry and replay is idempotent. | `tools/test_orca_adapter.py:783-794` supplies nested dispatch/terminal identity, asserts `released == True`, matching dispatch, one call, and idempotent replay; the ephemeral completed-reconcile probe exercised `worker-show, worker-release, show, worker-start`, exact `--retry-of`, and zero replay calls. | PASS |
+| Conflict/missing ownership or origin | Conflicting identities, missing Run/Task/Dispatch/terminal ownership, malformed persisted identity, and foreign source identity halt before mutation. | `tools/test_orca_adapter.py:230-242,285-302,305-346,453-467,680-714,799-817,1087-1121` asserts correlation errors, zero calls, and no release/retry; the independent sensor also killed dispatch-correlation bypass. | PASS |
+| Fully proven `tab_not_found` path | Only an exited, disconnected, non-writable correlated terminal is reconciled; exactly one release reconciliation and one same-Run/Task retry occur, late delivery is stale, and replay adds no call. | `tools/test_orca_adapter.py:537-631` asserts complete evidence, exact five-call order, same `--retry-of`, stale-delivery rejection, and six-call total after replay. | PASS |
+
+**Spec-anchored status:** 6 PASS, 0 FAIL, 0 spec-precision gaps.
+
+### Gate evidence
+
+- `rtk python3 tools/test_orca_adapter.py` -> exit 0, **44 passed, 0 failed**.
+- `rtk python3 tools/test_parallel_executor.py` -> exit 0, **44 passed, 0 failed**.
+- Ephemeral completed-reconcile probe -> **1 release, 1 retry, 0 additional replay calls**.
+- Scoped test delta from `cb919c1`: adapter **40 -> 44** (+4); executor **43 -> 44** (+1).
+- `rtk env npm_config_offline=true npm run test:all` -> exit 0, **110 Vitest tests** and all
+  discovered Python suites passed; the named Python count command reported **195**, with 0 failed
+  or skipped.
+- Strict spec/tasks validators, `tools/ad-index.py --check`, `validate_state.py
+  parallel-slice-executor`, Python compile, and `git diff --check cb919c1 6975d4e` -> exit 0.
+
+### Discrimination sensor
+
+Four behavior mutations ran one at a time in detached scratch worktree `.r9-release-sensor` at the
+target commit. The scratch was removed after each run. Real-checkout porcelain matched the
+pre-sensor baseline, which consists only of the pre-existing QA edits/untracked artifacts.
+
+| Mutation | Directed result | Outcome |
+| --- | --- | --- |
+| Remove the post-release `actual_dispatch != dispatch_id` guard (unsafe promotion). | Adapter suite failed in `test_release_identity_missing_or_foreign_blocks_without_revocation` at `tools/test_orca_adapter.py:813`; a foreign/missing identity was promoted to retained failure. | KILLED |
+| Drop the response envelope from retained failure details (evidence loss). | Adapter suite failed at `tools/test_orca_adapter.py:765` with missing `state`. | KILLED |
+| Disable the retained-failure replay cache (duplicate release). | Adapter suite failed at `tools/test_orca_adapter.py:771` on an unexpected second `worker-release`. | KILLED |
+| Remove `releaseState in {released, completed}` acceptance (completed-path regression). | Adapter suite failed at `tools/test_orca_adapter.py:791` with `release_identity_unproven` instead of accepting the correlated completed receipt. | KILLED |
+
+**Sensor:** lightweight, 4 injected, 4 killed, 0 survived. **PASS**.
+
+### Fingerprint accounting
+
+No new blocker or surviving mutant was found. Existing fingerprints remain closed at their recorded
+counts; no `review-fingerprints.json` update is required.
+
+**Overall:** **PASS** for `6975d4e610662c153105e1dac4f69ce0bcee839f`. Real Orca QA remains outside
+this technical verification; only this validation report changed in the checkout. No commit, push,
+merge, product/test change, or `docs/qa/**` evidence change was performed.
