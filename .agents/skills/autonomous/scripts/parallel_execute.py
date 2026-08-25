@@ -1224,6 +1224,8 @@ class Coordinator:
                     provider = self._provider(snapshot)
                 except (ExecutorError, PathBoundaryError):
                     return _serial_result(self.feature, mode, "missing-resource-provider", lanes)
+        if any(self._lane_resources(plan_lane) for plan_lane in lanes) and provider is None:
+            return _serial_result(self.feature, mode, "missing-resource-provider", lanes)
         if self.adapter_factory is None:
             return _serial_result(self.feature, mode, "unsupported-adapter", lanes)
         adapter = self.adapter_factory()

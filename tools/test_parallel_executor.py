@@ -463,6 +463,74 @@ def test_none_resources_bypass_provider_and_resource_lane_requires_correlated_le
             shutil.rmtree(resource_root)
 
 
+def test_resource_provider_preflight_is_plan_wide_before_any_lane_effect() -> None:
+    def mixed_plan(order: tuple[tuple[str, list[str]], ...]) -> dict[str, object]:
+        return {
+            "fallback": False,
+            "lanes": [
+                {"id": f"slice-{index}", "slice": slice_id, "task": f"T{index}", "status": "ready", "sync_after": [], "resources": resources}
+                for index, (slice_id, resources) in enumerate(order, start=1)
+            ],
+        }
+
+    for order in ((('A', []), ('B', ['port'])), (('B', ['port']), ('A', [])), (('A', []), ('B', ['port']), ('C', ['port']))):
+        root = make_repo()
+        try:
+            calls = {"adapter": 0, "provider": 0, "worktree": 0}
+
+            def adapter_factory() -> RecordingAdapter:
+                calls["adapter"] += 1
+                return RecordingAdapter()
+
+            def provider_factory(_: Path) -> None:
+                calls["provider"] += 1
+                return None
+
+            def worktree_creator(destination: Path, source_head: str) -> dict[str, str]:
+                calls["worktree"] += 1
+                return fake_git_worktree(destination, source_head)
+
+            coordinator = parallel_execute.Coordinator(
+                root, "fixture", adapter_factory=adapter_factory, provider_factory=provider_factory, worktree_creator=worktree_creator
+            )
+            coordinator._plan = lambda order=order: mixed_plan(order)  # type: ignore[method-assign]
+            result = coordinator.start()
+            assert result["fallback"] is True and result["reason"] == "missing-resource-provider"
+            assert result["actions"] == []
+            assert calls == {"adapter": 0, "provider": 0, "worktree": 0}
+            assert not coordinator.status()["state"]
+            if coordinator.state_path is not None:
+                assert not coordinator.state_path.exists()
+        finally:
+            shutil.rmtree(root)
+
+    root = make_repo()
+    try:
+        provider = root / "provider"
+        provider.write_text("#!/bin/sh\n", encoding="utf-8")
+        provider.chmod(0o755)
+        workflow = json.loads((root / ".specs/features/fixture/workflow.json").read_text(encoding="utf-8"))
+        workflow["parallelization"]["resource_provider"] = "provider"
+        (root / ".specs/features/fixture/workflow.json").write_text(json.dumps(workflow), encoding="utf-8")
+        calls = {"provider": 0, "worktree": 0}
+
+        def unproven_provider(_: Path) -> None:
+            calls["provider"] += 1
+            return None
+
+        def worktree_creator(destination: Path, source_head: str) -> dict[str, str]:
+            calls["worktree"] += 1
+            return fake_git_worktree(destination, source_head)
+
+        coordinator = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter(), provider_factory=unproven_provider, worktree_creator=worktree_creator)
+        coordinator._plan = lambda: mixed_plan((('A', []), ('B', ['port'])))  # type: ignore[method-assign]
+        result = coordinator.start()
+        assert result["fallback"] is True and result["reason"] == "missing-resource-provider"
+        assert result["actions"] == [] and calls == {"provider": 1, "worktree": 0}
+    finally:
+        shutil.rmtree(root)
+
+
 def test_partial_worker_retry_reacquires_fresh_resource_lease_before_reconcile() -> None:
     root = make_repo()
     resource_provider = RecordingProvider(lease_id="unused")
