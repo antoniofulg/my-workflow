@@ -120,6 +120,7 @@ def test_start_attaches_existing_worktree_and_correlates_every_receipt_field() -
         worker_call = cli.calls[-1][0]
         assert "--worktree" in worker_call
         assert "path:" + str(Path(worktree["worktree_path"]).resolve()) in worker_call
+        assert worker_call[worker_call.index("--timeout-ms") + 1] == str(orca_adapter.WORKER_START_TIMEOUT_MS)
         assert receipt["run_id"] == "run-A"
         assert receipt["orchestration_task_id"] == "task-A"
         assert receipt["dispatch_id"] == "dispatch-A"
@@ -137,7 +138,7 @@ def test_structured_worker_start_failure_preserves_partial_effect_and_reuses_run
     try:
         failure = subprocess.CalledProcessError(
             1, ["orca", "orchestration", "worker-start"],
-            output=json.dumps({"ok": False, "error": {"code": "selector_not_found", "stage": "worker-start", "run_id": "run-A", "task_id": "task-A", "residualResources": {"token": "secret"}}}),
+            output=json.dumps({"ok": False, "error": {"code": "agent_prompt_stalled", "stage": "worker-start", "run_id": "run-A", "task_id": "task-A", "dispatch_id": "dispatch-A", "terminal_handle": "terminal-A", "residualResources": {"token": "secret"}}}),
             stderr="",
         )
         cli = RecordingCLI(start_responses(worktree)[:4] + [{"worktree_path": worktree["worktree_path"]}, failure])
@@ -145,24 +146,35 @@ def test_structured_worker_start_failure_preserves_partial_effect_and_reuses_run
         try:
             worker.start_worker(lane, worktree, idempotency_key=KEY)
         except orca_adapter.AdapterError as exc:
-            assert "selector_not_found" in str(exc)
+            assert "agent_prompt_stalled" in str(exc)
             assert exc.details["run_id"] == "run-A"
             assert exc.details["task_id"] == "task-A"
+            assert exc.details["dispatch_id"] == "dispatch-A"
+            assert exc.details["terminal_handle"] == "terminal-A"
             assert exc.details["residualResources"]["token"] == "<redacted>"
         else:
             raise AssertionError("structured worker failure must be reported")
 
-        retry_cli = RecordingCLI([{"worktree_path": worktree["worktree_path"]}, worker_payload(worktree)])
+        retry_cli = RecordingCLI([
+            {"dispatch_id": "dispatch-A", "status": "failed"},
+            {"released": True, "dispatch_id": "dispatch-A"},
+            {"worktree_path": worktree["worktree_path"]},
+            worker_payload(worktree),
+        ])
         retry = adapter(root, retry_cli)
-        receipt = retry.reconcile_action({
+        action = {
             "action": "worker", "key": KEY,
-            "partial_effect": {"run_id": "run-A", "task_id": "task-A"},
+            "partial_effect": {"run_id": "run-A", "task_id": "task-A", "dispatch_id": "dispatch-A", "terminal_handle": "terminal-A"},
             "worker_plan": lane,
             "worktree_receipt": worktree,
-        })
+        }
+        receipt = retry.reconcile_action(action)
         assert receipt is not None and receipt["run_id"] == "run-A" and receipt["orchestration_task_id"] == "task-A"
-        assert retry_cli.calls[1][0][2] == "worker-start"
-        assert retry_cli.calls[1][0][retry_cli.calls[1][0].index("--task") + 1] == "task-A"
+        assert [call[0][2] for call in retry_cli.calls] == ["worker-show", "worker-release", "show", "worker-start"]
+        assert retry_cli.calls[3][0][retry_cli.calls[3][0].index("--task") + 1] == "task-A"
+        assert retry_cli.calls[3][0][retry_cli.calls[3][0].index("--retry-of") + 1] == "dispatch-A"
+        assert retry.reconcile_action(action) == receipt
+        assert len(retry_cli.calls) == 4
     finally:
         shutil.rmtree(root)
 
@@ -201,6 +213,42 @@ def test_worktree_discovery_timeout_preserves_run_task_and_never_starts_worker()
         else:
             raise AssertionError("bounded discovery timeout must fail safely")
         assert not any(call[0][2] == "worker-start" for call in cli.calls)
+    finally:
+        shutil.rmtree(root)
+
+
+def test_live_stalled_dispatch_fails_safely_without_release_or_retry() -> None:
+    root, lane, worktree = fixture()
+    try:
+        cli = RecordingCLI([{"dispatch_id": "dispatch-A", "status": "running"}])
+        try:
+            adapter(root, cli).reconcile_action({
+                "action": "worker", "key": KEY,
+                "partial_effect": {"run_id": "run-A", "task_id": "task-A", "dispatch_id": "dispatch-A", "terminal_handle": "terminal-A"},
+                "worker_plan": lane, "worktree_receipt": worktree,
+            })
+        except orca_adapter.AdapterError as exc:
+            assert exc.details["code"] == "worker_still_live"
+        else:
+            raise AssertionError("live stalled dispatch must not be retried")
+        assert [call[0][2] for call in cli.calls] == ["worker-show"]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_delivery_from_revoked_dispatch_is_rejected_as_stale() -> None:
+    root, lane, worktree = fixture()
+    try:
+        cli = RecordingCLI([{"deliveries": [live_delivery()]}])
+        worker = adapter(root, cli)
+        receipt = {**worker_payload(worktree), "orchestration_task_id": "task-A"}
+        worker._revoked_dispatches.add("dispatch-A")
+        try:
+            worker.wait_events(receipt)
+        except orca_adapter.AdapterError as exc:
+            assert "stale" in str(exc)
+        else:
+            raise AssertionError("revoked dispatch delivery must be rejected")
     finally:
         shutil.rmtree(root)
 

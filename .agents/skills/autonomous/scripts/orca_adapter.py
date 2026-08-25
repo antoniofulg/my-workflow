@@ -13,6 +13,7 @@ import parallel_execute as core
 
 CAPABILITY = "orchestration.contract.v1"
 WORKTREE_DISCOVERY_ATTEMPTS = 3
+WORKER_START_TIMEOUT_MS = 120_000
 
 
 class AdapterError(core.ExecutorError):
@@ -142,6 +143,17 @@ def _failure_details(exc: subprocess.CalledProcessError) -> dict[str, Any]:
     details = _redact_payload(_bounded(error))
     if not isinstance(details, dict):
         details = {"message": details}
+    for field, aliases in {
+        "run_id": ("run_id", "runId"),
+        "task_id": ("task_id", "taskId"),
+        "dispatch_id": ("dispatch_id", "dispatchId"),
+        "terminal_handle": ("terminal_handle", "terminalHandle", "agentTerminalHandle"),
+    }.items():
+        if field not in details:
+            for alias in aliases:
+                if alias in details:
+                    details[field] = details[alias]
+                    break
     details["returncode"] = exc.returncode
     return details
 
@@ -168,6 +180,7 @@ class OrcaAdapter:
         self._workers: dict[str, dict[str, Any]] = {}
         self._ended_waiters: set[str] = set()
         self._released: dict[str, dict[str, Any]] = {}
+        self._revoked_dispatches: set[str] = set()
         self._deliveries: set[str] = set()
 
     def _json_call(self, argv: list[str], *, timeout: float | None = None) -> dict[str, Any]:
@@ -379,6 +392,7 @@ class OrcaAdapter:
             worker_path = self._discover_worktree(worktree["worktree_path"])
             response = self._call(
                 "worker-start", "--task", task_id, "--worktree", "path:" + worker_path, "--agent", "codex",
+                "--timeout-ms", str(WORKER_START_TIMEOUT_MS),
             )
         except AdapterError as exc:
             raise AdapterError(str(exc), details={**exc.details, "run_id": run_id, "task_id": task_id}) from exc
@@ -417,6 +431,8 @@ class OrcaAdapter:
             raise AdapterError("uncorrelated Orca delivery: taskId")
         if dispatch_id != receipt.get("dispatch_id"):
             raise AdapterError("uncorrelated Orca delivery: dispatchId")
+        if dispatch_id in self._revoked_dispatches:
+            raise AdapterError("stale Orca delivery from revoked dispatch")
         outcome = payload.get("outcome")
         if payload.get("status") in {"dirty", "failed", "escalated"} or outcome == "failed":
             raise AdapterError("Orca worker delivery halted")
@@ -546,14 +562,36 @@ class OrcaAdapter:
             receipt = action.get("worktree_receipt")
             if not isinstance(partial, Mapping) or not isinstance(plan, Mapping) or not isinstance(receipt, Mapping):
                 return None
+            action_key = _text(action.get("key"), "idempotency key")
+            cached = self._workers.get(action_key)
+            if cached is not None:
+                return dict(cached)
             run_id = _text(partial.get("run_id"), "run id")
             task_id = _text(partial.get("task_id"), "task id")
+            dispatch_id = _text(partial.get("dispatch_id"), "dispatch id")
+            status_response = self._call("worker-show", "--dispatch", dispatch_id)
+            actual_dispatch = status_response.get("dispatch_id") or status_response.get("dispatchId")
+            if actual_dispatch not in (None, dispatch_id):
+                raise AdapterError("uncorrelated Orca dispatch status")
+            status = status_response.get("status") or status_response.get("state")
+            if status not in {"failed", "stopped", "abandoned"}:
+                code = "worker_outcome_unknown" if status in {None, "unknown", "outcome_unknown"} else "worker_still_live"
+                raise AdapterError("Orca worker dispatch is not reclaimable", details={"code": code, "dispatch_id": dispatch_id, "status": status or "unknown"})
+            release = partial.get("recovery_release")
+            if not isinstance(release, Mapping):
+                release = self._release({"idempotency_key": _text(action.get("key"), "idempotency key") + ":recovery-release", "dispatch_id": dispatch_id})
+                partial["recovery_release"] = dict(release)
             worker_path = self._discover_worktree(_text(receipt.get("worktree_path"), "worktree path"))
-            response = self._call("worker-start", "--task", task_id, "--worktree", "path:" + worker_path, "--agent", "codex")
-            worker = self._authoritative_worker(response, plan, receipt, _text(action.get("key"), "idempotency key"), task_id=task_id)
+            response = self._call(
+                "worker-start", "--task", task_id, "--retry-of", dispatch_id,
+                "--worktree", "path:" + worker_path, "--agent", "codex",
+                "--timeout-ms", str(WORKER_START_TIMEOUT_MS),
+            )
+            worker = self._authoritative_worker(response, plan, receipt, action_key, task_id=task_id)
             if worker.get("run_id") != run_id:
                 raise AdapterError("uncorrelated Orca run receipt")
             worker["status"] = "running"
+            self._workers[action_key] = dict(worker)
             return worker
         if action.get("action") == "worker_ack":
             delivery_id = _text(action.get("delivery_id"), "delivery id")
@@ -579,6 +617,7 @@ class OrcaAdapter:
             raise AdapterError("uncorrelated Orca release receipt")
         result = {"released": True, "dispatch_id": dispatch_id}
         self._released[key] = result
+        self._revoked_dispatches.add(dispatch_id)
         return dict(result)
 
     def release(self, receipt: Mapping[str, Any], result: Mapping[str, Any] | None = None) -> dict[str, Any]:
@@ -614,7 +653,10 @@ class OrcaAdapter:
         if waiter_event.get("ended") is not True and dispatch_id + ":" + dependency_name not in self._ended_waiters:
             raise AdapterError("worker turn is still active")
         next_task = _text(dependency.get("next_task_id") or receipt.get("orchestration_task_id"), "task id")
-        response = self._call("worker-start", "--task", next_task, "--terminal", _text(receipt.get("terminal_handle"), "terminal handle"))
+        response = self._call(
+            "worker-start", "--task", next_task, "--terminal", _text(receipt.get("terminal_handle"), "terminal handle"),
+            "--timeout-ms", str(WORKER_START_TIMEOUT_MS),
+        )
         lane = {"feature": self.feature, "slice": receipt["slice"], "task": receipt["task"]}
         worktree = {key: receipt[key] for key in ("worktree_id", "worktree_path", "branch", "pre_head")}
         key = _text(idempotency_key or receipt.get("idempotency_key"), "idempotency key")
