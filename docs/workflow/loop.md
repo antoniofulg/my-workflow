@@ -29,7 +29,7 @@ last column.
 | 9 | **Deep-review** | Correct, safe, maintainable — resolved groups, blocking findings only | Final QA session | [REVIEW-ROUNDS.md](../guidelines/REVIEW-ROUNDS.md) |
 | 10 | **QA session** | The finished feature, as a person meets it | Feature has no user-visible change | [QA-EXECUTION.md](../guidelines/QA-EXECUTION.md) |
 | 11 | **Full gate** | The product gate, once, on the final tree | — | [GATES.md](../guidelines/GATES.md) |
-| 12 | **Remote delivery** | Readiness is evidence, not authorization. Push, pull request, and merge each need explicit authorization in the current session | Halt until the exact next action is authorized | [VERIFICATION-EVIDENCE.md](../guidelines/VERIFICATION-EVIDENCE.md) |
+| 12 | **Remote delivery** | `autonomous` authorizes the feature-branch push, one pull request, and merge after readiness is rechecked | Readiness is evidence, not authorization for deploy/release, production mutations, force-push, direct `main` push, and unrelated remote actions; those need explicit instruction | [VERIFICATION-EVIDENCE.md](../guidelines/VERIFICATION-EVIDENCE.md) |
 
 The **feature-closing step is the QA session**. It writes no product code, so it gets no technical
 Verifier or deep-review; two distinct fresh Verifier packets still run `qa-plan` and `qa-execute`.

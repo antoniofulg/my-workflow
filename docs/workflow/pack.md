@@ -10,7 +10,7 @@ The workflow ships six local capabilities:
 | `qa-plan` | Maps changed user-visible promises to durable QA journeys and charters. |
 | `qa-execute` | Walks those journeys through the consuming project's existing adapter. |
 | `ponytail` (`full`) | Shortest code that works. Stdlib before a dependency. |
-| `autonomous` | Unattended run: classify feature vs filed issue, settle or halt, prove remote-delivery readiness, and require separate authorization for push, pull request, and merge. |
+| `autonomous` | Unattended run: classify feature vs filed issue, settle or halt, prove readiness, and deliver one feature branch through one pull request. |
 | `deep-review` | Multi-lane review orchestration, context assembly, findings, and rendered review artifacts. |
 
 Canonical copies: `.agents/skills/`. Claude: symlinks in `.claude/skills/`. Cursor / Codex /
@@ -32,9 +32,9 @@ flow traces for the parent agent.
 
 `autonomous` readiness still needs: full gate 0 on the final tree, no Blocker/Major left, `main` not
 moved underneath, and flagged scenarios terminal (`untested` blocks; `blocked-verify` does not).
-Readiness is evidence, not authorization: invoking `autonomous`, approving a spec or tasks, or
-saying “ready” never authorizes a push, pull request, or merge. Each remote action requires its own
-explicit authorization in the current session; without it, the run stops after proving readiness.
+Invoking `autonomous` authorizes the feature-branch push, one pull request, and merge after readiness
+is rechecked. Readiness is evidence, not authorization for deploy/release, production mutations,
+force-push, direct push to `main`, or unrelated remote actions; those require explicit instruction.
 
 ## Knowledge bundle
 
