@@ -109,10 +109,12 @@ T4 -> T5 -> T6
 
 **Done when**:
 
-- [ ] ADP-001 asserts every named repository/runtime artifact is absent after clean adoption.
-- [ ] ADP-002 proves re-adoption is stable and shell/hook/host sentinels are unchanged.
-- [ ] The test touches no real operator startup file, hook, database, config, or setting.
-- [ ] `python3 scripts/test_adopt.py` passes with the new registered count.
+- [x] ADP-001 asserts every named repository/runtime artifact is absent after clean adoption.
+- [x] ADP-002 proves re-adoption is stable and shell/hook/host sentinels are unchanged.
+- [x] The test touches no real operator startup file, hook, database, config, or setting.
+- [x] `python3 scripts/test_adopt.py` passes with the new registered count.
+
+**Status:** complete — `python3 scripts/test_adopt.py` passed (`19` registered tests, 0 failed).
 
 **Tests**: integration
 **Gate**: quick

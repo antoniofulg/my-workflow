@@ -242,6 +242,55 @@ def test_fresh_and_refuse() -> None:
         shutil.rmtree(tmp)
 
 
+def test_host_owned_session_continuation_absence_and_idempotence() -> None:
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        sentinels = {
+            tmp / ".zshrc": b"# operator shell sentinel\n",
+            tmp / ".git/hooks/pre-commit": b"#!/bin/sh\n# operator hook sentinel\n",
+            tmp / ".operator-settings": b"operator-owned\n",
+        }
+        for path, content in sentinels.items():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(content)
+
+        run(tmp)
+        first = snapshot_tree(tmp)
+        for path, content in sentinels.items():
+            assert path.read_bytes() == content
+
+        forbidden_paths = (
+            ".ai-memory.toml",
+            ".ai-memory",
+            ".ai-memory.sqlite",
+            ".ai-memory.db",
+            "ai-memory.sqlite",
+            "ai-memory.db",
+            "handoff.json",
+            "scripts/ai-memory.zsh",
+            "scripts/test_ai_memory.py",
+            "docs/workflow/ai-memory.md",
+            "docs/qa/scenarios/WFL-ai-memory-handoff.md",
+            ".specs/features/ai-memory-handoff",
+        )
+        for relative_path in forbidden_paths:
+            assert not (tmp / relative_path).exists(), relative_path
+
+        for path in tmp.rglob("*"):
+            relative = path.relative_to(tmp)
+            if ".git" in relative.parts or not path.is_file():
+                continue
+            content = path.read_bytes().lower()
+            assert b"source scripts/ai-memory.zsh" not in content, relative
+
+        run(tmp)
+        assert snapshot_tree(tmp) == first
+        for path, content in sentinels.items():
+            assert path.read_bytes() == content
+    finally:
+        shutil.rmtree(tmp)
+
+
 def test_consumer_ad_index_is_preserved_on_readopt() -> None:
     tmp = Path(tempfile.mkdtemp())
     try:
@@ -645,6 +694,7 @@ def test_graft_ignore_contract_and_search_visibility() -> None:
 
 TESTS = (
     "test_fresh_and_refuse",
+    "test_host_owned_session_continuation_absence_and_idempotence",
     "test_consumer_ad_index_is_preserved_on_readopt",
     "test_skip_agents_preserves_product_files_and_adopts_rest",
     "test_skip_agents_preserves_absent_claude_file",
