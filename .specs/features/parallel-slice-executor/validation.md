@@ -2158,3 +2158,152 @@ fingerprint reached the third-failure halt threshold.
 monotonic, bounded, fail-closed, structured on exhaustion, and worker-start is single-shot after
 exact discovery. No commit, push, merge, real Orca action, product/test edit, or `docs/qa/**` edit
 was performed.
+
+## R14/R15 live failed-worker stop and retry technical verification
+
+**Date:** 2026-08-25
+**Commit under test:** `5b7a9ddc406a555a135075c08cbcc0b967ee254e`
+**Base:** `0bdc73e`
+**Diff range:** `0bdc73e..5b7a9dd`
+**Verifier:** fresh independent Technical Verifier (author != verifier)
+**Scoped verdict:** **FAIL**
+Verdict: FAIL
+
+This pass covers the live failed/revoked Orca worker recovery change in
+`.agents/skills/autonomous/scripts/orca_adapter.py` and its directed adapter assertions. No real
+Orca command ran. No product code, product tests, or `docs/qa/**` artifact was edited. The pre-existing
+dirty/untracked `docs/qa/**` porcelain was preserved byte-for-byte.
+
+### Spec-anchored outcomes
+
+| Requested outcome | Evidence | Result |
+| --- | --- | --- |
+| Failed, exact owned/supervised/live terminal stops once with the deterministic request, proves the fence, releases, then retries the same task/dispatch | Recovery ordering is `.agents/skills/autonomous/scripts/orca_adapter.py:991-1051`; stop receipt/request and retry argv are asserted by `tools/test_orca_adapter.py:578-616`; the fresh matrix observed `worker-show, worker-stop, worker-show, worker-release, show, worker-start`, `--retry-request K:recovery-stop`, and `--retry-of ctx_probe_dispatch`. | PASS |
+| Revoked, exact owned/supervised/live terminal follows the same stop/release/retry path | The fresh matrix drove `status=revoked` with matching ownership/origin and observed the same six-effect order and exact retry selector. | PASS |
+| Stop intent is persisted before the effect and an accepted stop receipt is replayed with the same request | Pending/accepted recovery-stop persistence is at `.agents/skills/autonomous/scripts/orca_adapter.py:994-1017`; the directed restart case is `tools/test_orca_adapter.py:639-654`; the same request was observed on replay. | PASS |
+| Post-stop show proves terminal `exited`, disconnected, and non-writable before release/retry | The post-stop guard checks dispatch identity, terminal handle, dispatch status, `connected=false`, and `writable=false` at `.agents/skills/autonomous/scripts/orca_adapter.py:1019-1031`, but never checks `stopped_state["status"] == "exited"`. A fresh probe supplied dispatch `stopped`, terminal `status=running`, `connected=false`, `writable=false`; the adapter unexpectedly completed release/retry with `worker-show, worker-stop, worker-show, worker-release, show, worker-start`. | **FAIL — fingerprint `9744e73f37a4c196fc4bc2a2ed3a937c85491120395cc9b6d9ec0793712d27f3`** |
+| Running, ready, unknown, and outcome_unknown states perform no unsafe recovery effect | The existing running/unknown cases are `tools/test_orca_adapter.py:559-576,679-697`; the fresh matrix added `ready` and `outcome_unknown`. Each stopped after one `worker-show`; no stop/release/retry occurred. | PASS |
+| user_owned, user_takeover, foreign, missing, mismatch, and unsupervised ownership/state perform no unsafe effect | `tools/test_orca_adapter.py:619-637,724-742` covers takeover/unsupervised and identity failures. Fresh probes for `user_owned`, `user_takeover`, `unsupervised`, foreign/missing owner/origin/resource, and terminal mismatch each stopped after `worker-show`. | PASS |
+| Retained release state performs no stop/release/retry | The persisted retained guard is after the recovery-stop block at `.agents/skills/autonomous/scripts/orca_adapter.py:1038-1045`. Fresh probes with persisted `releaseState=retained, retainedReason=identity_unproven` and with a retained resource both attempted `worker-stop` after `worker-show`, violating the required zero-unsafe-effect outcome. | **FAIL — fingerprint `a5497630c1fc90729707f6f231d6d70774a045651cf444280ece5b8481fa96b5`** |
+| Stop failure or unknown result blocks release and retry | `_stop_worker` records a failed stop and raises before release at `.agents/skills/autonomous/scripts/orca_adapter.py:1129-1150`; directed coverage is `tools/test_orca_adapter.py:659-677`; fresh failure/unknown probes observed only `worker-show, worker-stop`. | PASS |
+| Release revokes the old dispatch and late `worker_done` is stale after retry/replay | Same-process stale rejection is asserted at `tools/test_orca_adapter.py:599-612`, and normal release registers revocation at `.agents/skills/autonomous/scripts/orca_adapter.py:1126`; however, a fresh adapter replay with the persisted accepted release did not restore `_revoked_dispatches`. A late `worker_done` reusing the old dispatch was unexpectedly accepted (`worker-show, show, worker-start, check`). | **FAIL — fingerprint `192f2dc513f263367b30600c500f83f82c61825d55d181b1f10f3ce893367230`** |
+
+**Spec-anchored status:** 6 PASS, 3 FAIL, 0 spec-precision gaps for the requested stop/retry scope.
+
+### Gate evidence
+
+- `rtk proxy python3 tools/test_orca_adapter.py` -> exit 0, **55 passed, 0 failed**; base count was 51 and did not decrease.
+- `rtk proxy python3 tools/test_parallel_executor.py` -> exit 0, **44 passed, 0 failed**.
+- `rtk env npm_config_offline=true npm run test:all` -> exit 0; **110 Vitest passed**, all **12 discovered Python suites passed** (including adapter 55 and executor 44), 0 failures.
+- `rtk proxy python3 .agents/skills/tlc-spec-driven/scripts/validate_spec.py .specs/features/parallel-slice-executor/spec.md --strict` -> exit 0, 0 errors, 0 warnings.
+- `rtk proxy python3 .agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/parallel-slice-executor/tasks.md --strict` -> exit 0, 0 errors, 0 warnings.
+- `rtk proxy python3 .agents/skills/tlc-spec-driven/scripts/validate_state.py parallel-slice-executor` -> exit 0, because this legacy validator selects the first historical `Verdict: PASS` in the append-only report and does not inspect the new scoped FAIL; the scoped verdict above remains authoritative for this pass.
+- `rtk proxy python3 tools/ad-index.py --check` -> exit 0, `AD-INDEX.md up to date`.
+- `rtk proxy python3 -m py_compile .agents/skills/autonomous/scripts/orca_adapter.py tools/test_orca_adapter.py .agents/skills/autonomous/scripts/parallel_execute.py tools/test_parallel_executor.py` -> exit 0.
+- `rtk git diff --check 0bdc73e..5b7a9dd` -> exit 0.
+
+The green gates do not override the three evidence-backed contract failures above.
+
+### Discrimination sensor
+
+Six detached scratch worktrees were created under `/tmp/r15-sensor-*`, mutated one behavior at a
+time, tested, and removed. The real checkout porcelain remained exactly the pre-sensor baseline;
+no scratch worktree remains.
+
+| Mutation | Directed result | Outcome |
+| --- | --- | --- |
+| Bypass exact ownership/origin guard | Fresh takeover probe observed `worker-stop`; expected zero unsafe effects. | KILLED |
+| Add `running` to reclaimable states | Adapter suite failed in `test_running_stalled_dispatch_fails_safely_without_release_or_retry`. | KILLED |
+| Substitute `:wrong-stop` for the derived retry request | Adapter suite failed on the exact persisted/requested retry key assertion. | KILLED |
+| Bypass the post-stop identity/fence condition | Fresh mismatched-terminal probe observed `worker-release`; expected post-show halt. | KILLED |
+| Accept `status=unknown` as a successful stop | Fresh stop-unknown probe reached a second post-stop show instead of halting at the stop result. | KILLED |
+| Remove successful-release dispatch revocation | Adapter suite failed on late delivery stale rejection. | KILLED |
+
+**Sensor:** 6 mutations injected, 6 killed, 0 survived. **PASS**. The three baseline probes listed
+in the outcome table are separate unmet contracts, not sensor survivors.
+
+### Fingerprint accounting
+
+Three new open fingerprints were persisted in
+`.specs/features/parallel-slice-executor/review-fingerprints.json`, each at
+`failed_remediations=1` with `gate_passed=true`: retained-state stop ordering
+(`a5497630c1fc90729707f6f231d6d70774a045651cf444280ece5b8481fa96b5`), missing post-stop terminal
+status proof (`9744e73f37a4c196fc4bc2a2ed3a937c85491120395cc9b6d9ec0793712d27f3`), and stale replay
+revocation (`192f2dc513f263367b30600c500f83f82c61825d55d181b1f10f3ce893367230`). No existing
+fingerprint was changed or halted. Lessons state was not edited because the user restricted
+verifier writes to `validation.md` and `review-fingerprints.json`.
+
+### Summary
+
+**Overall:** **FAIL** for `5b7a9ddc406a555a135075c08cbcc0b967ee254e`. The positive failed/revoked
+owned-live stop path, exact retry key, stop/release ordering, unsafe-state rejection, and stop
+failure handling are evidenced, but retained state can still trigger stop, post-stop terminal
+status is under-validated, and a fresh replay can accept a late worker delivery. No commit, push,
+merge, real Orca action, product/test edit, or `docs/qa/**` edit was performed.
+
+## R16 fresh re-verification of live worker stop safety
+
+**Date:** 2026-08-25
+**Commit under test:** `48e53226b6647572aeac2670351c998b46c16848`
+**Previous failing scope:** `5b7a9ddc406a555a135075c08cbcc0b967ee254e`
+**Verifier:** fresh independent Technical Verifier (author != verifier)
+**Scoped verdict:** **PASS**
+Verdict: PASS
+
+This pass re-verifies fingerprints `a5497630`, `9744e73f`, and `192f2dc5` after the recovery-stop
+hardening. No real Orca command ran. No product code, product tests, or `docs/qa/**` artifact was
+edited. Existing QA-only dirt was preserved.
+
+### Exact fingerprint probes
+
+| Fingerprint | Probe and evidence | Result |
+| --- | --- | --- |
+| `a5497630c1fc90729707f6f231d6d70774a045651cf444280ece5b8481fa96b5` | Live `failed`, exact owned/origin dispatch, plus persisted retained evidence or provider `releaseState=retained`; expected zero unsafe effects. The adapter now derives retained state/reason before stop at `.agents/skills/autonomous/scripts/orca_adapter.py:996-1017`; `tools/test_orca_adapter.py:647-668` asserts `release_identity_unproven` and calls exactly `worker-show`. | PASS |
+| `9744e73f37a4c196fc4bc2a2ed3a937c85491120395cc9b6d9ec0793712d27f3` | Post-stop show returned the same dispatch, terminal handle, dispatch `stopped`, terminal `status=running`, `connected=false`, `writable=false`; expected halt before release/retry. The new `stopped_state["status"] == "exited"` guard is `.agents/skills/autonomous/scripts/orca_adapter.py:1048-1055`; `tools/test_orca_adapter.py:672-690` asserts `worker-show, worker-stop, worker-show` only. | PASS |
+| `192f2dc513f263367b30600c500f83f82c61825d55d181b1f10f3ce893367230` | Fresh adapter replay consumed a persisted accepted recovery release, then received late `worker_done` for the reused old dispatch; expected stale rejection. Replay now restores revocation at `.agents/skills/autonomous/scripts/orca_adapter.py:986-987`; `tools/test_orca_adapter.py:578-623` asserts fresh-adapter stale rejection. | PASS |
+
+Fresh probe output was: retained-persisted and retained-provider both
+`release_identity_unproven`, calls `[worker-show]`; post-stop-running `recovery_stop_unproven`,
+calls `[worker-show, worker-stop, worker-show]`; fresh-replay-late `stale Orca delivery from
+revoked dispatch`.
+
+### Directed and full gates
+
+- `rtk proxy python3 tools/test_orca_adapter.py` -> exit 0, **57 passed, 0 failed**.
+- `rtk proxy python3 tools/test_parallel_executor.py` -> exit 0, **44 passed, 0 failed**.
+- `rtk env npm_config_offline=true npm run test:all` -> exit 0; **110 Vitest passed**, all 12 discovered Python suites passed, including adapter 57 and executor 44.
+- Strict spec validator -> exit 0, 0 errors, 0 warnings.
+- Strict tasks validator -> exit 0, 0 errors, 0 warnings.
+- `rtk proxy python3 -m py_compile .agents/skills/autonomous/scripts/orca_adapter.py tools/test_orca_adapter.py .agents/skills/autonomous/scripts/parallel_execute.py tools/test_parallel_executor.py` -> exit 0.
+- `rtk proxy python3 tools/ad-index.py --check` -> exit 0, `AD-INDEX.md up to date`.
+- `rtk proxy git diff --check` -> exit 0.
+- `rtk proxy python3 .agents/skills/tlc-spec-driven/scripts/validate_state.py parallel-slice-executor` -> exit 0.
+
+### Discrimination sensor
+
+Six detached scratch worktrees under `/tmp/r16-sensor-*` were mutated one at a time and removed;
+the real checkout porcelain matched its pre-sensor baseline and no scratch worktree remains.
+
+| Mutation | Directed result | Outcome |
+| --- | --- | --- |
+| Disable retained-state pre-stop guard | Adapter suite failed in retained replay safety. | KILLED |
+| Remove terminal `status=exited` post-stop check | Adapter suite failed in `test_r15_post_stop_running_terminal_blocks_before_release_or_retry`. | KILLED |
+| Remove persisted replay revocation restoration | Adapter suite failed on fresh-adapter stale delivery. | KILLED |
+| Bypass exact ownership/origin guard | Independent takeover probe observed `worker-stop`; expected only `worker-show`. | KILLED |
+| Substitute the deterministic retry request key | Adapter suite failed on the exact `recovery-stop` request assertion. | KILLED |
+| Add `running` to reclaimable states | Adapter suite failed in live stalled-dispatch safety. | KILLED |
+
+**Sensor:** 6 mutations injected, 6 killed, 0 survived. **PASS**.
+
+### Fingerprint disposition
+
+The three repaired fingerprints are closed at `failed_remediations=1` in
+`.specs/features/parallel-slice-executor/review-fingerprints.json`. No new fingerprints were
+created, and no existing unrelated fingerprint changed.
+
+### Summary
+
+**Overall:** **PASS** for `48e53226b6647572aeac2670351c998b46c16848` in the requested recovery-stop
+scope. Retained evidence blocks before stop, post-stop terminal exit is proven, persisted replay
+restores dispatch revocation, all directed/full gates pass, and all six sensor mutants die. No
+commit, push, merge, real Orca action, product/test edit, or `docs/qa/**` edit was performed.
