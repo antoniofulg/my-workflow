@@ -4,9 +4,9 @@ area: ADP
 title: Adopt the workflow without replacing consumer-owned state
 persona: Workflow adopter
 journey: J-adopt-workflow
-expected: A fresh target receives the workflow resolver, tracked example/templates, initialized local config, generated runtime packets, tools/ad-index.py, and a valid workflow tour; re-adoption preserves consumer-owned local state and feature workflow state remains visible to Git.
+expected: A fresh target receives the workflow resolver, tracked example/templates, initialized local config, generated runtime packets, tools/ad-index.py, and a valid workflow tour; re-adoption preserves consumer-owned local state, creates no removed integration artifacts, and leaves host-boundary sentinels unchanged.
 entry_points: README.md#adopt-the-workflow; docs/guidelines/ARTIFACT-LIFECYCLE.md; scripts/adopt.py; .my-workflow.toml.example; .my-workflow.toml; templates/agents/
-qa_status: pass
+qa_status: untested
 bug_ids: BUG-20260822-deep-review-learnings-untrackable; BUG-20260822-feature-specs-ignored; BUG-20260822-feature-state-gate-conflicts
 fix_status: fixed
 retest_status: pass
@@ -15,6 +15,12 @@ evidence: docs/qa/evidence/2026-08-25-parallel-deep-review/adoption-summary.json
 last_report: docs/qa/reports/2026-08-25-parallel-deep-review.md
 overlaps:
 ---
+
+For the v0.6.0 removal, the next fresh QA walk must inspect the current README/workflow rule and
+reviewer packets, clean and repeated adoption with shell, hook, and host-setting sentinels,
+`npm pack --dry-run --json` package membership, version parity, protected-history comparisons, and
+the explicit final reference-scan allowlist. This scenario is untested until the fresh QA Plan and
+QA Execute packets record those observables.
 
 Covers `CWF-ADOPT-1` through `CWF-ADOPT-3`: resolver installation, tracked-source discovery,
 managed-path review, initial profile creation, preservation of `.my-workflow.toml` and templates,
@@ -55,10 +61,6 @@ entries, preserves unrelated target lines, and does not stage or commit consumer
 
 QA on 2026-08-22 confirmed fresh visibility, exact legacy migration, byte-idempotent re-adoption,
 unchanged `HEAD` and index, and feature-state handoff through a sibling worktree and clean clone.
-
-QA on 2026-08-24 confirmed the ai-memory feature did not change ordinary adoption: fresh adoption
-and re-adoption remained byte-idempotent and installed no ai-memory marker, binary, runtime DB, hook
-tree, shell edit, or handoff file.
 
 QA on 2026-08-25 retained this verdict as an adjacent canary: fresh adoption included the tracked
 remediation example, re-adoption preserved a consumer-owned local config byte-for-byte, and only

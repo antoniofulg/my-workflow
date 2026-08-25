@@ -161,10 +161,12 @@ T4 -> T5 -> T6
 
 **Done when**:
 
-- [ ] Active QA profile/index has no removed scenario or area promise.
-- [ ] Current adoption journey/scenario and release scenario describe host-neutral v0.6.0 behavior.
-- [ ] Changed current scenarios are `untested` and name docs, adoption, packaging, parity, history, and reference-scan observables for the fresh QA Plan packet.
-- [ ] Historical dated QA artifacts remain byte-for-byte equal to `v0.5.0`.
+- [x] Active QA profile/index has no removed scenario or area promise.
+- [x] Current adoption journey/scenario and release scenario describe host-neutral v0.6.0 behavior.
+- [x] Changed current scenarios are `untested` and name docs, adoption, packaging, parity, history, and reference-scan observables for the fresh QA Plan packet.
+- [x] Historical dated QA artifacts remain byte-for-byte equal to `v0.5.0`.
+
+**Status:** complete — current scenarios reset to `untested`; fresh QA charter/report remains for the closing QA packets.
 
 **Tests**: end-to-end CLI/manual plan
 **Gate**: build

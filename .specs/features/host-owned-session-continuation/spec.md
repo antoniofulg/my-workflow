@@ -125,7 +125,7 @@ None. The feature removes a runtime and performs no shell startup, hook, externa
 | HSC-06 | Publish host-owned continuation | Tasks | Verified |
 | HSC-07 | Publish host-owned continuation | Tasks | Verified |
 | HSC-08 | Publish host-owned continuation | Tasks | Verified |
-| HSC-09 | Preserve history and update QA | Tasks | Pending |
+| HSC-09 | Preserve history and update QA | Tasks | Verified |
 | HSC-10 | Preserve history and update QA | Tasks | Pending |
 | HSC-11 | Preserve history and update QA | Tasks | Pending |
 | HSC-12 | Preserve history and update QA | Tasks | Pending |
