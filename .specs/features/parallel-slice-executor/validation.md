@@ -1213,3 +1213,118 @@ None in this remediation scope.
 
 **Overall:** PASS at `453a8ab28cba313142cacf433e27d2572bb5695d`. All stalled-dispatch
 recovery technical fingerprints are closed. Real Orca QA remains outside this technical phase.
+
+## Nested Orca dispatch identity technical verification
+
+**Date:** 2026-08-25  
+**Diff range:** `fd9fbc1..5687696f43d4bd7c07cc300be8d2905d2243f9cc`  
+**Verifier:** independent Technical Verifier (author != verifier)  
+**Verdict:** FAIL. Nested Orca dispatch IDs are normalized and preserved through the stalled-worker
+recovery path, canonical IDs retain precedence, valid `ctx_...` values remain opaque, and unsafe
+tokens are rejected before argv execution. A missing dispatch ID in the authoritative
+`worker-show` response is still accepted as correlated, allowing `worker-release` and replacement
+`worker-start` mutations.
+
+### Spec-anchored outcomes
+
+| Criterion | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| EXE-04 / EXE-07 nested identity continuity | Real `error.dispatch.id` and `result.dispatch.id` normalize to the same dispatch identity across stalled failure, status read, release, and `--retry-of`. | `tools/test_orca_adapter.py:182-212` asserts exact `ctx_5f619d0f6298` extraction from the error, nested result status/release receipts, and exact retry argv identity. | PASS |
+| SEC-005 canonical precedence | An explicit canonical `dispatch_id` cannot be overwritten by a nested alias. | `tools/test_orca_adapter.py:217-218` asserts `ctx_explicit` wins over `dispatch.id == ctx_other`; production precedence is `.agents/skills/autonomous/scripts/orca_adapter.py:103-118,130-133`. | PASS |
+| EXE-07 opaque provider identity | A real `ctx_...` identity remains byte-for-byte opaque instead of being rewritten to an invented format. | `tools/test_orca_adapter.py:184,193-194,211-212` asserts the same `ctx_5f619d0f6298` at extraction and `--retry-of`. | PASS |
+| SEC-003 unsafe-token boundary | Empty, whitespace, control, quote, backtick, and shell-delimiter forms are rejected without shell interpolation. | Canonical assertions at `tools/test_orca_adapter.py:217-224` reject representative whitespace/newline/semicolon/backtick/quote values; `:750-758` asserts every Orca call is argv-only with `shell=False`. An independent 20-value probe rejected all requested classes and an unsafe persisted token produced zero CLI calls. | PASS |
+| EXE-11 / SEC-005 missing authoritative identity | A `worker-show` response missing its nested dispatch ID must halt before release or replacement mutation. | No canonical assertion exists. Independent probe returned `status=failed` without a dispatch ID and observed `worker-show, worker-release, show, worker-start`. Production explicitly accepts `actual_dispatch is None` at `.agents/skills/autonomous/scripts/orca_adapter.py:614-617`, then mutates at `:633-641`. | FAIL |
+
+**Spec-anchored status:** 4 PASS, 1 FAIL, 0 spec-precision gaps in this remediation scope.
+
+### Gate evidence
+
+- `python3 tools/test_orca_adapter.py` -> 30 passed, 0 failed.
+- `python3 tools/test_parallel_executor.py` -> 43 passed, 0 failed.
+- `npm run test:all` -> exit 0: 110 Vitest tests in 9 files plus 180 named Python tests across
+  12 suites, 290 passed, 0 failed/skipped. Python count command:
+  `rg -c '^\s*def test_' tools/test_*.py | awk -F: '{sum += $2} END {print sum}'`.
+- Adapter suite changed from 28 tests at `fd9fbc1` to 30 at `5687696`; delta +2.
+- `git diff --check fd9fbc1..5687696f43d4bd7c07cc300be8d2905d2243f9cc` -> exit 0.
+- No real Orca Run, Task, Dispatch, terminal, pilot state, or QA evidence was read or mutated.
+  The retained `docs/qa/**` porcelain baseline remained unchanged.
+
+### Discrimination sensor
+
+One detached temporary worktree at `5687696f43d4bd7c07cc300be8d2905d2243f9cc` was removed after
+the mutations. The retained checkout never received sensor mutations.
+
+| Mutation | Result | Outcome |
+| --- | --- | --- |
+| Return an invented dispatch value instead of nested `dispatch.id`. | Adapter suite exited 1 in the unsafe/nested identity contract. | KILLED |
+| Force nested `dispatch.id` to override explicit canonical `dispatch_id`. | Adapter suite exited 1 at `tools/test_orca_adapter.py:218`. | KILLED |
+| Disable dispatch-token character validation. | Adapter suite exited 1 at `tools/test_orca_adapter.py:224`. | KILLED |
+
+**Sensor:** lightweight, 3 mutations, 3 killed, 0 survived. PASS.
+
+### Fingerprint accounting
+
+- `e83afdfc460cf5e658dcb0575b589ad3f842ee0ec230335bc715fbe589dcd3b4` opened at failed-remediation
+  count 1: EXE-11/SEC-005, missing nested `worker-show` dispatch identity permits release and
+  replacement retry.
+- Prior closed fingerprints remain closed and their historical counts are unchanged.
+
+### Ranked gap
+
+1. **Major / EXE-11, SEC-005.** Require the authoritative `worker-show` receipt to carry a
+   normalized dispatch ID equal to the persisted ID before interpreting status. Add a canonical
+   missing-ID case that asserts one `worker-show`, zero `worker-release`, and zero replacement
+   `worker-start`.
+
+**Overall:** FAIL for commit `5687696f43d4bd7c07cc300be8d2905d2243f9cc`. Green gates and killed
+mutants do not close the missing-correlation safety gap. Real Orca QA remains outside this technical
+packet.
+
+## Nested Orca dispatch correlation re-verification
+
+**Date:** 2026-08-25  
+**Diff range:** `5687696f43d4bd7c07cc300be8d2905d2243f9cc..941bbc5ddd02b6bd7893165c2be67a8a3044fce1`  
+**Verifier:** independent Technical Verifier (author != verifier)  
+**Verdict:** PASS. Missing, malformed, and mismatched authoritative dispatch identities now halt
+after exactly one `worker-show`, before release or replacement retry. The matching nested
+`ctx_...` recovery path remains intact.
+
+### Spec-anchored outcomes
+
+| Criterion | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| EXE-11 / SEC-005 missing identity | A nested `worker-show` response without a dispatch ID halts before any release or replacement worker. | `tools/test_orca_adapter.py:329-344` asserts `uncorrelated_dispatch` and the sole command `worker-show`; production validates before mutation at `.agents/skills/autonomous/scripts/orca_adapter.py:614-624,640-647`. | PASS |
+| EXE-11 / SEC-005 malformed or mismatched identity | Unsafe or foreign authoritative IDs cannot correlate to the persisted dispatch and produce zero recovery mutation. | Independent probes supplied `ctx bad` and `ctx_other`; both raised after one `worker-show` with zero release/retry. Shared validation is `.agents/skills/autonomous/scripts/orca_adapter.py:615-624`; canonical unsafe-token assertions remain at `tools/test_orca_adapter.py:217-224`. | PASS |
+| EXE-04 / EXE-07 matching nested identity | A matching real nested `ctx_...` value remains opaque through show, release, and `--retry-of`. | `tools/test_orca_adapter.py:182-212` asserts exact `ctx_5f619d0f6298` extraction and retry identity. | PASS |
+
+**Spec-anchored status:** 3 PASS, 0 FAIL, 0 spec-precision gaps in this remediation scope.
+
+### Gate evidence
+
+- `python3 tools/test_orca_adapter.py` -> 31 passed, 0 failed.
+- `python3 tools/test_parallel_executor.py` -> 43 passed, 0 failed.
+- `npm run test:all` -> exit 0: 110 Vitest tests plus 181 named Python tests, 291 passed,
+  0 failed/skipped.
+- Adapter suite changed from 30 tests at `5687696` to 31 at `941bbc5`; delta +1.
+- No real Orca state or retained QA/evidence artifact was mutated.
+
+### Discrimination sensor
+
+One detached temporary worktree at `941bbc5ddd02b6bd7893165c2be67a8a3044fce1` restored the prior
+fault by accepting `None` as correlated. The canonical adapter suite failed when the missing-ID
+case attempted `worker-release`. Scratch removed; retained checkout unchanged.
+
+**Sensor:** lightweight, 1 mutation, 1 killed, 0 survived. PASS.
+
+### Fingerprint accounting
+
+- `e83afdfc460cf5e658dcb0575b589ad3f842ee0ec230335bc715fbe589dcd3b4` is CLOSED at historical
+  failed-remediation count 1.
+- No new fingerprint opened.
+
+### Ranked gaps
+
+None in this remediation scope.
+
+**Overall:** PASS at `941bbc5ddd02b6bd7893165c2be67a8a3044fce1`. The exact correlation
+blocker is closed. Real Orca QA remains outside this technical packet.
