@@ -11,6 +11,9 @@
   "feature": "security-skills",
   "git_head": "4871e63cc2aed355f9ef17efbf500b2dae65525b",
   "overrides": {},
+  "parallelization": {
+    "mode": "disabled"
+  },
   "profile": null,
   "roles": {
     "deep_reviewer": {

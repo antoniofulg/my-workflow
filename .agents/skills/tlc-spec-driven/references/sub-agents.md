@@ -119,7 +119,7 @@ No raw logs, no full test output - only the above fields keep the main context c
 2. ...
 ```
 
-**Failure handling:** The orchestrator routes the ranked gaps to an implementer as fix tasks, then re-dispatches the Verifier. This fix→re-verify loop is bounded to a maximum of **3 iterations**. If gaps remain after 3 iterations, escalate to the user.
+**Failure handling:** The orchestrator records each failed Verifier result with the stdlib convergence script, routes the ranked gaps to an implementer, then re-dispatches the Verifier. Count by immutable finding fingerprint as defined in `docs/guidelines/REVIEW-ROUNDS.md` even when the scoped build gate is green; halt and escalate when the same fingerprint reaches its third failed remediation. A distinct blocker starts its own counter.
 
 **Standalone fallback:** When running without sub-agents (a single agent executing the full feature), run `validate.md` as an independent fresh-eyes pass - re-read `spec.md` and the diff from scratch, apply evidence-or-zero, run the spec-anchored check and discrimination sensor, write the report file, then run `python3 <skill-dir>/scripts/validate_state.py <feature>` to confirm the report is a real PASS, and report PASS/FAIL before marking the feature done.
 

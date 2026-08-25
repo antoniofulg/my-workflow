@@ -2,7 +2,7 @@
 
 **Persona:** Repository reader
 **Goal:** Understand the workflow's provenance, neutral scope, optional capability boundaries,
-remote-delivery authority, and published capability version.
+remote-delivery authority, published capability version, and honestly bounded parallel execution.
 **Entry point:** `README.md`
 
 ## Flow
@@ -14,11 +14,18 @@ remote-delivery authority, and published capability version.
 3. Confirm Graft and OpenDesign are optional recommendations, adoption installs neither, repository
    artifacts remain the fallback and approved handoff, and external filesystem writers are bounded
    and non-destructive.
-4. Confirm readiness never authorizes push, pull request creation, or merge, and that each action
-   requires explicit authorization in the current session.
+4. Confirm invoking `autonomous` authorizes only its scoped feature-branch push, one pull request,
+   and merge after readiness; release, deploy, production mutation, force-push, direct `main` push,
+   and unrelated remote actions remain separately authorized.
 5. Inspect the external security entries in `skills-lock.json` and confirm the docs describe them as
    separately authorized, immutable dependencies rather than bundled capabilities.
-6. Inspect the package and lockfile root metadata for the published workflow version.
+6. Inspect the opt-in parallel slice contract: `disabled`, `safe`, and `full`, sequential TLC tasks,
+   deterministic worktree/worker follow-up, checkpoint synchronization, resource preflight, and
+   zero-effect serial fallback when capability or isolation is unproven.
+7. Reconcile the parallel release claims with durable QA status. Keep the real Orca/Codex two-lane
+   lifecycle and completed-pilot cleanup as `blocked-verify`, never as completed-pilot evidence.
+8. Inspect the package and lockfile root metadata, full test command, and package membership for the
+   published workflow version.
 
 ## Promises
 
@@ -28,3 +35,6 @@ remote-delivery authority, and published capability version.
 - [`REL-report-current-workflow-release`](../scenarios/REL-report-current-workflow-release.md)
 
 This journey is the adjacent canary for `J-adopt-workflow`.
+For the parallel release contract, its adjacent journeys are
+[`J-configure-feature-workflow`](J-configure-feature-workflow.md) and
+[`J-execute-parallel-slices`](J-execute-parallel-slices.md).

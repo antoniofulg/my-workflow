@@ -1,0 +1,134 @@
+# Parallel Slice Dispatch
+
+This contract adds optional concurrency between slices. It does not change TLC task execution:
+TLC remains unchanged, and tasks inside a slice remain sequential.
+
+## Entry gate
+
+1. Resolve the feature workflow with `.agents/skills/workflow-config/SKILL.md`.
+2. Read the frozen `workflow.json` before planning. Never plan from current configuration while
+   resuming a feature.
+3. Run the read-only planner from the repository root:
+
+   ```bash
+   python3 .agents/skills/workflow-config/scripts/parallel_plan.py \
+     --root . --feature <feature-slug> [--verified-slice <slice>]
+   ```
+
+4. Dispatch parallel lanes only when the frozen mode, plan, and executor capability all allow it.
+
+5. The `auto`/`orca` executor capability gate is proven only when the `orca` runtime is
+   discoverable and the adapter declares `orchestration.contract.v1`; otherwise return serial
+   recovery with zero worktree, worker, Git, or provider effects.
+
+6. A lane with `Resources: none` bypasses the consumer provider; any declared resource names
+   require the frozen executable and a prepared correlated lease before worker start.
+
+`disabled`, an invalid or fallback plan, a missing frozen snapshot, or no capable isolated executor
+uses the existing serial path without creating a worker or worktree. Any uncertainty or failure
+serializes safely; a capability that cannot prove worktree, runtime, port, and persistence isolation
+is not capable for this contract.
+
+## Executor commands
+
+From the repository root, the public verbs are:
+
+```bash
+python3 .agents/skills/autonomous/scripts/parallel_execute.py start \
+  --root . --feature <feature-slug> --adapter auto
+python3 .agents/skills/autonomous/scripts/parallel_execute.py resume \
+  --root . --feature <feature-slug> --adapter auto --wait-seconds <1..3600>
+python3 .agents/skills/autonomous/scripts/parallel_execute.py status \
+  --root . --feature <feature-slug>
+```
+
+Each verb emits one JSON object naming `command`; `status` is read-only. `resume` consumes persisted
+receipts and at most one correlated delivery, while `start` runs the point-in-time plan. A rejected
+capability, invalid plan, missing snapshot, unsupported provider, dirty checkpoint, failed gate,
+or cleanup failure returns serial recovery without creating a replacement effect.
+
+## Dispatch boundary
+
+- Use one worker per slice. The orchestrator owns the slice worktree, runtime, and checkpoint.
+- A worker runs its slice's tasks in TLC order. Tasks inside a slice remain sequential.
+- Each task still has its own implementation, scoped gate, `tasks.md` update, and atomic commit.
+- The orchestrator never starts a later task in a slice before the planner marks its dependencies
+  available.
+- A worker does not create another worker and does not edit another slice's worktree.
+
+The plan's `ready` lane is permission to start the named task, not permission to skip a gate. A
+`waiting` or `in_progress` task is never a fresh worker; the planner's state transition is part of
+the dispatch decision.
+
+## Waiting and follow-up
+
+The event lifecycle is run-scoped and receipt-scoped:
+
+```text
+check --run <run> --wait --types worker_done,question,escalation
+check --run <run> --ack <delivery-id>
+worker-read --dispatch <dispatch-id>
+worker-release --dispatch <dispatch-id>
+```
+
+The coordinator reads and accepts the correlated worker result before release. A clean waiter is
+ended before the dependency event can follow up on the same terminal; a timeout leaves state
+unchanged. Missing, duplicate, foreign, escalated, dirty, or failed receipts serialize without a
+replacement worker.
+
+When a worker reaches an unavailable dependency, it must first leave a clean committed checkpoint
+and report the exact dependency and current head. It must then end the clean worker turn. The
+orchestrator records the waiter and resumes the same worker with a follow-up after the dependency completion event. It does not poll, spin, or spend model turns checking unchanged state.
+
+If the worker is dirty, cannot report its checkpoint, or the event cannot be correlated to the
+declared dependency, it is not a valid waiter: pause the lane and use the existing serial recovery
+path. A follow-up re-plans the point-in-time state; it does not bypass the task gate or create a
+second worker for the same task.
+
+## Synchronization
+
+- Synchronize at declared dependency checkpoints before the dependent task consumes a newer
+  upstream commit.
+- Use the exact upstream commit recorded by the dependency event, then run the affected gate before
+  continuing.
+- Do not rebase after every task. Checkpoint sync is the normal cadence.
+- Reconcile the final upstream base only when it advanced. If the consumed checkpoint already equals
+  the final base, final reconciliation is a no-op.
+- A conflict, ambiguous integration, failed gate, or missing checkpoint serializes safely or halts
+  the lane; it never silently chooses one side.
+- A changed checkpoint persists `current_head` and invalidates `gate`, Technical Verifier, and
+  deep-review evidence. The lane remains `gate_required` until the affected gate receipt matches
+  the lane and current head; only then may waiting follow-up continue.
+
+Verified slices are merged into the feature integration branch in deterministic slice order with
+preserved commits. Merge conflicts abort and return serial recovery; no automatic resolution is
+attempted.
+
+## Evidence invalidation
+
+If synchronization, integration, or remediation changes a reviewed tree, invalidate every affected gate, Verifier, and deep-review verdict. Repeat the affected gate on the resulting tree before the next task or review stage. Evidence from a prior commit is not evidence for a rebased tree.
+
+The normal evidence contract remains intact:
+
+- one atomic commit and scoped gate per task;
+- one technical Verifier per code-changing slice;
+- deep-review at the frozen groups;
+- final QA;
+- one full gate on the final tree.
+
+Parallel dispatch may reduce wall time, but it never removes, merges, or postpones these readiness
+stages past their required source freeze.
+
+## QA handoff
+
+E2E-001 is an explicit fresh-QA handoff, not an author-run pilot. Its interface, expected receipts,
+and cleanup assertions are recorded in `.specs/features/parallel-slice-executor/qa-pilot.md`.
+Canonical final QA records E2E-001 as terminal `BLOCKED-VERIFY` at the external Orca/Codex
+lifecycle boundary; no completed pilot is claimed.
+
+## Serial fallback
+
+Serial fallback is the default recovery for disabled mode, missing or invalid metadata, conflicting
+ready lanes, unavailable isolation, dirty waiting state, checkpoint failure, integration conflict,
+or any uncertainty. The fallback follows the existing autonomous serial path and creates no parallel
+worker or worktree for the rejected plan.

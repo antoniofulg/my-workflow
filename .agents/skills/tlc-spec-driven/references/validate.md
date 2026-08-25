@@ -13,7 +13,7 @@
    - Runs the **spec-anchored outcome check** and the **discrimination sensor** (both described below)
    - Writes `.specs/features/[feature]/validation.md` with the full evidence report as versioned workflow state; retain it with the feature when the verification record must travel to CI, reviewers, or fresh clones.
    - Returns a compact verdict + ranked gap list to the orchestrator in chat
-   - Gaps become **fix tasks** routed back to an implementer; re-verification follows with a maximum of **3 fix→re-verify iterations** before escalating to the user
+   - Gaps become **fix tasks** routed back to an implementer; re-verification uses the immutable finding fingerprint and third-failure halt in `docs/guidelines/REVIEW-ROUNDS.md`
 
 3. **Interactive UAT (for user-facing features only):** The feature has complex user-facing behavior where human judgment matters (UI flows, interaction patterns, visual design). For backend-only or infrastructure work, automated checks are sufficient.
 
@@ -179,7 +179,7 @@ For each issue found during UAT or from the Verifier:
 
 Fix tasks follow the same format as regular tasks and can be executed with the implement phase.
 
-**Guardrail:** Maximum 3 diagnostic iterations per issue. If root cause isn't found after 3 attempts, flag for human investigation. The same 3-iteration bound applies to the Verifier's fix→re-verify cycle: if gaps persist after 3 rounds, escalate to the user rather than continuing to loop.
+**Guardrail:** Maximum 3 diagnostic iterations per issue. If root cause isn't found after 3 attempts, flag for human investigation. This diagnostic cap is per issue and separate from review-remediation fingerprint accounting in `docs/guidelines/REVIEW-ROUNDS.md`.
 
 ### 9. Write Validation Report File + Return Chat Summary (MANDATORY)
 
@@ -356,7 +356,7 @@ Update spec.md requirement statuses:
 - **Recommend fixes** - Don't just report problems, create fix tasks
 - **Quality check is mandatory** - Not optional
 - **Infer severity** - Never ask the user "how bad is this?"
-- **Max 3 diagnostic iterations** - Prevents infinite investigation loops
+- **Max 3 diagnostic iterations** - Prevents infinite investigation loops; this diagnostic cap is per issue and separate from review-remediation fingerprint accounting in `docs/guidelines/REVIEW-ROUNDS.md`.
 - **Update traceability** - Every verified requirement updates spec.md status
 - **Always write the report file** - `.specs/features/[feature]/validation.md` is versioned workflow state; keep it with the feature when its evidence must travel
 - **Distill after writing** - turn grounded failures into lessons via `scripts/lessons.py` ([lessons.md](lessons.md)); clean PASS → no lesson

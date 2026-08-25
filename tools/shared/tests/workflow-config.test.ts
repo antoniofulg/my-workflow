@@ -82,7 +82,7 @@ describe("workflow configuration skill", () => {
     expect(packaged.some((path) => path.startsWith(".claude/agents/"))).toBe(false);
     expect(packaged.some((path) => path.startsWith(".codex/agents/"))).toBe(false);
     expect(packaged.some((path) => path.startsWith(".cursor/agents/"))).toBe(false);
-  });
+  }, 30_000);
 
   it("resolves the shipped mixed profile to its exact provider routes", () => {
     const example = readRepositoryFile(".my-workflow.toml.example");

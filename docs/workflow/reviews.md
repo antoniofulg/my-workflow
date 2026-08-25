@@ -14,11 +14,11 @@ The public hierarchy is `Feature -> Vertical Slice -> Task`. Before dispatch, re
 ## One Verifier role, several phases
 
 The provider `verifier` executes one phase per packet. Deep-review is a separate stage, not a Verifier phase.
-Remediation and cap behavior follow `REVIEW-ROUNDS.md`.
+Remediation identity, independent counters, and halt behavior follow `REVIEW-ROUNDS.md`; the fingerprint is requirement + root cause + failure path.
 
 | Reviewer | Question only it can answer | Cap |
 | --- | --- | --- |
-| **Technical Verifier** | Do the tests actually prove the spec? | ≤3 fix rounds, then the human |
+| **Technical Verifier** | Do the tests actually prove the spec? | Fingerprint-scoped; halt on third failed remediation |
 | **QA Plan** | Which public promises need a walk? | One fresh Verifier session |
 | **QA Execute** | Does this behaviour work through the declared adapter? | One fresh Verifier session |
 | **Deep-review** (resolved groups) | Is the code correct, safe, maintainable? | ≤2 rounds, Blocker/Major only |

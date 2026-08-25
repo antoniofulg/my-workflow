@@ -29,7 +29,7 @@ slice that re-reviews Cosmetics until the diff stops moving is not this workflow
 
 | Cap | Protects |
 | --- | --- |
-| Verifier ≤3, then escalate | Stops a broken test contract from eating the week |
+| Verifier fingerprint cap, then escalate | Stops a repeated blocker from eating the week |
 | Deep-review ≤2, Blocker/Major only | Stops nitpick churn from being called “quality” |
 | Stages do not loop into each other | Review groups bound repeated reading, then a human |
 | Full gate once per feature | Stops ten-task features from paying the product gate ten times |
@@ -37,6 +37,9 @@ slice that re-reviews Cosmetics until the diff stops moving is not this workflow
 
 Escalate is a result after the required post-cap remediation and gate. Shipping past a cap with a
 reproducible blocker is not.
+
+The review cap counts failed remediation per immutable finding fingerprint; see
+[`REVIEW-ROUNDS.md`](../guidelines/REVIEW-ROUNDS.md) for the accounting rule.
 
 ## What this pack is not
 

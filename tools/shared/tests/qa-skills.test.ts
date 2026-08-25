@@ -233,6 +233,36 @@ describe("canonical QA skills", () => {
     expect(() => parseSkillMetadata("name: qa-plan\ndescription: misplaced", "fixture")).toThrow(
       "Missing valid initial frontmatter",
     );
+
+    const reviewRounds = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
+    expect(reviewRounds).toContain("fingerprint = requirement + root cause + failure path");
+    expect(reviewRounds).toContain("independent failed-remediation counter for each fingerprint");
+    expect(reviewRounds).toContain("third failed remediation of the same fingerprint");
+    expect(reviewRounds).toContain("every failed post-fix Verifier result, whether or not the build gate is green");
+    expect(reviewRounds).toContain("Rewording or reopening a finding preserves its fingerprint and counter");
+    expect(reviewRounds).toContain("A distinct blocker starts at count zero and does not consume another fingerprint's counter");
+    expect(reviewRounds).not.toMatch(/one global (?:remediation|blocker) counter/i);
+
+    for (const relativePath of [
+      ".agents/skills/tlc-spec-driven/SKILL.md",
+      ".agents/skills/tlc-spec-driven/references/validate.md",
+      ".agents/skills/tlc-spec-driven/references/sub-agents.md",
+      ".agents/skills/tlc-spec-driven/references/implement.md",
+      ".agents/skills/autonomous/SKILL.md",
+      "docs/workflow/reviews.md",
+      "docs/workflow/README.md",
+      "docs/workflow/purpose.md",
+    ]) {
+      const source = readRepositoryFile(relativePath);
+      expect(source).toContain("REVIEW-ROUNDS.md");
+      expect(source).toContain("fingerprint");
+    }
+    expect(readRepositoryFile(".agents/skills/tlc-spec-driven/references/validate.md")).toContain(
+      "diagnostic cap is per issue and separate from review-remediation fingerprint accounting",
+    );
+    const convergence = readRepositoryFile(".agents/skills/tlc-spec-driven/scripts/review_convergence.py");
+    expect(convergence).toContain("failed_remediations");
+    expect(convergence).toContain("os.replace");
   });
 
   it("IT-003 dispatches all QA phases through each existing Verifier", () => {
@@ -776,7 +806,7 @@ describe("adoption and public setup", () => {
     expect(qaExecute).toContain("does not write product code, install a framework, invent a");
   });
 
-  it("IT-005 / AIM-11 reports release version 0.5.0 consistently", () => {
+  it("IT-005 / AIM-11 reports release version 0.6.0 consistently", () => {
     const manifest = JSON.parse(readRepositoryFile("package.json")) as {
       version?: string;
       scripts?: { test?: string };
@@ -791,15 +821,14 @@ describe("adoption and public setup", () => {
     const nextRelease = changelog.indexOf("\n## [", releaseStart + 1);
     const latestRelease = changelog.slice(releaseStart, nextRelease === -1 ? undefined : nextRelease);
 
-    expect(manifest.version).toBe("0.5.0");
+    expect(manifest.version).toBe("0.6.0");
     expect(manifest.scripts?.test).toBe("vitest run --dir tools");
-    expect(lockfile.version).toBe("0.5.0");
-    expect(lockfile.packages?.[""]?.version).toBe("0.5.0");
-    expect(latestHeading).toBe("0.5.0");
+    expect(lockfile.version).toBe("0.6.0");
+    expect(lockfile.packages?.[""]?.version).toBe("0.6.0");
+    expect(latestHeading).toBe("0.6.0");
     expect(latestHeading).toBe(manifest.version);
-    expect(latestRelease).toContain("Bounded parallel Deep Review");
-    expect(latestRelease).toContain("remediation stall bound");
-    expect(latestRelease).toContain("direct-correction workflow");
-    expect(latestRelease).toContain("centralized local provider runtime configuration");
+    expect(latestRelease).toContain("opt-in parallel slice executor");
+    expect(latestRelease).toContain("resource preflight");
+    expect(latestRelease).toContain("BLOCKED-VERIFY");
   });
 });

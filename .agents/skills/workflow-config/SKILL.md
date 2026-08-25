@@ -52,13 +52,13 @@ the live remediation threshold. The resolver owns config parsing, validation, ba
 precedence, agent-file lookup, and atomic persistence. Keep those rules in the resolver instead of
 restating them here.
 
-Done when: the snapshot exists, contains the effective cadence, role routes, and frozen delegated
+Done when: the snapshot exists, contains effective parallelization, cadence, role routes, and frozen delegated
 model/effort, the current output reports `remediation.stall_attempts`, and the capable orchestrator
 has accepted every selected provider.
 
 ## Resume
 
-Read the existing feature snapshot before dispatch. Use its `deep_review`, `roles`, and `git_head`
+Read the existing feature snapshot before dispatch. Use its `parallelization`, `deep_review`, `roles`, and `git_head`
 values even when `.my-workflow.toml` has changed. Re-read the current `[remediation]` threshold on
 every resume; it is deliberately live. Current packet metadata must match each frozen delegated
 model and effort; otherwise synchronize and explicitly refresh. Do not silently re-resolve an active

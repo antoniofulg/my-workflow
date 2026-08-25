@@ -264,7 +264,7 @@ explorer and verifier runtimes live under the ignored `.cursor/agents/`, `.claud
 
 ```bash
 npm install
-npm test
+npm run test:all
 npm run knowledge
 ```
 
