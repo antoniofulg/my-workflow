@@ -359,6 +359,31 @@ def test_adoption_installs_v2_config_and_syncs_fifteen_packets() -> None:
         shutil.rmtree(tmp)
 
 
+def test_adoption_installs_parallel_pilot_and_preserves_consumer_config() -> None:
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        subprocess.run(["git", "init", "-q", str(tmp)], check=True)
+        source = ROOT / "tools/qa_parallel_pilot.py"
+        run(tmp)
+        adopted = tmp / "tools/qa_parallel_pilot.py"
+        assert adopted.is_file()
+        assert adopted.read_bytes() == source.read_bytes()
+
+        adopted.write_bytes(b"stale managed copy\n")
+        config = tmp / ".my-workflow.toml"
+        config.write_bytes(config.read_bytes() + b"# consumer-owned\n")
+        config_before = config.read_bytes()
+        run(tmp)
+        assert adopted.read_bytes() == source.read_bytes()
+        assert config.read_bytes() == config_before
+
+        pilot_before = adopted.read_bytes()
+        run(tmp)
+        assert adopted.read_bytes() == pilot_before == source.read_bytes()
+    finally:
+        shutil.rmtree(tmp)
+
+
 def test_adoption_rejects_invalid_template_before_runtime_writes() -> None:
     tmp = Path(tempfile.mkdtemp())
     try:
@@ -650,6 +675,7 @@ TESTS = (
     "test_skip_agents_preserves_absent_claude_file",
     "test_runtime_edits_are_overwritten_from_templates_on_readopt",
     "test_adoption_installs_v2_config_and_syncs_fifteen_packets",
+    "test_adoption_installs_parallel_pilot_and_preserves_consumer_config",
     "test_adoption_rejects_invalid_template_before_runtime_writes",
     "test_adoption_rejects_malformed_local_config_without_partial_writes",
     "test_existing_config_drives_all_native_values_and_preserves_non_model_bytes",

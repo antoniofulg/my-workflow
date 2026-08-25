@@ -314,6 +314,26 @@ T3 + T4 + T6 -> T7
 **Remediation gate:** Harness/full gate, strict validators/index, compile, diff check, adequacy review.
 **Remediation commit:** `test(workflow): prove parallel pilot ownership`.
 
+### T7R6: Adopt the public parallel pilot entry point
+
+**Remediation status:** complete
+**Slice:** D
+**Remediation resources:** none
+**Observable behaviour:** Fresh adoption and re-adoption install the public parallel-pilot helper byte-for-byte while preserving consumer-owned workflow configuration.
+**Where:** `scripts/adopt.py`, `scripts/test_adopt.py`
+**Remediation depends on:** T7R5
+**Remediation requirements:** E2E-001
+**Remediation done when:**
+
+- [x] The canonical adoption manifest copies `tools/qa_parallel_pilot.py` into a fresh target.
+- [x] Re-adoption restores the exact source bytes and a second re-adoption is byte-idempotent.
+- [x] Re-adoption preserves an existing consumer-owned `.my-workflow.toml` byte-for-byte.
+- [x] The canonical adoption test passes with no new consumer configuration overwrite.
+
+**Remediation tests:** `scripts/test_adopt.py` parallel-pilot adoption case and full Python discovery.
+**Remediation gate:** Directed adoption test, `npm run test:all`, strict validators/index, compile, diff check, and adequacy review.
+**Remediation commit:** `fix(adoption): install parallel pilot entry point`.
+
 ## Review Remediation
 
 The human rejected a slice-global cap because the prior rounds closed different blockers. T2R4
