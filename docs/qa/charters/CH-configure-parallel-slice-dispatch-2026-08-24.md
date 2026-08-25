@@ -34,3 +34,10 @@ tasks sequential and every gate, Verifier, deep-review group, final QA, and fina
 - Adjacent canary: adopt into a disposable target and confirm the planner/policy arrive while target-owned `.my-workflow.toml` stays unchanged.
 
 End before product remediation. A confirmed defect returns to an Implementer.
+
+## Terminal outcome
+
+The resolver/planner tour passed in the 2026-08-24 report. R18/R19 add the executor-facing
+zero-effect fallback evidence; the configured consumer resource-provider path remains unavailable
+in this repository. The adjacent provider-free fallback is therefore the authoritative current
+configuration boundary. See the [terminal report](../reports/2026-08-25-parallel-slice-executor-final.md).

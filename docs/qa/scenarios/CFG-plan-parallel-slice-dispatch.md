@@ -11,8 +11,8 @@ bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-24-parallel-slice-dispatch/session.md
-last_report: docs/qa/reports/2026-08-24-parallel-slice-dispatch.md
+evidence: docs/qa/evidence/2026-08-24-parallel-slice-dispatch/session.md; docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/resource-plan.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/resource-start.json
+last_report: docs/qa/reports/2026-08-25-parallel-slice-executor-final.md
 overlaps: CFG-freeze-feature-workflow
 ---
 
@@ -24,5 +24,8 @@ The repository exposes no portable worker runtime. QA therefore walks the public
 installed agent-facing policy; provider-specific worktree creation and live model behavior remain
 outside this feature's public executable surface.
 
-The CLI/manual walk passed on 2026-08-24, including mode-specific candidates, blocked dependency,
-event-driven follow-up, deterministic bytes, checkpoint metadata, and decisive serial fallback.
+The planner walk passed on 2026-08-24, including deterministic ready/blocked/follow-up/checkpoint
+output and preservation of sequential delivery gates. R19's public resource plan adds the current
+two-ready-lane projection and confirms missing-provider serialization is decided by execution
+preflight, not by planner mutation. The real worker lifecycle remains separately
+`blocked-verify`.
