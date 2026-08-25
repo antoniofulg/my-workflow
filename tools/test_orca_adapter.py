@@ -507,6 +507,55 @@ def test_worktree_discovery_mismatch_malformed_and_permission_fail_immediately()
             shutil.rmtree(root)
 
 
+def test_r13_nested_worktree_receipt_projects_exact_path_and_id_before_worker_start() -> None:
+    root, lane, worktree = fixture()
+    expected = worktree["worktree_path"]
+    try:
+        responses = (
+            {"id": "request-worktree", "result": {"worktree": {"id": "wt-real", "path": expected, "branch": "", "head": ""}}},
+            {"id": "request-worktree", "result": {"worktree": {"worktreeId": "wt-real", "worktreePath": expected, "branch": ""}}},
+            {"id": "request-worktree", "result": {"worktree": {"id": "wt-real", "git": {"path": expected}, "branch": ""}}},
+        )
+        for discovery in responses:
+            cli = RecordingCLI(start_responses(worktree)[:4] + [discovery, worker_payload(worktree)])
+            receipt = adapter(root, cli, sleep=lambda _: None).start_worker(lane, worktree, idempotency_key=KEY)
+            assert receipt["dispatch_id"] == "dispatch-A"
+            assert [call[0][2] for call in cli.calls].count("show") == 1
+            assert [call[0][2] for call in cli.calls].count("worker-start") == 1
+    finally:
+        shutil.rmtree(root)
+
+
+def test_r13_worktree_receipt_missing_divergent_or_conflicting_path_and_id_halts() -> None:
+    root, lane, worktree = fixture()
+    expected = worktree["worktree_path"]
+    foreign = str(root / "foreign-worktree")
+    try:
+        responses = (
+            {"id": "request-worktree", "result": {"worktree": {"id": "wt-real"}}},
+            {"id": "request-worktree", "result": {"worktree": {"id": "wt-real", "path": foreign}}},
+            {"worktree_path": expected, "result": {"worktree": {"path": foreign, "id": "wt-real"}}},
+            {"worktree_id": "wt-A", "result": {"worktree": {"path": expected, "id": "wt-B"}}},
+        )
+        for discovery in responses:
+            cli = RecordingCLI(start_responses(worktree)[:4] + [discovery])
+            try:
+                adapter(root, cli, sleep=lambda _: None).start_worker(lane, worktree, idempotency_key=KEY)
+            except orca_adapter.AdapterError as exc:
+                if discovery is responses[0]:
+                    assert exc.details["code"] == "malformed_worktree_receipt"
+                elif discovery is responses[1]:
+                    assert "uncorrelated" in str(exc)
+                else:
+                    assert exc.details["code"] == "correlation_conflict"
+            else:
+                raise AssertionError("invalid contextual worktree receipt must halt")
+            assert [call[0][2] for call in cli.calls].count("show") == 1
+            assert not any(call[0][2] == "worker-start" for call in cli.calls)
+    finally:
+        shutil.rmtree(root)
+
+
 def test_unknown_stalled_dispatch_fails_safely_without_release_or_retry() -> None:
     root, lane, worktree = fixture()
     try:

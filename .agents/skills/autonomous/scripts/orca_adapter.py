@@ -157,6 +157,7 @@ _IDENTITY_ALIASES = {
     "dispatch_id": ("dispatch_id", "dispatchId"),
     "terminal_handle": ("terminal_handle", "terminalHandle", "agentTerminalHandle", "agent_terminal_handle"),
     "resource_id": ("resource_id", "resourceId", "terminal_resource_id", "terminalResourceId"),
+    "worktree_id": ("worktree_id", "worktreeId"),
     "request_id": ("request_id", "requestId"),
     "idempotency_key": ("idempotency_key", "idempotencyKey"),
     "retry_request": ("retry_request", "retryRequest", "retry_request_id", "retryRequestId", "retry_of", "retryOf"),
@@ -167,6 +168,7 @@ _IDENTITY_LABELS = {
     "dispatch_id": "dispatch id",
     "terminal_handle": "terminal handle",
     "resource_id": "resource id",
+    "worktree_id": "worktree id",
     "request_id": "request id",
     "idempotency_key": "idempotency key",
     "retry_request": "retry request",
@@ -177,6 +179,7 @@ _CONTAINER_IDENTITY = {
     "dispatch": ("dispatch_id", "dispatch id"),
     "resource": ("resource_id", "resource id"),
     "terminalResource": ("resource_id", "resource id"),
+    "worktree": ("worktree_id", "worktree id"),
 }
 _STATE_ALIASES = {
     "status": ("status", "state"),
@@ -204,7 +207,6 @@ _PASSTHROUGH_ALIASES = {
     "feature": ("feature",),
     "slice": ("slice",),
     "task": ("task",),
-    "worktree_id": ("worktree_id", "worktreeId"),
     "worktree_path": ("worktree_path", "worktreePath"),
     "branch": ("branch",),
     "pre_head": ("pre_head", "preHead", "sourceHead"),
@@ -217,7 +219,7 @@ def _canonical_candidates(value: Mapping[str, Any]) -> dict[str, list[Any]]:
     states = {field: [] for field in _STATE_ALIASES}
     passthrough = {field: [] for field in _PASSTHROUGH_ALIASES}
 
-    def visit(node: Mapping[str, Any], container: str | None = None) -> None:
+    def visit(node: Mapping[str, Any], container: str | None = None, parent: str | None = None) -> None:
         for key, item in node.items():
             name = str(key)
             if name in {alias for aliases in _IDENTITY_ALIASES.values() for alias in aliases}:
@@ -233,10 +235,28 @@ def _canonical_candidates(value: Mapping[str, Any]) -> dict[str, list[Any]]:
                     passthrough[field].append(item)
             if container in _CONTAINER_IDENTITY and name == "id":
                 candidates[_CONTAINER_IDENTITY[container][0]].append(item)
+            if container == "worktree" and name in {"path", "worktree_path", "worktreePath"}:
+                passthrough["worktree_path"].append(item)
+            if container == "git" and parent == "worktree" and name in {"path", "worktree_path", "worktreePath"}:
+                passthrough["worktree_path"].append(item)
             if container in {"terminal", "terminalResource", "terminal_resource"} and name == "handle":
                 candidates["terminal_handle"].append(item)
+            if isinstance(item, Mapping) and name in _CONTAINER_IDENTITY:
+                if "id" in item:
+                    candidates[_CONTAINER_IDENTITY[name][0]].append(item["id"])
+                if name == "worktree":
+                    for alias in ("path", "worktree_path", "worktreePath"):
+                        if alias in item:
+                            passthrough["worktree_path"].append(item[alias])
+                            break
+                    git = item.get("git")
+                    if isinstance(git, Mapping):
+                        for alias in ("path", "worktree_path", "worktreePath"):
+                            if alias in git:
+                                passthrough["worktree_path"].append(git[alias])
+                                break
             if isinstance(item, Mapping):
-                visit(item, name)
+                visit(item, name, container)
 
     visit(value)
     return {**candidates, **states, **passthrough}
@@ -284,6 +304,14 @@ def _canonical_projection(value: Mapping[str, Any]) -> dict[str, Any]:
         projected["retainedReason"] = "identity_unproven"
     if "releaseError" not in projected and "lastError" in projected:
         projected["releaseError"] = projected["lastError"]
+    worktree_paths = [candidate for candidate in candidates["worktree_path"] if candidate not in (None, "")]
+    if projected.get("worktree_path") not in (None, ""):
+        worktree_paths.append(projected["worktree_path"])
+    if len({str(candidate) for candidate in worktree_paths}) > 1:
+        raise AdapterError(
+            "conflicting Orca worktree path",
+            details={"code": "correlation_conflict", "field": "worktree_path"},
+        )
     for field in _PASSTHROUGH_ALIASES:
         if field not in projected:
             for candidate in candidates[field]:
@@ -476,13 +504,19 @@ class OrcaAdapter:
                 response = self._json_call(
                     [self.executable, "worktree", "show", "--worktree", selector, "--json"]
                 )
-                candidate = response.get("worktree_path") or response.get("worktreePath") or response.get("path")
+                candidate = response.get("worktree_path") or response.get("worktreePath")
                 if candidate is None:
                     raise AdapterError(
                         "malformed Orca worktree discovery",
                         details={"code": "malformed_worktree_receipt", "stage": "worktree-discovery", "selector": selector},
                     )
-                candidate_path = Path(_text(candidate, "worktree path")).resolve()
+                candidate_value = _text(candidate, "worktree path")
+                if not Path(candidate_value).is_absolute():
+                    raise AdapterError(
+                        "malformed Orca worktree discovery",
+                        details={"code": "malformed_worktree_receipt", "stage": "worktree-discovery", "selector": selector},
+                    )
+                candidate_path = Path(candidate_value).resolve()
                 if candidate_path != expected:
                     raise AdapterError("uncorrelated Orca worktree discovery")
                 return str(candidate_path)
