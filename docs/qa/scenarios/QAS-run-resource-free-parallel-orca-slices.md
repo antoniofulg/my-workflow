@@ -11,8 +11,8 @@ bug_ids: BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree
 fix_status: fixed
 retest_status: pending
 fix_commits: f7a1f36; 1216014; 6b3f1f0; 2fb2f41; 8675c6d; 6419d24; 453a8ab; 941bbc5; e24228c; 35a49bf; a1a49a2; 1e40171; f02b679; 5b7a9dd; 48e5322; a736757; 0ed8b55
-evidence: docs/qa/evidence/2026-08-25-parallel-slice-executor-r14/session.md; docs/qa/evidence/2026-08-25-parallel-slice-executor-r15/start.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r15/terminal-watchdog.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r17/r15-resume-1.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r17/r15-resume-2.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r17/r15-orca-reads.json; docs/qa/reports/2026-08-25-parallel-slice-executor-r19.md
-last_report: docs/qa/reports/2026-08-25-parallel-slice-executor-final.md
+evidence: docs/qa/evidence/2026-08-25-parallel-slice-executor-v060-safe-retest/pilot-identities.md; docs/qa/reports/2026-08-25-parallel-slice-executor-v060-safe-retest.md
+last_report: docs/qa/reports/2026-08-25-parallel-slice-executor-v060-safe-retest.md
 overlaps: CFG-plan-parallel-slice-dispatch
 ---
 
@@ -38,3 +38,10 @@ residue. None of these retained fixtures may be treated as cleanup evidence.
 
 Historical evidence remains in the R8, R9, R10, R11, R12, R14, R15, R16, and R17 reports/evidence;
 the terminal consolidation is [`2026-08-25-parallel-slice-executor-final`](../reports/2026-08-25-parallel-slice-executor-final.md).
+
+The operator manually removed the retained historical pilot worktrees before the v0.6.0 safe-mode
+retest. That operator-forced cleanup reset physical state only; it is not evidence for worker
+lifecycle completion or automatic cleanup. The fresh run reproduced the external boundary: Orca
+failed A/T1 at `agent_prompt_stalled` while the exact terminal remained live, connected, and
+writable; B/T2 never started. Product fallback exposed and fenced the effect. This scenario remains
+`blocked-verify` with `retest_status: pending` until a fresh run completes both lanes.

@@ -33,6 +33,8 @@ resource effects while tasks and delivery stages remain unchanged.
 [`QAS-run-resource-free-parallel-orca-slices`](../scenarios/QAS-run-resource-free-parallel-orca-slices.md)
 and [`QAS-clean-owned-parallel-slice-pilot`](../scenarios/QAS-clean-owned-parallel-slice-pilot.md)
 are `blocked-verify` at the external Orca/Codex recovery boundary. R14's user-takeover residue,
-R15/R17's live owned terminal, and the older R8–R11 `identity_unproven` residue remain separate;
-no cleanup or zero-residue claim is made. Fallback and convergence terminal results are in the
-[final report](../reports/2026-08-25-parallel-slice-executor-final.md).
+R15/R17's live owned terminal, and the older R8–R11 `identity_unproven` residue were later removed
+manually by the operator; that is not automatic cleanup evidence. A fresh v0.6.0 safe-mode run then
+reproduced `agent_prompt_stalled` with its exact A/T1 terminal still live/writable and B/T2 absent.
+The new fixture remains preserved, so no cleanup or zero-residue claim is made. See the
+[v0.6.0 safe retest](../reports/2026-08-25-parallel-slice-executor-v060-safe-retest.md).

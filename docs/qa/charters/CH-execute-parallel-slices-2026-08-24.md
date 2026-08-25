@@ -47,3 +47,10 @@ after `agent_prompt_stalled`; Codex `0.149.1` later completed externally, while 
 correctly refused release, retry, and cleanup. R14 user-takeover residue and older
 `identity_unproven` residue remain separate; no cleanup claim exists. See the
 [terminal report](../reports/2026-08-25-parallel-slice-executor-final.md).
+
+The operator later removed those historical physical worktrees manually; that reset is not product
+cleanup evidence. The fresh v0.6.0 safe-mode retest reproduced the same external boundary on Run
+`run_942877dd689c`: Orca rejected A/T1 at `agent_prompt_stalled`, then rejected three late
+`worker_done` messages and one escalation/status message after capability revocation while the exact
+terminal remained live/writable. B/T2 never started. The new fixture remains preserved. See the
+[v0.6.0 safe retest](../reports/2026-08-25-parallel-slice-executor-v060-safe-retest.md).
