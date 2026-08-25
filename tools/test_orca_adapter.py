@@ -546,10 +546,59 @@ def test_tab_not_found_release_reconciles_exited_terminal_and_retries_once() -> 
     )
     try:
         worker = {**worker_payload(worktree), "dispatch_id": dispatch_id, "terminal_handle": terminal}
-        action = {"action": "worker", "key": KEY, "partial_effect": {"run_id": "run-A", "task_id": "task-A", "dispatch_id": dispatch_id, "terminal_handle": terminal}, "worker_plan": lane, "worktree_receipt": worktree}
-        cli = RecordingCLI([show(status="failed", connected=True, writable=True), tab_error, show(status="failed", connected=False, writable=False), {"worktree_path": worktree["worktree_path"]}, worker])
+        evidence = {
+            "state": "failed",
+            "lastError": "tab_not_found",
+            "releaseState": "completed",
+            "releaseError": "tab_not_found",
+            "released": True,
+            "reconciled": True,
+            "terminal_status": "exited",
+            "connected": False,
+            "writable": False,
+            "reason": "tab_not_found",
+            "release_error": "tab_not_found",
+            "mutation": {
+                "requestId": KEY + ":recovery-release",
+                "processAction": {"action": "worker-release", "dispatch_id": dispatch_id},
+                "archive": {"kind": "recovery-release", "dispatch_id": dispatch_id},
+            },
+            "release": {"state": "completed", "requested": True, "completed": True},
+        }
+        action = {
+            "action": "worker", "key": KEY,
+            "partial_effect": {
+                "run_id": "run-A", "task_id": "task-A", "dispatch_id": dispatch_id, "terminal_handle": terminal,
+                "result": {"dispatchId": dispatch_id, **evidence},
+            },
+            "worker_plan": lane, "worktree_receipt": worktree,
+        }
+
+        def assert_evidence() -> None:
+            partial = action["partial_effect"]
+            for field in (
+                "state", "lastError", "releaseState", "releaseError", "released", "reconciled",
+                "terminal_status", "connected", "writable", "reason", "release_error",
+            ):
+                assert partial[field] == evidence[field]
+            assert partial["run_id"] == "run-A"
+            assert partial["task_id"] == "task-A"
+            assert partial["dispatch_id"] == dispatch_id
+            assert partial["terminal_handle"] == terminal
+            assert partial["request_id"] == KEY + ":recovery-release"
+            assert partial["result"]["mutation"] == evidence["mutation"]  # type: ignore[index]
+            assert partial["result"]["release"] == evidence["release"]  # type: ignore[index]
+
+        class ObservingCLI(RecordingCLI):
+            def __call__(self, argv: list[str], **kwargs: object) -> Completed:
+                if len(argv) > 2 and argv[2] == "worker-release":
+                    assert_evidence()
+                return super().__call__(argv, **kwargs)
+
+        cli = ObservingCLI([show(status="failed", connected=True, writable=True), tab_error, show(status="failed", connected=False, writable=False), {"worktree_path": worktree["worktree_path"]}, worker])
         adapter_instance = adapter(root, cli)
         receipt = adapter_instance.reconcile_action(action)
+        assert_evidence()
         release = action["partial_effect"]["recovery_release"]  # type: ignore[index]
         assert release == {
             "released": True,
@@ -578,6 +627,7 @@ def test_tab_not_found_release_reconciles_exited_terminal_and_retries_once() -> 
         else:
             raise AssertionError("reconciled release must revoke late delivery")
         assert adapter_instance.reconcile_action(action) == receipt
+        assert_evidence()
         assert len(cli.calls) == 6
     finally:
         shutil.rmtree(root)
