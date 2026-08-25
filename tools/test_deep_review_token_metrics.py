@@ -84,15 +84,20 @@ def write_manifest(out: Path, concurrency: int = 3) -> None:
 def helper_script(path: Path, *, overlap: bool = False) -> None:
     if overlap:
         path.write_text(
-            "import json, os, sys, time\n"
+            "import fcntl, json, pathlib, sys, time\n"
             "prompt, output, label, calls, active, overlap = sys.argv[1:]\n"
-            "if os.path.exists(active): open(overlap, 'w', encoding='utf-8').close()\n"
-            "open(active, 'w', encoding='utf-8').close()\n"
+            "def change(delta):\n"
+            "    with open(active, 'a+', encoding='utf-8') as stream:\n"
+            "        fcntl.flock(stream, fcntl.LOCK_EX)\n"
+            "        stream.seek(0); current = int(stream.read() or '0') + delta\n"
+            "        stream.seek(0); stream.truncate(); stream.write(str(current)); stream.flush()\n"
+            "        if current > 1: pathlib.Path(overlap).touch()\n"
+            "        fcntl.flock(stream, fcntl.LOCK_UN)\n"
+            "change(1)\n"
             "with open(calls, 'a', encoding='utf-8') as stream: stream.write(label + '\\n')\n"
-            "time.sleep(0.5)\n"
+            "time.sleep(0.2)\n"
             "json.dump({'defects': [], 'advisories': [], 'suppressions': [], 'coverage': {'hunks': [], 'rules': []}}, open(output, 'w', encoding='utf-8'))\n"
-            "try: os.unlink(active)\n"
-            "except FileNotFoundError: pass\n",
+            "change(-1)\n",
             encoding="utf-8",
         )
 
@@ -228,6 +233,7 @@ class TokenMetricsTests(unittest.TestCase):
                 db, out, jobs = root / "codex.sqlite", REPO / f".deep-review/metrics-concurrency-{concurrency}", root / "jobs.json"
                 calls, active, overlap, ledger = root / "calls", root / "active", root / "overlap", root / "metrics.json"
                 create_db(db)
+                shutil.rmtree(out, ignore_errors=True)
                 write_manifest(out, concurrency)
                 write_jobs(jobs, f".deep-review/metrics-concurrency-{concurrency}", count=count)
                 helper = root / "job.py"
@@ -238,7 +244,7 @@ class TokenMetricsTests(unittest.TestCase):
                         cwd=REPO, capture_output=True, text=True,
                     )
                     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-                    self.assertTrue(overlap.exists())
+                    self.assertTrue(overlap.exists(), result.stdout + result.stderr + " calls=" + calls.read_text(encoding="utf-8"))
                     status = json.loads((out / "runs/jobs-status.json").read_text(encoding="utf-8"))
                     self.assertEqual([row["label"] for row in status["jobs"]], [f"job-{i}" for i in range(1, count + 1)])
                     metrics = read_metrics(ledger)
@@ -744,6 +750,16 @@ class TokenMetricsTests(unittest.TestCase):
         self.assertIn("active attempts", native)
         self.assertNotIn("one at a time", native)
         self.assertRegex(native, r"concurr|refill|worker slot")
+        workflow = orchestration.split("**Workflow fallback", 1)[1].split("**Agent fallback", 1)[0]
+        self.assertIn("concurrency?: integer", workflow)
+        self.assertIn("args?.concurrency ?? 3", workflow)
+        self.assertIn("Math.min(resolvedConcurrency, pending.length)", workflow)
+        self.assertIn("while (!providerBlock && pending.length", workflow)
+        self.assertIn("if (!active.length) break", workflow)
+        self.assertIn("message.includes('usageLimitExceeded') ? 'blocked' : 'fail'", workflow)
+        self.assertIn("blocker: providerBlock", workflow)
+        self.assertIn("pending:", workflow)
+        self.assertNotIn("Promise.race([]", workflow)
         graft = " ".join(orchestration.split("Before prompts are materialized", 1)[1].split("**Workflow fallback", 1)[0].lower().split())
         self.assertIn("optional", graft)
         self.assertIn("plain repository inspection", graft)

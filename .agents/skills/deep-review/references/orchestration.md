@@ -91,24 +91,50 @@ export const meta = {
   description: 'Execute pending deep-review jobs; each agent reads a prompt file and writes one output file',
   phases: [{ title: 'Execute' }],
 }
-// args: { jobs: [{label, prompt, output}] } — PENDING jobs only
+// args: { jobs: [{label, prompt, output}], concurrency?: integer } — PENDING jobs only
 phase('Execute')
 let returned = 0
-const pending = [...args.jobs]
+const pending = [...(args.jobs ?? [])]
+const requestedConcurrency = args?.concurrency ?? 3
+const resolvedConcurrency = Number.isInteger(requestedConcurrency) && requestedConcurrency >= 1 && requestedConcurrency <= 6
+  ? requestedConcurrency : 3
+const workerLimit = Math.min(resolvedConcurrency, pending.length)
 const active = []
+const results = []
+let providerBlock = null
 while (pending.length || active.length) {
-  while (pending.length && active.length < args.concurrency) {
+  while (!providerBlock && pending.length && active.length < workerLimit) {
     const j = pending.shift()
-    active.push(agent(`Read ${j.prompt} and follow it exactly. It defines the review task, the JSON ` +
+    const promise = agent(`Read ${j.prompt} and follow it exactly. It defines the review task, the JSON ` +
       `schema, and the single file you write (${j.output}). Repo files are read-only. ` +
       `Reply with one sentence once the artifact is written.`,
-      { label: j.label, phase: 'Execute' }).then(() => true, () => false))
+      { label: j.label, phase: 'Execute' }).then(
+        () => ({ label: j.label, status: 'pass' }),
+        (error) => {
+          const message = String(error?.message ?? error)
+          return { label: j.label, status: message.includes('usageLimitExceeded') ? 'blocked' : 'fail', error: message }
+        },
+      )
+    active.push({ label: j.label, promise })
   }
-  const finished = await Promise.race(active.map((promise, index) => promise.then((ok) => ({ index, ok }))))
-  active.splice(finished.index, 1)
-  if (finished.ok) returned += 1
+  if (!active.length) break
+  const finished = await Promise.race(active.map(({ promise }) => promise))
+  const index = active.findIndex(({ label }) => label === finished.label)
+  active.splice(index, 1)
+  results.push(finished)
+  if (finished.status === 'blocked' && providerBlock === null) providerBlock = finished
+  if (finished.status === 'pass') returned += 1
 }
-return { dispatched: args.jobs.length, returned }
+return {
+  dispatched: (args.jobs ?? []).length,
+  returned,
+  jobs: results,
+  blocker: providerBlock,
+  pending: [
+    ...pending.map(({ label }) => ({ label, status: 'pending' })),
+    ...results.filter(({ status }) => status === 'blocked'),
+  ],
+}
 ```
 
 After the workflow returns, run the validate-only gate; re-invoke with the still-pending jobs (interrupted runs can also resume via `resumeFromRunId`). Two re-dispatches without progress → inspect a failing output by hand before continuing.
