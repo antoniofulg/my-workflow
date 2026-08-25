@@ -1949,6 +1949,76 @@ envelope is normalized, persisted, and replay-safe; completed releases and other
 remain distinct. No commit, push, merge, real Orca action, product/test edit, or `docs/qa/**` edit
 was performed.
 
+## R13 Contextual Worktree Receipt Technical Verification
+
+**Date:** 2026-08-25
+**Commit under test:** `1e4017124e369deacc59d09e29580b659dde1ffe`
+**Base:** `15cd385cbac0ceed3eaccfebacde41bbfe650ca2`
+**Diff range:** `15cd385..1e4017124e369deacc59d09e29580b659dde1ffe`
+**Verifier:** fresh independent Technical Verifier (author != verifier)
+**Scoped verdict:** **PASS**
+
+This pass covers only contextual Orca worktree receipt projection and the exact worker-start
+boundary. No real Orca command ran. No product file, product test, or `docs/qa/**` evidence file
+was changed. The pre-existing dirty `docs/qa/**` paths were preserved.
+
+### Spec-anchored outcomes
+
+| Criterion | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| Nested worktree identity and path | `result.worktree.id` and `result.worktree.path` project to canonical `worktree_id` and `worktree_path`; an outer request UUID remains evidence only. | `.agents/skills/autonomous/scripts/orca_adapter.py:236-259,265-321` scopes `id` to the named `worktree` container and projects path; `tools/test_orca_adapter.py:515-524` drives nested receipts; the read-only projection probe asserted `worktree_id == "wt-real"` and `worktree_id != "request-uuid"`. | PASS |
+| Camel aliases and Git fallback | `worktreeId`/`worktreePath` and nested `worktree.git.path` are accepted as equivalent contextual fields. | `.agents/skills/autonomous/scripts/orca_adapter.py:160,210,238-257`; `tools/test_orca_adapter.py:515-524`; the positive receipt matrix exercised nested, camel, and `git.path` forms, each with one `show` and one `worker-start`. | PASS |
+| Equal aliases | Equal outer and nested path/ID aliases are accepted without a false conflict. | `.agents/skills/autonomous/scripts/orca_adapter.py:269-292,307-314` deduplicates equal identities and rejects only divergent values; the read-only equal-alias adapter case completed with one worker start. | PASS |
+| Missing, malformed, and mismatched paths | Missing path, relative path, or a foreign absolute path halts before worker start; the selector remains absolute and exact. | `.agents/skills/autonomous/scripts/orca_adapter.py:493-522` requires `path:<recorded absolute path>`, rejects non-absolute values, and compares resolved equality; `tools/test_orca_adapter.py:449-505,529-554` asserts timeout/malformed/mismatch failure and zero worker starts. | PASS |
+| Path and ID conflicts | Divergent contextual path or worktree IDs fail closed with `correlation_conflict` before downstream effects. | `.agents/skills/autonomous/scripts/orca_adapter.py:269-285,307-314`; `tools/test_orca_adapter.py:529-554` asserts conflict code and no `worker-start`; the negative matrix covered both conflicts. | PASS |
+| Blank branch/head | Empty branch and head fields in a valid contextual receipt do not block discovery or worker attachment. | `tools/test_orca_adapter.py:515-524` supplies `branch: ""` and `head: ""` in the nested receipt and asserts successful attachment. | PASS |
+| Watchdog and ordering | Selector-not-found retry remains bounded; worker start occurs once only after successful exact-path correlation. | `.agents/skills/autonomous/scripts/orca_adapter.py:501-533,720-735`; `tools/test_orca_adapter.py:433-479,510-524` asserts 5-attempt/1-second watchdog, two-show retry, and one worker start; direct watchdog probe passed. | PASS |
+
+**Spec-anchored status:** 7 PASS, 0 FAIL, 0 spec-precision gaps for the R13 scope.
+
+### Gate evidence
+
+- `rtk proxy python3 tools/test_orca_adapter.py` -> exit 0, **51 passed, 0 failed**; 0 skipped.
+- `rtk proxy python3 tools/test_parallel_executor.py` -> exit 0, **44 passed, 0 failed**; 0 skipped.
+- `rtk env npm_config_offline=true npm run test:all` -> exit 0, **110 Vitest + 202 Python = 312 passed**, 0 failed/skipped.
+- Strict spec validator -> exit 0, 0 errors, 0 warnings.
+- Strict tasks validator -> exit 0, 0 errors, 0 warnings.
+- `rtk python3 .agents/skills/tlc-spec-driven/scripts/validate_state.py parallel-slice-executor` -> exit 0, 0 errors.
+- `rtk python3 tools/ad-index.py --check` -> exit 0, `AD-INDEX.md up to date`.
+- Python compile for changed adapter/test and owning executor files -> exit 0.
+- `rtk git diff --check 15cd385..1e4017124e369deacc59d09e29580b659dde1ffe` -> exit 0, no whitespace errors.
+
+### Discrimination sensor
+
+The real checkout baseline was the pre-existing `docs/qa/**` modification/untracked set. Five
+detached scratch worktrees were created under `/tmp/r13-sensor-*`, mutated one at a time, tested,
+and removed. The real-checkout porcelain and HEAD matched the baseline afterward; no scratch
+worktree remains.
+
+| Mutation | Directed result | Outcome |
+| --- | --- | --- |
+| Prefer outer generic `id` as `worktree_id`, allowing a request UUID to replace contextual identity. | The isolated projection assertion failed with `conflicting Orca worktree_id`; nested `wt-real` could not be confused with `request-uuid`. | KILLED |
+| Omit nested `result.worktree.path` projection. | Adapter suite failed at `tools/test_orca_adapter.py:521` with `malformed Orca worktree discovery`. | KILLED |
+| Relax path-conflict threshold so two divergent aliases pass. | Adapter suite failed at `tools/test_orca_adapter.py:543` on an unexpected `worker-start`. | KILLED |
+| Remove nested `worktree.git.path` fallback. | Adapter suite failed at `tools/test_orca_adapter.py:521` with `malformed Orca worktree discovery`. | KILLED |
+| Bypass `_discover_worktree` before `worker-start`. | Adapter suite failed at `tools/test_orca_adapter.py:1141` with `invalid Orca dispatch id`, proving the discovery response was consumed as a worker response. | KILLED |
+
+**Sensor:** targeted R13 receipt/order sensor, 5 injected, 5 killed, 0 survived. **PASS**.
+
+### Fingerprint accounting
+
+No new blocker, spec gap, or surviving mutant was found. Existing fingerprints remain closed at
+their recorded counts; `.specs/features/parallel-slice-executor/review-fingerprints.json` was not
+changed. No fingerprint reached the third-failure halt threshold.
+
+### Summary
+
+**Overall:** **PASS** for `1e4017124e369deacc59d09e29580b659dde1ffe`. Contextual nested/camel/Git
+worktree receipts, exact absolute selectors, equal-alias acceptance, fail-closed conflict and
+malformed handling, bounded watchdog behavior, and single-shot post-correlation worker start are
+evidenced. No commit, push, merge, real Orca action, product/test edit, or `docs/qa/**` edit was
+performed.
+
 ## R11 Run/Task identity technical verification
 
 **Date:** 2026-08-25
