@@ -1699,3 +1699,128 @@ None in this remediation scope.
 **Overall:** PASS at `543d0a405cd27803e02f1aaf8bde1abe5731375f`. Exact orphaned-release
 correlation, receipt persistence, revocation, stale-delivery rejection, retry identity, and replay
 are now spec-correlated and discriminating. Real Orca QA remains outside this technical packet.
+
+## Canonical Orca Effect Projection Re-verification
+
+**Date:** 2026-08-25  
+**Commit under test:** `2c80174f494954be3205922b853f59a0a7b3895c`  
+**Base:** `a1a49a2a07954e46e30408496c4ba85ba79220b9`  
+**Diff range:** `a1a49a2..2c80174f494954be3205922b853f59a0a7b3895c`  
+**Verifier:** fresh independent Technical Verifier (author != verifier)  
+**Current scoped verdict:** **FAIL**
+
+This pass covers only the canonical Orca effect projection change in
+`.agents/skills/autonomous/scripts/orca_adapter.py` and its directed adapter coverage. The
+pre-existing `docs/qa/**` modifications in the checkout were preserved. No real Orca command,
+product file, test file, or QA artifact was changed.
+
+### Spec-anchored outcomes
+
+| Criterion | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| Outer IDs survive a nested `result` envelope | The outer envelope remains intact while canonical IDs are projected. | `tools/test_orca_adapter.py:245-282` asserts the original `result`, canonical IDs, `state`, and `lastError`; projection is `.agents/skills/autonomous/scripts/orca_adapter.py:235-274`. | PASS |
+| All-nested and mixed camel/snake IDs project | `run_id`, `task_id`, `dispatch_id`, `terminal_handle`, and `request_id` resolve from nested containers and aliases. | `tools/test_orca_adapter.py:254-278`; recursive candidate collection is `.agents/skills/autonomous/scripts/orca_adapter.py:201-232`. | PASS |
+| Equal aliases are accepted | Repeated equal aliases produce one canonical identity. | `tools/test_orca_adapter.py:267-278`; deduplication is `.agents/skills/autonomous/scripts/orca_adapter.py:239-260`. | PASS |
+| Conflicting identity/request keys halt before effects | Conflicting run/task/dispatch/terminal/request/idempotency/retry keys raise `correlation_conflict`; adapter reconciliation performs no CLI call. | Direct conflict assertions: `tools/test_orca_adapter.py:285-302`; reconciliation projects before `worker-show` at `.agents/skills/autonomous/scripts/orca_adapter.py:772-808`. A separate two-case smoke check reported `conflict-before-effects: 2 passed, 0 failed` with zero recorded calls. | PASS |
+| `error.result`, nested dispatch, and terminal forms normalize | Failure details retain the envelope and project nested run/task/dispatch/terminal IDs plus failure evidence. | `tools/test_orca_adapter.py:305-332` asserts nested failure details; nested retry coverage is `:182-225`; failure normalization is `.agents/skills/autonomous/scripts/orca_adapter.py:297-311`. | PASS |
+| `mutation.requestId` and `state` evidence survive reconciliation | Canonical `request_id` and `state`, plus the nested mutation evidence, remain on the persisted partial effect. | `tools/test_orca_adapter.py:206-225` asserts `partial_effect.request_id`, `partial_effect.state`, and `result.mutation.requestId`; projection assertions are `:245-282`. | PASS |
+| `lastError` and release evidence survive reconciliation | The normalized auxiliary evidence fields must remain in the persisted partial effect before retry/restart. | Copy list is `.agents/skills/autonomous/scripts/orca_adapter.py:785-791`, but no canonical assertion checks `partial_effect.lastError` or the release evidence fields. Removing `lastError` alone, or removing the release-evidence copy fields, leaves `40/40` adapter tests green. | **FAIL** |
+| Missing Run/Task halts before effects | A partial effect without both run and task identity is rejected before recovery calls. | `tools/test_orca_adapter.py:333-346` asserts the error and `cli.calls == []`. | PASS |
+| R8 `tab_not_found` success has one reconciled release and one retry of the same Run/Task/Dispatch | Post-check proves exited/disconnected/non-writable state, one release reconciliation, original task, original dispatch retry, and idempotent replay. | `tools/test_orca_adapter.py:537-581` asserts exact release evidence, command sequence, retry dispatch, and replay; post-check is `.agents/skills/autonomous/scripts/orca_adapter.py:362-404`. | PASS |
+| R8 live/mismatch safety | Live, unknown, terminal-mismatch, missing-dispatch, and foreign-dispatch post-checks return `release_unknown` with no retry/release receipt. | `tools/test_orca_adapter.py:586-620` asserts exact three-call sequence, no `recovery_release`, and no revocation. | PASS |
+| Replay is idempotent | A reconciled worker action returns the cached receipt without another Orca effect. | `tools/test_orca_adapter.py:218-225` and `:580-581`; cache is `.agents/skills/autonomous/scripts/orca_adapter.py:779-782`. | PASS |
+
+**Spec-anchored status:** 10 PASS, 1 FAIL, 0 additional spec-precision gaps.
+
+### Gate evidence
+
+- `rtk python3 tools/test_orca_adapter.py` -> exit 0, **40 passed, 0 failed**.
+- `rtk python3 tools/test_parallel_executor.py` -> exit 0, **43 passed, 0 failed**.
+- `rtk env npm_config_offline=true npm run test:all` -> exit 0, **110 Vitest tests + 190 Python tests = 300 passed, 0 failed/skipped**.
+- Full Python discovery covered all 12 `tools/test_*.py` suites; the scoped adapter and executor counts above are included in the 190 Python tests.
+- `validate_spec.py --strict`, `validate_tasks.py --strict`, `validate_state.py parallel-slice-executor`, `tools/ad-index.py --check`, target-range `git diff --check`, and Python compile -> exit 0.
+- The state validator's historical top-level PASS remains green; this appended current-head section is FAIL because the discrimination sensor found a surviving evidence mutation.
+
+### Discrimination sensor
+
+Eight behavior mutations ran in two detached temporary worktrees (`/tmp/orca-projection-sensor.RIkgEM`
+and `/tmp/orca-projection-sensor2.RdHYyz`), then both worktrees were removed. The real checkout's
+porcelain matched its pre-sensor baseline (the pre-existing `docs/qa/**` changes) before the allowed
+review-ledger edit.
+
+| Mutation | Behavior fault | Directed result | Outcome |
+| --- | --- | --- | --- |
+| M1 | Replace the outer projection with `result`, dropping the outer envelope. | Adapter suite failed at `tools/test_orca_adapter.py:280` because `result` disappeared. | KILLED |
+| M2 | Accept two conflicting canonical identity candidates by changing the conflict threshold. | Adapter suite failed at `tools/test_orca_adapter.py:302`. | KILLED |
+| M3 | Remove the camel-case `requestId` alias. | Adapter suite failed at `tools/test_orca_adapter.py:278`. | KILLED |
+| M4 | Persist an empty `recovery_release` after the R8 reconciliation. | Adapter suite failed at `tools/test_orca_adapter.py:554`. | KILLED |
+| M5 | Bypass the cached reconciled-worker return so replay calls Orca again. | Adapter suite failed at `tools/test_orca_adapter.py:224` on an unexpected second call. | KILLED |
+| M6a | Remove only `lastError` from the normalized partial-effect copy list. | Adapter suite still passed **40/40**. | **SURVIVED** |
+| M6b | Remove the release-evidence fields (`releaseState`, `releaseError`, `released`, `reconciled`, terminal status/connectivity, reason, and `release_error`) from that copy list. | Adapter suite still passed **40/40**. | **SURVIVED** |
+| M7 | Ignore the authoritative post-release dispatch identity mismatch. | Adapter suite failed at `tools/test_orca_adapter.py:611` while the mismatched R8 case attempted a forbidden next effect. | KILLED |
+
+**Sensor:** 8 injected, 6 killed, 2 survived. **FAIL**.
+
+### Ranked gap and fix plan
+
+1. **Major — EXE-04 / SEC-005.** Extend the canonical nested-effect/recovery test to assert every
+   normalized auxiliary field that `reconcile_action` copies into `partial_effect`, at minimum
+   `lastError`, `releaseState`, `releaseError`, `released`, `reconciled`, `terminal_status`,
+   `connected`, `writable`, `reason`, and `release_error`. The tests must fail independently when
+   either the `lastError` copy or release-evidence copy is removed. The immutable fingerprint is
+   `ba7b951077322d54c5f2b6e0ed00939b3a89ad6763f1a916795387beefa7b1b5` at failed-remediation count 1.
+
+**Overall:** **FAIL** for `2c80174f494954be3205922b853f59a0a7b3895c`. Runtime projection, conflict
+handling, R8 reconciliation, live/mismatch safety, and replay behavior pass; the canonical test
+contract does not yet prove preservation of `lastError` and release evidence. No code or tests were
+modified by this verification.
+
+## Canonical Orca Effect Projection Re-verification — Fingerprint Closed
+
+**Date:** 2026-08-25  
+**Commit under test:** `7edfaf5746413b54711b7da7c39c52d4583b5553`  
+**Base:** `2c80174f494954be3205922b853f59a0a7b3895c`  
+**Verifier:** fresh independent Technical Verifier (author != verifier)  
+**Current scoped verdict:** **PASS**
+
+The remediation adds canonical assertions for every persisted `lastError` and release-evidence
+field at `tools/test_orca_adapter.py:577-601`, while the production copy list remains at
+`.agents/skills/autonomous/scripts/orca_adapter.py:785-791`. The earlier fingerprint is now closed;
+its failed-remediation count remains 1.
+
+### Reverification outcomes
+
+| Criterion | Evidence | Result |
+| --- | --- | --- |
+| Persisted `lastError` survives nested projection/reconciliation | `tools/test_orca_adapter.py:579-583` asserts the exact `lastError`; removing only the production copy entry causes the adapter suite to fail with `KeyError: 'lastError'` at `:583`. | PASS |
+| Persisted release evidence survives nested projection/reconciliation | `tools/test_orca_adapter.py:579-590` asserts `releaseState`, `releaseError`, `released`, `reconciled`, terminal status/connectivity, reason, and `release_error`; removing that copy group causes `KeyError: 'releaseState'` at `:583`. | PASS |
+| R8 `tab_not_found` flow remains green | `tools/test_orca_adapter.py:537-631` passes the exact reconciled release, one retry of the same task/dispatch, stale late-delivery rejection, and replay assertions. Direct R8 run: `1 passed, 0 failed`. | PASS |
+
+### Gate evidence
+
+- `rtk python3 tools/test_orca_adapter.py` -> exit 0, **40 passed, 0 failed**.
+- `rtk python3 tools/test_parallel_executor.py` -> exit 0, **43 passed, 0 failed**.
+- `rtk env npm_config_offline=true npm run test:all` -> exit 0, **110 Vitest + 190 Python = 300 passed, 0 failed/skipped**.
+- Strict spec/tasks/state validators, AD index check, compile, and diff checks -> exit 0.
+- `validate_state.py parallel-slice-executor` -> exit 0; the current-head PASS is recorded in this section.
+
+### Discrimination sensor
+
+Two detached scratch mutations ran at `/tmp/orca-projection-reverify.YOm7GP` and were removed;
+the real checkout porcelain returned to its pre-sensor baseline.
+
+| Mutation | Directed result | Outcome |
+| --- | --- | --- |
+| Remove only persisted `lastError` copy | Adapter suite failed at the new exact-evidence assertion (`tools/test_orca_adapter.py:583`). | KILLED |
+| Remove all persisted release-evidence copy fields | Adapter suite failed at the new `releaseState` assertion (`tools/test_orca_adapter.py:583`). | KILLED |
+
+**Sensor:** 2 injected, 2 killed, 0 survived. **PASS**.
+
+### Fingerprint accounting
+
+- `ba7b951077322d54c5f2b6e0ed00939b3a89ad6763f1a916795387beefa7b1b5` is **CLOSED**, count **1**.
+- No fingerprint reached the third-failure halt threshold.
+
+**Overall:** **PASS** for `7edfaf5746413b54711b7da7c39c52d4583b5553`. No real Orca state,
+product code, QA artifact, or test outside the committed remediation was touched; no commit, push,
+or merge was performed.
