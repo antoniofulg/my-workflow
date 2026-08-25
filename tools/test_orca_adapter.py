@@ -371,6 +371,45 @@ def test_restart_normalizes_nested_persisted_partial_effect_and_retries_exact_ct
         shutil.rmtree(root)
 
 
+def test_restart_persists_authoritative_terminal_before_release_and_replays_idempotently() -> None:
+    root, lane, worktree = fixture()
+    dispatch_id = "ctx_5f619d0f6298"
+    terminal = "term_2dcb9465-d91c-4260-baa3-b92859412439"
+    try:
+        worker = {**worker_payload(worktree), "dispatch_id": dispatch_id, "terminal_handle": terminal}
+        action = {
+            "action": "worker", "key": KEY,
+            "partial_effect": {"result": {"runId": "run-A", "taskId": "task-A", "dispatchId": dispatch_id}},
+            "worker_plan": lane, "worktree_receipt": worktree,
+        }
+        assert "terminal_handle" not in json.dumps(action["partial_effect"])
+
+        class ObservingCLI(RecordingCLI):
+            def __call__(self, argv: list[str], **kwargs: object) -> Completed:
+                if len(argv) > 2 and argv[2] == "worker-release":
+                    assert action["partial_effect"]["terminal_handle"] == terminal  # type: ignore[index]
+                return super().__call__(argv, **kwargs)
+
+        cli = ObservingCLI([
+            {"result": {"dispatch": {"id": dispatch_id, "status": "failed"}, "worker": {"agent_terminal_handle": terminal}}},
+            {"result": {"dispatch": {"id": dispatch_id, "released": True}}},
+            {"worktree_path": worktree["worktree_path"]},
+            worker,
+        ])
+        adapter_instance = adapter(root, cli)
+        receipt = adapter_instance.reconcile_action(action)
+        assert receipt is not None and receipt["run_id"] == "run-A" and receipt["task_id"] == "task-A"
+        assert action["partial_effect"]["terminal_handle"] == terminal  # type: ignore[index]
+        assert [call[0][2] for call in cli.calls] == ["worker-show", "worker-release", "show", "worker-start"]
+        retry_args = cli.calls[-1][0]
+        assert retry_args[retry_args.index("--retry-of") + 1] == dispatch_id
+        assert retry_args[retry_args.index("--task") + 1] == "task-A"
+        assert adapter_instance.reconcile_action(action) == receipt
+        assert len(cli.calls) == 4
+    finally:
+        shutil.rmtree(root)
+
+
 def test_malformed_nested_persisted_dispatch_id_halts_before_worker_show_mutation() -> None:
     root, lane, worktree = fixture()
     try:
