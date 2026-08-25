@@ -63,6 +63,12 @@ const verifierPacketPaths = [
   "templates/agents/codex/verifier.toml",
 ] as const;
 
+const deepReviewerPacketPaths = [
+  "templates/agents/cursor/deep-reviewer.md",
+  "templates/agents/claude/deep-reviewer.md",
+  "templates/agents/codex/deep-reviewer.toml",
+] as const;
+
 describe("host-owned session continuation removal contract", () => {
   it("HSC-01/HSC-04 removes every repository and package artifact", () => {
     const integrationName = ["ai", "memory"].join("-");
@@ -100,7 +106,9 @@ describe("host-owned session continuation removal contract", () => {
     const readme = readRepositoryFile("README.md");
     const workflowIndex = readRepositoryFile("docs/workflow/README.md");
     const reviewGuideline = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
-    const reviewerPackets = verifierPacketPaths.map((relativePath) => readRepositoryFile(relativePath));
+    const reviewerPackets = [...verifierPacketPaths, ...deepReviewerPacketPaths].map((relativePath) =>
+      readRepositoryFile(relativePath),
+    );
     const hostRule =
       "Cross-provider session continuation is owned by the host. Repository files, Git state, feature artifacts, and explicit handoff prompts remain the durable semantic context.";
 
@@ -110,10 +118,13 @@ describe("host-owned session continuation removal contract", () => {
       "Verifier and Deep Reviewer receive fresh role packets. They do not inherit the Implementer's transcript or operator handoff. Their conclusions must come from the spec, diff, tests, and assigned evidence.",
     );
     for (const packet of reviewerPackets) {
-      const normalized = packet.replace(/\s+/g, " ");
+      const normalized = normalizePacket(packet);
       expect(normalized).toContain("fresh role packet, exclude author and operator context");
-      expect(normalized).toContain("Assigned evidence named by the packet.");
-      expect(normalized).toContain("The Implementer's transcript, the operator handoff");
+      expect(normalized).toContain("Implementer's transcript");
+      expect(normalized).toContain("operator handoff");
+      for (const evidenceSource of ["spec", "diff", "tests", "assigned evidence"]) {
+        expect(normalized.toLowerCase()).toContain(evidenceSource);
+      }
     }
 
     const removedIntegration = ["ai", "memory"].join("-");
@@ -135,43 +146,101 @@ describe("host-owned session continuation removal contract", () => {
   it("CT-001/CT-004 scans references with an explicit historical allowlist", () => {
     const integrationName = ["ai", "memory"].join("-");
     const integrationModule = ["ai", "memory"].join("_");
+    const spacedIntegration = ["ai", "memory"].join(" ");
     const referenceTerms = [
       integrationName,
       integrationModule,
-      ["ai", "memory"].join(" "),
+      spacedIntegration,
       ["memory", "handoff"].join(" "),
       ["cross-provider", "handoff"].join(" "),
       ["install", "hooks"].join("-"),
       ["finalize", "session"].join("-"),
+      ["session", "memory"].join(" "),
       ["session", "memory"].join("-"),
       ["handoff", "payload"].join(" "),
+      ...[
+        "install",
+        "enable",
+        "source",
+        "disable",
+        "re-enable",
+        "purge",
+        "isolate",
+        "detect",
+        "test",
+        "use",
+      ].flatMap((verb) => [`${verb} ${integrationName}`, `${verb} ${integrationModule}`]),
     ];
-    const allowlist = (relativePath: string): string | undefined => {
-      if (relativePath === "CHANGELOG.md") return "historical changelog or v0.6.0 removal note";
-      if (/^docs\/qa\/(?:reports|charters|bugs)\//.test(relativePath)) {
-        return "historical QA evidence";
-      }
-      if (
-        relativePath === ".specs/features/agent-model-routing/validation.md" ||
-        relativePath === ".specs/features/release-0.4.0/validation.md"
-      ) {
-        return "historical QA evidence";
-      }
-      if (relativePath.startsWith(".specs/features/host-owned-session-continuation/")) {
-        return "v0.6.0 removal note";
-      }
-      return undefined;
-    };
+    const historicalMemoryCharter = [
+      "docs/qa/charters/CH",
+      integrationName,
+      "handoff-2026-08-24.md",
+    ].join("-");
+    const historicalMemoryReport = [
+      "docs/qa/reports/2026-08-24",
+      "-",
+      integrationName,
+      "-handoff.md",
+    ].join("");
+    const allowlist = new Map<string, string>([
+      ["CHANGELOG.md", "historical changelog"],
+      [".specs/features/agent-model-routing/validation.md", "immutable historical QA/release-certification evidence"],
+      [".specs/features/release-0.4.0/validation.md", "immutable historical QA/release-certification evidence"],
+      [historicalMemoryCharter, "immutable historical QA/release-certification evidence"],
+      [historicalMemoryReport, "immutable historical QA/release-certification evidence"],
+      ["docs/qa/bugs/BUG-20260824-noninteractive-codex-finalizes-open-session.md", "immutable historical QA/release-certification evidence"],
+      ["docs/qa/bugs/BUG-20260824-release-overstates-lifecycle-qa.md", "immutable historical QA/release-certification evidence"],
+      ["docs/qa/charters/CH-agent-model-routing-adoption-boundary-2026-08-24.md", "immutable historical QA/release-certification evidence"],
+      ["docs/qa/charters/CH-review-release-0-4-0-2026-08-24.md", "immutable historical QA/release-certification evidence"],
+      ["docs/qa/charters/CH-review-release-0-5-0-2026-08-25.md", "immutable historical QA/release-certification evidence"],
+      ["docs/qa/reports/2026-08-24-agent-model-routing-local-state.md", "immutable historical QA/release-certification evidence"],
+      ["docs/qa/reports/2026-08-24-agent-model-routing.md", "immutable historical QA/release-certification evidence"],
+      ["docs/qa/reports/2026-08-24-release-0-4-0.md", "immutable historical QA/release-certification evidence"],
+      ["docs/qa/reports/2026-08-25-release-0-5-0.md", "immutable historical QA/release-certification evidence"],
+      [".specs/features/host-owned-session-continuation/design.md", "v0.6 removal-note artifact"],
+      [".specs/features/host-owned-session-continuation/spec.md", "v0.6 removal-note artifact"],
+      [".specs/features/host-owned-session-continuation/tasks.md", "v0.6 removal-note artifact"],
+      [".specs/features/host-owned-session-continuation/validation.md", "v0.6 removal-note artifact"],
+    ]);
     const matches = trackedFiles().flatMap((relativePath) => {
       const source = readRepositoryFile(relativePath);
       return referenceTerms
         .filter((term) => source.toLowerCase().includes(term.toLowerCase()))
-        .map((term) => ({ relativePath, term, classification: allowlist(relativePath) }));
+        .map((term) => ({ relativePath, term, classification: allowlist.get(relativePath) }));
     });
     const unexpected = matches.filter((match) => !match.classification);
 
-    expect(unexpected, `non-allowlisted references:\n${JSON.stringify(unexpected, null, 2)}`).toEqual([]);
-    expect(matches.every((match) => match.classification), "every reference must be classified").toBe(true);
+    expect(
+      unexpected,
+      `non-allowlisted references (all matches and classifications):\n${JSON.stringify(matches, null, 2)}`,
+    ).toEqual([]);
+    expect(
+      matches.every((match) => match.classification),
+      `every reference must be classified:\n${JSON.stringify(matches, null, 2)}`,
+    ).toBe(true);
+  });
+
+  it("HSC-09 keeps changed QA scenarios fresh until v0.6 evidence exists", () => {
+    const changedScenarios = [
+      "docs/qa/scenarios/ADP-adopt-workflow-safely.md",
+      "docs/qa/scenarios/REL-report-current-workflow-release.md",
+    ];
+    const freshEvidence = /v?0[._-]6[._-]0/i;
+
+    for (const relativePath of changedScenarios) {
+      const source = readRepositoryFile(relativePath);
+      const status = source.match(/^qa_status:\s*(\S+)$/m)?.[1];
+
+      expect(status, `${relativePath} must declare qa_status`).toBeDefined();
+      if (status === "pass") {
+        const evidence = source.match(/^evidence:\s*(.+)$/m)?.[1] ?? "";
+        const report = source.match(/^report:\s*(.+)$/m)?.[1] ?? "";
+        expect(evidence, `${relativePath} pass requires evidence`).toMatch(freshEvidence);
+        expect(report, `${relativePath} pass requires a v0.6 report`).toMatch(freshEvidence);
+      } else {
+        expect(["untested", "fail", "blocked-verify", "blocked-decision", "skipped"]).toContain(status);
+      }
+    }
   });
 });
 
@@ -930,13 +999,48 @@ describe("adoption and public setup", () => {
   });
 
   it("CT-004 preserves v0.5.0 historical evidence and the v0.4.0 changelog section", () => {
-    expect(() =>
-      execFileSync(
-        "git",
-        ["diff", "--quiet", "v0.5.0", "--", "docs/qa/reports", "docs/qa/charters", "docs/qa/bugs"],
-        { cwd: repositoryRoot },
-      ),
-    ).not.toThrow();
+    const historicalEvidencePaths = execFileSync(
+      "git",
+      [
+        "ls-tree",
+        "-r",
+        "--name-only",
+        "v0.5.0",
+        "--",
+        "docs/qa/reports",
+        "docs/qa/charters",
+        "docs/qa/bugs",
+      ],
+      { cwd: repositoryRoot, encoding: "utf8" },
+    )
+      .trim()
+      .split(/\r?\n/)
+      .filter(Boolean);
+    const releaseValidationPaths = [
+      ".specs/features/agent-model-routing/validation.md",
+      ".specs/features/release-0.4.0/validation.md",
+    ].filter((relativePath) => {
+      try {
+        execFileSync("git", ["cat-file", "-e", `v0.5.0:${relativePath}`], {
+          cwd: repositoryRoot,
+          stdio: "ignore",
+        });
+        return true;
+      } catch {
+        return false;
+      }
+    });
+    const protectedHistoricalPaths = [...historicalEvidencePaths, ...releaseValidationPaths];
+
+    expect(protectedHistoricalPaths.length).toBeGreaterThan(0);
+    for (const relativePath of protectedHistoricalPaths) {
+      const tagged = execFileSync("git", ["show", `v0.5.0:${relativePath}`], {
+        cwd: repositoryRoot,
+        encoding: "buffer",
+      });
+      expect(existsSync(join(repositoryRoot, relativePath))).toBe(true);
+      expect(readFileSync(join(repositoryRoot, relativePath)).equals(tagged), relativePath).toBe(true);
+    }
 
     const historicalChangelog = execFileSync("git", ["show", "v0.5.0:CHANGELOG.md"], {
       cwd: repositoryRoot,
