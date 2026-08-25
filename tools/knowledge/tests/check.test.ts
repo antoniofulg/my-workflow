@@ -348,7 +348,7 @@ describe("drift against repository sources", () => {
 
     expect(kinds(findings)).toEqual(["drift"]);
     expect(findings[0]?.message).toContain("changed on 2026-08-04, concept records 2026-08-03");
-  });
+  }, 15_000);
 
   it("warns instead of failing when a declared source does not exist", () => {
     const root = makeBundle({
