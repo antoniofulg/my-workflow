@@ -280,6 +280,7 @@ describe("canonical QA skills", () => {
       "current failing-test set that is a strict subset of the running minimum failing-test set resets the counter",
     );
     expect(remediation).toContain("equal-size set, including one with different members");
+    expect(remediation).toContain("a larger set increments it");
     expect(remediation).toContain("`stall_attempts = 0` is unbounded");
     expect(remediation).toContain(
       "when a nonzero threshold is reached, halt with the repeated signature, attempt count, and fixes tried",
@@ -296,6 +297,9 @@ describe("canonical QA skills", () => {
     );
     expect(remediation.indexOf("strict subset of the running minimum")).toBeLessThan(
       remediation.indexOf("when a nonzero threshold is reached"),
+    );
+    expect(remediation.indexOf("a larger set increments it")).toBeGreaterThan(
+      remediation.indexOf("strict subset of the running minimum"),
     );
   });
 

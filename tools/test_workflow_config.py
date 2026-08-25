@@ -862,6 +862,7 @@ def test_rejects_invalid_remediation_before_snapshot_write() -> None:
     cases = (
         ("string", "stall_attempts = '3'\n", "remediation.stall_attempts"),
         ("bool", "stall_attempts = true\n", "remediation.stall_attempts"),
+        ("float", "stall_attempts = 3.0\n", "remediation.stall_attempts"),
         ("negative", "stall_attempts = -1\n", "remediation.stall_attempts"),
         ("unknown", "attempts = 3\n", "remediation contains unknown key 'attempts'"),
     )
