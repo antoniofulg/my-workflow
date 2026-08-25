@@ -253,7 +253,7 @@ class TokenMetricsTests(unittest.TestCase):
             with self.subTest(concurrency=concurrency, count=count), tempfile.TemporaryDirectory() as raw:
                 root = Path(raw)
                 out, jobs = REPO / f".deep-review/peak-{concurrency}-{count}", root / "jobs.json"
-                calls = root / "calls"
+                calls, state, peak, attempts = root / "calls", root / "state", root / "peak", root / "attempts"
                 write_manifest(out, concurrency)
                 write_jobs(jobs, str(out.relative_to(REPO)), count=count)
                 helper = root / "peak.py"
