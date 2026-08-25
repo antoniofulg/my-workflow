@@ -345,6 +345,50 @@ def test_nested_worker_show_missing_dispatch_id_halts_before_release_or_retry() 
         shutil.rmtree(root)
 
 
+def test_restart_normalizes_nested_persisted_partial_effect_and_retries_exact_ctx_task() -> None:
+    root, lane, worktree = fixture()
+    dispatch_id = "ctx_5f619d0f6298"
+    try:
+        cli = RecordingCLI([
+            {"result": {"dispatch": {"id": dispatch_id, "status": "failed"}}},
+            {"result": {"dispatch": {"id": dispatch_id, "released": True}}},
+            {"worktree_path": worktree["worktree_path"]},
+            worker_payload(worktree),
+        ])
+        action = {
+            "action": "worker", "key": KEY,
+            "partial_effect": {"result": {"runId": "run-A", "taskId": "task-A", "dispatchId": dispatch_id, "terminalHandle": "terminal-A"}},
+            "worker_plan": lane, "worktree_receipt": worktree,
+        }
+        receipt = adapter(root, cli).reconcile_action(action)
+        assert receipt is not None and receipt["run_id"] == "run-A" and receipt["task_id"] == "task-A"
+        assert [call[0][2] for call in cli.calls] == ["worker-show", "worker-release", "show", "worker-start"]
+        worker_start = cli.calls[-1][0]
+        assert worker_start[worker_start.index("--retry-of") + 1] == dispatch_id
+        assert action["partial_effect"]["dispatch_id"] == dispatch_id  # type: ignore[index]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_malformed_nested_persisted_dispatch_id_halts_before_worker_show_mutation() -> None:
+    root, lane, worktree = fixture()
+    try:
+        cli = RecordingCLI([])
+        try:
+            adapter(root, cli).reconcile_action({
+                "action": "worker", "key": KEY,
+                "partial_effect": {"result": {"runId": "run-A", "taskId": "task-A", "dispatch": {"id": "ctx bad", "status": "failed"}, "terminalHandle": "terminal-A"}},
+                "worker_plan": lane, "worktree_receipt": worktree,
+            })
+        except orca_adapter.AdapterError:
+            pass
+        else:
+            raise AssertionError("malformed persisted dispatch identity must halt")
+        assert cli.calls == []
+    finally:
+        shutil.rmtree(root)
+
+
 def test_delivery_from_revoked_dispatch_is_rejected_as_stale() -> None:
     root, lane, worktree = fixture()
     try:

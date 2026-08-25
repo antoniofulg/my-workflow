@@ -608,9 +608,15 @@ class OrcaAdapter:
             cached = self._workers.get(action_key)
             if cached is not None:
                 return dict(cached)
-            run_id = _text(partial.get("run_id"), "run id")
-            task_id = _text(partial.get("task_id"), "task id")
-            dispatch_id = _opaque_token(partial.get("dispatch_id"), "dispatch id")
+            normalized_partial = _payload(dict(partial))
+            if isinstance(partial, dict):
+                for field in ("run_id", "task_id", "dispatch_id", "terminal_handle"):
+                    if field in normalized_partial:
+                        partial[field] = normalized_partial[field]
+            run_id = _text(normalized_partial.get("run_id"), "run id")
+            task_id = _text(normalized_partial.get("task_id"), "task id")
+            _text(normalized_partial.get("terminal_handle"), "terminal handle")
+            dispatch_id = _opaque_token(normalized_partial.get("dispatch_id"), "dispatch id")
             status_response = self._call("worker-show", "--dispatch", dispatch_id)
             actual_dispatch = status_response.get("dispatch_id") or status_response.get("dispatchId")
             try:
