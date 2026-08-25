@@ -2377,3 +2377,76 @@ terminal-resource scope. Camel/snake ownership projection, exact identity correl
 conflict/missing handling, owned stop/release/retry, adverse zero-effect states, and replay
 idempotency are evidenced. No commit, push, merge, real Orca action, product/test edit, or
 `docs/qa/**` edit was performed.
+
+## R18 resource-provider preflight technical verification
+
+**Date:** 2026-08-25
+**Commit under test:** `0ed8b552a58bda20e1ab858c5648d95042272ee1`
+**Base:** `6fba686`
+**Diff range:** `6fba686..0ed8b552a58bda20e1ab858c5648d95042272ee1`
+**Verifier:** fresh independent Technical Verifier (author != verifier)
+**Scoped verdict:** **PASS**
+
+This pass covers the plan-wide resource-provider preflight in
+`.agents/skills/autonomous/scripts/parallel_execute.py` and its executor assertions. No real Orca
+command ran. The pre-existing dirty/untracked `docs/qa/**` paths were preserved byte-for-byte; no
+product file or test file was changed. Only this validation report was updated.
+
+### Spec-anchored outcomes
+
+| Requested outcome | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| Any ready resource-bearing lane with a missing provider falls back deterministically before lane effects, regardless of lane order. | EXE-21 / SEC-007: parallel dispatch is refused with `missing-resource-provider` before a worker can start. | `.agents/skills/autonomous/scripts/parallel_execute.py:1207-1229` performs all lane/provider preflight before adapter construction or action recording; `tools/test_parallel_executor.py:466-503` runs resource-free-first, resource-first, and multi-resource orders and asserts exact reason, empty actions, zero adapter/provider/worktree calls, no state, and no runtime-state file. | PASS |
+| A configured but unproven provider is rejected before worktree, lease, worker, action, or runtime-state effects. | EXE-21 / SEC-007: provider absence or failed proof selects serial fallback. | `tools/test_parallel_executor.py:507-529` returns `missing-resource-provider`, asserts `actions == []`, provider construction only once, and `worktree == 0`; the verifier existing-state matrix also proved the persisted state bytes and mtime remain unchanged. | PASS |
+| Dry-run/start parity and restart replay preserve the same fallback and do not duplicate effects. | EXE-03 / EXE-04: deterministic plan/result parity and at-most-once effects across restart. | Verifier parity/replay matrix compared the frozen lane projection with `start()` and `resume=True`, then asserted identical `missing-resource-provider` results, empty actions, no state file, and zero effects; provider-backed replay also kept acquire/release at one each. Existing restart assertions remain at `tools/test_parallel_executor.py:255-274,595-657`. | PASS |
+| A proven provider-backed resource lane still proceeds and retains correlated lease evidence. | EXE-18–EXE-20: resource-free lanes bypass acquisition; resource lanes require a correlated prepared lease. | `tools/test_parallel_executor.py:410-460` asserts provider bypass for `Resources: none`, one correlated acquire for `port`, exact request fields, prepared-worktree confirmation, and redacted environment. | PASS |
+| Disabled mode remains serial and adapter-unsupported mode remains serial without effects. | EXE-01: disabled/unsupported execution does not construct or invoke parallel effects. | `tools/test_parallel_executor.py:189-207` asserts disabled mode does not construct the adapter; `:883-1002` asserts CLI status/start/resume and missing-capability fallback with no worktree effect. | PASS |
+| Resource cleanup and provider receipt validation remain unchanged by preflight. | EXE-20–EXE-22 / SEC-008: only unique correlated leases are accepted and owned cleanup is idempotent. | `tools/test_parallel_executor.py:661-780,820-880` covers duplicate/foreign/malformed receipts, failure fallback, one release, and cleanup evidence; the directed executor suite remained green. | PASS |
+
+**Spec-anchored status:** 6/6 requested outcomes matched; 0 FAIL; 0 spec-precision gaps.
+
+### Directed and full gates
+
+- `rtk python3 tools/test_parallel_executor.py` -> exit 0, **45 passed, 0 failed**.
+- `rtk python3 tools/test_parallel_plan.py` -> exit 0, **18 passed, 0 failed**.
+- `rtk python3 tools/test_workflow_config.py` -> exit 0, **18 passed, 0 failed** (resource-provider configuration path).
+- `rtk python3 tools/test_git_adapter.py` -> exit 0, **9 passed, 0 failed**.
+- `rtk env npm_config_offline=true npm run test:all` -> exit 0; **110 Vitest + 211 Python = 321 passed**, 0 failed/skipped.
+- `rtk python3 .agents/skills/tlc-spec-driven/scripts/validate_spec.py .specs/features/parallel-slice-executor/spec.md --strict` -> exit 0, 0 errors, 0 warnings.
+- `rtk python3 .agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/parallel-slice-executor/tasks.md --strict` -> exit 0, 0 errors, 0 warnings.
+- `rtk python3 .agents/skills/tlc-spec-driven/scripts/validate_state.py parallel-slice-executor` -> exit 0, 0 errors.
+- `rtk python3 tools/ad-index.py --check` -> exit 0, `AD-INDEX.md up to date`.
+- `rtk python3 -m py_compile .agents/skills/autonomous/scripts/parallel_execute.py tools/test_parallel_executor.py` -> exit 0.
+- `rtk git diff --check 6fba686..0ed8b552a58bda20e1ab858c5648d95042272ee1` -> exit 0.
+- Public disposable pilot `setup` + `dry-run` -> exit 0, `validated: true`, equal source/repository HEADs, and exactly two ready `Resources: none` lanes; explicit diagnostic cleanup returned no residual paths. No executor start was issued because `/usr/local/bin/orca` is installed and real Orca use was out of scope.
+- Verifier-only preflight, existing-state, parity/replay, provider-backed, disabled, and unsupported matrices -> exit 0; all assertions passed.
+
+### Discrimination sensor
+
+Five detached scratch worktrees under `/tmp/parallel-preflight-sensor-*` were mutated one at a time
+and removed. Real-tree porcelain matched the pre-sensor baseline: the same 20 pre-existing QA-only
+paths remained, with no implementation, test, or validation path changed by sensor work.
+
+| Mutation | Directed result | Outcome |
+| --- | --- | --- |
+| Remove the new plan-wide provider guard. | Canonical preflight test exited 1 at `tools/test_parallel_executor.py:500` after adapter/worktree effects appeared. | KILLED |
+| Construct the adapter before provider preflight. | Canonical preflight test exited 1 at `tools/test_parallel_executor.py:500` on unexpected adapter construction. | KILLED |
+| Persist runtime state before provider preflight. | Canonical preflight test exited 1 at `tools/test_parallel_executor.py:501` because state became observable. | KILLED |
+| Bypass the `provider is None` proof guard. | Canonical preflight test exited 1 at `tools/test_parallel_executor.py:500` after unproven dispatch effects. | KILLED |
+| Check only the first lane for resource requirements. | Canonical preflight test exited 1 at `tools/test_parallel_executor.py:500` for resource-free-first ordering. | KILLED |
+
+**Sensor:** 5 mutations injected, 5 killed, 0 survived. **PASS**.
+
+### Fingerprint disposition
+
+No new blocker, spec gap, or surviving mutant was found. `.specs/features/parallel-slice-executor/review-fingerprints.json`
+was unchanged: 21 fingerprints remain closed, maximum `failed_remediations` is 2, and none reached
+the third-failure halt threshold. Clean PASS produced no lesson entry.
+
+### Summary
+
+**Overall:** **PASS** for `0ed8b552a58bda20e1ab858c5648d95042272ee1` in the requested resource-provider
+preflight scope. Missing and unproven providers now fail closed before any lane mutation, independent
+of order; dry-run/start parity and replay remain deterministic; proven resource lanes proceed; disabled
+and unsupported behavior remains unchanged. No commit, push, merge, real Orca action, product/test
+edit, or `docs/qa/**` edit was performed.
