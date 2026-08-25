@@ -624,6 +624,57 @@ def test_r15_failed_owned_live_terminal_stops_once_then_releases_and_retries() -
         shutil.rmtree(root)
 
 
+def test_r16_camel_terminal_resource_owner_origin_and_terminal_aliases_drive_stop() -> None:
+    root, lane, worktree = fixture()
+    dispatch_id = "ctx_d9be8d183c51"
+    terminal = "term_d339f23b-d3dd-4990-bdfa-c1c447420bc5"
+    try:
+        def show(status: str, connected: bool, writable: bool) -> dict[str, object]:
+            return {"result": {"dispatch": {"id": dispatch_id, "status": status}, "terminalResource": {"resourceId": "wtr_3de59cfde75f", "terminalHandle": terminal, "status": "live" if connected else "exited", "connected": connected, "writable": writable, "ownershipState": "owned", "ownerDispatchId": dispatch_id, "originDispatchId": dispatch_id, "worktreeId": worktree["worktree_id"], "releaseState": "not_requested", "retainedReason": None, "releaseRequestedAt": None, "releaseCompletedAt": None, "releaseError": None}}}
+
+        cli = RecordingCLI([show("failed", True, True), {"result": {"stopped": True, "dispatch": {"id": dispatch_id, "status": "stopped"}}}, show("stopped", False, False), {"released": True, "dispatch_id": dispatch_id}, {"worktree_path": worktree["worktree_path"]}, {**worker_payload(worktree), "dispatch_id": dispatch_id, "terminal_handle": terminal}])
+        action = {"action": "worker", "key": KEY, "partial_effect": {"run_id": "run-A", "task_id": "task-A", "dispatch_id": dispatch_id, "terminal_handle": terminal}, "worker_plan": lane, "worktree_receipt": worktree}
+        receipt = adapter(root, cli).reconcile_action(action)
+        assert receipt is not None
+        assert [call[0][2] for call in cli.calls] == ["worker-show", "worker-stop", "worker-show", "worker-release", "show", "worker-start"]
+        assert action["partial_effect"]["owner_dispatch_id"] == dispatch_id  # type: ignore[index]
+        assert action["partial_effect"]["origin_dispatch_id"] == dispatch_id  # type: ignore[index]
+        assert action["partial_effect"]["resource_id"] == "wtr_3de59cfde75f"  # type: ignore[index]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_r16_terminal_resource_aliases_equal_or_conflicting_and_missing_owner() -> None:
+    dispatch_id = "ctx_d9be8d183c51"
+    equal = {"result": {"terminalResource": {"ownerDispatchId": dispatch_id, "owner_dispatch_id": dispatch_id, "originDispatchId": dispatch_id, "origin_dispatch_id": dispatch_id, "terminalHandle": "term-A", "terminal_handle": "term-A"}}}
+    projected = orca_adapter._payload(equal)
+    assert projected["owner_dispatch_id"] == dispatch_id and projected["origin_dispatch_id"] == dispatch_id
+    for resource in (
+        {"ownerDispatchId": dispatch_id, "owner_dispatch_id": "ctx-foreign"},
+        {"originDispatchId": dispatch_id, "origin_dispatch_id": "ctx-foreign"},
+    ):
+        try:
+            orca_adapter._payload({"result": {"terminalResource": resource}})
+        except orca_adapter.AdapterError as exc:
+            assert exc.details["code"] == "correlation_conflict"
+        else:
+            raise AssertionError("conflicting terminal resource aliases must halt")
+    root, lane, worktree = fixture()
+    try:
+        response = {"result": {"dispatch": {"id": dispatch_id, "status": "failed"}, "terminalResource": {"resourceId": "wtr-r16", "terminalHandle": "term-A", "status": "live", "connected": True, "writable": True, "ownershipState": "owned"}}}
+        cli = RecordingCLI([response])
+        action = {"action": "worker", "key": KEY, "partial_effect": {"run_id": "run-A", "task_id": "task-A", "dispatch_id": dispatch_id, "terminal_handle": "term-A"}, "worker_plan": lane, "worktree_receipt": worktree}
+        try:
+            adapter(root, cli).reconcile_action(action)
+        except orca_adapter.AdapterError as exc:
+            assert exc.details["code"] == "recovery_stop_unproven"
+        else:
+            raise AssertionError("missing owner/origin must block stop")
+        assert [call[0][2] for call in cli.calls] == ["worker-show"]
+    finally:
+        shutil.rmtree(root)
+
+
 def test_r15_live_takeover_or_unsupervised_terminal_blocks_stop_and_release() -> None:
     dispatch_id = "ctx_d9be12345678"
     terminal = "term_d33912345678"

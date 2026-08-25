@@ -166,11 +166,21 @@ def _nested_resource(value: Mapping[str, Any]) -> Mapping[str, Any] | None:
 
 
 def _resource_dispatch_identity(resource: Mapping[str, Any], field: str) -> Any:
-    aliases = (field, field.replace("_", ""), field.replace("_", "Id"))
-    value = next((resource.get(alias) for alias in aliases if alias in resource), None)
-    if isinstance(value, Mapping):
-        return _nested_dispatch_id(value) or value.get("dispatch_id") or value.get("dispatchId") or value.get("id")
-    return value
+    parts = field.split("_")
+    camel = parts[0] + "".join(part.capitalize() for part in parts[1:])
+    aliases = (field, camel)
+    values: list[Any] = []
+    for alias in aliases:
+        if alias not in resource:
+            continue
+        value = resource[alias]
+        if isinstance(value, Mapping):
+            value = _nested_dispatch_id(value) or value.get("dispatch_id") or value.get("dispatchId") or value.get("id")
+        if value not in (None, "") and value not in values:
+            values.append(value)
+    if len(values) > 1:
+        raise AdapterError("conflicting Orca resource identity", details={"code": "correlation_conflict", "field": field})
+    return values[0] if values else None
 
 
 _IDENTITY_ALIASES = {
@@ -334,6 +344,19 @@ def _canonical_projection(value: Mapping[str, Any]) -> dict[str, Any]:
             "conflicting Orca worktree path",
             details={"code": "correlation_conflict", "field": "worktree_path"},
         )
+    resource = _nested_resource(value)
+    if resource is not None:
+        for field in ("owner_dispatch_id", "origin_dispatch_id"):
+            identity = _resource_dispatch_identity(resource, field)
+            if identity is None:
+                continue
+            normalized = _opaque_token(identity, field.replace("_", " "))
+            if field in projected and projected[field] not in (None, normalized):
+                raise AdapterError(
+                    f"conflicting Orca resource {field}",
+                    details={"code": "correlation_conflict", "field": field},
+                )
+            projected[field] = normalized
     for field in _PASSTHROUGH_ALIASES:
         if field not in projected:
             for candidate in candidates[field]:
@@ -927,6 +950,8 @@ class OrcaAdapter:
                     "run_id", "task_id", "dispatch_id", "terminal_handle", "request_id", "idempotency_key",
                     "retry_request", "state", "lastError", "releaseState", "releaseError", "released",
                     "reconciled", "terminal_status", "connected", "writable", "reason", "release_error",
+                    "resource_id", "worktree_id", "owner_dispatch_id", "origin_dispatch_id", "ownershipState",
+                    "retainedReason", "releaseRequestedAt", "releaseCompletedAt",
                 ):
                     if field in normalized_partial:
                         partial[field] = normalized_partial[field]
@@ -963,6 +988,16 @@ class OrcaAdapter:
             if isinstance(partial, dict):
                 partial["terminal_handle"] = authoritative_terminal
             status = status_response.get("status") or status_response.get("state")
+            if isinstance(partial, dict):
+                for field in (
+                    "resource_id", "worktree_id", "owner_dispatch_id", "origin_dispatch_id", "ownershipState",
+                    "releaseState", "retainedReason", "releaseRequestedAt", "releaseCompletedAt", "releaseError",
+                ):
+                    if field in status_response:
+                        partial[field] = status_response[field]
+                provider_resource = _nested_resource(status_response)
+                if provider_resource is not None:
+                    partial["terminalResource"] = dict(provider_resource)
             release = partial.get("recovery_release")
             expected_release_key = action_key + ":recovery-release"
             release_accepted = (
