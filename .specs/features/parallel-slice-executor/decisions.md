@@ -26,8 +26,10 @@
 
 | Decision | Record |
 | --- | --- |
-| Parallel execution policy is provider-neutral; Git owns prevalidated worktree creation, Orca owns worker/events, and missing resource capability serializes. | `AD-011` in `.specs/STATE.md` supersedes `AD-010`. |
-| Technical Verifier convergence is bounded per blocker fingerprint rather than by a slice-global round count. | `AD-012` in `.specs/STATE.md`. |
+| Parallelization is an opt-in layer above TLC with disabled/safe/full modes and serial fallback. | `AD-011` in `.specs/STATE.md`. |
+| Parallel execution policy is provider-neutral; Git owns prevalidated worktree creation, Orca owns worker/events, and missing resource capability serializes. | `AD-012` in `.specs/STATE.md`. |
+| The coordinator owns a deterministic sibling worktree primitive before Orca attaches workers. | `AD-013` in `.specs/STATE.md`. |
+| Technical Verifier convergence is bounded per blocker fingerprint rather than by a slice-global round count. | `AD-014` in `.specs/STATE.md`. |
 
 ## Halt report
 
@@ -37,5 +39,5 @@ IT-001 exercises public CLI `resume` only in `disabled`. Removing adapter constr
 parallel `resume` path still passes the suite.
 
 The human determined that a global counter contradicts unattended delivery because the three rounds
-closed different blockers. The halt is cleared by `AD-012`: T2R4 corrects the convergence rule and
+closed different blockers. The halt is cleared by `AD-014`: T2R4 corrects the convergence rule and
 T2R5 addresses the remaining safe-mode `resume` fingerprint without weakening IT-001.

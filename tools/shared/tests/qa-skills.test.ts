@@ -49,9 +49,9 @@ function normalizePacket(source: string): string {
 }
 
 const verifierPacketPaths = [
-  ".cursor/agents/verifier.md",
-  ".claude/agents/verifier.md",
-  ".codex/agents/verifier.toml",
+  "templates/agents/cursor/verifier.md",
+  "templates/agents/claude/verifier.md",
+  "templates/agents/codex/verifier.toml",
 ] as const;
 
 describe("QA workflow artifact policy", () => {
@@ -91,14 +91,14 @@ describe("QA workflow artifact policy", () => {
     const validator = readRepositoryFile(".agents/skills/tlc-spec-driven/references/validate.md");
     const memory = readRepositoryFile(".agents/skills/tlc-spec-driven/references/memory.md");
     const providerPackets = [
-      readRepositoryFile(".cursor/agents/implementer.md"),
-      readRepositoryFile(".claude/agents/implementer.md"),
-      readRepositoryFile(".codex/agents/implementer.toml"),
+      readRepositoryFile("templates/agents/cursor/implementer.md"),
+      readRepositoryFile("templates/agents/claude/implementer.md"),
+      readRepositoryFile("templates/agents/codex/implementer.toml"),
     ];
     const plannerPackets = [
-      readRepositoryFile(".cursor/agents/planner.md"),
-      readRepositoryFile(".claude/agents/planner.md"),
-      readRepositoryFile(".codex/agents/planner.toml"),
+      readRepositoryFile("templates/agents/cursor/planner.md"),
+      readRepositoryFile("templates/agents/claude/planner.md"),
+      readRepositoryFile("templates/agents/codex/planner.toml"),
     ];
 
     expect(agents).toMatch(
@@ -288,6 +288,8 @@ describe("canonical QA skills", () => {
     }
 
     const reviewRounds = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
+    const workflowConfig = readRepositoryFile(".agents/skills/workflow-config/SKILL.md");
+    const autonomous = readRepositoryFile(".agents/skills/autonomous/SKILL.md");
 
     expect(reviewRounds).toContain("The provider `verifier` executes exactly one phase per packet");
     expect(reviewRounds).toContain("Deep-review is a separate orchestrator stage, not a Verifier phase");
@@ -296,6 +298,47 @@ describe("canonical QA skills", () => {
     expect(readRepositoryFile("docs/workflow/reviews.md")).toContain(
       "Deep-review is a separate stage, not a Verifier phase.",
     );
+    expect(workflowConfig).toContain("[remediation]` table");
+    const remediation = reviewRounds.slice(
+      reviewRounds.indexOf("When a cap is reached"),
+      reviewRounds.indexOf("## Requirement and contract parity"),
+    );
+    expect(remediation).toContain("run its scoped gate after every attempt");
+    expect(remediation).toContain(
+      "stable signature from sorted failing-test identifiers after removing timings, absolute paths, and line numbers",
+    );
+    expect(remediation).toContain(
+      "current failing-test set that is a strict subset of the running minimum failing-test set resets the counter",
+    );
+    expect(remediation).toContain("equal-size set, including one with different members");
+    expect(remediation).toContain("a larger set increments it");
+    expect(remediation).toContain("`stall_attempts = 0` is unbounded");
+    expect(remediation).toContain(
+      "when a nonzero threshold is reached, halt with the repeated signature, attempt count, and fixes tried",
+    );
+    expect(remediation).toContain(
+      "If the gate is unavailable, halt immediately without another deep-review round",
+    );
+    expect(remediation).toContain("never starts round 3");
+    expect(remediation.indexOf("run its scoped gate after every attempt")).toBeLessThan(
+      remediation.indexOf("stable signature from sorted failing-test identifiers"),
+    );
+    expect(remediation.indexOf("stable signature from sorted failing-test identifiers")).toBeLessThan(
+      remediation.indexOf("strict subset of the running minimum"),
+    );
+    expect(remediation.indexOf("strict subset of the running minimum")).toBeLessThan(
+      remediation.indexOf("when a nonzero threshold is reached"),
+    );
+    expect(remediation.indexOf("a larger set increments it")).toBeGreaterThan(
+      remediation.indexOf("strict subset of the running minimum"),
+    );
+    const autonomousHalt = normalizePacket(
+      autonomous.slice(autonomous.indexOf("## Halt conditions")),
+    );
+    expect(autonomousHalt).toContain(
+      "The post-cap scoped gate is unavailable, or the configured remediation stall threshold is reached under docs/guidelines/REVIEW-ROUNDS.md; an open blocker alone does not halt while attempts are establishing new failure-set minima",
+    );
+    expect(autonomousHalt).not.toContain("leaves a blocker open");
   });
 
   it("IT-004 keeps QA scenario fields and statuses in one authoritative guideline", () => {
@@ -330,7 +373,7 @@ describe("canonical QA skills", () => {
       "do not start round 3",
       "escalate only",
       "post-fix gate fails",
-      "blocker remains reproducible",
+      "configured stall threshold is reached",
       "remote actions retain separate approval requirements",
     ]) {
       expect(approvedLoopRule).toContain(anchor);
@@ -548,59 +591,43 @@ describe("agent configuration", () => {
     const value = (source: string, format: "frontmatter" | "toml", key: string): string =>
       format === "toml" ? tomlValue(source, key) : frontmatterValue(source, key);
 
-    const matrix = [
-      [".claude/agents/planner.md", "planner", "opus", "high", "frontmatter"],
-      [".claude/agents/implementer.md", "implementer", "opus", "medium", "frontmatter"],
-      [".claude/agents/verifier.md", "verifier", "opus", "medium", "frontmatter"],
-      [".claude/agents/explorer.md", "explorer", "sonnet", "medium", "frontmatter"],
-      [".cursor/agents/planner.md", "planner", "cursor-grok-4.6[effort=high]", "", "frontmatter"],
-      [".cursor/agents/implementer.md", "implementer", "gpt-5.6-luna[effort=high]", "", "frontmatter"],
-      [".cursor/agents/verifier.md", "verifier", "cursor-grok-4.6[effort=medium]", "", "frontmatter"],
-      [".cursor/agents/explorer.md", "explorer", "gpt-5.6-luna[effort=medium]", "", "frontmatter"],
-      [".codex/agents/planner.toml", "planner", "gpt-5.6-sol", "high", "toml"],
-      [".codex/agents/implementer.toml", "implementer", "gpt-5.6-luna", "high", "toml"],
-      [".codex/agents/verifier.toml", "verifier", "gpt-5.6-sol", "medium", "toml"],
-      [".codex/agents/explorer.toml", "explorer", "gpt-5.6-luna", "medium", "toml"],
-    ] as const;
+    const config = readRepositoryFile(".my-workflow.toml.example");
+    const settings = new Map<string, { model: string; effort: string }>();
+    const section = /\[models\.(claude|codex|cursor)\.(planner|implementer|verifier|explorer|deep_reviewer)\]\s+model = "([^"]+)"\s+effort = "([^"]+)"/g;
+    for (const match of config.matchAll(section)) {
+      settings.set(`${match[1]}.${match[2]}`, { model: match[3], effort: match[4] });
+    }
+    expect(settings.size).toBe(15);
 
-    for (const [relativePath, expectedName, expectedModel, expectedEffort, format] of matrix) {
-      const source = readRepositoryFile(relativePath);
-
-      expect(value(source, format, "name")).toBe(expectedName);
-      expect(value(source, format, "model")).toBe(expectedModel);
-      if (format === "toml") {
-        expect(value(source, format, "model_reasoning_effort")).toBe(expectedEffort);
-      } else if (expectedEffort) {
-        expect(value(source, format, "effort")).toBe(expectedEffort);
+    for (const provider of ["claude", "codex", "cursor"] as const) {
+      for (const role of ["planner", "implementer", "verifier", "explorer", "deep_reviewer"] as const) {
+        const agentName = role === "deep_reviewer" ? "deep-reviewer" : role;
+        const extension = provider === "codex" ? "toml" : "md";
+        const format = provider === "codex" ? "toml" : "frontmatter";
+        const relativePath = `templates/agents/${provider}/${agentName}.${extension}`;
+        const source = readRepositoryFile(relativePath);
+        const expected = settings.get(`${provider}.${role}`)!;
+        expect(value(source, format, "name")).toBe(agentName);
+        if (provider === "cursor") {
+          expect(value(source, format, "model")).toBe(`${expected.model}[effort=${expected.effort}]`);
+        } else {
+          expect(value(source, format, "model")).toBe(expected.model);
+          const effortKey = provider === "codex" ? "model_reasoning_effort" : "effort";
+          expect(value(source, format, effortKey)).toBe(expected.effort);
+        }
+        if (role === "deep_reviewer") {
+          expect(source).toContain("Do not edit source, tests, or configuration.");
+          expect(source).toMatch(/one materialized Deep Review job/i);
+          expect(source).toMatch(/one output artifact/i);
+          expect(source).toMatch(/findings through .*schema/i);
+        }
       }
     }
 
-    const deepReviewers = [
-      [".claude/agents/deep-reviewer.md", "sonnet", "high", "frontmatter"],
-      [".cursor/agents/deep-reviewer.md", "gpt-5.6-luna[effort=high]", "", "frontmatter"],
-      [".codex/agents/deep-reviewer.toml", "gpt-5.6-luna", "high", "toml"],
-    ] as const;
-
-    for (const [relativePath, expectedModel, expectedEffort, format] of deepReviewers) {
-      const source = readRepositoryFile(relativePath);
-
-      expect(value(source, format, "name")).toBe("deep-reviewer");
-      expect(value(source, format, "model")).toBe(expectedModel);
-      if (format === "toml") {
-        expect(value(source, format, "model_reasoning_effort")).toBe(expectedEffort);
-      } else if (expectedEffort) {
-        expect(value(source, format, "effort")).toBe(expectedEffort);
-      }
-      expect(source).toContain("Do not edit source, tests, or configuration.");
-      expect(source).toMatch(/one materialized Deep Review job/i);
-      expect(source).toMatch(/one output artifact/i);
-      expect(source).toMatch(/findings through .*schema/i);
-    }
-
-    expect(readRepositoryFile(".claude/agents/deep-reviewer.md")).toMatch(
+    expect(readRepositoryFile("templates/agents/claude/deep-reviewer.md")).toMatch(
       /^tools:\s*Read, Grep, Glob, Bash$/m,
     );
-    const cursorDeepReviewer = readRepositoryFile(".cursor/agents/deep-reviewer.md");
+    const cursorDeepReviewer = readRepositoryFile("templates/agents/cursor/deep-reviewer.md");
     expect(cursorDeepReviewer).not.toMatch(/^readonly:\s*true$/m);
 
     const runtime = readRepositoryFile(".agents/skills/deep-review/references/subagent-runtimes.md");
@@ -673,28 +700,30 @@ describe("adoption and public setup", () => {
 
   it("IT-010 makes adoption reviewable and routes QA by observability", () => {
     const readme = readRepositoryFile("README.md");
+    const prompt = readRepositoryFile("docs/adoption-prompt.md");
     const adopt = readRepositoryFile("scripts/adopt.py");
 
-    expect(readme).toContain("git status --short");
-    expect(readme).toContain("read-only");
-    expect(readme).toContain("package and build");
-    expect(readme).toContain("manifests");
-    expect(readme).toContain("CI jobs");
+    expect(readme).toContain("docs/adoption-prompt.md");
     expect(readme).toContain("managed paths");
-    expect(readme).toContain("complete diff");
-    expect(readme).toContain("declared full gate");
-    expect(readme).toContain("If `docs/qa/README.md` is absent, create it");
-    expect(readme).toContain("If it exists, merge only newly discovered facts");
-    expect(readme).toContain("never overwrite existing content");
-    expect(readme).toContain("qa-plan");
-    expect(readme).toContain("qa-execute");
-    expect(readme).toContain("purely internal refactor");
-    expect(readme).toContain("no user-visible change");
+    expect(prompt).toContain("git status --short");
+    expect(prompt).toContain("read-only");
+    expect(prompt).toContain("package and build");
+    expect(prompt).toContain("manifests");
+    expect(prompt).toContain("CI jobs");
+    expect(prompt).toContain("managed paths");
+    expect(prompt).toContain("complete diff");
+    expect(prompt).toContain("declared full gate");
+    expect(prompt).toContain("If `docs/qa/README.md` is absent, create it");
+    expect(prompt).toContain("If it exists, merge only newly discovered facts");
+    expect(prompt).toContain("never overwrite existing content");
+    expect(prompt).toContain("qa-plan");
+    expect(prompt).toContain("qa-execute");
+    expect(prompt).toContain("purely internal refactor");
+    expect(prompt).toContain("no user-visible change");
     expect(adopt).toContain('".agents/skills/qa-plan"');
     expect(adopt).toContain('".agents/skills/qa-execute"');
-    expect(adopt).toContain(
-      'COPY_MISSING_PATHS = ["docs/qa/README.md", "tools/ad-index.py"]',
-    );
+    expect(adopt).toContain('".my-workflow.toml.example"');
+    expect(adopt).toContain('"templates/agents"');
   });
 
   it("IT-019 keeps README installation prerequisites and bundled skills authoritative", () => {
@@ -719,7 +748,7 @@ describe("adoption and public setup", () => {
   it("IT-021 keeps Ponytail active from workflow start through the full cycle", () => {
     const agents = readRepositoryFile("AGENTS.md");
     const loop = readRepositoryFile("docs/workflow/loop.md");
-    const readme = readRepositoryFile("README.md");
+    const prompt = readRepositoryFile("docs/adoption-prompt.md");
     const ponytail = readRepositoryFile(".agents/skills/ponytail/SKILL.md");
 
     expect(agents).toContain(
@@ -731,7 +760,7 @@ describe("adoption and public setup", () => {
     expect(agents).toContain("until the human explicitly says `stop ponytail` or `normal mode`");
     expect(loop).toContain("`AGENTS.md` carries the activation and session\npersistence rule");
     expect(loop).toContain("[Ponytail skill](../../.agents/skills/ponytail/SKILL.md)");
-    expect(readme).toContain(
+    expect(prompt).toContain(
       "At the start of\nworkflow work, activate `ponytail` at `full`; `AGENTS.md` carries the full-cycle",
     );
     expect(ponytail).toContain("ACTIVE EVERY RESPONSE");
@@ -777,7 +806,7 @@ describe("adoption and public setup", () => {
     expect(qaExecute).toContain("does not write product code, install a framework, invent a");
   });
 
-  it("IT-005 / AIM-11 reports release version 0.4.0 consistently", () => {
+  it("IT-005 / AIM-11 reports release version 0.5.0 consistently", () => {
     const manifest = JSON.parse(readRepositoryFile("package.json")) as {
       version?: string;
       scripts?: { test?: string };
@@ -792,15 +821,15 @@ describe("adoption and public setup", () => {
     const nextRelease = changelog.indexOf("\n## [", releaseStart + 1);
     const latestRelease = changelog.slice(releaseStart, nextRelease === -1 ? undefined : nextRelease);
 
-    expect(manifest.version).toBe("0.4.0");
+    expect(manifest.version).toBe("0.5.0");
     expect(manifest.scripts?.test).toBe("vitest run --dir tools");
-    expect(lockfile.version).toBe("0.4.0");
-    expect(lockfile.packages?.[""]?.version).toBe("0.4.0");
-    expect(latestHeading).toBe("0.4.0");
+    expect(lockfile.version).toBe("0.5.0");
+    expect(lockfile.packages?.[""]?.version).toBe("0.5.0");
+    expect(latestHeading).toBe("0.5.0");
     expect(latestHeading).toBe(manifest.version);
-    expect(latestRelease).toContain("QA runtime walks cover handoff delivery, single-use/no replay");
-    expect(latestRelease).toContain("Lifecycle controls are documented and command-checked/dry-run only");
-    expect(latestRelease).toContain("reviewer isolation remains technical validation");
-    expect(latestRelease).not.toContain("QA runtime walks cover the ai-memory handoff and lifecycle-control paths");
+    expect(latestRelease).toContain("Bounded parallel Deep Review");
+    expect(latestRelease).toContain("remediation stall bound");
+    expect(latestRelease).toContain("direct-correction workflow");
+    expect(latestRelease).toContain("centralized local provider runtime configuration");
   });
 });

@@ -19,17 +19,46 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.11 is the supported r
     tomllib = None
 
 
-ROLES = ("implementer", "verifier", "explorer", "deep_reviewer")
+ROLES = ("planner", "implementer", "verifier", "explorer", "deep_reviewer")
+DELEGATED_ROLES = ("implementer", "verifier", "explorer", "deep_reviewer")
 PROVIDERS = ("claude", "codex", "cursor")
 AGENT_NAMES = {"deep_reviewer": "deep-reviewer"}
+EFFORTS = ("low", "medium", "high", "xhigh", "max", "ultra")
 CADENCE_DEFAULT = "grouped.3"
 CADENCE_RE = re.compile(r"^grouped\.(\d+)$")
 SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
 PARALLELIZATION_DEFAULT = "disabled"
 PARALLELIZATION_MODES = ("disabled", "safe", "full")
-CONFIG_KEYS = {"version", "deep_review", "parallelization", "profiles"}
+CONFIG_KEYS = {"version", "deep_review", "parallelization", "profiles", "models", "remediation"}
 DEEP_REVIEW_KEYS = {"cadence"}
 PARALLELIZATION_KEYS = {"mode", "resource_provider"}
+REMEDIATION_KEYS = {"stall_attempts"}
+STALL_ATTEMPTS_DEFAULT = 3
+MODEL_PROVIDERS = set(PROVIDERS)
+MODEL_KEYS = {"model", "effort"}
+MODEL_IDENTIFIER_RE = re.compile(r"^[^\\\s\[\]\"\x00-\x1f\x7f]+$")
+FRONTMATTER_RE = re.compile(
+    r"\A---(?P<open_newline>\r\n|\n)(?P<header>.*?)(?P<close_newline>\r\n|\n)---(?P<after_newline>\r\n|\n|\Z)",
+    re.DOTALL,
+)
+CLAUDE_MODEL_RE = re.compile(
+    r"^model:[ \t]*(?P<model>[^\r\n]+?)(?P<suffix>[ \t]*)(?P<newline>\r\n|\n|\Z)",
+    re.MULTILINE,
+)
+CLAUDE_EFFORT_RE = re.compile(
+    r"^effort:[ \t]*(?P<effort>[^\r\n]+?)(?P<suffix>[ \t]*)(?P<newline>\r\n|\n|\Z)",
+    re.MULTILINE,
+)
+CODEX_ASSIGNMENT_RE = re.compile(
+    r'(?P<prefix>^[ \t]*(?P<key>model|model_reasoning_effort)[ \t]*=[ \t]*")'
+    r'(?P<raw>(?:\\.|[^"\\])*)(?P<closing>")'
+    r'(?P<suffix>[ \t]*(?:#[^\r\n]*)?)(?P<newline>\r\n|\n|\Z)',
+    re.MULTILINE,
+)
+CURSOR_MODEL_RE = re.compile(
+    r"^model:[ \t]*(?P<model>[^\r\n\[]+)\[effort=(?P<effort>[^\]\r\n]+)\](?P<suffix>[ \t]*)(?P<newline>\r\n|\n|\Z)",
+    re.MULTILINE,
+)
 
 
 class ConfigError(ValueError):
@@ -37,7 +66,7 @@ class ConfigError(ValueError):
 
 
 def _error(message: str) -> ConfigError:
-    return ConfigError(f"workflow config: {message}")
+    return ConfigError(f"workflow-config: {message}")
 
 
 def balanced_groups(slice_count: int, cadence: str) -> list[list[int]]:
@@ -67,24 +96,30 @@ def balanced_groups(slice_count: int, cadence: str) -> list[list[int]]:
     return groups
 
 
-def _read_config(root: Path) -> dict[str, Any]:
-    path = root / ".my-workflow.toml"
-    if not path.exists():
-        return {}
+def _load_config(path: Path, label: str) -> dict[str, Any]:
     if tomllib is None:  # pragma: no cover
-        raise _error("Python 3.11 or newer is required to parse .my-workflow.toml")
+        raise _error(f"Python 3.11 or newer is required to parse {label}")
     try:
         with path.open("rb") as stream:
             config = tomllib.load(stream)
     except tomllib.TOMLDecodeError as exc:
-        raise _error(f"invalid .my-workflow.toml: {exc}") from exc
+        raise _error(f"invalid {label}: {exc}") from exc
+    except FileNotFoundError as exc:
+        raise _error(f"{label} is missing") from exc
     if not isinstance(config, dict):
-        raise _error(".my-workflow.toml must contain a table")
-    version = config.get("version", 1)
-    if type(version) is not int or version != 1:
-        raise _error("version must be integer 1")
+        raise _error(f"{label} must contain a table")
+    version = config.get("version")
+    if type(version) is not int or version != 2:
+        raise _error("version must be integer 2")
     _validate_config_schema(config)
     return config
+
+
+def _read_config(root: Path) -> dict[str, Any]:
+    path = root / ".my-workflow.toml"
+    if not path.exists():
+        raise _error("version must be integer 2; .my-workflow.toml is missing")
+    return _load_config(path, ".my-workflow.toml")
 
 
 def _cadence(config: dict[str, Any]) -> str:
@@ -125,6 +160,10 @@ def _parallelization(config: dict[str, Any], root: Path) -> dict[str, str | None
         "resource_provider": _resource_provider(root, section.get("resource_provider")),
     }
 
+def _stall_attempts(config: dict[str, Any]) -> int:
+    section = config.get("remediation") or {}
+    return section.get("stall_attempts", STALL_ATTEMPTS_DEFAULT)
+
 
 def _profiles(config: dict[str, Any]) -> dict[str, dict[str, str]]:
     return config.get("profiles") or {}
@@ -133,7 +172,7 @@ def _profiles(config: dict[str, Any]) -> dict[str, dict[str, str]]:
 def _validate_role_map(values: dict[str, Any], source: str) -> dict[str, str]:
     result: dict[str, str] = {}
     for role, provider in values.items():
-        if role not in ROLES:
+        if role not in DELEGATED_ROLES:
             raise _error(f"{source} contains invalid role {role!r}")
         if not isinstance(provider, str) or provider not in PROVIDERS:
             raise _error(f"{source} role {role!r} has invalid provider {provider!r}")
@@ -142,6 +181,9 @@ def _validate_role_map(values: dict[str, Any], source: str) -> dict[str, str]:
 
 
 def _validate_config_schema(config: dict[str, Any]) -> None:
+    version = config.get("version")
+    if type(version) is not int or version != 2:
+        raise _error("version must be integer 2")
     unknown = set(config) - CONFIG_KEYS
     if unknown:
         raise _error(f"contains unknown top-level key {sorted(unknown)[0]!r}")
@@ -173,6 +215,18 @@ def _validate_config_schema(config: dict[str, Any]) -> None:
             + ", ".join(repr(value) for value in PARALLELIZATION_MODES)
         )
 
+    remediation = config.get("remediation", {})
+    if remediation is None:
+        remediation = {}
+    if not isinstance(remediation, dict):
+        raise _error("remediation must be a table")
+    unknown = set(remediation) - REMEDIATION_KEYS
+    if unknown:
+        raise _error(f"remediation contains unknown key {sorted(unknown)[0]!r}")
+    stall_attempts = remediation.get("stall_attempts", STALL_ATTEMPTS_DEFAULT)
+    if type(stall_attempts) is not int or stall_attempts < 0:
+        raise _error("remediation.stall_attempts must be an integer of at least 0")
+
     profiles = config.get("profiles", {})
     if profiles is None:
         profiles = {}
@@ -182,6 +236,333 @@ def _validate_config_schema(config: dict[str, Any]) -> None:
         if not isinstance(name, str) or not isinstance(values, dict):
             raise _error(f"profile {name!r} must be a table")
         _validate_role_map(values, f"profile {name!r}")
+
+    models = config.get("models")
+    if not isinstance(models, dict):
+        raise _error("models must be a table containing every provider")
+    missing_providers = MODEL_PROVIDERS - set(models)
+    if missing_providers:
+        provider = sorted(missing_providers)[0]
+        raise _error(f"models.{provider} is required")
+    unknown_provider = set(models) - MODEL_PROVIDERS
+    if unknown_provider:
+        provider = sorted(unknown_provider)[0]
+        raise _error(f"models contains unknown provider {provider!r}")
+    for provider in PROVIDERS:
+        provider_values = models[provider]
+        if not isinstance(provider_values, dict):
+            raise _error(f"models.{provider} must be a table")
+        missing_roles = set(ROLES) - set(provider_values)
+        if missing_roles:
+            role = sorted(missing_roles)[0]
+            raise _error(f"models.{provider}.{role} is required")
+        unknown_roles = set(provider_values) - set(ROLES)
+        if unknown_roles:
+            role = sorted(unknown_roles)[0]
+            raise _error(f"models.{provider} contains unknown role {role!r}")
+        for role in ROLES:
+            setting = provider_values[role]
+            path = f"models.{provider}.{role}"
+            if not isinstance(setting, dict):
+                raise _error(f"{path} must be a table")
+            unknown = set(setting) - MODEL_KEYS
+            if unknown:
+                raise _error(f"{path} contains unknown key {sorted(unknown)[0]!r}")
+            if "model" not in setting:
+                raise _error(f"{path}.model is required")
+            model = setting["model"]
+            if not isinstance(model, str) or not model.strip():
+                raise _error(f"{path}.model must be a non-empty string")
+            if not MODEL_IDENTIFIER_RE.fullmatch(model):
+                raise _error(f"{path}.model must be a valid native model identifier")
+            if "effort" not in setting:
+                raise _error(f"{path}.effort is required")
+            effort = setting["effort"]
+            if not isinstance(effort, str) or effort not in EFFORTS:
+                allowed = ", ".join(EFFORTS)
+                raise _error(f"{path}.effort must be one of: {allowed}")
+            if provider == "claude" and effort == "ultra":
+                raise _error(f"{path}.effort 'ultra' is not supported by claude")
+
+
+def _models(config: dict[str, Any]) -> dict[str, dict[str, dict[str, str]]]:
+    return config["models"]
+
+
+def model_setting(config: dict[str, Any], provider: str, role: str) -> dict[str, str]:
+    """Return one validated provider-role model setting."""
+    try:
+        return _models(config)[provider][role]
+    except KeyError as exc:  # pragma: no cover - callers load validated config.
+        raise _error(f"models.{provider}.{role} is required") from exc
+
+
+def _one_match(pattern: re.Pattern[str], content: str, path: Path, label: str) -> re.Match[str]:
+    matches = list(pattern.finditer(content))
+    if len(matches) != 1:
+        raise _error(f"{path.as_posix()} must contain exactly one {label} metadata field")
+    return matches[0]
+
+
+def _header(provider: str, content: str, path: Path) -> tuple[str, int]:
+    if provider in ("claude", "cursor"):
+        match = FRONTMATTER_RE.match(content)
+        if not match:
+            raise _error(f"{path.as_posix()} must contain a native YAML frontmatter header")
+        return match.group("header"), match.start("header")
+    boundary = re.search(r"^developer_instructions[ \t]*=", content, re.MULTILINE)
+    end = boundary.start() if boundary else len(content)
+    return content[:end], 0
+
+
+def _coerce_content(content: str | bytes) -> tuple[str, bool]:
+    if isinstance(content, bytes):
+        return content.decode("utf-8"), True
+    return content, False
+
+
+def _toml_basic_value(value: str) -> str:
+    """Escape a value for an existing TOML basic-string quote pair."""
+    encoded = json.dumps(value, ensure_ascii=False)
+    return encoded[1:-1]
+
+
+def _toml_prefix_is_top_level(prefix: str) -> bool:
+    if tomllib is None:  # pragma: no cover
+        return False
+    try:
+        parsed = tomllib.loads(prefix + '\n__workflow_top_level_probe = ""\n')
+    except tomllib.TOMLDecodeError:
+        return False
+    return parsed.get("__workflow_top_level_probe") == ""
+
+
+def _codex_developer_boundary(content: str, path: Path) -> int:
+    candidates = [
+        match for match in re.finditer(r"^[ \t]*developer_instructions[ \t]*=", content, re.MULTILINE)
+        if _toml_prefix_is_top_level(content[:match.start()])
+    ]
+    if len(candidates) != 1:
+        raise _error(f"{path.as_posix()} must contain exactly one top-level developer_instructions assignment")
+    return candidates[0].start()
+
+
+def _codex_fields(content: str, path: Path) -> dict[str, list[tuple[int, int, re.Match[str], str]]]:
+    if tomllib is None:  # pragma: no cover
+        raise _error("Python 3.11 or newer is required to parse Codex agent packets")
+    try:
+        parsed = tomllib.loads(content)
+    except tomllib.TOMLDecodeError as exc:
+        raise _error(f"{path.as_posix()} contains invalid TOML: {exc}") from exc
+    boundary = _codex_developer_boundary(content, path)
+    fields: dict[str, list[tuple[int, int, re.Match[str], str]]] = {"model": [], "effort": []}
+    prefix = content[:boundary]
+    for match in CODEX_ASSIGNMENT_RE.finditer(prefix):
+        if not _toml_prefix_is_top_level(prefix[:match.start()]):
+            continue
+        try:
+            line_parsed = tomllib.loads(content[match.start():match.end()])
+        except tomllib.TOMLDecodeError:
+            continue
+        key = match.group("key")
+        if key in line_parsed:
+            field = "model" if key == "model" else "effort"
+            fields[field].append((match.start(), match.end(), match, line_parsed[key]))
+    for field, key in (("model", "model"), ("effort", "model_reasoning_effort")):
+        if len(fields[field]) != 1 or parsed.get(key) != fields[field][0][3]:
+            fields[field] = []
+    return fields
+
+
+def _codex_field(
+    fields: dict[str, list[tuple[int, int, re.Match[str], str]]], key: str, path: Path, label: str
+) -> tuple[int, int, re.Match[str], str]:
+    matches = fields[key]
+    if len(matches) != 1:
+        raise _error(f"{path.as_posix()} must contain exactly one {label} metadata field")
+    return matches[0]
+
+
+def packet_setting(provider: str, content: str | bytes, path: Path) -> dict[str, str]:
+    """Parse the native model and effort metadata from one packet."""
+    text, _ = _coerce_content(content)
+    header, _ = _header(provider, text, path)
+    if provider == "claude":
+        model = _one_match(CLAUDE_MODEL_RE, header, path, "model").group("model").strip()
+        effort = _one_match(CLAUDE_EFFORT_RE, header, path, "effort").group("effort").strip()
+    elif provider == "codex":
+        fields = _codex_fields(text, path)
+        _, _, _, model = _codex_field(fields, "model", path, "model")
+        _, _, _, effort = _codex_field(fields, "effort", path, "model_reasoning_effort")
+    else:
+        match = _one_match(CURSOR_MODEL_RE, header, path, "model/effort").groupdict()
+        model, effort = match["model"].strip(), match["effort"].strip()
+    if not MODEL_IDENTIFIER_RE.fullmatch(model):
+        raise _error(f"{path.as_posix()} contains an invalid model identifier")
+    return {"model": model, "effort": effort}
+
+
+def render_agent_packet(
+    provider: str, content: str | bytes, setting: dict[str, str], path: Path | None = None
+) -> str | bytes:
+    """Replace only provider-native model metadata in an agent packet."""
+    packet_path = path or Path("agent packet")
+    text, as_bytes = _coerce_content(content)
+    header, header_offset = _header(provider, text, packet_path)
+    if provider == "claude":
+        model_pattern, effort_pattern = CLAUDE_MODEL_RE, CLAUDE_EFFORT_RE
+    else:
+        model_pattern, effort_pattern = CURSOR_MODEL_RE, None
+
+    if provider == "codex":
+        fields = _codex_fields(text, packet_path)
+        model_start, model_end, model_match, _ = _codex_field(fields, "model", packet_path, "model")
+        model_replacement = (
+            text[model_start:model_match.start("raw")]
+            + _toml_basic_value(setting["model"])
+            + text[model_match.end("raw"):model_end]
+        )
+        rendered = text[:model_start] + model_replacement + text[model_end:]
+        new_fields = _codex_fields(rendered, packet_path)
+        effort_start, effort_end, new_effort_match, _ = _codex_field(new_fields, "effort", packet_path, "model_reasoning_effort")
+        effort_replacement = (
+            rendered[effort_start:new_effort_match.start("raw")]
+            + _toml_basic_value(setting["effort"])
+            + rendered[new_effort_match.end("raw"):effort_end]
+        )
+        rendered = rendered[:effort_start] + effort_replacement + rendered[effort_end:]
+        return rendered.encode("utf-8") if as_bytes else rendered
+    model_match = _one_match(model_pattern, header, packet_path, "model")
+    if provider == "cursor":
+        replacement = (
+            f"model: {setting['model']}[effort={setting['effort']}]"
+            f"{model_match.group('suffix')}{model_match.group('newline')}"
+        )
+        start = header_offset + model_match.start()
+        end = header_offset + model_match.end()
+        rendered = text[:start] + replacement + text[end:]
+    else:
+        effort_match = _one_match(effort_pattern, header, packet_path, "effort")
+        model_value = f"model: {setting['model']}"
+        model_replacement = model_value + model_match.group("suffix") + model_match.group("newline")
+        start = header_offset + model_match.start()
+        end = header_offset + model_match.end()
+        rendered = text[:start] + model_replacement + text[end:]
+        # Re-find the effort field after replacing the model so offsets remain valid.
+        new_header, new_header_offset = _header(provider, rendered, packet_path)
+        effort_match = _one_match(effort_pattern, new_header, packet_path, "effort")
+        effort_value = (
+            f"effort: {setting['effort']}" if provider == "claude"
+            else f"effort: {setting['effort']}"
+        )
+        effort_replacement = effort_value + effort_match.group("suffix") + effort_match.group("newline")
+        start = new_header_offset + effort_match.start()
+        end = new_header_offset + effort_match.end()
+        rendered = rendered[:start] + effort_replacement + rendered[end:]
+    return rendered.encode("utf-8") if as_bytes else rendered
+
+
+def _write_bytes_atomic(path: Path, content: bytes) -> None:
+    temporary: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="wb", dir=path.parent, prefix=f".{path.name}.", delete=False) as stream:
+            temporary = stream.name
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+        temporary = None
+    finally:
+        if temporary:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
+
+
+def _preflight_destination(root: Path, destination: Path, label: str) -> None:
+    relative = destination.relative_to(root).as_posix()
+    parent = destination.parent
+    while parent != root:
+        if parent.is_symlink():
+            parent_relative = parent.relative_to(root).as_posix()
+            raise _error(f"{label} parent {parent_relative} must not be a symlink")
+        if parent.exists() and not parent.is_dir():
+            parent_relative = parent.relative_to(root).as_posix()
+            raise _error(f"{label} parent {parent_relative} must be a directory")
+        parent = parent.parent
+    if destination.is_symlink():
+        raise _error(f"{label} destination {relative} must not be a symlink")
+    if destination.exists() and not destination.is_file():
+        raise _error(f"{label} destination {relative} must be a file")
+
+
+def _preflight_path(root: Path, path: Path, label: str) -> None:
+    relative = path.relative_to(root)
+    current = root
+    for part in relative.parts:
+        current /= part
+        if current.is_symlink():
+            current_relative = current.relative_to(root).as_posix()
+            relation = "path" if current == path else "parent"
+            raise _error(f"{label} {relation} {current_relative} must not be a symlink")
+
+
+def _sync_config(root: Path) -> tuple[dict[str, Any], bytes | None]:
+    local = root / ".my-workflow.toml"
+    _preflight_path(root, local, "local config")
+    if local.exists():
+        return _read_config(root), None
+    example = root / ".my-workflow.toml.example"
+    _preflight_path(root, example, "config example")
+    config = _load_config(example, ".my-workflow.toml.example")
+    return config, example.read_bytes()
+
+
+def sync_agents(root: Path) -> dict[str, list[str]]:
+    """Validate templates and materialize complete ignored runtime packets."""
+    root = root.absolute()
+    if root.is_symlink():
+        raise _error(f"root {root} must not be a symlink")
+    if not root.is_dir():
+        raise _error(f"root is not a directory: {root}")
+    local_config = root / ".my-workflow.toml"
+    _preflight_path(root, local_config, "local config")
+    _preflight_destination(root, local_config, "local config")
+    config, config_bytes = _sync_config(root)
+    plans: list[tuple[Path, bytes]] = []
+    for provider in PROVIDERS:
+        for role in ROLES:
+            relative = _runtime_relative(provider, role)
+            template_relative = _template_relative(provider, role)
+            template_path = root / template_relative
+            _preflight_path(root, template_path, "agent template")
+            try:
+                template = template_path.read_bytes()
+            except FileNotFoundError as exc:
+                raise _error(f"missing agent template {template_relative.as_posix()}") from exc
+            packet_setting(provider, template, template_relative)
+            rendered = render_agent_packet(
+                provider, template, model_setting(config, provider, role), template_relative
+            )
+            assert isinstance(rendered, bytes)
+            plans.append((relative, rendered))
+    for relative, _ in plans:
+        _preflight_destination(root, root / relative, "runtime")
+    if config_bytes is not None:
+        _write_bytes_atomic(local_config, config_bytes)
+    changed: list[str] = []
+    unchanged: list[str] = []
+    for relative, rendered in plans:
+        path = root / relative
+        current = path.read_bytes() if path.exists() else None
+        if current == rendered:
+            unchanged.append(relative.as_posix())
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            _write_bytes_atomic(path, rendered)
+            changed.append(relative.as_posix())
+    return {"changed": changed, "unchanged": unchanged}
 
 
 def _parse_overrides(values: list[str]) -> dict[str, str]:
@@ -205,22 +586,30 @@ def _git_head(root: Path) -> str:
         raise _error(f"cannot resolve git head in {root}") from exc
 
 
+def _runtime_relative(provider: str, role: str) -> Path:
+    extension = "toml" if provider == "codex" else "md"
+    agent_name = AGENT_NAMES.get(role, role)
+    return Path(f".{provider}") / "agents" / f"{agent_name}.{extension}"
+
+
+def _template_relative(provider: str, role: str) -> Path:
+    extension = "toml" if provider == "codex" else "md"
+    agent_name = AGENT_NAMES.get(role, role)
+    return Path("templates") / "agents" / provider / f"{agent_name}.{extension}"
+
+
 def _agent_file(root: Path, provider: str, role: str) -> str:
-    candidates = _agent_candidates(provider, role)
-    for relative in candidates:
-        if (root / relative).is_file():
-            return relative.as_posix()
-    expected = ", ".join(relative.as_posix() for relative in candidates)
-    raise _error(f"missing agent file for provider {provider!r}, role {role!r}; expected {expected}")
+    relative = _runtime_relative(provider, role)
+    if (root / relative).is_file():
+        return relative.as_posix()
+    raise _error(
+        f"missing generated agent file for provider {provider!r}, role {role!r}; "
+        f"run --sync-agents; expected {relative.as_posix()}"
+    )
 
 
 def _agent_candidates(provider: str, role: str) -> tuple[Path, ...]:
-    agent_name = AGENT_NAMES.get(role, role)
-    extensions = ("toml", "md") if provider == "codex" else ("md", "toml")
-    return tuple(
-        Path(f".{provider}") / "agents" / f"{agent_name}.{extension}"
-        for extension in extensions
-    )
+    return (_runtime_relative(provider, role),)
 
 
 def _snapshot_path(root: Path, feature: str) -> Path:
@@ -244,8 +633,8 @@ def _validate_snapshot(root: Path, feature: str, snapshot: Any) -> dict[str, Any
     }
     if set(snapshot) != required:
         raise _error("existing snapshot has an incomplete schema")
-    if type(snapshot["version"]) is not int or snapshot["version"] != 1:
-        raise _error("existing snapshot version must be integer 1")
+    if type(snapshot["version"]) is not int or snapshot["version"] != 2:
+        raise _error("existing snapshot version must be integer 2")
     if snapshot["feature"] != feature or not isinstance(snapshot["feature"], str):
         raise _error("existing snapshot feature does not match the requested feature")
     if not isinstance(snapshot["git_head"], str) or not snapshot["git_head"]:
@@ -286,11 +675,11 @@ def _validate_snapshot(root: Path, feature: str, snapshot: Any) -> dict[str, Any
     normalized_provider = _resource_provider(root, parallelization.get("resource_provider"))
 
     roles = snapshot["roles"]
-    if not isinstance(roles, dict) or set(roles) != set(ROLES):
-        raise _error("existing snapshot roles must contain every workflow role")
-    for role in ROLES:
+    if not isinstance(roles, dict) or set(roles) != set(DELEGATED_ROLES):
+        raise _error("existing snapshot roles must contain every delegated workflow role")
+    for role in DELEGATED_ROLES:
         route = roles[role]
-        if not isinstance(route, dict) or set(route) != {"provider", "agent_file"}:
+        if not isinstance(route, dict) or set(route) != {"provider", "agent_file", "model", "effort"}:
             raise _error(f"existing snapshot role {role!r} has an incomplete schema")
         provider = route["provider"]
         if not isinstance(provider, str) or provider not in PROVIDERS:
@@ -303,6 +692,18 @@ def _validate_snapshot(root: Path, feature: str, snapshot: Any) -> dict[str, Any
             raise _error(f"existing snapshot role {role!r} has an invalid agent_file")
         if not (root / agent_file).is_file():
             raise _error(f"existing snapshot role {role!r} agent_file is missing")
+        model = route["model"]
+        if not isinstance(model, str) or not model:
+            raise _error(f"existing snapshot role {role!r} model must be a non-empty string")
+        effort = route["effort"]
+        if not isinstance(effort, str) or effort not in EFFORTS:
+            raise _error(f"existing snapshot role {role!r} effort is invalid")
+        current = packet_setting(provider, (root / agent_file).read_bytes(), Path(agent_file))
+        if current != {"model": model, "effort": effort}:
+            raise _error(
+                f"role {role!r} packet metadata differs from frozen snapshot; "
+                "run --sync-agents, then explicitly use --refresh"
+            )
     normalized = dict(snapshot)
     normalized["parallelization"] = {"mode": mode, "resource_provider": normalized_provider}
     return normalized
@@ -346,6 +747,8 @@ def resolve(
         raise _error(f"root is not a directory: {root}")
     if native_provider not in PROVIDERS:
         raise _error(f"invalid native provider {native_provider!r}")
+    config = _read_config(root)
+    remediation = {"stall_attempts": _stall_attempts(config)}
     snapshot_path = _snapshot_path(root, feature)
     if snapshot_path.exists() and not refresh:
         try:
@@ -353,9 +756,10 @@ def resolve(
                 snapshot = json.load(stream)
         except (OSError, json.JSONDecodeError) as exc:
             raise _error(f"existing snapshot is invalid: {snapshot_path}") from exc
-        return _validate_snapshot(root, feature, snapshot)
+        resolved = dict(_validate_snapshot(root, feature, snapshot))
+        resolved["remediation"] = remediation
+        return resolved
 
-    config = _read_config(root)
     cadence = _cadence(config)
     parallelization = _parallelization(config, root)
     groups = balanced_groups(slice_count, cadence)
@@ -365,12 +769,35 @@ def resolve(
     selected = profiles.get(profile, {})
     parsed_overrides = _parse_overrides(overrides or [])
     providers = {role: parsed_overrides.get(role, selected.get(role, native_provider)) for role in ROLES}
-    roles = {
-        role: {"provider": provider, "agent_file": _agent_file(root, provider, role)}
-        for role, provider in providers.items()
-    }
+    for provider in PROVIDERS:
+        for role in ROLES:
+            agent_file = _agent_file(root, provider, role)
+            current = packet_setting(provider, (root / agent_file).read_bytes(), Path(agent_file))
+            expected = model_setting(config, provider, role)
+            if current != expected:
+                raise _error(
+                    f"{agent_file} is not synchronized with models.{provider}.{role}; "
+                    "run --sync-agents before resolving"
+                )
+    roles = {}
+    for role in DELEGATED_ROLES:
+        provider = providers[role]
+        agent_file = _agent_file(root, provider, role)
+        current = packet_setting(provider, (root / agent_file).read_bytes(), Path(agent_file))
+        expected = model_setting(config, provider, role)
+        if current != expected:
+            raise _error(
+                f"{agent_file} is not synchronized with models.{provider}.{role}; "
+                "run --sync-agents before resolving"
+            )
+        roles[role] = {
+            "provider": provider,
+            "agent_file": agent_file,
+            "model": expected["model"],
+            "effort": expected["effort"],
+        }
     snapshot = {
-        "version": 1,
+        "version": 2,
         "feature": feature,
         "git_head": _git_head(root),
         "profile": profile,
@@ -380,27 +807,46 @@ def resolve(
         "roles": roles,
     }
     _write_snapshot(snapshot_path, snapshot)
-    return snapshot
+    resolved = dict(snapshot)
+    resolved["remediation"] = remediation
+    return resolved
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path.cwd())
-    parser.add_argument("--feature", required=True)
-    parser.add_argument("--slices", dest="slice_count", type=int, required=True)
-    parser.add_argument("--native-provider", required=True)
+    parser.add_argument("--feature")
+    parser.add_argument("--slices", dest="slice_count", type=int)
+    parser.add_argument("--native-provider")
     parser.add_argument("--profile")
     parser.add_argument("--override", dest="overrides", action="append", default=[])
     parser.add_argument("--refresh", action="store_true")
+    parser.add_argument("--sync-agents", action="store_true")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
+    arguments = _parser().parse_args(argv)
     try:
-        snapshot = resolve(**vars(_parser().parse_args(argv)))
+        if arguments.sync_agents:
+            if any(
+                value is not None
+                for value in (arguments.feature, arguments.slice_count, arguments.native_provider,
+                              arguments.profile)
+            ) or arguments.refresh:
+                raise _error("--sync-agents cannot be combined with feature-resolution arguments")
+            if arguments.overrides:
+                raise _error("--sync-agents cannot be combined with feature-resolution arguments")
+            print(json.dumps(sync_agents(arguments.root), indent=2, sort_keys=True))
+            return 0
+        if arguments.feature is None or arguments.slice_count is None or arguments.native_provider is None:
+            raise _error("--feature, --slices, and --native-provider are required unless --sync-agents is used")
+        values = vars(arguments)
+        values.pop("sync_agents")
+        snapshot = resolve(**values)
     except ConfigError as exc:
         print(str(exc), file=sys.stderr)
-        return 1
+        return 2
     print(json.dumps(snapshot, indent=2, sort_keys=True))
     return 0
 

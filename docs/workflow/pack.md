@@ -10,7 +10,7 @@ The workflow ships six local capabilities:
 | `qa-plan` | Maps changed user-visible promises to durable QA journeys and charters. |
 | `qa-execute` | Walks those journeys through the consuming project's existing adapter. |
 | `ponytail` (`full`) | Shortest code that works. Stdlib before a dependency. |
-| `autonomous` | Unattended run: classify feature vs filed issue, settle or halt, prove remote-delivery readiness, and require separate authorization for push, pull request, and merge. |
+| `autonomous` | Unattended run: classify feature vs filed issue, settle or halt, prove readiness, and deliver one feature branch through one pull request. |
 | `deep-review` | Multi-lane review orchestration, context assembly, findings, and rendered review artifacts. |
 
 Canonical copies: `.agents/skills/`. Claude: symlinks in `.claude/skills/`. Cursor / Codex /
@@ -24,16 +24,17 @@ commit refs and hashes; it does not install
 `latest` or update dependencies automatically. Until it succeeds, the security gate remains
 uncovered.
 
-Planner / implementer / explorer / verifier are four windows. Packet text lives on the agent files;
-spawn models live there too. Same `name` in `.cursor/agents/`, `.claude/agents/`, `.codex/agents/`.
-Real files, no symlinks. `CLAUDE.md` is `@AGENTS.md`. Explorer is read-only and handles product-tree
-searches and flow traces for the parent agent.
+Planner / implementer / explorer / verifier are four windows. Canonical packet bodies live in
+`templates/agents/{cursor,claude,codex}/`; sync generates ignored runtime files in
+`.cursor/agents/`, `.claude/agents/`, and `.codex/agents/`. Spawn models live on those generated
+files. `CLAUDE.md` is `@AGENTS.md`. Explorer is read-only and handles product-tree searches and
+flow traces for the parent agent.
 
 `autonomous` readiness still needs: full gate 0 on the final tree, no Blocker/Major left, `main` not
 moved underneath, and flagged scenarios terminal (`untested` blocks; `blocked-verify` does not).
-Readiness is evidence, not authorization: invoking `autonomous`, approving a spec or tasks, or
-saying “ready” never authorizes a push, pull request, or merge. Each remote action requires its own
-explicit authorization in the current session; without it, the run stops after proving readiness.
+Invoking `autonomous` authorizes the feature-branch push, one pull request, and merge after readiness
+is rechecked. Readiness is evidence, not authorization for deploy/release, production mutations,
+force-push, direct push to `main`, or unrelated remote actions; those require explicit instruction.
 
 ## Knowledge bundle
 
@@ -51,9 +52,10 @@ Empty on purpose. Machinery only: operating schema, `raw/` README, stub indexes,
 `python3 scripts/adopt.py <target>` copies the loop into another repo and refuses to overwrite a
 non-stencil **What this project is** paragraph. It writes `@AGENTS.md` as `CLAUDE.md`, copies the
 bundled skills (including `deep-review`) without shipping `__pycache__` or `*.pyc`, and creates
-`docs/qa/README.md` only when the target has no profile. Agent folders copy missing packet files
-into existing folders without overwriting local files or model pins; a fresh destination gets all
-packets. Adoption rejects Makefile references to machine-global `$(HOME)/.claude/...`,
+`docs/qa/README.md` only when the target has no profile. It copies missing
+`.my-workflow.toml.example` and `templates/agents/`, preserves an existing local
+`.my-workflow.toml`, and generates ignored runtime packets from those sources. Adoption rejects
+Makefile references to machine-global `$(HOME)/.claude/...`,
 `${HOME}/.claude/...`, `$HOME/.claude/...`, or `~/.claude/...`; point TLC gates at the adopted
 `.agents/skills/tlc-spec-driven/scripts/...` path instead.
 

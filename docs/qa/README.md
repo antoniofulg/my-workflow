@@ -12,7 +12,7 @@ For consuming projects, those authorities are their executable manifests or CI j
 | `ADP` | Adoption and external-skill CLI plus generated filesystem | `scripts/adopt.py`; `scripts/install_security_skills.py` with a disposable target | [README adoption contract](../../README.md#adopt-the-workflow), [`scripts/adopt.py`](../../scripts/adopt.py), [`scripts/install_security_skills.py`](../../scripts/install_security_skills.py) |
 | `QAS` | Manual agent-file inspection, checkout-local CLI recipes, and Orca-backed workflow execution | `.agents/skills/qa-plan/`, `.agents/skills/qa-execute/`, `.agents/skills/autonomous/scripts/parallel_execute.py`, `.agents/skills/deep-review/references/publish-github.md`, provider Verifier packets | [Skills contract](../../README.md#skills), [parallel executor contract](../../.agents/skills/autonomous/references/parallelization.md), [Deep Review publication recipe](../../.agents/skills/deep-review/references/publish-github.md) |
 | `DOC` | Documentation | `README.md` | [`README.md`](../../README.md) |
-| `CFG` | Workflow configuration, generated state, and Git visibility | `.my-workflow.toml`; `.agents/skills/workflow-config/scripts/workflow_config.py`; `.gitignore`; `.specs/` | [README configuration contract](../../README.md#adopt-the-workflow), [`workflow-config` skill](../../.agents/skills/workflow-config/SKILL.md), [artifact lifecycle](../guidelines/ARTIFACT-LIFECYCLE.md) |
+| `CFG` | Workflow configuration, generated state, and Git visibility | `.my-workflow.toml.example`; `.my-workflow.toml`; `templates/agents/`; `.agents/skills/workflow-config/scripts/workflow_config.py`; `.gitignore`; `.specs/` | [README configuration contract](../../README.md#adopt-the-workflow), [`workflow-config` skill](../../.agents/skills/workflow-config/SKILL.md), [artifact lifecycle](../guidelines/ARTIFACT-LIFECYCLE.md) |
 | `WFL` | Cross-provider workflow handoff | `docs/workflow/ai-memory.md`; `scripts/ai-memory.zsh`; Claude Code, Codex, and Cursor lifecycle hooks | [ai-memory handoff contract](../workflow/ai-memory.md), [`scripts/ai-memory.zsh`](../../scripts/ai-memory.zsh) |
 | `REL` | Package metadata | `package.json`, `package-lock.json` | [`package.json`](../../package.json) |
 
@@ -33,7 +33,10 @@ No browser, API, or mobile surface exists in this repository.
 - Exact path used by `qa-execute`: invoke the command documented by the
   [`workflow-config` skill](../../.agents/skills/workflow-config/SKILL.md) inside a checkout-local
   disposable Git repository; invoke [`scripts/adopt.py`](../../scripts/adopt.py) against a separate
-  checkout-local disposable target; inspect its printed external-skill command before invoking
+  checkout-local disposable target; inspect package membership with `npm pack --dry-run --json`
+  from the active checkout, and create any clean-clone canary from the active local repository into
+  a checkout-owned disposable path without fetching a remote; inspect the adoption script's printed
+  external-skill command before invoking
   [`scripts/install_security_skills.py`](../../scripts/install_security_skills.py) only when the
   QA packet explicitly authorizes network access and target writes; then inspect the targets and
   repository files named by each charter. For Deep Review publication, extract the public recipe

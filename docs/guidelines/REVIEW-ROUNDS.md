@@ -17,7 +17,7 @@ Every nitpick changes the diff, so the next round finds new nitpicks. The loop i
 
 | Stage | Asks | Cap |
 | --- | --- | --- |
-| **Technical Verifier** (every slice that changes code) | Do the tests actually prove the acceptance criteria? | Fingerprint-scoped; halt on third failed remediation |
+| **Technical Verifier** (every slice that changes code) | Do the tests actually prove the acceptance criteria? | Same-fingerprint live threshold; no final round 3 |
 | **QA Plan** (public slices) | Which public promises need a walk? | One fresh Verifier session |
 | **QA Execute** (public slices) | Does this behaviour work through the declared adapter? | One fresh Verifier session |
 | **deep-review** (resolved implementation groups) | Is the code correct, safe and maintainable? | ≤2 rounds, blocking findings only |
@@ -26,7 +26,7 @@ The provider `verifier` executes exactly one phase per packet: `technical`, `qa-
 `qa-execute`. The orchestrator dispatches a technical packet, then fresh QA Plan and QA Execute
 packets for a public slice. Deep-review is a separate orchestrator stage, not a Verifier phase;
 internal-only changes skip the QA packets. All QA stages read `docs/guidelines/QA-SCENARIOS.md`; it owns
-fields and statuses. Each stage answers a question the others cannot, so none is redundant.
+fields and statuses. Each stage answers a question the others cannot, so none is redundant. Direct corrections follow `.agents/skills/tlc-spec-driven/SKILL.md`: scoped validation closes them, with no fresh Verifier, deep-review, or QA.
 
 ## Why resolved groups, not a rigid interval
 
@@ -62,7 +62,7 @@ final session answers *"does the finished thing feel right?"* after all implemen
 
    `tlc-spec-driven` points here for remediation identity and counting; this rule prevents a renamed
    finding from resetting its history while allowing a distinct blocker to proceed.
-2. **Nitpicks never trigger a round.** They go to a follow-up list in the pull request. Only `FIX_BEFORE_SHIP` and `REWORK` findings justify another pass. **In an active, already-approved review loop, fix blocking findings without new human approval through the applicable review cap and run the scoped gate after each correction. Findings produced by the final deep-review round (round 2) are corrected automatically in the same loop; do not start round 3; escalate only if the post-fix gate fails or the blocker remains reproducible.** Local fixes only; remote actions retain separate approval requirements.
+2. **Nitpicks never trigger a round.** They go to a follow-up list in the pull request. Only `FIX_BEFORE_SHIP` and `REWORK` findings justify another pass. **In an active, already-approved review loop, fix blocking findings without new human approval through the applicable review cap and run the scoped gate after each correction. Findings produced by the final deep-review round (round 2) are corrected automatically in the same loop; do not start round 3; escalate only if the post-fix gate fails or the configured stall threshold is reached for the same fingerprint.** Local fixes only; remote actions retain separate approval requirements.
 3. **Deduplicate by root cause, not by occurrence.** One missing null check repeated in six files is
    one finding that lists six files — not six findings.
 4. **Verify before flagging.** Check for an adjacent comment explaining the choice, a decision in
@@ -77,7 +77,7 @@ identity and buys the same independence.
    The ai-memory handoff is operator continuity, not reviewer context. Verifier and Deep Reviewer are
    internal named subagents: they receive explicit role packets and must not consume an Implementer
    handoff. A top-level reviewer may consume an ai-memory handoff only when no pending Implementer handoff can be consumed.
-8. **A documentation-only change is not an exception.** What a second reader buys is a second reading,
+8. **A documentation-only feature slice is not an exception.** What a second reader buys is a second reading,
    and a document no tool parses can be as wrong as one that ten do — `docs/` is full of Markdown that
    agents act on.
 8. **A passing verdict on a failing tree is void.** Re-run the scoped gate after remediation; a green
@@ -144,8 +144,8 @@ Batch aggressively. One commit per remediation batch is already the commit rule,
 
 ## Escalation
 
-When a cap is reached, finish the approved remediation and run its scoped gate. Stop and hand the human a short list only if that gate fails or a blocker remains reproducible: what is still wrong, what was tried, and the recommended call.
-The cap forbids another review round; it does not require a new approval for the round-2 fix.
+When a cap is reached, finish approved remediation and run its scoped gate after every attempt; the cap forbids another review round, does not require new approval for the round-2 fix, and the existing loop never starts round 3. Each attempt derives a stable signature from sorted failing-test identifiers after removing timings, absolute paths, and line numbers; a current failing-test set that is a strict subset of the running minimum failing-test set resets the counter, while an equal-size set, including one with different members, or a larger set increments it, and `stall_attempts = 0` is unbounded.
+If the gate is unavailable, halt immediately without another deep-review round; when a nonzero threshold is reached, halt with the repeated signature, attempt count, and fixes tried. An open blocker alone does not halt while attempts establish new minima; autonomous uses the same unavailable-gate or reached-threshold halt contract.
 
 ## Requirement and contract parity
 

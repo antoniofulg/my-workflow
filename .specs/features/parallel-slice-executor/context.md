@@ -15,7 +15,7 @@ pilot. TLC remains the sequential engine inside every slice and every existing r
 ### Reliability and modes
 
 - Parallel execution is opportunistic; any unproven capability returns to the current serial path.
-- `disabled`, `safe`, and `full` retain the meanings already frozen by `AD-009`.
+- `disabled`, `safe`, and `full` retain the meanings already frozen by `AD-011`.
 - Tasks stay sequential inside a slice; only another slice may advance.
 - Gates, Technical Verifier, grouped deep-review, final QA, and the final full gate are not combined or skipped.
 
@@ -59,7 +59,7 @@ pilot. TLC remains the sequential engine inside every slice and every existing r
 
 ## Specific References
 
-- Continue from `AD-009` and `.agents/skills/autonomous/references/parallelization.md`.
+- Continue from `AD-011` and `.agents/skills/autonomous/references/parallelization.md`.
 - Use Orca orchestration events rather than generic subagent polling for the real pilot.
 
 ## Deferred Ideas

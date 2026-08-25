@@ -67,6 +67,4 @@ The artifacts this skill produces should read like a decided engineer wrote them
 - **One idea per sentence; short sentences.** Prefer the plain verb over the nominalization ("evaluated", not "performed an evaluation of"). Keep subject-verb-object near the front.
 - **Do not announce the phase.** Produce the artifact; do not narrate "I will now run Specify."
 - **Avoid the em dash as a default connector.** A comma, colon, or two sentences usually read cleaner.
-- **Writing in Portuguese:** keep sentences short; do not carry the long, multi-clause subordinate structure of Portuguese into the artifact. Plain and direct beats formal.
-
 None of this means dumbing down the content - only the prose carrying it.

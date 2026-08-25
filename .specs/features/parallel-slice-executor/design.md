@@ -196,6 +196,7 @@ ready -> needs_resources -> running -> waiting -> needs_sync -> running -> compl
 | Checkpoint reconciliation | Rebase dependent private lane | The consumer sees the exact producer before its dependent task. |
 | Final slice integration | Coordinator invokes one ordered merge after all verified lanes complete | Preserves commit identity and review evidence without integrating incomplete or serial lanes. |
 
-The policy/effect boundary is recorded by active `AD-011`; blocker-scoped convergence follows
-`AD-012`. `AD-010` is the superseded predecessor. Checkpoint fields remain T4 scope, and provider
+The parallelization policy is recorded by active `AD-011`; the policy/effect boundary follows
+`AD-012`; worktree ownership follows `AD-013`; blocker-scoped convergence follows `AD-014`.
+Checkpoint fields remain T4 scope, and provider
 environment delivery remains T7 scope; Slice A-B persist only the redacted lease shape.

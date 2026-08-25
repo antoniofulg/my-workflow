@@ -139,6 +139,36 @@
 
 ### AD-009
 
+- **Decision**: `.my-workflow.toml` is the single editable source for bundled Claude, Codex, and
+  Cursor agent models and efforts. Provider packet metadata is generated through explicit sync, and
+  delegated model settings freeze in each feature workflow snapshot.
+- **Reason**: Provider-specific model pins duplicate one operator choice across three syntaxes and
+  can silently diverge. The native runtimes still require those fields, so generated metadata keeps
+  their contracts while centralizing ownership.
+- **Trade-off**: Native packet files remain materialized tracked output, and an active feature needs
+  explicit refresh after a deliberate model change. Provider runtimes still decide whether a model
+  supports a selected effort.
+- **Scope**: `.my-workflow.toml`, provider agent packets, workflow configuration and snapshots,
+  adoption, tests, and public workflow documentation.
+- **Date**: 2026-08-24
+- **Status**: superseded by AD-010
+
+### AD-010
+
+- **Decision**: Track `.my-workflow.toml.example` and provider packet templates, while keeping
+  `.my-workflow.toml` and generated `.claude`, `.codex`, and `.cursor` runtime agent trees local and
+  ignored. Feature snapshots continue to freeze delegated model and effort settings.
+- **Reason**: Provider access, quotas, profiles, models, and efforts vary by operator. Switching them
+  must not create repository changes, while agent instructions still need a reviewable source.
+- **Trade-off**: A fresh checkout must initialize local config and generate runtime packets before
+  custom agents are available.
+- **Scope**: Workflow configuration, provider templates/runtime packets, adoption, packaging, tests,
+  documentation, and feature snapshots.
+- **Date**: 2026-08-24
+- **Status**: active
+
+### AD-011
+
 - **Decision**: Parallelization is an opt-in inter-slice orchestration layer above unchanged TLC;
   `disabled` is the default, `safe` consumes independent or verified cross-slice producers, and
   `full` consumes completed gated checkpoints with sync and revalidation. Uncertainty falls back to
@@ -153,7 +183,7 @@
 - **Date**: 2026-08-24
 - **Status**: active
 
-### AD-010
+### AD-012
 
 - **Decision**: Parallel execution uses a provider-neutral deterministic coordinator whose adapters
   own external effects. Orca is the first worktree/worker/event adapter; checkpoint sync rebases only
@@ -167,9 +197,9 @@
 - **Scope**: Autonomous parallel execution, workflow snapshots and task resource metadata, Orca/Git
   adapters, consumer resource providers, and future IDE adapters.
 - **Date**: 2026-08-24
-- **Status**: superseded by AD-011
+- **Status**: active
 
-### AD-011
+### AD-013
 
 - **Decision**: The provider-neutral coordinator derives and validates a deterministic sibling Git worktree destination, creates that checkout with fixed argv, and gives Orca only an existing worktree to attach a worker to.
 - **Reason**: Orca's public worktree-create command does not accept a destination path, while SEC-004 requires destination validation before the first writer or worker process.
@@ -178,7 +208,7 @@
 - **Date**: 2026-08-24
 - **Status**: active
 
-### AD-012
+### AD-014
 
 - **Decision**: Technical Verifier remediation is bounded per blocker fingerprint, defined by the
   requirement, root cause, and concrete failure path. Distinct blockers start independent counts;
@@ -190,5 +220,3 @@
   versions of one blocker remain bounded and all other halt conditions still apply.
 - **Scope**: Technical Verifier fix/reverify loops, autonomous halt decisions, TLC verifier guidance,
   review workflow documentation, and their contract tests.
-- **Date**: 2026-08-24
-- **Status**: active

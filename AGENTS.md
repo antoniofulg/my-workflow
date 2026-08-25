@@ -16,8 +16,10 @@ Specify + Design + Tasks here. After approval, dispatch **implementer** and stay
 **new** session — never the implementer's chat, never this one if it wrote the code.
 
 Spawn the named agent; do not override its model. A search or trace is `explorer`; do not search the
-product tree in the parent chat. Models live only on the agent files. Cursor also sees `.claude/` and
-`.codex/`; the same `name` resolves to `.cursor/`. Real files, no symlinks.
+product tree in the parent chat. Local `.my-workflow.toml` owns model/effort choices; tracked
+`templates/agents/` bodies and generated ignored provider runtimes materialize native metadata, and
+feature snapshots freeze delegated settings. Cursor also sees `.claude/` and `.codex/`; the same
+`name` resolves to `.cursor/`. Real files, no symlinks.
 
 ## Critical rules
 
@@ -28,10 +30,10 @@ product tree in the parent chat. Models live only on the agent files. Cursor als
   mirrors the implementation proves nothing.
 - **Never add a test just to raise coverage.** Name the invariant, the owning layer, and the canonical
   suite; extend that suite. If no invariant exists, do not write the test.
-- **Approval authorizes local work only.** A spec or task approval covers scoped local changes and
-  atomic local commits. Readiness is evidence, not authorization: push, pull request, merge, deploy
-  and production database changes each need an explicit go-ahead for that action in the current
-  prompt or session.
+- **Remote delivery follows `autonomous`.** Invoking it authorizes this run's feature-branch push,
+  one pull request, and merge after readiness is rechecked. Readiness is evidence, not authorization
+  for deploy/release, production mutations, force-push, direct push to `main`, or unrelated remote
+  actions; those require explicit instruction.
 - **Instruction files cost every turn.** This file and `docs/guidelines/*.md` load into prompts.
   Growing one with restated or redundant prose is a defect. Read `docs/guidelines/CONTEXT-BUDGET.md`
   before editing either.
@@ -43,8 +45,11 @@ product tree in the parent chat. Models live only on the agent files. Cursor als
 
 ## How work happens
 
-Use the `tlc-spec-driven` skill. It auto-sizes. At the start of workflow work, activate `ponytail`
-at `full` and keep it active for the entire session: Specify, Design, Tasks, Execute, every
+Use the `tlc-spec-driven` skill and size the work before creating feature artifacts. An exact
+human-defined direct correction follows that skill's direct-correction path; only feature work
+uses the hierarchy below. At the start of workflow work, activate `ponytail`
+at `full` and keep it active for the entire session; for direct corrections, this means through
+inspect, implement, validation, and commit. For feature work, it includes Specify, Design, Tasks, Execute, every
 subagent prompt, fix, and review, until the human explicitly says `stop ponytail` or `normal mode`.
 
 **Public hierarchy is `Feature -> Vertical Slice -> Task`.** A vertical slice is one observable
@@ -52,10 +57,9 @@ end-to-end behaviour; its tasks are the smallest implementation units plus their
 when the slice opens a journey nothing else already walks. Resolve review cadence before dispatch
 with `.agents/skills/workflow-config/SKILL.md`. Caps and QA rules: `docs/guidelines/REVIEW-ROUNDS.md`.
 
-At every size: the gate decides done; one atomic Conventional Commit per task; update `tasks.md`
-when present, or the inline execution plan when Tasks is skipped, before committing; Verifier ≠
-author on every code-changing slice; every counted claim carries the command that produced the
-number.
+For each feature slice: the gate decides done; one atomic Conventional Commit per task; update `tasks.md` when present, or the inline execution plan when Tasks is skipped, before committing;
+Verifier ≠ author on every code-changing slice; every counted claim carries the command that
+produced the number.
 
 Delivery is human-scheduled. Git and the artifacts named below own durable state.
 
@@ -119,4 +123,5 @@ Conventional Commits: `<type>(<scope>): <description>`, types `feat|fix|refactor
 One commit per task. One commit per review-remediation batch. If a pre-commit hook fails, fix the
 issue and make a new commit — never `--amend`.
 
-Never push to `main`, force-push, or merge without an explicit instruction.
+Never push directly to `main` or force-push. Use `autonomous` for its scoped feature-branch delivery;
+ask explicitly for deploy/release, production mutations, or unrelated remote actions.

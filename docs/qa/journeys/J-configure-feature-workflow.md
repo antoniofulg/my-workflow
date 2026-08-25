@@ -1,20 +1,19 @@
 # J-configure-feature-workflow
 
 **Persona:** Workflow adopter
-**Goal:** Configure, freeze, and inspect one feature's review, provider, and slice-dispatch policy.
-**Entry point:** `.my-workflow.toml` → `workflow-config` resolver CLI
+**Goal:** Configure, freeze, and inspect one feature's models, review, provider, remediation, and slice-dispatch policy.
+**Entry point:** `.my-workflow.toml.example` → local `.my-workflow.toml` → `workflow-config` resolver CLI
 
 ## Flow
 
-1. Start with no config and resolve a feature using the current provider and disabled dispatch.
-2. Select a supported parallelization mode and optional repository-relative resource provider, then
-   explicitly refresh the feature resolution.
-3. Add a cadence, partial mixed-provider profile, and role override; confirm precedence in JSON stdout and the feature snapshot.
-4. Plan the versioned task state and inspect ready, blocked, checkpoint, or serial-fallback output.
-5. Resume without refresh and confirm the frozen route survives config and HEAD changes.
-6. Correct a named invalid input after the resolver rejects it without fallback or snapshot loss.
-7. Continue to [`J-execute-parallel-slices`](J-execute-parallel-slices.md) only when the frozen mode,
-   adapter capability, and declared resources permit it.
+1. Distinguish tracked `.my-workflow.toml.example` and packet templates from ignored local config and generated runtimes; confirm the same ownership boundary.
+2. Initialize local config, select the documented profile, edit model/effort pairs, run explicit sync, and confirm generated packets are stable.
+3. Exercise invalid config, template, metadata, destination, and symlink inputs; confirm each failure names its source and changes no bytes.
+4. Resolve a feature with cadence, profile, and overrides; confirm delegated model/effort and route are frozen while current JSON reports live remediation without persisting it.
+5. Select a supported parallelization mode and optional repository-relative resource provider, then explicitly refresh; confirm snapshot and JSON agree on frozen route, cadence, and parallelization.
+6. Change only remediation threshold and resume; confirm the new live value is reported while route, cadence, models, efforts, and snapshot bytes remain frozen.
+7. Plan the versioned task state and inspect ready, blocked, checkpoint, or serial-fallback output; continue to [`J-execute-parallel-slices`](J-execute-parallel-slices.md) only when capability and declared resources permit it.
+8. Confirm packet drift requires explicit synchronization and refresh, cadence grouping, provider precedence, checkout isolation, and adoption preservation.
 
 ## Promises
 
@@ -22,6 +21,7 @@
 - [`CFG-route-delegated-role-providers`](../scenarios/CFG-route-delegated-role-providers.md)
 - [`CFG-freeze-feature-workflow`](../scenarios/CFG-freeze-feature-workflow.md)
 - [`CFG-plan-parallel-slice-dispatch`](../scenarios/CFG-plan-parallel-slice-dispatch.md)
+- [`CFG-centralize-agent-model-routing`](../scenarios/CFG-centralize-agent-model-routing.md)
 
 ## Adjacent canary
 

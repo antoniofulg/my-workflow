@@ -19,7 +19,7 @@ IT-001 fingerprint: public `main(["resume", ...])` now receives a safe-mode adap
 persisted pending worker receipt, reconciles it, emits one correlated `resume` JSON result, and
 performs no replacement effect. Removing the adapter from that public resume path kills the suite.
 
-T2R4 also matches AD-012: remediation accounting is keyed by requirement, root cause, and concrete
+T2R4 also matches AD-014: remediation accounting is keyed by requirement, root cause, and concrete
 failure path; only the third failed remediation of the same fingerprint halts, while a distinct
 blocker starts independently.
 
@@ -81,7 +81,7 @@ blocker starts independently.
 | Fingerprint | Count/disposition |
 | --- | --- |
 | `IT-001/EXE-04 + CLI resume lacks adapter reconciliation + persisted pending safe-mode worker` | CLOSED by T2R5. The new assertion at `tools/test_parallel_executor.py:610-686` proves the public entrypoint path; mandatory sensor M1 kills removing its adapter. No failed post-fix gate occurred in this verification. |
-| T2R1-T2R3 distinct blockers | Remain closed by their existing direct assertions; they do not consume the IT-001 fingerprint count under AD-012 and `docs/guidelines/REVIEW-ROUNDS.md:89-91`. |
+| T2R1-T2R3 distinct blockers | Remain closed by their existing direct assertions; they do not consume the IT-001 fingerprint count under AD-014 and `docs/guidelines/REVIEW-ROUNDS.md:89-91`. |
 
 ## Gate Evidence
 
@@ -198,9 +198,9 @@ edit.
 
 **Sensor:** lightweight, 3 injected, 3 killed, 0 survived. PASS.
 
-### Prior Fingerprint Re-derivation and AD-012 Counts
+### Prior Fingerprint Re-derivation and AD-014 Counts
 
-AD-012 identity remains requirement + root cause + concrete failure path. A passing scoped
+AD-014 identity remains requirement + root cause + concrete failure path. A passing scoped
 re-verification adds zero failed-remediation increments; historical counts remain durable.
 
 | Fingerprint | T3R2 disposition | Prior count | T3R2 increment | Resulting count |

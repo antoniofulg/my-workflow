@@ -7,6 +7,10 @@ __pycache__/
 .env
 .env.*
 !.env.example
+.my-workflow.toml
+.claude/agents/
+.codex/agents/
+.cursor/agents/
 docs/qa/evidence/
 docs/qa/state.csv
 .deep-review/*

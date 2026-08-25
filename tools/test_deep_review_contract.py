@@ -280,6 +280,53 @@ class DeepReviewContractTests(unittest.TestCase):
             self.assertEqual(row["hunks"], [{"start": 3, "lines": 1, "side": "new"}])
             self.assertEqual(manifest["diff_command"], f"git diff {first[:12]}..{second[:12]} -- <file>")
 
+    def test_manifest_concurrency_uses_cli_config_default_and_rejects_invalid_values(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            init_repo(raw)
+            out = root / ".deep-review" / "default"
+            result = run_script(BUILD_MANIFEST, root, "--out", str(out), "--base", "HEAD", "--head", "HEAD")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(json.loads((out / "manifest.json").read_text())["concurrency"], 3)
+
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            init_repo(raw)
+            (root / ".deep-review.yaml").write_text("concurrency: 5\n", encoding="utf-8")
+            out = root / ".deep-review" / "config"
+            result = run_script(BUILD_MANIFEST, root, "--out", str(out), "--base", "HEAD", "--head", "HEAD")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(json.loads((out / "manifest.json").read_text())["concurrency"], 5)
+            override = root / ".deep-review" / "override"
+            result = run_script(BUILD_MANIFEST, root, "--out", str(override), "--base", "HEAD", "--head", "HEAD", "--concurrency", "2")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(json.loads((override / "manifest.json").read_text())["concurrency"], 2)
+            (root / ".deep-review.yaml").write_text("concurrency: 1\n", encoding="utf-8")
+            one = root / ".deep-review" / "one"
+            result = run_script(BUILD_MANIFEST, root, "--out", str(one), "--base", "HEAD", "--head", "HEAD")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(json.loads((one / "manifest.json").read_text())["concurrency"], 1)
+            six = root / ".deep-review" / "six"
+            result = run_script(BUILD_MANIFEST, root, "--out", str(six), "--base", "HEAD", "--head", "HEAD", "--concurrency", "6")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(json.loads((six / "manifest.json").read_text())["concurrency"], 6)
+
+        for raw_value in ("true", "false", "0", "7", '"3"', "1.5"):
+            with self.subTest(raw_value=raw_value), tempfile.TemporaryDirectory() as raw:
+                root = Path(raw)
+                init_repo(raw)
+                (root / ".deep-review.yaml").write_text(f"concurrency: {raw_value}\n", encoding="utf-8")
+                result = run_script(BUILD_MANIFEST, root, "--out", str(root / ".deep-review/out"), "--base", "HEAD", "--head", "HEAD")
+                self.assertNotEqual(result.returncode, 0)
+
+    def test_runner_rejects_removed_workers_option(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            init_repo(raw)
+            out = write_job_round(root, payload=valid_payload())
+            result = run_script(RUN_JOBS, root, "--out", str(out), "--workers", "2", "--validate-only")
+            self.assertNotEqual(result.returncode, 0)
+
     def test_manifest_handles_untracked_regular_files_and_symlinks(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)

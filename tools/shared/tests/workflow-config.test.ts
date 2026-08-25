@@ -14,6 +14,18 @@ function readRepositoryFile(relativePath: string): string {
   return readFileSync(join(repositoryRoot, relativePath), "utf8");
 }
 
+function isIgnored(relativePath: string): boolean {
+  try {
+    execFileSync("git", ["check-ignore", "--no-index", "--quiet", "--", relativePath], {
+      cwd: repositoryRoot,
+      stdio: "ignore",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 describe("workflow configuration skill", () => {
   it("defines resolution, resume, refresh, and explicit provider failure", () => {
     const skill = readRepositoryFile(skillPath);
@@ -31,23 +43,103 @@ describe("workflow configuration skill", () => {
     for (const provider of providers) {
       for (const role of roles) {
         const extension = provider === "codex" ? "toml" : "md";
-        const path = `.${provider}/agents/${role}.${extension}`;
+        const path = `templates/agents/${provider}/${role}.${extension}`;
         expect(existsSync(join(repositoryRoot, path)), path).toBe(true);
         expect(readRepositoryFile(path).trim(), path).not.toBe("");
       }
     }
   });
 
+  it("keeps local config/runtimes ignored and packages only example/templates", () => {
+    expect(execFileSync("git", ["ls-files", "--", ".my-workflow.toml"], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    }).trim()).toBe("");
+    expect(execFileSync("git", ["ls-files", "--", ".my-workflow.toml.example", "templates/agents"], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    })).toContain(".my-workflow.toml.example");
+    for (const relativePath of [
+      ".my-workflow.toml",
+      ".claude/agents/planner.md",
+      ".codex/agents/planner.toml",
+      ".cursor/agents/planner.md",
+    ]) {
+      expect(isIgnored(relativePath), relativePath).toBe(true);
+    }
+    const packageManifest = JSON.parse(
+      execFileSync("npm", ["pack", "--dry-run", "--json"], {
+        cwd: repositoryRoot,
+        encoding: "utf8",
+      }),
+    ) as Array<{ files: Array<{ path: string }> }>;
+    const packaged = packageManifest[0].files.map(({ path }) => path);
+    expect(packaged).toContain(".my-workflow.toml.example");
+    expect(packaged).toContain("templates/agents/claude/planner.md");
+    expect(packaged).toContain("templates/agents/codex/planner.toml");
+    expect(packaged).toContain("templates/agents/cursor/planner.md");
+    expect(packaged).not.toContain(".my-workflow.toml");
+    expect(packaged.some((path) => path.startsWith(".claude/agents/"))).toBe(false);
+    expect(packaged.some((path) => path.startsWith(".codex/agents/"))).toBe(false);
+    expect(packaged.some((path) => path.startsWith(".cursor/agents/"))).toBe(false);
+  });
+
+  it("resolves the shipped mixed profile to its exact provider routes", () => {
+    const example = readRepositoryFile(".my-workflow.toml.example");
+    expect(example).toContain(
+      "[profiles.mixed]\nimplementer = \"claude\"\nverifier = \"codex\"\nexplorer = \"cursor\"\ndeep_reviewer = \"codex\"",
+    );
+
+    const temporaryRoot = mkdtempSync(join(tmpdir(), "workflow-profile-"));
+    try {
+      cpSync(join(repositoryRoot, "templates"), join(temporaryRoot, "templates"), { recursive: true });
+      cpSync(join(repositoryRoot, ".my-workflow.toml.example"), join(temporaryRoot, ".my-workflow.toml.example"));
+      execFileSync("git", ["init", "-q"], { cwd: temporaryRoot });
+      execFileSync(
+        "git",
+        ["-c", "user.email=test@example.com", "-c", "user.name=Test", "commit", "--allow-empty", "-qm", "seed"],
+        { cwd: temporaryRoot },
+      );
+      const resolver = join(
+        repositoryRoot,
+        ".agents/skills/workflow-config/scripts/workflow_config.py",
+      );
+      execFileSync("python3", [resolver, "--root", temporaryRoot, "--sync-agents"], { encoding: "utf8" });
+      const snapshot = JSON.parse(
+        execFileSync(
+          "python3",
+          [
+            resolver,
+            "--root",
+            temporaryRoot,
+            "--feature",
+            "mixed-profile-contract",
+            "--slices",
+            "1",
+            "--native-provider",
+            "cursor",
+            "--profile",
+            "mixed",
+          ],
+          { encoding: "utf8" },
+        ),
+      ) as { roles: Record<string, { provider: string }> };
+      expect(snapshot.roles).toMatchObject({
+        implementer: { provider: "claude" },
+        verifier: { provider: "codex" },
+        explorer: { provider: "cursor" },
+        deep_reviewer: { provider: "codex" },
+      });
+    } finally {
+      rmSync(temporaryRoot, { recursive: true, force: true });
+    }
+  }, 30_000);
+
   it("asserts resolver-returned agent files for every non-native provider route", () => {
     const temporaryRoot = mkdtempSync(join(tmpdir(), "workflow-config-"));
     try {
-      for (const provider of providers) {
-        cpSync(
-          join(repositoryRoot, `.${provider}`),
-          join(temporaryRoot, `.${provider}`),
-          { recursive: true },
-        );
-      }
+      cpSync(join(repositoryRoot, "templates"), join(temporaryRoot, "templates"), { recursive: true });
+      cpSync(join(repositoryRoot, ".my-workflow.toml.example"), join(temporaryRoot, ".my-workflow.toml.example"));
       execFileSync("git", ["init", "-q"], { cwd: temporaryRoot });
       execFileSync(
         "git",
@@ -68,6 +160,9 @@ describe("workflow configuration skill", () => {
         repositoryRoot,
         ".agents/skills/workflow-config/scripts/workflow_config.py",
       );
+      execFileSync("python3", [resolver, "--root", temporaryRoot, "--sync-agents"], {
+        encoding: "utf8",
+      });
       const agentNames: Record<string, string> = {
         implementer: "implementer",
         verifier: "verifier",

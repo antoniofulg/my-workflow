@@ -46,8 +46,9 @@ refactor/repository-boundaries
 4. **Worktree branches are named for their work, not their checkout.** The branch name says what is
    being built.
 5. **No personal namespace.** New branches do not use `username/` prefixes.
-6. **Delete after merge.** A merged branch that stays is a branch someone will later mistake for work
-   in progress.
+6. **Delete after merge.** After a PR merges, confirm the merge and a clean tracked worktree, then
+   remove every worktree the agent created for that feature or task. Inspect ignored residue before
+   using force removal. Keep the primary, active, and unmerged worktrees untouched.
 
 ## Backups
 
