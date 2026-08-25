@@ -89,6 +89,36 @@ def _text(value: Any, label: str) -> str:
     return value
 
 
+_DISPATCH_FORBIDDEN = set(";|&$<>\"'`()\\")
+
+
+def _opaque_token(value: Any, label: str) -> str:
+    if not isinstance(value, str) or not value or len(value) > 256:
+        raise AdapterError(f"invalid Orca {label}")
+    if any(ord(char) < 32 or ord(char) == 127 or char.isspace() or char in _DISPATCH_FORBIDDEN for char in value):
+        raise AdapterError(f"invalid Orca {label}")
+    return value
+
+
+def _nested_dispatch_id(value: Mapping[str, Any]) -> Any:
+    if "dispatch_id" in value:
+        return value["dispatch_id"]
+    if "dispatchId" in value:
+        return value["dispatchId"]
+    nested = value.get("dispatch")
+    if isinstance(nested, Mapping):
+        if "dispatch_id" in nested:
+            return nested["dispatch_id"]
+        if "dispatchId" in nested:
+            return nested["dispatchId"]
+        if "id" in nested:
+            return nested["id"]
+    result = value.get("result")
+    if isinstance(result, Mapping):
+        return _nested_dispatch_id(result)
+    return None
+
+
 def _payload(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise AdapterError("malformed Orca response")
@@ -97,6 +127,10 @@ def _payload(value: Any) -> dict[str, Any]:
     result = value.get("result")
     if isinstance(result, dict):
         value = result
+    if "dispatch_id" not in value and "dispatchId" not in value:
+        nested_dispatch_id = _nested_dispatch_id(value)
+        if nested_dispatch_id is not None:
+            value["dispatch_id"] = nested_dispatch_id
     for nested in ("run", "task", "worker", "dispatch", "worktree"):
         if isinstance(value.get(nested), dict):
             nested_value = value[nested]
@@ -116,6 +150,8 @@ def _payload(value: Any) -> dict[str, Any]:
                 if alias in value:
                     value[field] = value[alias]
                     break
+    if "dispatch_id" in value:
+        value["dispatch_id"] = _opaque_token(value["dispatch_id"], "dispatch id")
     return value
 
 
@@ -154,6 +190,12 @@ def _failure_details(exc: subprocess.CalledProcessError) -> dict[str, Any]:
                 if alias in details:
                     details[field] = details[alias]
                     break
+    if "dispatch_id" not in details:
+        nested_dispatch_id = _nested_dispatch_id(details)
+        if nested_dispatch_id is not None:
+            details["dispatch_id"] = nested_dispatch_id
+    if "dispatch_id" in details:
+        details["dispatch_id"] = _opaque_token(details["dispatch_id"], "dispatch id")
     details["returncode"] = exc.returncode
     return details
 
@@ -338,7 +380,7 @@ class OrcaAdapter:
         data["run_id"] = run_id
         data["task_id"] = actual_task
         data["orchestration_task_id"] = actual_task
-        data["dispatch_id"] = _text(data.get("dispatch_id"), "dispatch id")
+        data["dispatch_id"] = _opaque_token(data.get("dispatch_id"), "dispatch id")
         data["terminal_handle"] = _text(data.get("terminal_handle"), "terminal handle")
         return {
             **{field: data[field] for field in expected},
@@ -371,7 +413,7 @@ class OrcaAdapter:
     ) -> dict[str, Any]:
         data = dict(response)
         if not self._complete_worker(data):
-            dispatch_id = _text(data.get("dispatch_id"), "dispatch id")
+            dispatch_id = _opaque_token(data.get("dispatch_id"), "dispatch id")
             authoritative = self._call("worker-show", "--dispatch", dispatch_id)
             data = {**data, **authoritative}
         return self._validate_worker(data, lane, worktree, key, task_id=task_id)
@@ -426,7 +468,7 @@ class OrcaAdapter:
         if not isinstance(payload, dict):
             raise AdapterError("malformed Orca delivery payload")
         task_id = payload.get("taskId") or payload.get("task_id")
-        dispatch_id = payload.get("dispatchId") or payload.get("dispatch_id")
+        dispatch_id = _opaque_token(payload.get("dispatchId") or payload.get("dispatch_id"), "dispatch id")
         if task_id != receipt.get("orchestration_task_id"):
             raise AdapterError("uncorrelated Orca delivery: taskId")
         if dispatch_id != receipt.get("dispatch_id"):
@@ -467,7 +509,7 @@ class OrcaAdapter:
         }
 
     def read_worker(self, receipt: Mapping[str, Any]) -> dict[str, Any]:
-        dispatch_id = _text(receipt.get("dispatch_id"), "dispatch id")
+        dispatch_id = _opaque_token(receipt.get("dispatch_id"), "dispatch id")
         response = self._call("worker-read", "--dispatch", dispatch_id, "--limit", "50")
         actual_dispatch = response.get("dispatch_id") or response.get("dispatchId")
         if actual_dispatch != dispatch_id:
@@ -568,7 +610,7 @@ class OrcaAdapter:
                 return dict(cached)
             run_id = _text(partial.get("run_id"), "run id")
             task_id = _text(partial.get("task_id"), "task id")
-            dispatch_id = _text(partial.get("dispatch_id"), "dispatch id")
+            dispatch_id = _opaque_token(partial.get("dispatch_id"), "dispatch id")
             status_response = self._call("worker-show", "--dispatch", dispatch_id)
             actual_dispatch = status_response.get("dispatch_id") or status_response.get("dispatchId")
             if actual_dispatch not in (None, dispatch_id):
@@ -609,7 +651,7 @@ class OrcaAdapter:
             return self.ack_delivery({"run_id": run_id}, {"delivery_id": delivery_id})
         if action.get("action") != "worker_release":
             return None
-        dispatch_id = _text(action.get("dispatch_id"), "dispatch id")
+        dispatch_id = _opaque_token(action.get("dispatch_id"), "dispatch id")
         status = self._call("worker-show", "--dispatch", dispatch_id).get("status")
         if status in {"released", "complete", "completed"}:
             return {"released": True, "dispatch_id": dispatch_id}
@@ -619,7 +661,7 @@ class OrcaAdapter:
         key = _text(receipt.get("idempotency_key"), "idempotency key")
         if key in self._released:
             return {**self._released[key], "idempotent": True}
-        dispatch_id = _text(receipt.get("dispatch_id"), "dispatch id")
+        dispatch_id = _opaque_token(receipt.get("dispatch_id"), "dispatch id")
         response = self._call("worker-release", "--dispatch", dispatch_id)
         if response.get("released") is not True:
             raise AdapterError("Orca worker release was not accepted")

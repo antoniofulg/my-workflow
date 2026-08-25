@@ -179,6 +179,51 @@ def test_structured_worker_start_failure_preserves_partial_effect_and_reuses_run
         shutil.rmtree(root)
 
 
+def test_nested_dispatch_envelopes_preserve_ctx_identity_through_failure_show_release_and_retry() -> None:
+    root, lane, worktree = fixture()
+    dispatch_id = "ctx_5f619d0f6298"
+    try:
+        failure = subprocess.CalledProcessError(
+            1, ["orca", "orchestration", "worker-start"],
+            output=json.dumps({"ok": False, "error": {"code": "agent_prompt_stalled", "run_id": "run-A", "task_id": "task-A", "terminal_handle": "terminal-A", "dispatch": {"id": dispatch_id}}}),
+        )
+        cli = RecordingCLI(start_responses(worktree)[:4] + [{"worktree_path": worktree["worktree_path"]}, failure])
+        try:
+            adapter(root, cli).start_worker(lane, worktree, idempotency_key=KEY)
+        except orca_adapter.AdapterError as exc:
+            assert exc.details["dispatch_id"] == dispatch_id
+        else:
+            raise AssertionError("nested stalled dispatch must remain a partial effect")
+
+        retry_cli = RecordingCLI([
+            {"result": {"dispatch": {"id": dispatch_id, "status": "failed"}}},
+            {"result": {"dispatch": {"id": dispatch_id, "released": True}}},
+            {"worktree_path": worktree["worktree_path"]},
+            worker_payload(worktree),
+        ])
+        action = {
+            "action": "worker", "key": KEY,
+            "partial_effect": {"run_id": "run-A", "task_id": "task-A", "dispatch_id": dispatch_id, "terminal_handle": "terminal-A"},
+            "worker_plan": lane, "worktree_receipt": worktree,
+        }
+        receipt = adapter(root, retry_cli).reconcile_action(action)
+        assert receipt is not None
+        worker_start = retry_cli.calls[-1][0]
+        assert worker_start[worker_start.index("--retry-of") + 1] == dispatch_id
+    finally:
+        shutil.rmtree(root)
+
+
+def test_dispatch_identity_rejects_shell_forms_without_overwriting_explicit_id() -> None:
+    assert orca_adapter._payload({"dispatch_id": "ctx_explicit", "dispatch": {"id": "ctx_other"}})["dispatch_id"] == "ctx_explicit"
+    for value in ("ctx bad", "ctx;rm", "ctx`id`", "ctx\nother", "ctx'quote'"):
+        try:
+            orca_adapter._payload({"result": {"dispatch": {"id": value}}})
+        except orca_adapter.AdapterError:
+            continue
+        raise AssertionError(f"malicious dispatch identity must be rejected: {value!r}")
+
+
 def test_worktree_discovery_retries_selector_visibility_before_one_worker_start() -> None:
     root, lane, worktree = fixture()
     try:
