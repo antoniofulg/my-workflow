@@ -79,6 +79,7 @@ def start_responses(worktree: dict[str, str]) -> list[object]:
         {"id": "run-A", "objective": "parallel-slice:fixture:" + KEY},
         {"tasks": []},
         {"id": "task-A", "run_id": "run-A", "spec": "parallel-slice:fixture:A:T1:" + KEY},
+        {"worktree_path": worktree["worktree_path"]},
         worker_payload(worktree),
     ]
 
@@ -114,11 +115,11 @@ def test_start_attaches_existing_worktree_and_correlates_every_receipt_field() -
         cli = RecordingCLI(start_responses(worktree))
         receipt = adapter(root, cli).start_worker(lane, worktree, idempotency_key=KEY)
         commands = [call[0][2] for call in cli.calls]
-        assert commands == ["run-list", "run-create", "task-list", "task-create", "worker-start"]
+        assert commands == ["run-list", "run-create", "task-list", "task-create", "show", "worker-start"]
         assert all("create" not in call[0][2:] or "worktree" not in call[0] for call in cli.calls)
         worker_call = cli.calls[-1][0]
         assert "--worktree" in worker_call
-        assert "path:" + worktree["worktree_path"] in worker_call
+        assert "path:" + str(Path(worktree["worktree_path"]).resolve()) in worker_call
         assert receipt["run_id"] == "run-A"
         assert receipt["orchestration_task_id"] == "task-A"
         assert receipt["dispatch_id"] == "dispatch-A"
@@ -139,7 +140,7 @@ def test_structured_worker_start_failure_preserves_partial_effect_and_reuses_run
             output=json.dumps({"ok": False, "error": {"code": "selector_not_found", "stage": "worker-start", "run_id": "run-A", "task_id": "task-A", "residualResources": {"token": "secret"}}}),
             stderr="",
         )
-        cli = RecordingCLI(start_responses(worktree)[:4] + [failure])
+        cli = RecordingCLI(start_responses(worktree)[:4] + [{"worktree_path": worktree["worktree_path"]}, failure])
         worker = adapter(root, cli)
         try:
             worker.start_worker(lane, worktree, idempotency_key=KEY)
@@ -151,7 +152,7 @@ def test_structured_worker_start_failure_preserves_partial_effect_and_reuses_run
         else:
             raise AssertionError("structured worker failure must be reported")
 
-        retry_cli = RecordingCLI([worker_payload(worktree)])
+        retry_cli = RecordingCLI([{"worktree_path": worktree["worktree_path"]}, worker_payload(worktree)])
         retry = adapter(root, retry_cli)
         receipt = retry.reconcile_action({
             "action": "worker", "key": KEY,
@@ -160,8 +161,46 @@ def test_structured_worker_start_failure_preserves_partial_effect_and_reuses_run
             "worktree_receipt": worktree,
         })
         assert receipt is not None and receipt["run_id"] == "run-A" and receipt["orchestration_task_id"] == "task-A"
-        assert retry_cli.calls[0][0][2] == "worker-start"
-        assert retry_cli.calls[0][0][retry_cli.calls[0][0].index("--task") + 1] == "task-A"
+        assert retry_cli.calls[1][0][2] == "worker-start"
+        assert retry_cli.calls[1][0][retry_cli.calls[1][0].index("--task") + 1] == "task-A"
+    finally:
+        shutil.rmtree(root)
+
+
+def test_worktree_discovery_retries_selector_visibility_before_one_worker_start() -> None:
+    root, lane, worktree = fixture()
+    try:
+        not_found = subprocess.CalledProcessError(
+            1, ["orca", "worktree", "show"],
+            output=json.dumps({"ok": False, "error": {"code": "selector_not_found", "stage": "worktree-show"}}),
+        )
+        cli = RecordingCLI(start_responses(worktree)[:4] + [not_found, {"worktree_path": worktree["worktree_path"]}, worker_payload(worktree)])
+        receipt = adapter(root, cli).start_worker(lane, worktree, idempotency_key=KEY)
+        assert receipt["dispatch_id"] == "dispatch-A"
+        assert [call[0][2] for call in cli.calls].count("show") == 2
+        assert [call[0][2] for call in cli.calls].count("worker-start") == 1
+    finally:
+        shutil.rmtree(root)
+
+
+def test_worktree_discovery_timeout_preserves_run_task_and_never_starts_worker() -> None:
+    root, lane, worktree = fixture()
+    try:
+        not_found = subprocess.CalledProcessError(
+            1, ["orca", "worktree", "show"],
+            output=json.dumps({"ok": False, "error": {"code": "selector_not_found", "stage": "worktree-show"}}),
+        )
+        cli = RecordingCLI(start_responses(worktree)[:4] + [not_found, not_found, not_found])
+        try:
+            adapter(root, cli).start_worker(lane, worktree, idempotency_key=KEY)
+        except orca_adapter.AdapterError as exc:
+            assert exc.details["run_id"] == "run-A"
+            assert exc.details["task_id"] == "task-A"
+            assert exc.details["stage"] == "worktree-discovery"
+            assert exc.details["attempts"] == 3
+        else:
+            raise AssertionError("bounded discovery timeout must fail safely")
+        assert not any(call[0][2] == "worker-start" for call in cli.calls)
     finally:
         shutil.rmtree(root)
 
@@ -174,7 +213,7 @@ def test_start_reuses_run_task_and_worker_by_idempotency_without_duplicate_effec
         first = worker.start_worker(lane, worktree, idempotency_key=KEY)
         second = worker.start_worker(lane, worktree, idempotency_key=KEY)
         assert second == first
-        assert len(cli.calls) == 5
+        assert len(cli.calls) == 6
         duplicate = dict(worktree, worktree_id="wt-duplicate")
         try:
             worker.start_worker(lane, duplicate, idempotency_key=KEY)
@@ -469,7 +508,7 @@ def test_duplicate_matching_runs_tasks_and_unknown_worker_fields_halt() -> None:
 
         response = worker_payload(worktree)
         response["unknown"] = "value"
-        cli = RecordingCLI(start_responses(worktree)[:4] + [response])
+        cli = RecordingCLI(start_responses(worktree)[:4] + [{"worktree_path": worktree["worktree_path"]}, response])
         try:
             adapter(root, cli).start_worker(lane, worktree, idempotency_key=KEY)
         except orca_adapter.AdapterError as exc:
@@ -484,9 +523,9 @@ def test_incomplete_start_receipt_uses_authoritative_worker_show() -> None:
     root, lane, worktree = fixture()
     try:
         start = {"run_id": "run-A", "task_id": "task-A", "dispatch_id": "dispatch-A"}
-        cli = RecordingCLI(start_responses(worktree)[:4] + [start, worker_payload(worktree)])
+        cli = RecordingCLI(start_responses(worktree)[:4] + [{"worktree_path": worktree["worktree_path"]}, start, worker_payload(worktree)])
         receipt = adapter(root, cli).start_worker(lane, worktree, idempotency_key=KEY)
-        assert [call[0][2] for call in cli.calls] == ["run-list", "run-create", "task-list", "task-create", "worker-start", "worker-show"]
+        assert [call[0][2] for call in cli.calls] == ["run-list", "run-create", "task-list", "task-create", "show", "worker-start", "worker-show"]
         assert receipt["dispatch_id"] == "dispatch-A"
     finally:
         shutil.rmtree(root)
@@ -495,7 +534,7 @@ def test_incomplete_start_receipt_uses_authoritative_worker_show() -> None:
 def test_supported_nested_worker_envelope_is_removed_before_strict_validation() -> None:
     root, lane, worktree = fixture()
     try:
-        cli = RecordingCLI(start_responses(worktree)[:4] + [{"worker": worker_payload(worktree)}])
+        cli = RecordingCLI(start_responses(worktree)[:4] + [{"worktree_path": worktree["worktree_path"]}, {"worker": worker_payload(worktree)}])
         receipt = adapter(root, cli).start_worker(lane, worktree, idempotency_key=KEY)
         assert receipt["dispatch_id"] == "dispatch-A"
         assert "worker" not in receipt
@@ -531,7 +570,7 @@ def test_each_mandatory_worker_field_missing_from_authoritative_receipt_halts_wi
         for field in fields:
             response = worker_payload(worktree)
             response.pop(field, None)
-            cli = RecordingCLI(start_responses(worktree)[:4] + [response, response])
+            cli = RecordingCLI(start_responses(worktree)[:4] + [{"worktree_path": worktree["worktree_path"]}, response, response])
             worker = adapter(root, cli)
             try:
                 worker.start_worker(lane, worktree, idempotency_key=KEY)
@@ -539,7 +578,7 @@ def test_each_mandatory_worker_field_missing_from_authoritative_receipt_halts_wi
                 assert "Orca" in str(exc)
             else:
                 raise AssertionError(f"missing {field} must halt")
-            assert not any(call[0][2] in {"worker-release", "worker-start"} for call in cli.calls[5:])
+            assert not any(call[0][2] in {"worker-release", "worker-start"} for call in cli.calls[6:])
     finally:
         shutil.rmtree(root)
 
@@ -564,7 +603,7 @@ def test_mismatch_dirty_duplicate_escalation_and_failure_halt_before_replacement
                 assert "Orca" in str(exc)
             else:
                 raise AssertionError("invalid worker receipt must halt")
-            assert not any(call[0][2] == "worker-start" for call in cli.calls[5:])
+            assert not any(call[0][2] == "worker-start" for call in cli.calls[6:])
     finally:
         shutil.rmtree(root)
 

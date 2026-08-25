@@ -12,6 +12,7 @@ import parallel_execute as core
 
 
 CAPABILITY = "orchestration.contract.v1"
+WORKTREE_DISCOVERY_ATTEMPTS = 3
 
 
 class AdapterError(core.ExecutorError):
@@ -169,8 +170,7 @@ class OrcaAdapter:
         self._released: dict[str, dict[str, Any]] = {}
         self._deliveries: set[str] = set()
 
-    def _call(self, *arguments: str, timeout: float | None = None) -> dict[str, Any]:
-        argv = [self.executable, "orchestration", *arguments, "--json"]
+    def _json_call(self, argv: list[str], *, timeout: float | None = None) -> dict[str, Any]:
         try:
             completed = self.runner(
                 argv,
@@ -189,6 +189,32 @@ class OrcaAdapter:
             return _payload(json.loads(completed.stdout))
         except (AttributeError, TypeError, json.JSONDecodeError) as exc:
             raise AdapterError("malformed Orca response") from exc
+
+    def _call(self, *arguments: str, timeout: float | None = None) -> dict[str, Any]:
+        return self._json_call([self.executable, "orchestration", *arguments, "--json"], timeout=timeout)
+
+    def _discover_worktree(self, path: str) -> str:
+        expected = Path(path).resolve()
+        last_error: AdapterError | None = None
+        for _ in range(WORKTREE_DISCOVERY_ATTEMPTS):
+            try:
+                response = self._json_call(
+                    [self.executable, "worktree", "show", "--worktree", "path:" + path, "--json"]
+                )
+                candidate = response.get("worktree_path") or response.get("worktreePath") or response.get("path")
+                if candidate is None:
+                    return str(expected)
+                candidate_path = Path(_text(candidate, "worktree path")).resolve()
+                if candidate_path != expected:
+                    raise AdapterError("uncorrelated Orca worktree discovery")
+                return str(candidate_path)
+            except AdapterError as exc:
+                if exc.details.get("code") != "selector_not_found":
+                    raise
+                last_error = exc
+        details = dict(last_error.details) if last_error is not None else {"code": "selector_not_found"}
+        details.update({"stage": "worktree-discovery", "attempts": WORKTREE_DISCOVERY_ATTEMPTS})
+        raise AdapterError("Orca worktree discovery timed out", details=details)
 
     def _worktree(self, lane: Mapping[str, Any], receipt: Mapping[str, Any]) -> dict[str, str]:
         lane_id = _text(lane.get("id"), "lane id")
@@ -350,8 +376,9 @@ class OrcaAdapter:
         run_id = self._ensure_run(key)
         task_id = self._ensure_task(run_id, lane, key)
         try:
+            worker_path = self._discover_worktree(worktree["worktree_path"])
             response = self._call(
-                "worker-start", "--task", task_id, "--worktree", "path:" + worktree["worktree_path"], "--agent", "codex",
+                "worker-start", "--task", task_id, "--worktree", "path:" + worker_path, "--agent", "codex",
             )
         except AdapterError as exc:
             raise AdapterError(str(exc), details={**exc.details, "run_id": run_id, "task_id": task_id}) from exc
@@ -521,7 +548,8 @@ class OrcaAdapter:
                 return None
             run_id = _text(partial.get("run_id"), "run id")
             task_id = _text(partial.get("task_id"), "task id")
-            response = self._call("worker-start", "--task", task_id, "--worktree", "path:" + _text(receipt.get("worktree_path"), "worktree path"), "--agent", "codex")
+            worker_path = self._discover_worktree(_text(receipt.get("worktree_path"), "worktree path"))
+            response = self._call("worker-start", "--task", task_id, "--worktree", "path:" + worker_path, "--agent", "codex")
             worker = self._authoritative_worker(response, plan, receipt, _text(action.get("key"), "idempotency key"), task_id=task_id)
             if worker.get("run_id") != run_id:
                 raise AdapterError("uncorrelated Orca run receipt")
