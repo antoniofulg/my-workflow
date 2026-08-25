@@ -126,9 +126,25 @@ def _nested_terminal_handle(value: Mapping[str, Any]) -> Any:
     for key in ("worker", "terminal", "terminalResource", "terminal_resource", "dispatch", "result"):
         nested = value.get(key)
         if isinstance(nested, Mapping):
+            if key in {"terminal", "terminalResource", "terminal_resource"} and "handle" in nested:
+                return nested["handle"]
             handle = _nested_terminal_handle(nested)
             if handle is not None:
                 return handle
+    return None
+
+
+def _nested_terminal_state(value: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    for key in ("terminal", "terminalResource", "terminal_resource"):
+        nested = value.get(key)
+        if isinstance(nested, Mapping):
+            return nested
+    for key in ("worker", "dispatch", "result"):
+        nested = value.get(key)
+        if isinstance(nested, Mapping):
+            state = _nested_terminal_state(nested)
+            if state is not None:
+                return state
     return None
 
 
@@ -268,6 +284,49 @@ class OrcaAdapter:
 
     def _call(self, *arguments: str, timeout: float | None = None) -> dict[str, Any]:
         return self._json_call([self.executable, "orchestration", *arguments, "--json"], timeout=timeout)
+
+    def _reconcile_tab_not_found_release(
+        self, dispatch_id: str, terminal_handle: str, action_key: str, error: AdapterError
+    ) -> dict[str, Any]:
+        post = self._call("worker-show", "--dispatch", dispatch_id)
+        actual_dispatch = post.get("dispatch_id") or post.get("dispatchId")
+        try:
+            actual_dispatch = _opaque_token(actual_dispatch, "dispatch id")
+        except AdapterError:
+            actual_dispatch = None
+        post_terminal = _nested_terminal_handle(post)
+        try:
+            post_terminal = _opaque_token(post_terminal, "terminal handle")
+        except AdapterError:
+            post_terminal = None
+        terminal_state = _nested_terminal_state(post)
+        post_status = post.get("status") or post.get("state")
+        if (
+            actual_dispatch != dispatch_id
+            or post_terminal != terminal_handle
+            or post_status not in {"failed", "stopped", "abandoned", "released"}
+            or not isinstance(terminal_state, Mapping)
+            or terminal_state.get("status") != "exited"
+            or terminal_state.get("connected") is not False
+            or terminal_state.get("writable") is not False
+        ):
+            raise AdapterError(
+                "Orca dispatch release remains unknown",
+                details={"code": "release_unknown", "dispatch_id": dispatch_id, "terminal_handle": terminal_handle},
+            ) from error
+        self._revoked_dispatches.add(dispatch_id)
+        return {
+            "released": True,
+            "reconciled": True,
+            "reason": "tab_not_found",
+            "error": "tab_not_found",
+            "release_error": "tab_not_found",
+            "dispatch_id": dispatch_id,
+            "terminal_handle": terminal_handle,
+            "terminal_status": "exited",
+            "connected": False,
+            "writable": False,
+        }
 
     def _discover_worktree(self, path: str) -> str:
         expected = Path(path).resolve()
@@ -682,7 +741,12 @@ class OrcaAdapter:
                 code = "worker_outcome_unknown" if status in {None, "unknown", "outcome_unknown"} else "worker_still_live"
                 raise AdapterError("Orca worker dispatch is not reclaimable", details={"code": code, "dispatch_id": dispatch_id, "status": status or "unknown"})
             if not release_accepted:
-                release = self._release({"idempotency_key": _text(action.get("key"), "idempotency key") + ":recovery-release", "dispatch_id": dispatch_id})
+                try:
+                    release = self._release({"idempotency_key": _text(action.get("key"), "idempotency key") + ":recovery-release", "dispatch_id": dispatch_id})
+                except AdapterError as exc:
+                    if exc.details.get("code") != "tab_not_found":
+                        raise
+                    release = self._reconcile_tab_not_found_release(dispatch_id, authoritative_terminal, action_key, exc)
                 partial["recovery_release"] = dict(release)
             worker_path = self._discover_worktree(_text(receipt.get("worktree_path"), "worktree path"))
             response = self._call(

@@ -410,6 +410,59 @@ def test_restart_persists_authoritative_terminal_before_release_and_replays_idem
         shutil.rmtree(root)
 
 
+def test_tab_not_found_release_reconciles_exited_terminal_and_retries_once() -> None:
+    root, lane, worktree = fixture()
+    dispatch_id = "ctx_5f619d0f6298"
+    terminal = "term_2dcb9465-d91c-4260-baa3-b92859412439"
+    def show(*, status: str, connected: bool, writable: bool, handle: str = terminal) -> dict[str, object]:
+        return {"result": {"dispatch": {"id": dispatch_id, "status": status}, "terminal": {"handle": handle, "status": "exited", "connected": connected, "writable": writable}}}
+    tab_error = subprocess.CalledProcessError(
+        1, ["orca", "orchestration", "worker-release"],
+        output=json.dumps({"ok": False, "error": {"code": "tab_not_found", "dispatch": {"id": dispatch_id}, "terminal": {"handle": terminal}}}),
+    )
+    try:
+        worker = {**worker_payload(worktree), "dispatch_id": dispatch_id, "terminal_handle": terminal}
+        action = {"action": "worker", "key": KEY, "partial_effect": {"run_id": "run-A", "task_id": "task-A", "dispatch_id": dispatch_id, "terminal_handle": terminal}, "worker_plan": lane, "worktree_receipt": worktree}
+        cli = RecordingCLI([show(status="failed", connected=True, writable=True), tab_error, show(status="failed", connected=False, writable=False), {"worktree_path": worktree["worktree_path"]}, worker])
+        adapter_instance = adapter(root, cli)
+        receipt = adapter_instance.reconcile_action(action)
+        release = action["partial_effect"]["recovery_release"]  # type: ignore[index]
+        assert release["released"] is True and release["reconciled"] is True and release["reason"] == "tab_not_found"
+        assert receipt is not None and receipt["run_id"] == "run-A" and receipt["task_id"] == "task-A"
+        assert [call[0][2] for call in cli.calls] == ["worker-show", "worker-release", "worker-show", "show", "worker-start"]
+        assert cli.calls[-1][0][cli.calls[-1][0].index("--retry-of") + 1] == dispatch_id
+        assert adapter_instance.reconcile_action(action) == receipt
+        assert len(cli.calls) == 5
+    finally:
+        shutil.rmtree(root)
+
+
+def test_tab_not_found_postcheck_live_unknown_or_mismatched_blocks_retry() -> None:
+    cases = (
+        {"status": "failed", "connected": True, "writable": True},
+        {"status": "failed", "connected": False, "writable": True},
+        {"status": "failed", "connected": False, "writable": False, "handle": "term-other"},
+        {"status": "unknown", "connected": False, "writable": False},
+    )
+    for post in cases:
+        root, lane, worktree = fixture()
+        dispatch_id = "ctx_5f619d0f6298"
+        terminal = "term_2dcb9465-d91c-4260-baa3-b92859412439"
+        try:
+            show = lambda status, connected, writable, handle=terminal: {"result": {"dispatch": {"id": dispatch_id, "status": status}, "terminalHandle": handle, "terminal": {"handle": handle, "status": "exited", "connected": connected, "writable": writable}}}
+            tab_error = subprocess.CalledProcessError(1, ["orca", "worker-release"], output=json.dumps({"ok": False, "error": {"code": "tab_not_found", "dispatch": {"id": dispatch_id}}}))
+            cli = RecordingCLI([show("failed", True, True), tab_error, show(post["status"], post["connected"], post["writable"], post.get("handle", terminal))])
+            try:
+                adapter(root, cli).reconcile_action({"action": "worker", "key": KEY, "partial_effect": {"run_id": "run-A", "task_id": "task-A", "dispatch_id": dispatch_id, "terminal_handle": terminal}, "worker_plan": lane, "worktree_receipt": worktree})
+            except orca_adapter.AdapterError as exc:
+                assert exc.details["code"] == "release_unknown"
+            else:
+                raise AssertionError("ambiguous tab_not_found post-check must block retry")
+            assert [call[0][2] for call in cli.calls] == ["worker-show", "worker-release", "worker-show"]
+        finally:
+            shutil.rmtree(root)
+
+
 def test_malformed_nested_persisted_dispatch_id_halts_before_worker_show_mutation() -> None:
     root, lane, worktree = fixture()
     try:
