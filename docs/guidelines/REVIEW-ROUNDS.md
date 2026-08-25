@@ -17,7 +17,7 @@ Every nitpick changes the diff, so the next round finds new nitpicks. The loop i
 
 | Stage | Asks | Cap |
 | --- | --- | --- |
-| **Technical Verifier** (every slice that changes code) | Do the tests actually prove the acceptance criteria? | ≤3 fix rounds, then escalate to the human |
+| **Technical Verifier** (every feature slice that changes code) | Do the tests actually prove the acceptance criteria? | ≤3 fix rounds, then escalate to the human |
 | **QA Plan** (public slices) | Which public promises need a walk? | One fresh Verifier session |
 | **QA Execute** (public slices) | Does this behaviour work through the declared adapter? | One fresh Verifier session |
 | **deep-review** (resolved implementation groups) | Is the code correct, safe and maintainable? | ≤2 rounds, blocking findings only |
@@ -26,7 +26,7 @@ The provider `verifier` executes exactly one phase per packet: `technical`, `qa-
 `qa-execute`. The orchestrator dispatches a technical packet, then fresh QA Plan and QA Execute
 packets for a public slice. Deep-review is a separate orchestrator stage, not a Verifier phase;
 internal-only changes skip the QA packets. All QA stages read `docs/guidelines/QA-SCENARIOS.md`; it owns
-fields and statuses. Each stage answers a question the others cannot, so none is redundant.
+fields and statuses. Each stage answers a question the others cannot, so none is redundant. Direct corrections follow `.agents/skills/tlc-spec-driven/SKILL.md`: scoped validation closes them, with no fresh Verifier, deep-review, or QA.
 
 ## Why resolved groups, not a rigid interval
 
@@ -78,7 +78,7 @@ identity and buys the same independence.
    The ai-memory handoff is operator continuity, not reviewer context. Verifier and Deep Reviewer are
    internal named subagents: they receive explicit role packets and must not consume an Implementer
    handoff. A top-level reviewer may consume an ai-memory handoff only when no pending Implementer handoff can be consumed.
-8. **A documentation-only change is not an exception.** What a second reader buys is a second reading,
+8. **A documentation-only feature slice is not an exception.** What a second reader buys is a second reading,
    and a document no tool parses can be as wrong as one that ten do — `docs/` is full of Markdown that
    agents act on.
 8. **A passing verdict on a failing tree is void.** Re-run the scoped gate after remediation; a green
