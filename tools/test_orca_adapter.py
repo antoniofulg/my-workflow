@@ -465,22 +465,33 @@ def test_tab_not_found_postcheck_live_unknown_or_mismatched_blocks_retry() -> No
         {"status": "failed", "connected": False, "writable": True},
         {"status": "failed", "connected": False, "writable": False, "handle": "term-other"},
         {"status": "unknown", "connected": False, "writable": False},
+        {"status": "failed", "connected": False, "writable": False, "post_dispatch": None},
+        {"status": "failed", "connected": False, "writable": False, "post_dispatch": "ctx_foreign"},
     )
     for post in cases:
         root, lane, worktree = fixture()
         dispatch_id = "ctx_5f619d0f6298"
         terminal = "term_2dcb9465-d91c-4260-baa3-b92859412439"
         try:
-            show = lambda status, connected, writable, handle=terminal: {"result": {"dispatch": {"id": dispatch_id, "status": status}, "terminalHandle": handle, "terminal": {"handle": handle, "status": "exited", "connected": connected, "writable": writable}}}
+            def show(status, connected, writable, handle=terminal, post_dispatch=dispatch_id):
+                dispatch = {"status": status}
+                if post_dispatch is not None:
+                    dispatch["id"] = post_dispatch
+                return {"result": {"dispatch": dispatch, "terminalHandle": handle, "terminal": {"handle": handle, "status": "exited", "connected": connected, "writable": writable}}}
+
             tab_error = subprocess.CalledProcessError(1, ["orca", "worker-release"], output=json.dumps({"ok": False, "error": {"code": "tab_not_found", "dispatch": {"id": dispatch_id}}}))
-            cli = RecordingCLI([show("failed", True, True), tab_error, show(post["status"], post["connected"], post["writable"], post.get("handle", terminal))])
+            cli = RecordingCLI([show("failed", True, True), tab_error, show(post["status"], post["connected"], post["writable"], post.get("handle", terminal), post.get("post_dispatch", dispatch_id))])
+            action = {"action": "worker", "key": KEY, "partial_effect": {"run_id": "run-A", "task_id": "task-A", "dispatch_id": dispatch_id, "terminal_handle": terminal}, "worker_plan": lane, "worktree_receipt": worktree}
+            worker = adapter(root, cli)
             try:
-                adapter(root, cli).reconcile_action({"action": "worker", "key": KEY, "partial_effect": {"run_id": "run-A", "task_id": "task-A", "dispatch_id": dispatch_id, "terminal_handle": terminal}, "worker_plan": lane, "worktree_receipt": worktree})
+                worker.reconcile_action(action)
             except orca_adapter.AdapterError as exc:
                 assert exc.details["code"] == "release_unknown"
             else:
                 raise AssertionError("ambiguous tab_not_found post-check must block retry")
             assert [call[0][2] for call in cli.calls] == ["worker-show", "worker-release", "worker-show"]
+            assert "recovery_release" not in action["partial_effect"]
+            assert dispatch_id not in worker._revoked_dispatches
         finally:
             shutil.rmtree(root)
 
