@@ -196,6 +196,8 @@ _STATE_ALIASES = {
     "releaseCompletedAt": ("releaseCompletedAt", "release_completed_at"),
 }
 _PASSTHROUGH_ALIASES = {
+    "objective": ("objective",),
+    "spec": ("spec",),
     "feature": ("feature",),
     "slice": ("slice",),
     "task": ("task",),
@@ -232,10 +234,6 @@ def _canonical_candidates(value: Mapping[str, Any]) -> dict[str, list[Any]]:
                 candidates["terminal_handle"].append(item)
             if isinstance(item, Mapping):
                 visit(item, name)
-            elif isinstance(item, list):
-                for child in item:
-                    if isinstance(child, Mapping):
-                        visit(child, name)
 
     visit(value)
     return {**candidates, **states, **passthrough}
@@ -296,6 +294,27 @@ def _is_identity_unproven_release(value: Mapping[str, Any]) -> bool:
     state = value.get("releaseState") or value.get("release_state") or value.get("status") or value.get("state")
     reason = value.get("retainedReason") or value.get("retained_reason") or value.get("reason")
     return state == "retained" and reason == "identity_unproven"
+
+
+def _scoped_identifier(value: Mapping[str, Any], field: str, container: str) -> Any:
+    aliases = (field, field.replace("_", ""), field.replace("_", "Id"))
+    for alias in aliases:
+        if alias in value:
+            return value[alias]
+    nested = value.get(container)
+    if isinstance(nested, Mapping):
+        for alias in aliases:
+            if alias in nested:
+                return nested[alias]
+        return nested.get("id")
+    return None
+
+
+def _scoped_field(value: Mapping[str, Any], field: str, container: str) -> Any:
+    if field in value:
+        return value[field]
+    nested = value.get(container)
+    return nested.get(field) if isinstance(nested, Mapping) else None
 
 
 def _payload(value: Any) -> dict[str, Any]:
@@ -478,8 +497,9 @@ class OrcaAdapter:
             raise AdapterError("malformed Orca run list")
         matches: list[str] = []
         for run in runs:
-            if isinstance(run, Mapping) and run.get("objective") == objective:
-                matches.append(_text(run.get("id") or run.get("run_id") or run.get("runId"), "run id"))
+            if isinstance(run, Mapping) and _scoped_field(run, "objective", "run") == objective:
+                run_id = _scoped_identifier(run, "run_id", "run")
+                matches.append(_opaque_token(run_id, "run id"))
         if len(matches) > 1:
             raise AdapterError("multiple matching Orca runs")
         return matches[0] if matches else None
@@ -490,9 +510,10 @@ class OrcaAdapter:
         if run_id is not None:
             return run_id
         response = self._call("run-create", "--objective", objective)
-        if response.get("objective") not in (None, objective):
+        response_objective = _scoped_field(response, "objective", "run")
+        if response_objective != objective:
             raise AdapterError("uncorrelated Orca run receipt")
-        return _text(response.get("id") or response.get("run_id") or response.get("runId"), "run id")
+        return _opaque_token(_scoped_identifier(response, "run_id", "run"), "run id")
 
     def _find_task(self, run_id: str, spec: str) -> str | None:
         response = self._call("task-list", "--run", run_id)
@@ -501,11 +522,11 @@ class OrcaAdapter:
             raise AdapterError("malformed Orca task list")
         matches: list[str] = []
         for task in tasks:
-            if isinstance(task, Mapping) and task.get("spec") == spec:
-                task_run = task.get("run_id") or task.get("runId")
+            if isinstance(task, Mapping) and _scoped_field(task, "spec", "task") == spec:
+                task_run = _scoped_identifier(task, "run_id", "run")
                 if task_run is not None and task_run != run_id:
                     raise AdapterError("uncorrelated Orca task receipt")
-                matches.append(_text(task.get("id") or task.get("task_id") or task.get("taskId"), "task id"))
+                matches.append(_opaque_token(_scoped_identifier(task, "task_id", "task"), "task id"))
         if len(matches) > 1:
             raise AdapterError("multiple matching Orca tasks")
         return matches[0] if matches else None
@@ -518,10 +539,13 @@ class OrcaAdapter:
         if task_id is not None:
             return task_id
         response = self._call("task-create", "--run", run_id, "--spec", spec)
-        response_run = response.get("run_id") or response.get("runId")
+        response_run = _scoped_identifier(response, "run_id", "run")
         if response_run not in (None, run_id):
             raise AdapterError("uncorrelated Orca task receipt")
-        return _text(response.get("id") or response.get("task_id") or response.get("taskId"), "task id")
+        response_spec = _scoped_field(response, "spec", "task")
+        if response_spec != spec:
+            raise AdapterError("uncorrelated Orca task receipt")
+        return _opaque_token(_scoped_identifier(response, "task_id", "task"), "task id")
 
     def _validate_worker(
         self,

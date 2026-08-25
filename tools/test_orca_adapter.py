@@ -76,9 +76,9 @@ def adapter(root: Path, cli: RecordingCLI) -> orca_adapter.OrcaAdapter:
 def start_responses(worktree: dict[str, str]) -> list[object]:
     return [
         {"runs": []},
-        {"id": "run-A", "objective": "parallel-slice:fixture:" + KEY},
+        {"id": "request-run-create", "result": {"run": {"id": "run-A", "objective": "parallel-slice:fixture:" + KEY}}},
         {"tasks": []},
-        {"id": "task-A", "run_id": "run-A", "spec": "parallel-slice:fixture:A:T1:" + KEY},
+        {"id": "request-task-create", "result": {"task": {"id": "task-A", "run_id": "run-A", "spec": "parallel-slice:fixture:A:T1:" + KEY}}},
         {"worktree_path": worktree["worktree_path"]},
         worker_payload(worktree),
     ]
@@ -129,6 +129,88 @@ def test_start_attaches_existing_worktree_and_correlates_every_receipt_field() -
         assert receipt["pre_head"] == HEAD
         assert receipt["idempotency_key"] == KEY
         assert receipt["status"] == "running"
+    finally:
+        shutil.rmtree(root)
+
+
+def test_r11_generic_operation_ids_are_ignored_for_scoped_run_and_task_identity() -> None:
+    root, lane, worktree = fixture()
+    run_id = "run_658585e3a862"
+    task_id = "task_78fcfca161b8"
+    objective = "parallel-slice:fixture:" + KEY
+    spec = "parallel-slice:fixture:A:T1:" + KEY
+    try:
+        cli = RecordingCLI([
+            {"runs": []},
+            {"id": "bbcfd-request", "requestId": "request-A", "mutation": {"requestId": "request-A"}, "result": {"run": {"id": run_id, "objective": objective}}},
+            {"tasks": []},
+            {"id": "operation-task", "requestId": "request-B", "result": {"task": {"id": task_id, "run_id": run_id, "spec": spec}}},
+            {"worktree_path": worktree["worktree_path"]},
+            {**worker_payload(worktree), "run_id": run_id, "task_id": task_id, "orchestration_task_id": task_id},
+        ])
+        receipt = adapter(root, cli).start_worker(lane, worktree, idempotency_key=KEY)
+        assert receipt["run_id"] == run_id and receipt["task_id"] == task_id
+        worker_call = cli.calls[-1][0]
+        assert worker_call[worker_call.index("--task") + 1] == task_id
+        assert worker_call[worker_call.index("--task") + 1] != "operation-task"
+    finally:
+        shutil.rmtree(root)
+
+
+def test_r11_generic_or_missing_scoped_ids_halt_before_downstream_effects() -> None:
+    root, lane, worktree = fixture()
+    objective = "parallel-slice:fixture:" + KEY
+    spec = "parallel-slice:fixture:A:T1:" + KEY
+    try:
+        generic_run = RecordingCLI([{"runs": []}, {"id": "request-only", "requestId": "request-A"}])
+        try:
+            adapter(root, generic_run).start_worker(lane, worktree, idempotency_key=KEY)
+        except orca_adapter.AdapterError:
+            pass
+        else:
+            raise AssertionError("generic run operation id must not become Run identity")
+        assert [call[0][2] for call in generic_run.calls] == ["run-list", "run-create"]
+
+        generic_task = RecordingCLI([
+            {"runs": []}, {"result": {"run": {"id": "run-A", "objective": objective}}},
+            {"tasks": []}, {"id": "request-only", "requestId": "request-B"},
+        ])
+        try:
+            adapter(root, generic_task).start_worker(lane, worktree, idempotency_key=KEY)
+        except orca_adapter.AdapterError:
+            pass
+        else:
+            raise AssertionError("generic task operation id must not become Task identity")
+        assert [call[0][2] for call in generic_task.calls] == ["run-list", "run-create", "task-list", "task-create"]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_r11_scoped_run_and_task_conflicts_halt_before_worker_effect() -> None:
+    root, lane, worktree = fixture()
+    objective = "parallel-slice:fixture:" + KEY
+    spec = "parallel-slice:fixture:A:T1:" + KEY
+    try:
+        conflict_run = RecordingCLI([{"runs": []}, {"result": {"run": {"id": "run-B", "objective": objective}}, "run_id": "run-A"}])
+        try:
+            adapter(root, conflict_run).start_worker(lane, worktree, idempotency_key=KEY)
+        except orca_adapter.AdapterError as exc:
+            assert exc.details["code"] == "correlation_conflict"
+        else:
+            raise AssertionError("conflicting scoped Run identities must halt")
+        assert [call[0][2] for call in conflict_run.calls] == ["run-list", "run-create"]
+
+        conflict_task = RecordingCLI([
+            {"runs": []}, {"result": {"run": {"id": "run-A", "objective": objective}}}, {"tasks": []},
+            {"result": {"task": {"id": "task-B", "run_id": "run-A", "spec": spec}}, "task_id": "task-A"},
+        ])
+        try:
+            adapter(root, conflict_task).start_worker(lane, worktree, idempotency_key=KEY)
+        except orca_adapter.AdapterError as exc:
+            assert exc.details["code"] == "correlation_conflict"
+        else:
+            raise AssertionError("conflicting scoped Task identities must halt")
+        assert [call[0][2] for call in conflict_task.calls] == ["run-list", "run-create", "task-list", "task-create"]
     finally:
         shutil.rmtree(root)
 
@@ -1198,7 +1280,7 @@ def test_duplicate_matching_runs_tasks_and_unknown_worker_fields_halt() -> None:
     root, lane, worktree = fixture()
     try:
         objective = "parallel-slice:fixture:" + KEY
-        duplicate_runs = [{"id": "run-A", "objective": objective}, {"id": "run-B", "objective": objective}]
+        duplicate_runs = [{"run": {"id": "run-A"}, "objective": objective}, {"run": {"id": "run-B"}, "objective": objective}]
         cli = RecordingCLI([{"runs": duplicate_runs}])
         try:
             adapter(root, cli).start_worker(lane, worktree, idempotency_key=KEY)
@@ -1207,9 +1289,9 @@ def test_duplicate_matching_runs_tasks_and_unknown_worker_fields_halt() -> None:
         else:
             raise AssertionError("duplicate matching runs must halt")
 
-        duplicate_tasks = [{"id": "task-A", "run_id": "run-A", "spec": "parallel-slice:fixture:A:T1:" + KEY}, {"id": "task-B", "run_id": "run-A", "spec": "parallel-slice:fixture:A:T1:" + KEY}]
+        duplicate_tasks = [{"task": {"id": "task-A"}, "run_id": "run-A", "spec": "parallel-slice:fixture:A:T1:" + KEY}, {"task": {"id": "task-B"}, "run_id": "run-A", "spec": "parallel-slice:fixture:A:T1:" + KEY}]
         cli = RecordingCLI([
-            {"runs": []}, {"id": "run-A", "objective": objective}, {"tasks": duplicate_tasks},
+            {"runs": []}, {"run": {"id": "run-A"}, "objective": objective}, {"tasks": duplicate_tasks},
         ])
         try:
             adapter(root, cli).start_worker(lane, worktree, idempotency_key=KEY)
