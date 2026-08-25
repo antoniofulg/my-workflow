@@ -113,23 +113,37 @@ def helper_script(path: Path, *, overlap: bool = False) -> None:
 
 def retry_helper_script(path: Path) -> None:
     path.write_text(
-        "import json, os, pathlib, sys, time\n"
-        "prompt, output, label, calls, state_dir, active, overlap = sys.argv[1:]\n"
+        "import fcntl, json, pathlib, sys, time\n"
+        "prompt, output, label, calls, state_dir, active, overlap, barrier = sys.argv[1:]\n"
         "state = pathlib.Path(state_dir) / label\n"
         "attempt = int(state.read_text()) + 1 if state.exists() else 1\n"
         "state.parent.mkdir(parents=True, exist_ok=True)\n"
         "state.write_text(str(attempt))\n"
-        "if os.path.exists(active): open(overlap, 'w', encoding='utf-8').close()\n"
-        "open(active, 'w', encoding='utf-8').close()\n"
+        "def change(path, delta):\n"
+        "    with open(path, 'a+', encoding='utf-8') as stream:\n"
+        "        fcntl.flock(stream, fcntl.LOCK_EX)\n"
+        "        stream.seek(0); current = int(stream.read() or '0') + delta\n"
+        "        stream.seek(0); stream.truncate(); stream.write(str(current)); stream.flush()\n"
+        "        fcntl.flock(stream, fcntl.LOCK_UN)\n"
+        "    return current\n"
+        "if attempt == 1:\n"
+        "    with open(barrier, 'a+', encoding='utf-8') as stream:\n"
+        "        fcntl.flock(stream, fcntl.LOCK_EX)\n"
+        "        stream.seek(0); ready = int(stream.read() or '0') + 1\n"
+        "        stream.seek(0); stream.truncate(); stream.write(str(ready)); stream.flush()\n"
+        "        if ready >= 2: pathlib.Path(barrier + '.go').touch()\n"
+        "        fcntl.flock(stream, fcntl.LOCK_UN)\n"
+        "    deadline = time.monotonic() + 5\n"
+        "    while not pathlib.Path(barrier + '.go').exists():\n"
+        "        if time.monotonic() >= deadline: raise RuntimeError('retry test barrier timeout')\n"
+        "        time.sleep(0.01)\n"
+        "if change(active, 1) > 1: pathlib.Path(overlap).touch()\n"
         "with open(calls, 'a', encoding='utf-8') as stream: stream.write(f'{label}:{attempt}\\n')\n"
         "time.sleep(0.2)\n"
+        "change(active, -1)\n"
         "if attempt == 1:\n"
-        "    try: os.unlink(active)\n"
-        "    except FileNotFoundError: pass\n"
         "    raise SystemExit(1)\n"
-        "json.dump({'defects': [], 'advisories': [], 'suppressions': [], 'coverage': {'hunks': [], 'rules': []}}, open(output, 'w', encoding='utf-8'))\n"
-        "try: os.unlink(active)\n"
-        "except FileNotFoundError: pass\n",
+        "json.dump({'defects': [], 'advisories': [], 'suppressions': [], 'coverage': {'hunks': [], 'rules': []}}, open(output, 'w', encoding='utf-8'))\n",
         encoding="utf-8",
     )
 
@@ -586,6 +600,7 @@ class TokenMetricsTests(unittest.TestCase):
             db, out, jobs = root / "codex.sqlite", REPO / ".deep-review/metrics-retries", root / "jobs.json"
             calls, state_dir, ledger = root / "calls", root / "attempts", root / "metrics.json"
             active, overlap = root / "active", root / "overlap"
+            barrier = root / "barrier"
             shutil.rmtree(out, ignore_errors=True)
             create_db(db)
             write_jobs(jobs, ".deep-review/metrics-retries")
@@ -593,7 +608,7 @@ class TokenMetricsTests(unittest.TestCase):
             retry_helper_script(helper)
             try:
                 result = subprocess.run(
-                    runner(out, jobs, helper, calls, db=db, ledger=ledger, extra=["--attempts", "2"], helper_suffix=[state_dir, active, overlap]),
+                    runner(out, jobs, helper, calls, db=db, ledger=ledger, extra=["--attempts", "2"], helper_suffix=[state_dir, active, overlap, barrier]),
                     cwd=REPO, capture_output=True, text=True,
                 )
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
