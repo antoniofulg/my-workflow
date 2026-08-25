@@ -986,3 +986,57 @@ were restored.
 ### Ranked Gaps
 
 None for this technical remediation. QA retest remains outside this packet.
+
+## Orca worktree discovery race technical verification
+
+**Date:** 2026-08-25  
+**Diff range:** `6b3f1f05f4673a9a801fd621fd8ddd327a1cd1f3..2fb2f4197404a46c9b604ab88a5d5fa395a7ecb1`  
+**Verifier:** independent Technical Verifier (author != verifier)  
+**Verdict:** PASS. Discovery is bounded, tolerates eventual Orca visibility, and precedes exactly
+one worker start. Exhaustion preserves the accepted Run/Task selectors and produces no worker
+effect; reconciliation reuses those selectors.
+
+### Spec-anchored outcomes
+
+| Criterion | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| EXE-06 / SEC-004 discovery boundary | The adapter resolves the persisted checkout and proves Orca can address it before dispatch. | `tools/test_orca_adapter.py:112-130` asserts `show` precedes `worker-start` and the worker receives the exact resolved path; `:170-181` asserts eventual visibility after `selector_not_found`. | PASS |
+| EXE-07 eventual visibility | A ready checkout may become visible within the bounded discovery window, after which exactly one correlated worker starts. | `tools/test_orca_adapter.py:170-181` asserts two `show` calls, one `worker-start`, and `dispatch_id == "dispatch-A"`. | PASS |
+| EXE-11 bounded failure | Exhausted discovery halts before replacement dispatch and retains decisive recovery selectors. | `tools/test_orca_adapter.py:186-203` asserts `run_id == "run-A"`, `task_id == "task-A"`, stage `worktree-discovery`, attempts `3`, and zero `worker-start` calls. | PASS |
+| EXE-04 retry idempotency | Retry reuses the accepted Run/Task partial effect and does not recreate either selector or duplicate worker effects. | `tools/test_orca_adapter.py:135-165` asserts structured failure retains/redacts Run/Task and reconciliation starts with exact `task-A`; `:208-216` asserts repeated accepted start returns the cached receipt with six total effects. | PASS |
+
+**Spec-anchored status:** 4 PASS, 0 FAIL, 0 spec-precision gaps in this remediation scope.
+
+### Gate evidence
+
+- `python3 tools/test_orca_adapter.py` -> exit 0, 24 passed, 0 failed.
+- `python3 tools/test_parallel_executor.py` -> exit 0, 43 passed, 0 failed.
+- `npm_config_offline=true npm run test:all` -> exit 0: 110 Vitest tests in 9 files plus all 174
+  named tests across 12 Python suites passed; 0 failed/skipped. Python count command:
+  `rg -c '^\s*def test_' tools/test_*.py | awk -F: '{sum += $2} END {print sum}'`.
+- Strict spec/tasks validators -> 0 errors, 0 warnings. AD index current; `git diff --check`
+  passed.
+- No real Orca QA was run. Existing 113 `docs/qa/**` files and the 14-path porcelain baseline
+  remained byte-identical through verification and sensor cleanup.
+
+### Discrimination sensor
+
+One detached temporary worktree at commit `2fb2f4197404a46c9b604ab88a5d5fa395a7ecb1` was removed
+after all mutations. The real checkout porcelain and `docs/qa/**` hashes matched their baselines.
+
+| Mutation | Directed result | Outcome |
+| --- | --- | --- |
+| Reduce discovery attempts from 3 to 1. | Adapter suite exited 1 in `test_worktree_discovery_retries_selector_visibility_before_one_worker_start`. | KILLED |
+| Reject the exact discovered worktree path. | Adapter suite exited 1 with `uncorrelated Orca worktree discovery`. | KILLED |
+| Drop Run/Task selectors from the structured discovery-timeout receipt. | Adapter suite exited 1 at `tools/test_orca_adapter.py:197`, missing `run_id`. | KILLED |
+
+**Sensor:** lightweight, 3 mutations, 3 killed, 0 survived. PASS.
+
+### Fingerprint accounting
+
+No blocker or surviving mutant was found, so no new fingerprint was opened and no existing
+failed-remediation count changed. Existing ledger entries remain closed at their historical counts.
+
+### Ranked gaps
+
+None for this technical remediation. Fresh real Orca QA remains outside this packet.
