@@ -1,6 +1,6 @@
 # Parallel Slice Executor Validation
 
-**Verdict**: FAIL
+**Verdict**: PASS
 **Date:** 2026-08-24
 **Phase:** Technical Verification
 **Scope:** Slice A prior PASS retained; Slice B/T3 PASS retained; Slice C/T4R2 independently re-verified
@@ -810,6 +810,12 @@ resume, and requires lifecycle authorization before normal cleanup. `--abort-inc
 diagnostic-only path that refuses accepted or recoverable workers. No QA pass or author-run Orca
 result is claimed by this implementation.
 
+The lifecycle authorization control is now explicitly two-phase: public
+`lifecycle-check --root <fixture>` writes the digest-bound authorization, and normal cleanup only
+reloads that pre-existing record before deletion. The canonical pilot test covers missing
+authorization, stale state after authorization, successful authorized cleanup, and diagnostic
+abort refusal for recoverable worker effects.
+
 ## T7R5 implementation evidence
 
 - `python3 tools/test_qa_parallel_pilot.py`: 6 tests passed, 0 failed; the ownership matrix covers root, feature, missing, extra, duplicate, outside, and reordered worktree values through subprocess cleanup.
@@ -875,3 +881,108 @@ None for Slice D technical verification.
 **Overall:** PASS for Slice D technical verification after T7R5. Grouped C-D deep-review, the real
 Orca E2E-001 pilot, QA Plan, QA Execute, and final feature closure remain pending and are outside
 this verdict.
+
+## QA remediation independent technical verification
+
+**Date:** 2026-08-24
+**Diff range:** `f7a1f366^..f7a1f366`
+**Verifier:** independent Technical Verifier (author != verifier)
+**Verdict:** FAIL. Shared-repository setup and structured Orca partial-effect recovery pass, but
+the lifecycle-authorization control is not discriminated and remains unsafe to accept as proven.
+No real Orca run was performed in this technical phase.
+
+### Spec-Anchored Acceptance Criteria
+
+| Criterion | Spec-defined outcome | `file:line` + assertion/probe | Result |
+| --- | --- | --- | --- |
+| E2E-001 / EXE-06 shared repository | Setup commits fixture task metadata before freezing HEAD; source and child lanes are registered worktrees of the exact current-project Git common directory. | `tools/qa_parallel_pilot.py:53-94`; `tools/test_qa_parallel_pilot.py:23-52` asserts common-directory identity, committed task visibility, and frozen child HEAD. | PASS |
+| EXE-11 / SEC-006 structured Orca failure | A nonzero structured worker-start failure retains bounded redacted code, stage, residuals, Run and Task; resume exposes a pending action and reuses those IDs without duplicate creation. | `tools/test_orca_adapter.py:134-164` asserts redacted structured failure and exact Task reuse; `tools/test_parallel_executor.py:279-314` asserts pending partial effect, recoverable action, and successful reconciliation. Independent malformed/secret probe: 2 passed. | PASS |
+| E2E-001 / SEC-008 incomplete abort | Diagnostic abort refuses a pending accepted/recoverable worker, remains `cleaned: false`, and is idempotent when safe. | `tools/test_qa_parallel_pilot.py:130-152` asserts `worker-may-be-live` and source survival; `tools/test_qa_parallel_pilot.py:53-62` asserts diagnostic false-cleaned and idempotent retry. | PASS |
+| E2E-001 / SEC-008 lifecycle authorization | Normal cleanup must require exact two-lane terminal/read-ack-release proof plus persisted digest-bound authorization before any lane/source deletion; missing, stale, or tampered authorization has zero effects. | `tools/qa_parallel_pilot.py:343-388` derives and writes authorization, then immediately deletes. Removing only the pre-delete `_write_tombstone` at `:379` leaves `tools/test_qa_parallel_pilot.py` green at 9/9 while `:380-383` still deletes lane and source worktrees. | FAIL |
+
+**Spec-anchored status:** 3 PASS, 1 FAIL, 0 spec-precision gaps in remediation scope.
+
+### Gate Evidence
+
+- Directed: Orca adapter 21, executor 41, pilot 9, planner 18, IT-007 2; **91 passed, 0 failed**.
+- Full `npm run test:all`: 110 Vitest tests in 9 files plus all 12 discovered Python suites passed; 0 failed/skipped.
+- Strict spec/tasks validators: 0 errors, 0 warnings; AD index current; Python compile, `git diff --check f7a1f366^..f7a1f366`, and Conventional Commit validation passed.
+- Structured malformed/secret probe: 2 passed; invalid JSON reduced to return code, structured fields preserved, secret-shaped keys redacted, and oversized text bounded to 256 characters.
+- Preexisting dirty/untracked `docs/qa/**` artifacts retained byte-for-byte; no real Orca execution occurred.
+
+### Discrimination Sensor
+
+| Mutation | Directed result | Outcome |
+| --- | --- | --- |
+| Replace registered source worktree setup with standalone `git init`. | Pilot suite exited 1; common-directory/fixture execution failed. | KILLED |
+| Erase structured worker-start `partial_effect` persistence in coordinator. | Executor suite exited 1 at `tools/test_parallel_executor.py:309` with missing `partial_effect`. | KILLED |
+| Remove persisted digest-bound authorization write before lane/source deletion. | Pilot suite exited 0: 9 passed, 0 failed. | SURVIVED |
+
+**Sensor:** lightweight, 3 mutations, 2 killed, 1 survived. FAIL. Real-tree porcelain and registered
+worktree list returned to their pre-sensor baselines after scratch cleanup.
+
+### Fingerprint Accounting
+
+- `ac14ddc63c46bba3bae6cee000583abd3682ea59a8bee7c2146d4009f9fc43e9` opened at failed-remediation
+  count 1 for E2E-001/SEC-008. This is distinct from prior ownership-field and residual-retry
+  fingerprints: root cause is missing proof that durable lifecycle authorization precedes deletion.
+
+### Ranked Gap
+
+1. **Major / E2E-001, SEC-008.** Premise: `tools/qa_parallel_pilot.py:379-383` writes an authorization
+   and immediately begins destructive removal, while `tools/test_qa_parallel_pilot.py:86-123`
+   checks only final cleanup output. Path: remove or lose the pre-delete authorization write;
+   lane and source worktrees still delete, and all nine canonical pilot tests pass. Verdict: require
+   a digest-bound authorization receipt that is independently presented/read back before deletion,
+   and add missing/stale/tampered-authorization cases proving zero effects.
+
+**Overall:** FAIL for QA remediation technical verification. Real QA remains pending after local
+remediation and fresh technical verification.
+
+## QA remediation technical re-verification: persisted cleanup authorization
+
+**Date:** 2026-08-25
+**Diff range:** `d8c848e^..d8c848e`
+**Verifier:** independent Technical Verifier (author != verifier)
+**Verdict:** PASS. The public pilot now uses a two-phase protocol: `lifecycle-check --root` persists
+the exact digest-bound authorization, and a later normal `cleanup` consumes it. No real Orca run was
+performed. QA Execute remains pending.
+
+### Spec-Anchored Acceptance Criteria
+
+| Criterion | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| E2E-001 / SEC-008 authorization | Normal cleanup has zero deletion without prior authorization; `lifecycle-check` authorizes the exact complete two-lane lifecycle before cleanup. | `tools/test_qa_parallel_pilot.py:55-56` asserts missing authorization is rejected; `:94-116` builds the exact terminal/read/ack/release state and asserts public authorization succeeds. | PASS |
+| E2E-001 / SEC-008 stale or tampered binding | A stale or digest-tampered authorization cannot delete the source or lane worktrees. | `tools/test_qa_parallel_pilot.py:117-121` mutates authorized state and asserts rejection plus both worktrees remain. A scratch extension at `:115-124` replaced the persisted digest with 64 zeroes, asserted nonzero cleanup and both worktrees remained, then restored authorization; the full 9-case suite passed. | PASS |
+| E2E-001 / SEC-008 valid cleanup and restart | Valid authorization removes only the owned fixture/worktrees and repeated cleanup reports truthful idempotent success. | `tools/test_qa_parallel_pilot.py:124-133` asserts successful deletion, bound lane identity, and idempotent restart. | PASS |
+| E2E-001 / SEC-008 diagnostic abort | Incomplete/recoverable worker state remains diagnostic and cannot become normal success. | `tools/test_qa_parallel_pilot.py:140-157` asserts `worker-may-be-live` and source survival; `:251-299` asserts diagnostic retries remain `cleaned: false`, `aborted: true`, and idempotent after residual removal. | PASS |
+| EXE-11 / SEC-006 regression | Structured Orca failure and shared-repository setup remain covered. | `tools/test_orca_adapter.py:134-164` asserts bounded structured failure; `tools/test_qa_parallel_pilot.py:23-53` asserts source/child Git common-directory identity and committed task visibility. | PASS |
+
+**Spec-anchored status:** 5 PASS, 0 FAIL, 0 spec-precision gaps in this remediation scope.
+
+### Gate Evidence
+
+- `python3 tools/test_qa_parallel_pilot.py`: 9 passed, 0 failed.
+- Directed regressions: Orca adapter 21, executor 41, planner 18, IT-007 2; 82 passed, 0 failed.
+- `npm_config_offline=true npm run test:all`: exit 0; 110 Vitest tests in 9 files and all 12 discovered Python suites passed, 0 failed/skipped.
+- Strict spec/tasks validators: 0 errors, 0 warnings. AD index current; changed Python compiled; commit message and `git diff --check` passed.
+- Preexisting dirty/untracked `docs/qa/**` artifacts remained byte-identical. No real Orca execution occurred.
+
+### Discrimination Sensor
+
+| Mutation | Directed result | Outcome |
+| --- | --- | --- |
+| Remove `_write_tombstone(attestation, record)` from `authorize_lifecycle`, leaving the public command's success response but no durable authorization. | Canonical `python3 tools/test_qa_parallel_pilot.py` exited 1 at `tools/test_qa_parallel_pilot.py:125`; normal cleanup returned `cleanup-authorization-missing` before deletion. | KILLED |
+
+**Sensor:** lightweight, 1 mutation, 1 killed, 0 survived. PASS. The detached scratch worktree and
+all sensor-created pilot fixtures were removed; real-tree porcelain and registered-worktree baseline
+were restored.
+
+### Fingerprint Accounting
+
+- `ac14ddc63c46bba3bae6cee000583abd3682ea59a8bee7c2146d4009f9fc43e9` is closed at historical
+  failed-remediation count 1. The exact prior authorization-persistence mutant now dies.
+
+### Ranked Gaps
+
+None for this technical remediation. QA retest remains outside this packet.
