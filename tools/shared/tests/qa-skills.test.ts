@@ -234,7 +234,7 @@ describe("host-owned session continuation removal contract", () => {
       expect(status, `${relativePath} must declare qa_status`).toBeDefined();
       if (status === "pass") {
         const evidence = source.match(/^evidence:\s*(.+)$/m)?.[1] ?? "";
-        const report = source.match(/^report:\s*(.+)$/m)?.[1] ?? "";
+        const report = source.match(/^last_report:\s*(.+)$/m)?.[1] ?? "";
         expect(evidence, `${relativePath} pass requires evidence`).toMatch(freshEvidence);
         expect(report, `${relativePath} pass requires a v0.6 report`).toMatch(freshEvidence);
       } else {
