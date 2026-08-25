@@ -94,13 +94,17 @@ export const meta = {
 // args: { jobs: [{label, prompt, output}], concurrency?: integer } — PENDING jobs only
 phase('Execute')
 let returned = 0
-const pending = [...(args.jobs ?? [])]
-const requestedConcurrency = args?.concurrency ?? 3
-const resolvedConcurrency = Number.isInteger(requestedConcurrency) && requestedConcurrency >= 1 && requestedConcurrency <= 6
-  ? requestedConcurrency : 3
+const inputJobs = [...(args.jobs ?? [])]
+const pending = [...inputJobs]
+const requestedConcurrency = args?.concurrency
+if (requestedConcurrency !== undefined &&
+    (!Number.isInteger(requestedConcurrency) || requestedConcurrency < 1 || requestedConcurrency > 6)) {
+  throw new Error('concurrency must be an integer from 1 through 6')
+}
+const resolvedConcurrency = requestedConcurrency === undefined ? 3 : requestedConcurrency
 const workerLimit = Math.min(resolvedConcurrency, pending.length)
 const active = []
-const results = []
+const resultsByLabel = new Map()
 let providerBlock = null
 while (pending.length || active.length) {
   while (!providerBlock && pending.length && active.length < workerLimit) {
@@ -121,19 +125,18 @@ while (pending.length || active.length) {
   const finished = await Promise.race(active.map(({ promise }) => promise))
   const index = active.findIndex(({ label }) => label === finished.label)
   active.splice(index, 1)
-  results.push(finished)
+  resultsByLabel.set(finished.label, finished)
   if (finished.status === 'blocked' && providerBlock === null) providerBlock = finished
   if (finished.status === 'pass') returned += 1
 }
+const orderedJobs = inputJobs.map(({ label }) => resultsByLabel.get(label) ?? ({ label, status: 'pending' }))
+const unfinished = orderedJobs.filter(({ status }) => status !== 'pass')
 return {
-  dispatched: (args.jobs ?? []).length,
+  dispatched: inputJobs.length,
   returned,
-  jobs: results,
+  jobs: orderedJobs,
   blocker: providerBlock,
-  pending: [
-    ...pending.map(({ label }) => ({ label, status: 'pending' })),
-    ...results.filter(({ status }) => status === 'blocked'),
-  ],
+  pending: unfinished,
 }
 ```
 
