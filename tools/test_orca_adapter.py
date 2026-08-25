@@ -69,8 +69,8 @@ def worker_payload(worktree: dict[str, str], *, status: str = "running") -> dict
     }
 
 
-def adapter(root: Path, cli: RecordingCLI) -> orca_adapter.OrcaAdapter:
-    return orca_adapter.OrcaAdapter(root, "fixture", runner=cli)
+def adapter(root: Path, cli: RecordingCLI, **kwargs: object) -> orca_adapter.OrcaAdapter:
+    return orca_adapter.OrcaAdapter(root, "fixture", runner=cli, **kwargs)
 
 
 def start_responses(worktree: dict[str, str]) -> list[object]:
@@ -438,7 +438,7 @@ def test_worktree_discovery_retries_selector_visibility_before_one_worker_start(
             output=json.dumps({"ok": False, "error": {"code": "selector_not_found", "stage": "worktree-show"}}),
         )
         cli = RecordingCLI(start_responses(worktree)[:4] + [not_found, {"worktree_path": worktree["worktree_path"]}, worker_payload(worktree)])
-        receipt = adapter(root, cli).start_worker(lane, worktree, idempotency_key=KEY)
+        receipt = adapter(root, cli, sleep=lambda _: None).start_worker(lane, worktree, idempotency_key=KEY)
         assert receipt["dispatch_id"] == "dispatch-A"
         assert [call[0][2] for call in cli.calls].count("show") == 2
         assert [call[0][2] for call in cli.calls].count("worker-start") == 1
@@ -453,19 +453,58 @@ def test_worktree_discovery_timeout_preserves_run_task_and_never_starts_worker()
             1, ["orca", "worktree", "show"],
             output=json.dumps({"ok": False, "error": {"code": "selector_not_found", "stage": "worktree-show"}}),
         )
-        cli = RecordingCLI(start_responses(worktree)[:4] + [not_found, not_found, not_found])
+        cli = RecordingCLI(start_responses(worktree)[:4] + [not_found] * 8)
+        now = [0.0]
+        sleeps: list[float] = []
+
+        def clock() -> float:
+            return now[0]
+
+        def sleep(delay: float) -> None:
+            sleeps.append(delay)
+            now[0] += delay
+
         try:
-            adapter(root, cli).start_worker(lane, worktree, idempotency_key=KEY)
+            adapter(root, cli, clock=clock, sleep=sleep, discovery_timeout=1.0).start_worker(lane, worktree, idempotency_key=KEY)
         except orca_adapter.AdapterError as exc:
             assert exc.details["run_id"] == "run-A"
             assert exc.details["task_id"] == "task-A"
             assert exc.details["stage"] == "worktree-discovery"
-            assert exc.details["attempts"] == 3
+            assert exc.details["attempts"] == 5
+            assert exc.details["elapsed_ms"] == 1000
+            assert exc.details["selector"].startswith("path:")
+            assert sum(sleeps) <= 1.0
         else:
             raise AssertionError("bounded discovery timeout must fail safely")
         assert not any(call[0][2] == "worker-start" for call in cli.calls)
     finally:
         shutil.rmtree(root)
+
+
+def test_worktree_discovery_mismatch_malformed_and_permission_fail_immediately() -> None:
+    for discovery_response in (
+        {"worktree_path": "/tmp/foreign-worktree"},
+        {},
+        subprocess.CalledProcessError(
+            1, ["orca", "worktree", "show"],
+            output=json.dumps({"ok": False, "error": {"code": "permission_denied"}}),
+        ),
+    ):
+        root, lane, worktree = fixture()
+        try:
+            cli = RecordingCLI(start_responses(worktree)[:4] + [discovery_response])
+            sleeps: list[float] = []
+            try:
+                adapter(root, cli, sleep=sleeps.append).start_worker(lane, worktree, idempotency_key=KEY)
+            except orca_adapter.AdapterError:
+                pass
+            else:
+                raise AssertionError("non-selector discovery failure must halt immediately")
+            assert [call[0][2] for call in cli.calls].count("show") == 1
+            assert not sleeps
+            assert not any(call[0][2] == "worker-start" for call in cli.calls)
+        finally:
+            shutil.rmtree(root)
 
 
 def test_unknown_stalled_dispatch_fails_safely_without_release_or_retry() -> None:

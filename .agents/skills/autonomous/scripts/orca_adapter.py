@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import time
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
@@ -12,7 +13,9 @@ import parallel_execute as core
 
 
 CAPABILITY = "orchestration.contract.v1"
-WORKTREE_DISCOVERY_ATTEMPTS = 3
+WORKTREE_DISCOVERY_TIMEOUT_SECONDS = 30.0
+WORKTREE_DISCOVERY_INITIAL_BACKOFF_SECONDS = 0.1
+WORKTREE_DISCOVERY_MAX_BACKOFF_SECONDS = 1.0
 WORKER_START_TIMEOUT_MS = 120_000
 
 
@@ -365,6 +368,9 @@ class OrcaAdapter:
         runner: Callable[..., Any] = _default_runner,
         executable: str = "orca",
         timeout: float = 30,
+        clock: Callable[[], float] = time.monotonic,
+        sleep: Callable[[float], None] = time.sleep,
+        discovery_timeout: float = WORKTREE_DISCOVERY_TIMEOUT_SECONDS,
     ) -> None:
         self.root = Path(root).resolve()
         self.feature = _text(feature, "feature")
@@ -372,7 +378,12 @@ class OrcaAdapter:
         self.executable = _text(executable, "executable")
         if timeout <= 0:
             raise AdapterError("Orca timeout must be positive")
+        if discovery_timeout <= 0:
+            raise AdapterError("Orca worktree discovery timeout must be positive")
         self.timeout = timeout
+        self._clock = clock
+        self._sleep = sleep
+        self._discovery_timeout = discovery_timeout
         self._workers: dict[str, dict[str, Any]] = {}
         self._ended_waiters: set[str] = set()
         self._released: dict[str, dict[str, Any]] = {}
@@ -454,14 +465,23 @@ class OrcaAdapter:
     def _discover_worktree(self, path: str) -> str:
         expected = Path(path).resolve()
         last_error: AdapterError | None = None
-        for _ in range(WORKTREE_DISCOVERY_ATTEMPTS):
+        selector = "path:" + path
+        started = self._clock()
+        deadline = started + self._discovery_timeout
+        attempts = 0
+        backoff = WORKTREE_DISCOVERY_INITIAL_BACKOFF_SECONDS
+        while True:
+            attempts += 1
             try:
                 response = self._json_call(
-                    [self.executable, "worktree", "show", "--worktree", "path:" + path, "--json"]
+                    [self.executable, "worktree", "show", "--worktree", selector, "--json"]
                 )
                 candidate = response.get("worktree_path") or response.get("worktreePath") or response.get("path")
                 if candidate is None:
-                    return str(expected)
+                    raise AdapterError(
+                        "malformed Orca worktree discovery",
+                        details={"code": "malformed_worktree_receipt", "stage": "worktree-discovery", "selector": selector},
+                    )
                 candidate_path = Path(_text(candidate, "worktree path")).resolve()
                 if candidate_path != expected:
                     raise AdapterError("uncorrelated Orca worktree discovery")
@@ -470,8 +490,16 @@ class OrcaAdapter:
                 if exc.details.get("code") != "selector_not_found":
                     raise
                 last_error = exc
+            now = self._clock()
+            remaining = deadline - now
+            if remaining <= 0:
+                break
+            delay = min(backoff, remaining)
+            self._sleep(delay)
+            backoff = min(backoff * 2, WORKTREE_DISCOVERY_MAX_BACKOFF_SECONDS)
+        elapsed_ms = max(0, int((self._clock() - started) * 1000))
         details = dict(last_error.details) if last_error is not None else {"code": "selector_not_found"}
-        details.update({"stage": "worktree-discovery", "attempts": WORKTREE_DISCOVERY_ATTEMPTS})
+        details.update({"stage": "worktree-discovery", "attempts": attempts, "elapsed_ms": elapsed_ms, "selector": selector})
         raise AdapterError("Orca worktree discovery timed out", details=details)
 
     def _worktree(self, lane: Mapping[str, Any], receipt: Mapping[str, Any]) -> dict[str, str]:
