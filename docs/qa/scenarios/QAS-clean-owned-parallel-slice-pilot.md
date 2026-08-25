@@ -11,8 +11,8 @@ bug_ids: BUG-20260824-parallel-pilot-cleanup-allows-incomplete-lifecycle
 fix_status: fixed
 retest_status: pending
 fix_commits: d8c848e; 1216014; 6b3f1f0; 5b7a9dd; 48e5322; a736757
-evidence: docs/qa/evidence/2026-08-25-parallel-slice-executor-r14/lifecycle-and-abort.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r15/lifecycle-and-residue.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r17/verdict.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/resource-residue.json
-last_report: docs/qa/reports/2026-08-25-parallel-slice-executor-final.md
+evidence: docs/qa/evidence/2026-08-25-parallel-slice-executor-v060-safe-retest/pilot-identities.md; docs/qa/reports/2026-08-25-parallel-slice-executor-v060-safe-retest.md
+last_report: docs/qa/reports/2026-08-25-parallel-slice-executor-v060-safe-retest.md
 overlaps: QAS-run-resource-free-parallel-orca-slices
 ---
 
@@ -29,3 +29,9 @@ fail-closed safety, not cleanup success.
 R14, R15, and R17 preserve separate live/prompt and recovery residues. R19's effect-free fallback
 fixture is the only cleanup call with zero residue; it is not a completed-pilot cleanup and must not
 close this scenario. No normal cleanup, repeated cleanup, or no-owned-residue claim exists.
+
+The operator manually removed the retained historical pilot worktrees before the v0.6.0 safe-mode
+retest. That operator-forced cleanup is not product cleanup evidence. The fresh run's lifecycle
+oracle returned `complete: false` / `lifecycle-incomplete` while A/T1's exact terminal remained live
+and writable. Normal cleanup and repeated cleanup were correctly not attempted. The scenario
+remains `blocked-verify`; automatic cleanup is still unproven.

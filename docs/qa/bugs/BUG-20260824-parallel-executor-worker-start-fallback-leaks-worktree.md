@@ -63,6 +63,7 @@ The links below preserve prior evidence while removing repeated interim narrativ
 | R17 | Exact stop replayed `alreadySettled`; live terminal remained; release/retry/cleanup correctly refused | `docs/qa/evidence/2026-08-25-parallel-slice-executor-r17/r15-resume-1.json`; `r15-resume-2.json`; `r15-orca-reads.json`; `verdict.json`; [`R17 commands`](../evidence/2026-08-25-parallel-slice-executor-r17/commands.md) |
 | R18 | Provider canary exposed preflight side effect; fixed in `0ed8b55` | [`R18 report`](../reports/2026-08-25-parallel-slice-executor-r18.md); `docs/qa/evidence/2026-08-25-parallel-slice-executor-r18/resource-*.json` |
 | R19 | Provider-preflight subpath passed; real worker lifecycle intentionally not rerun | [`R19 report`](../reports/2026-08-25-parallel-slice-executor-r19.md); `docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/` |
+| v0.6.0 safe retest | External boundary reproduced: A/T1 `agent_prompt_stalled`, exact owned terminal remained live/writable, B/T2 absent; product exposed/fenced partial effect | [`v0.6.0 safe retest`](../reports/2026-08-25-parallel-slice-executor-v060-safe-retest.md); `docs/qa/evidence/2026-08-25-parallel-slice-executor-v060-safe-retest/` |
 
 ## Residue boundary
 
@@ -70,3 +71,19 @@ Retained fixtures are evidence, not cleanup claims. R14's prompt/user-takeover f
 live owned terminal fixture, and the older R8–R11 `identity_unproven` fixture remain separate and
 must not be reset, force-deleted, or conflated. The canonical terminal QA report records each
 boundary: [`2026-08-25-parallel-slice-executor-final`](../reports/2026-08-25-parallel-slice-executor-final.md).
+
+## v0.6.0 safe-mode retest reset
+
+On 2026-08-25, the operator manually removed the historical pilot worktrees through Orca. This
+operator-forced cleanup cleared physical test residue but does not prove automatic reconciliation,
+worker lifecycle completion, or product cleanup. The fresh retest is tracked in
+[`2026-08-25-parallel-slice-executor-v060-safe-retest`](../reports/2026-08-25-parallel-slice-executor-v060-safe-retest.md);
+the bug remains open with retest pending until that independent run reaches its terminal condition.
+
+The fresh run reached the same external boundary and no new product symptom. Run
+`run_942877dd689c`, Task `task_d42864b08ad0`, Dispatch `ctx_59b69c5baa01`, and terminal
+`term_f44a259c-fa87-43f5-8629-be06d063f49d` remain correlated in the preserved fixture. Product
+fallback exposed the accepted effect and did not start B/T2. Retest remains `blocked-verify`.
+After capability revocation, the exact terminal sent three rejected `worker_done` messages and one
+rejected escalation/status message across two coordinator deliveries. This proves the external
+completion raced behind Orca's revocation; accepted lifecycle completion remained zero.

@@ -47,3 +47,15 @@ Retained R14 prompt/user-takeover residue, R15/R17 live terminal residue, and ol
 broad cleanup was performed.
 
 Canonical status: [`2026-08-25-parallel-slice-executor-final`](../reports/2026-08-25-parallel-slice-executor-final.md).
+
+## v0.6.0 safe-mode retest reset
+
+On 2026-08-25, the operator manually removed the historical pilot worktrees through Orca. This
+operator-forced cleanup does not satisfy the normal-cleanup oracle and cannot close this bug. A
+fresh fixture, lifecycle check, normal cleanup, repeated cleanup, and independent residue check are
+pending in [`2026-08-25-parallel-slice-executor-v060-safe-retest`](../reports/2026-08-25-parallel-slice-executor-v060-safe-retest.md).
+
+The fresh lifecycle checker returned `complete: false` and `lifecycle-incomplete` while the exact
+A/T1 terminal remained live and writable. Normal cleanup and repeat cleanup were not attempted;
+the fixture remains preserved. This confirms fail-closed behavior but leaves completed-pilot
+automatic cleanup `blocked-verify`.

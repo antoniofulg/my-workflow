@@ -106,12 +106,14 @@ Canonical terminal report: [`2026-08-25-parallel-slice-executor-final`](reports/
 | Configuration/planning | `pass` — frozen resolver, deterministic planner, and safe provider-free boundary | [`J-configure-feature-workflow`](journeys/J-configure-feature-workflow.md); [`CFG-freeze-feature-workflow`](scenarios/CFG-freeze-feature-workflow.md); [`CFG-plan-parallel-slice-dispatch`](scenarios/CFG-plan-parallel-slice-dispatch.md) |
 | Fallback | `pass` — disabled, unsupported, and missing-provider paths produce zero effects/residue | [`CFG-fallback-unproven-parallel-execution`](scenarios/CFG-fallback-unproven-parallel-execution.md); [`R18`](reports/2026-08-25-parallel-slice-executor-r18.md); [`R19`](reports/2026-08-25-parallel-slice-executor-r19.md) |
 | Convergence | `pass` — independent fingerprints; third failed remediation halts at 3 | [`QAS-bound-verifier-remediation-per-blocker`](scenarios/QAS-bound-verifier-remediation-per-blocker.md); [`R19`](reports/2026-08-25-parallel-slice-executor-r19.md) |
-| Real Orca/Codex worker lifecycle | `blocked-verify` — external stop boundary; not pass/fail/untested | [`J-execute-parallel-slices`](journeys/J-execute-parallel-slices.md); [`QAS-run-resource-free-parallel-orca-slices`](scenarios/QAS-run-resource-free-parallel-orca-slices.md); [`CH-execute-parallel-slices-2026-08-24`](charters/CH-execute-parallel-slices-2026-08-24.md) |
-| Completed-pilot cleanup | `blocked-verify` — lifecycle never authorized; no cleanup claim | [`QAS-clean-owned-parallel-slice-pilot`](scenarios/QAS-clean-owned-parallel-slice-pilot.md); [`BUG-20260824-parallel-pilot-cleanup-allows-incomplete-lifecycle`](bugs/BUG-20260824-parallel-pilot-cleanup-allows-incomplete-lifecycle.md) |
+| Real Orca/Codex worker lifecycle | `blocked-verify` — v0.6.0 fresh safe retest reproduced external stop boundary; not pass/fail/untested | [`J-execute-parallel-slices`](journeys/J-execute-parallel-slices.md); [`QAS-run-resource-free-parallel-orca-slices`](scenarios/QAS-run-resource-free-parallel-orca-slices.md); [`v0.6.0 safe retest`](reports/2026-08-25-parallel-slice-executor-v060-safe-retest.md) |
+| Completed-pilot cleanup | `blocked-verify` — fresh lifecycle never authorized; no automatic cleanup claim | [`QAS-clean-owned-parallel-slice-pilot`](scenarios/QAS-clean-owned-parallel-slice-pilot.md); [`BUG-20260824-parallel-pilot-cleanup-allows-incomplete-lifecycle`](bugs/BUG-20260824-parallel-pilot-cleanup-allows-incomplete-lifecycle.md) |
 
 Open bug boundaries: [`BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree`](bugs/BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree.md)
 and [`BUG-20260824-parallel-pilot-cleanup-allows-incomplete-lifecycle`](bugs/BUG-20260824-parallel-pilot-cleanup-allows-incomplete-lifecycle.md).
 Product parsing/recovery/preflight root causes are technically fixed; live retests remain open and
 blocked by Orca/Codex behavior. R14 user-takeover residue, R15/R17 live-terminal residue, and older
-R8–R11 `identity_unproven` residue remain separate. No manual cleanup or zero-residue claim exists
-for the real worker journey.
+R8–R11 `identity_unproven` residue were later removed manually by the operator. That operator-forced
+cleanup is recorded only as a physical baseline reset and is not automatic-cleanup evidence. The
+fresh v0.6.0 retest retained its own exact A/T1 worktree and live terminal after the same external
+boundary; no zero-residue claim exists for the real worker journey.
