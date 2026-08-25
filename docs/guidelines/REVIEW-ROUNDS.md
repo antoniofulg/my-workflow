@@ -63,7 +63,7 @@ final session answers *"does the finished thing feel right?"* after all implemen
    `tlc-spec-driven` does not have this rule — it bounds the Verifier at 3 iterations but nothing stops
    a round re-raising what a prior round already found. The count bound alone does not converge; this
    rule is what makes it converge.
-2. **Nitpicks never trigger a round.** They go to a follow-up list in the pull request. Only `FIX_BEFORE_SHIP` and `REWORK` findings justify another pass. **In an active, already-approved review loop, fix blocking findings without new human approval through the applicable review cap and run the scoped gate after each correction. Findings produced by the final deep-review round (round 2) are corrected automatically in the same loop; do not start round 3; escalate only if the post-fix gate fails or the blocker remains reproducible.** Local fixes only; remote actions retain separate approval requirements.
+2. **Nitpicks never trigger a round.** They go to a follow-up list in the pull request. Only `FIX_BEFORE_SHIP` and `REWORK` findings justify another pass. **In an active, already-approved review loop, fix blocking findings without new human approval through the applicable review cap and run the scoped gate after each correction. Findings produced by the final deep-review round (round 2) are corrected automatically in the same loop; do not start round 3; escalate only if the post-fix gate fails or the configured stall threshold is reached.** Local fixes only; remote actions retain separate approval requirements.
 3. **Deduplicate by root cause, not by occurrence.** One missing null check repeated in six files is
    one finding that lists six files — not six findings.
 4. **Verify before flagging.** Check for an adjacent comment explaining the choice, a decision in
@@ -145,8 +145,8 @@ Batch aggressively. One commit per remediation batch is already the commit rule,
 
 ## Escalation
 
-When a cap is reached, finish the approved remediation and run its scoped gate. Stop and hand the human a short list only if that gate fails or a blocker remains reproducible: what is still wrong, what was tried, and the recommended call.
-The cap forbids another review round; it does not require a new approval for the round-2 fix.
+When a cap is reached, finish approved remediation and run its scoped gate after every attempt; the cap forbids another review round, does not require new approval for the round-2 fix, and the existing loop never starts round 3. Each attempt derives a stable signature from sorted failing-test identifiers after removing timings, absolute paths, and line numbers; a strictly smaller current set resets the counter, while an equal-size set, including one with different members, or a larger set increments it, and `stall_attempts = 0` is unbounded.
+If the gate is unavailable, halt immediately without another deep-review round; when a nonzero threshold is reached, halt with the repeated signature, attempt count, and fixes tried. An open blocker alone does not halt while attempts establish new minima; autonomous uses the same unavailable-gate or reached-threshold halt contract.
 
 ## Requirement and contract parity
 

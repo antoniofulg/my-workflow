@@ -258,6 +258,7 @@ describe("canonical QA skills", () => {
     }
 
     const reviewRounds = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
+    const workflowConfig = readRepositoryFile(".agents/skills/workflow-config/SKILL.md");
 
     expect(reviewRounds).toContain("The provider `verifier` executes exactly one phase per packet");
     expect(reviewRounds).toContain("Deep-review is a separate orchestrator stage, not a Verifier phase");
@@ -266,6 +267,10 @@ describe("canonical QA skills", () => {
     expect(readRepositoryFile("docs/workflow/reviews.md")).toContain(
       "Deep-review is a separate stage, not a Verifier phase.",
     );
+    expect(workflowConfig).toContain("[remediation]` table");
+    expect(reviewRounds).toContain("equal-size set, including one with different members");
+    expect(reviewRounds).toContain("gate is unavailable");
+    expect(reviewRounds).toContain("never starts round 3");
   });
 
   it("IT-004 keeps QA scenario fields and statuses in one authoritative guideline", () => {
@@ -300,7 +305,7 @@ describe("canonical QA skills", () => {
       "do not start round 3",
       "escalate only",
       "post-fix gate fails",
-      "blocker remains reproducible",
+      "configured stall threshold is reached",
       "remote actions retain separate approval requirements",
     ]) {
       expect(approvedLoopRule).toContain(anchor);

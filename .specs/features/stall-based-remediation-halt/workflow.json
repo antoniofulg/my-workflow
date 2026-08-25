@@ -1,0 +1,41 @@
+{
+  "deep_review": {
+    "cadence": "grouped.3",
+    "groups": [
+      [
+        1
+      ]
+    ]
+  },
+  "feature": "stall-based-remediation-halt",
+  "git_head": "70e447d31a8ada5db874bd62743b962c87968596",
+  "overrides": {},
+  "profile": null,
+  "roles": {
+    "deep_reviewer": {
+      "agent_file": ".codex/agents/deep-reviewer.toml",
+      "effort": "high",
+      "model": "gpt-5.6-luna",
+      "provider": "codex"
+    },
+    "explorer": {
+      "agent_file": ".codex/agents/explorer.toml",
+      "effort": "medium",
+      "model": "gpt-5.6-luna",
+      "provider": "codex"
+    },
+    "implementer": {
+      "agent_file": ".codex/agents/implementer.toml",
+      "effort": "high",
+      "model": "gpt-5.6-luna",
+      "provider": "codex"
+    },
+    "verifier": {
+      "agent_file": ".codex/agents/verifier.toml",
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "provider": "codex"
+    }
+  },
+  "version": 2
+}

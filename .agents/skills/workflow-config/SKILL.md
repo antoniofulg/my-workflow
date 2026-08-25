@@ -27,6 +27,14 @@ The command validates the complete matrix and every template before writing, ini
 local config from the example, reports `changed` and `unchanged` runtime paths, and is idempotent.
 Adoption runs it after installing missing example/templates.
 
+## Remediation stall bound
+
+The optional `[remediation]` table has one key, `stall_attempts`: the number of consecutive
+post-cap remediation attempts that fail to establish a new minimum of failing-test identifiers.
+It must be an integer of at least `0`, defaults to `3`, and `0` means unbounded. The resolver
+includes the effective value in its current JSON output but never writes it to `workflow.json`.
+This lets an operator tune the bound between attempts without refreshing the frozen route.
+
 ## First resolution
 
 Run the bundled `mutating` resolver from the consuming project root. It writes the feature-local
@@ -39,21 +47,25 @@ python3 .agents/skills/workflow-config/scripts/workflow_config.py \
   [--override <role>=<provider>]...
 ```
 
-Treat the JSON output and `.specs/features/<feature-slug>/workflow.json` as the same resolved state.
-The resolver owns config parsing, validation, balanced groups, role precedence, agent-file lookup,
-and atomic persistence. Keep those rules in the resolver instead of restating them here.
+Treat the snapshot as the persisted route and cadence; the current JSON output additionally reports
+the live remediation threshold. The resolver owns config parsing, validation, balanced groups, role
+precedence, agent-file lookup, and atomic persistence. Keep those rules in the resolver instead of
+restating them here.
 
 Done when: the snapshot exists, contains the effective cadence, role routes, and frozen delegated
-model/effort, and the capable orchestrator has accepted every selected provider.
+model/effort, the current output reports `remediation.stall_attempts`, and the capable orchestrator
+has accepted every selected provider.
 
 ## Resume
 
 Read the existing feature snapshot before dispatch. Use its `deep_review`, `roles`, and `git_head`
-values even when `.my-workflow.toml` has changed. Current packet metadata must match each frozen
-delegated model and effort; otherwise synchronize and explicitly refresh. Do not silently re-resolve
-an active feature.
+values even when `.my-workflow.toml` has changed. Re-read the current `[remediation]` threshold on
+every resume; it is deliberately live. Current packet metadata must match each frozen delegated
+model and effort; otherwise synchronize and explicitly refresh. Do not silently re-resolve an active
+feature.
 
-Done when: resumed dispatch uses the snapshot's effective route and records no new resolution.
+Done when: resumed dispatch uses the snapshot's effective route and cadence, reports the current
+remediation threshold, and records no new resolution.
 
 ## Refresh
 

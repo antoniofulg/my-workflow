@@ -834,6 +834,82 @@ def test_resume_rejects_effort_drift_after_sync() -> None:
         shutil.rmtree(root)
 
 
+def test_resolves_remediation_stall_attempts_without_snapshot_persistence() -> None:
+    cases = (
+        ("default", "", 3),
+        ("positive", "\n[remediation]\nstall_attempts = 5\n", 5),
+        ("unbounded", "\n[remediation]\nstall_attempts = 0\n", 0),
+    )
+    for feature, extra, expected in cases:
+        root = make_packet_root()
+        try:
+            write_config(root, extra=extra)
+            workflow_config.sync_agents(root)
+            git_root(root)
+            resolved = workflow_config.resolve(
+                root=root, feature=feature, slice_count=1, native_provider="codex"
+            )
+            assert resolved["remediation"] == {"stall_attempts": expected}
+            persisted = json.loads(
+                (root / f".specs/features/{feature}/workflow.json").read_text(encoding="utf-8")
+            )
+            assert "remediation" not in persisted
+        finally:
+            shutil.rmtree(root)
+
+
+def test_rejects_invalid_remediation_before_snapshot_write() -> None:
+    cases = (
+        ("string", "stall_attempts = '3'\n", "remediation.stall_attempts"),
+        ("bool", "stall_attempts = true\n", "remediation.stall_attempts"),
+        ("negative", "stall_attempts = -1\n", "remediation.stall_attempts"),
+        ("unknown", "attempts = 3\n", "remediation contains unknown key 'attempts'"),
+    )
+    for feature, body, message in cases:
+        root = make_packet_root()
+        try:
+            workflow_config.sync_agents(root)
+            write_config(root, extra=f"\n[remediation]\n{body}")
+            git_root(root)
+            try:
+                workflow_config.resolve(
+                    root=root, feature=feature, slice_count=1, native_provider="codex"
+                )
+            except workflow_config.ConfigError as exc:
+                assert message in str(exc)
+            else:
+                raise AssertionError(f"expected invalid remediation failure for {feature}")
+            assert not (root / f".specs/features/{feature}/workflow.json").exists()
+        finally:
+            shutil.rmtree(root)
+
+
+def test_resume_reads_current_remediation_threshold_without_unfreezing_route() -> None:
+    root = make_packet_root()
+    try:
+        write_config(root, extra="\n[remediation]\nstall_attempts = 5\n")
+        workflow_config.sync_agents(root)
+        git_root(root)
+        first = workflow_config.resolve(
+            root=root, feature="live-threshold", slice_count=1, native_provider="codex"
+        )
+        snapshot_path = root / ".specs/features/live-threshold/workflow.json"
+        persisted_before = snapshot_path.read_bytes()
+
+        write_config(root, extra="\n[remediation]\nstall_attempts = 7\n")
+        resumed = workflow_config.resolve(
+            root=root, feature="live-threshold", slice_count=8, native_provider="cursor"
+        )
+
+        assert resumed["remediation"] == {"stall_attempts": 7}
+        assert {key: resumed[key] for key in first if key != "remediation"} == {
+            key: first[key] for key in first if key != "remediation"
+        }
+        assert snapshot_path.read_bytes() == persisted_before
+    finally:
+        shutil.rmtree(root)
+
+
 def test_cadence_modes_and_balancing() -> None:
     expected = {
         "slice": {

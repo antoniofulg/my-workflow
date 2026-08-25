@@ -177,7 +177,9 @@ needs to see.
 Stop, write up what exists, and do not continue delivery:
 
 - A decision from step 2 would change what gets built
-- The post-cap remediation or gate in `docs/guidelines/REVIEW-ROUNDS.md` leaves a blocker open
+- The post-cap scoped gate is unavailable, or the configured remediation stall threshold is reached
+  under `docs/guidelines/REVIEW-ROUNDS.md`; an open blocker alone does not halt while attempts are
+  establishing new failure-set minima
 - The work turns out to need a capability that does not exist yet
 - The full gate cannot be made to run
 - A required action is outside the scoped delivery authority and lacks explicit instruction
