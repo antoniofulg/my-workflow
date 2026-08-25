@@ -1,130 +1,216 @@
 # Host-Owned Session Continuation Validation
 
 **Date**: 2026-08-25
-**Spec**: `.specs/features/host-owned-session-continuation/spec.md`
-**Diff range**: `1451afa960c65c120035a201210b95664b0d8c52..045acc2d87e7419c1f9a5e2a6c03b728f4c1536c`
-**Verifier**: independent technical verifier; author ≠ verifier; no Implementer transcript or operator handoff loaded
-
-## Verdict
-
+**Spec**: \`.specs/features/host-owned-session-continuation/spec.md\`
+**Diff range**: \`1451afa960c65c120035a201210b95664b0d8c52..34c760e74b98332eac4623b8ca1a0d589f362c0c\`
+**Verifier**: independent final verifier; author ≠ verifier; no Implementer transcript or operator handoff loaded
 **Verdict**: PASS
 
-Technical verification passes 16/17 acceptance criteria. HSC-10/QA-001 remains explicitly
-deferred to the separate fresh `qa-plan` and `qa-execute` packets required by the feature
-protocol. This packet did not create or execute the dated v0.6.0 QA charter/report.
+## Validation
 
-## Task Completion
+**Result: PASS. Verdict: PASS — 17/17 acceptance criteria verified.**
 
-| Task | Status | Evidence |
-| --- | --- | --- |
-| T1 | ✅ Done | `.specs/features/host-owned-session-continuation/tasks.md:45-69`; decision-index test and check passed |
-| T2 | ✅ Done | `.specs/features/host-owned-session-continuation/tasks.md:71-95`; deleted-path/package contracts passed |
-| T3 | ✅ Done | `.specs/features/host-owned-session-continuation/tasks.md:97-121`; 19 registered adoption checks passed |
-| T4 | ✅ Done | `.specs/features/host-owned-session-continuation/tasks.md:123-147`; host/reviewer contracts passed |
-| T5 | ✅ Technical phase done | `.specs/features/host-owned-session-continuation/tasks.md:149-173`; current scenarios remain `untested` for fresh QA |
-| T6 | ✅ Done | `.specs/features/host-owned-session-continuation/tasks.md:175-199`; release, package, history, and scan contracts passed |
+All HSC criteria, all eight test-contract IDs, the v0.6.0 QA Plan/Execute cycle, review-remediation contracts, and the bug-fix retest pass at current HEAD. No product-code deviation remains. This report is the only real-tree write authorized for this verification.
 
-## Spec-Anchored Acceptance Criteria
+## Scope and completion
 
-| Criterion | Spec-defined outcome | `file:line` + assertion/evidence | Result |
-| --- | --- | --- | --- |
-| HSC-01: deleted active paths absent | No implementation, test, guide, active scenario, or obsolete feature tree at named paths | `tools/shared/tests/qa-skills.test.ts:73-102` asserts each deleted path and repository listing are absent | ✅ PASS |
-| HSC-02: clean adoption has no removed subsystem | Disposable clean adoption contains no config, database, marker, source line, hook, payload, script, guide, scenario, or feature test | `scripts/test_adopt.py:245-298` checks disposable project paths, source line, and project hook; adoption gate passed | ✅ PASS |
-| HSC-03: repeated adoption is idempotent and host-neutral | Second adoption leaves managed output stable and shell, hook, and host sentinels byte-identical | `scripts/test_adopt.py:300-310` compares second snapshot, project hook, and host snapshot; adoption gate passed | ✅ PASS |
-| HSC-04: package has no removed artifact | Local package manifest contains zero removed integration paths | `tools/shared/tests/workflow-config.test.ts:70-103` filters dry-run paths; `npm pack --dry-run --json` reported `my-workflow@0.6.0`, `entryCount=289`, removed paths `[]` | ✅ PASS |
-| HSC-05: current host-owned rule | README and workflow index contain the exact host-owned continuation rule | `README.md:222-223`, `docs/workflow/README.md:9-10`, and `tools/shared/tests/qa-skills.test.ts:105-119` assert normalized rule | ✅ PASS |
-| HSC-06: no current removed-integration instructions | No current instruction to install, enable, source, disable, re-enable, purge, isolate, detect, test, or use removed integration | `tools/shared/tests/qa-skills.test.ts:130-143` rejects removed lifecycle phrases in current public/reviewer surfaces; final tracked scan had 29 matches, all allowlisted | ✅ PASS |
-| HSC-07: fresh independent reviewer packets | Verifier and Deep Reviewer packets exclude Implementer transcript/operator handoff and use spec, diff, tests, assigned evidence | `docs/guidelines/REVIEW-ROUNDS.md:75-80`; packet assertions `tools/shared/tests/qa-skills.test.ts:105-128`; all six provider templates matched | ✅ PASS |
-| HSC-08: host-neutral generic guidance | Current generic guidance contains no Orca dependency or command | `tools/shared/tests/qa-skills.test.ts:140-143` rejects Orca in current surfaces; Orca appears only in AD-011 rationale at `.specs/STATE.md:154-156` | ✅ PASS |
-| HSC-09: current QA has no active removed promise | Current QA profile, journey, and scenarios contain no active removed-integration promise | `tools/shared/tests/qa-skills.test.ts:223-244`; current scenarios are `untested` at `docs/qa/scenarios/ADP-adopt-workflow-safely.md:9` and `docs/qa/scenarios/REL-report-current-workflow-release.md:9`; removed WFL scenario absent | ✅ PASS |
-| HSC-10: v0.6.0 QA charter/report | Fresh QA Plan and Execute create dated charter/report covering documentation, adoption, package, parity, and allowlist observables | Fresh QA packets were not run in technical phase; no technical evidence claimed | ⏭️ DEFERRED |
-| HSC-11: immutable historical evidence | Every protected v0.5.0 historical file remains byte-for-byte equal | `tools/shared/tests/qa-skills.test.ts:1001-1057`; independent comparison: 65 protected files, 0 byte changes, 0 missing; v0.4.0 and v0.5.0 changelog sections equal | ✅ PASS |
-| HSC-12: explicit final reference allowlist | Every remaining removed-integration match belongs to historical changelog, historical QA evidence, or v0.6.0 removal note | `tools/shared/tests/qa-skills.test.ts:146-220`; independent scan: 29 matches = 20 historical QA evidence, 7 v0.6 removal note, 2 historical changelog, 0 unexpected | ✅ PASS |
-| HSC-13: version parity | Package, lockfile, current release scenario, and release-version assertions equal `0.6.0` | `tools/shared/tests/qa-skills.test.ts:969-999`, `tools/shared/tests/deep-review-installation.test.ts:70-72`; package, lock root, lock package, scenario, and assertions all matched | ✅ PASS |
-| HSC-14: v0.6.0 changelog contract | Entry records removal, host responsibility, durable semantic context, and adoption external-state rule | `CHANGELOG.md:5-19`; exact contract assertions `tools/shared/tests/qa-skills.test.ts:993-998` passed | ✅ PASS |
-| HSC-15: migration guidance | Note links tagged v0.5.0 lifecycle guide and does not invent or execute cleanup commands | `CHANGELOG.md:14-19`; tagged-guide assertions `tools/shared/tests/qa-skills.test.ts:997-998` passed; no cleanup command executed | ✅ PASS |
-| HSC-16: AD-011 ownership decision | AD-011 supersedes AD-008, names Orca only as rationale, and sets host-neutral boundary | `.specs/STATE.md:99-118`, `.specs/STATE.md:150-162`, `.specs/AD-INDEX.md:16-19`; `python3 tools/test_ad_index.py` and index check passed | ✅ PASS |
-| HSC-17: local-only preparation | Feature performs no tag, push, PR, merge, publication, release, deploy, or operator-machine mutation | `package.json:3-4` remains private; feature branch has no tag at HEAD; dry-run package only; adoption uses disposable targets (`scripts/test_adopt.py:245-313`); no remote mutation command executed | ✅ PASS |
+The feature range contains the six task commits plus review remediation and QA closure:
 
-**Spec-anchored result**: 16/17 criteria matched exact outcomes; HSC-10 is a deliberate QA-phase
-handoff, not a technical failure.
-
-## Test-Contract Cases
-
-| Case | Evidence | Result |
-| --- | --- | --- |
-| CT-001 | `tools/shared/tests/qa-skills.test.ts:146-220`; allowlist scan | ✅ PASS |
-| CT-002 | `tools/shared/tests/qa-skills.test.ts:105-143`; targeted contract | ✅ PASS |
-| CT-003 | `tools/shared/tests/qa-skills.test.ts:969-999`; parity contract | ✅ PASS |
-| CT-004 | `tools/shared/tests/qa-skills.test.ts:1001-1057`; 65-file byte comparison | ✅ PASS |
-| ADP-001 | `scripts/test_adopt.py:245-298`; clean adoption | ✅ PASS |
-| ADP-002 | `scripts/test_adopt.py:300-310`; repeat adoption and sentinels | ✅ PASS |
-| REL-001 | `tools/shared/tests/workflow-config.test.ts:70-103`; package dry-run | ✅ PASS |
-| QA-001 | `.specs/features/host-owned-session-continuation/tests.md:24`; fresh QA packets not run | ⏭️ DEFERRED |
-
-## Discrimination Sensor
-
-Sensor used three temporary detached worktrees, never `git stash`, and deleted each scratch after
-the test. Real-tree `git status --porcelain=v1` was empty before and after sensor cleanup.
-
-| Mutation | Scratch fault | Test result | Killed? |
-| --- | --- | --- | --- |
-| 1 | Made `scripts/adopt.py` write `scripts/ai-memory.zsh` into every adopted target | `python3 scripts/test_adopt.py` failed at `scripts/test_adopt.py:291` with `AssertionError: scripts/ai-memory.zsh` | ✅ Killed |
-| 2 | Removed the host feature design path from the explicit reference allowlist | Targeted HSC contract failed with one test failed and three passed | ✅ Killed |
-| 3 | Removed `Assigned evidence` from Codex Verifier packet | Targeted HSC contract failed with one test failed and three passed | ✅ Killed |
-
-**Sensor depth**: lightweight, 3 targeted behavior-level mutations.  **Result**: 3/3 killed.
-
-## Code Quality
-
-| Principle | Status |
+| Work | Evidence |
 | --- | --- |
-| Minimum/surgical change | ✅ Requested removal, host-neutral contracts, QA reset, release metadata, tests, and evidence only |
-| No replacement runtime or compatibility path | ✅ |
-| Adoption isolation and host boundary | ✅ Disposable project/host fixtures; no operator path touched |
-| Historical bytes protected | ✅ Exact per-file comparison passed |
-| Test integrity | ✅ No test weakened or deleted to make a gate pass; baseline 108 → current 113 |
-| Reviewer independence | ✅ Fresh Verifier and Deep Reviewer packets across all provider templates |
-| Documented guidelines | ✅ `docs/guidelines/GATES.md`, `TEST-CONTRACT.md`, `REVIEW-ROUNDS.md`, `QA-SCENARIOS.md`, and `VERIFICATION-EVIDENCE.md` applied |
+| T1 ownership decision | \`3ea924b\`; \`.specs/features/host-owned-session-continuation/tasks.md:45-69\` |
+| T2 subsystem removal | \`8ad51b6\`; \`.specs/features/host-owned-session-continuation/tasks.md:71-95\` |
+| T3 adoption absence/idempotence | \`b46f17a\`; \`scripts/test_adopt.py:245-313\` |
+| T4 current continuation/reviewer contract | \`4d639f0\`; \`tools/shared/tests/qa-skills.test.ts:105-143\` |
+| T5 QA Plan/current promise reset | \`05fe924\`; \`docs/qa/charters/CH-review-release-0-6-0-2026-08-25.md:1-114\` |
+| T6 v0.6.0 release contract | \`7dee0d8\`; \`tools/shared/tests/qa-skills.test.ts:969-1057\` |
+| Review remediation | \`1a922ef\`, \`dfb5c3c\`, \`045acc2\`, \`984abf2\`; current contracts below pass |
+| QA charter/report and bug retest | \`df3c998\`, \`1593299\`, \`34c760e\`; \`docs/qa/reports/2026-08-25-release-0-6-0.md:1-127\` |
 
-## Gate Check
+## Spec-anchored acceptance criteria
 
-| Command | Exit/result |
+| Criterion | Spec-defined outcome | File:line assertion/evidence | Result |
+| --- | --- | --- | --- |
+| HSC-01 | Every deleted implementation, test, guide, active scenario, and obsolete feature path is absent | \`tools/shared/tests/qa-skills.test.ts:73-102\` asserts five deleted paths and zero repository-file matches; current removal contract passed | ✅ PASS |
+| HSC-02 | Clean disposable adoption contains no removed config, database, marker, source line, hook, payload, script, guide, scenario, or feature test | \`scripts/test_adopt.py:276-298\` checks every forbidden path and source marker; adoption gate passed with 19 registered checks | ✅ PASS |
+| HSC-03 | Re-adoption leaves managed output and project/host shell, hook, and settings sentinels byte-identical | \`scripts/test_adopt.py:264-310\` snapshots both targets, compares the second project snapshot, project hook, and host snapshot; adoption gate passed | ✅ PASS |
+| HSC-04 | Local package manifest contains zero removed integration paths | \`tools/shared/tests/workflow-config.test.ts:70-103\` filters npm pack paths; current dry-run JSON: \`my-workflow@0.6.0\`, private, 292 entries, removed paths \`[]\` | ✅ PASS |
+| HSC-05 | README and workflow index contain the exact host-owned continuation rule | \`README.md:222-223\`, \`docs/workflow/README.md:9-10\`, and \`tools/shared/tests/qa-skills.test.ts:105-119\` | ✅ PASS |
+| HSC-06 | Current surfaces contain no instruction to operate the removed integration | \`tools/shared/tests/qa-skills.test.ts:130-143\` rejects lifecycle phrases in current public/reviewer surfaces; final scan has zero unexpected matches | ✅ PASS |
+| HSC-07 | Verifier and Deep Reviewer use fresh role packets, exclude Implementer/operator context, and derive from spec/diff/tests/assigned evidence | \`tools/shared/tests/qa-skills.test.ts:105-128\`; \`docs/guidelines/REVIEW-ROUNDS.md:75-80\`; six source/runtime packet pairs reloaded identically | ✅ PASS |
+| HSC-08 | Generic guidance has no Orca dependency or command; Orca is rationale only | \`tools/shared/tests/qa-skills.test.ts:140-143\`; current Orca hit count 0; \`.specs/STATE.md:152-156\` contains rationale only | ✅ PASS |
+| HSC-09 | Current QA profile, journey, and scenarios contain no active removed promise | \`tools/shared/tests/qa-skills.test.ts:223-244\`; current scenario statuses and canonical \`last_report\` are at \`docs/qa/scenarios/ADP-adopt-workflow-safely.md:9-15\`, \`REL-report-current-workflow-release.md:9-15\` | ✅ PASS |
+| HSC-10 | Fresh v0.6.0 QA charter and execution report cover docs, adoption, package, parity, history, and allowlist | Plan charter \`docs/qa/charters/CH-review-release-0-6-0-2026-08-25.md:1-114\`; Execute report \`docs/qa/reports/2026-08-25-release-0-6-0.md:1-127\`; QA-001 matrix row is terminal \`pass\` | ✅ PASS |
+| HSC-11 | All protected historical files equal v0.5.0 byte-for-byte; prior changelog sections are unchanged | \`tools/shared/tests/qa-skills.test.ts:1001-1057\`; independent comparison: 65 protected files, 0 missing, 0 byte differences, 0.4.0/0.5.0 changelog sections equal | ✅ PASS |
+| HSC-12 | Every remaining reference match belongs to explicit historical or v0.6 removal-note allowlist | \`tools/shared/tests/qa-skills.test.ts:146-220\`; final scan below: 58 matches, 58 classified, 0 unexpected | ✅ PASS |
+| HSC-13 | Package, lockfile, current release scenario, and release assertions equal 0.6.0 | \`tools/shared/tests/qa-skills.test.ts:969-999\`; \`tools/shared/tests/deep-review-installation.test.ts:70-72\`; package and lock parity passed | ✅ PASS |
+| HSC-14 | Changelog records removal, host responsibility, durable semantic context, and external-state rule | \`CHANGELOG.md:5-19\`; exact assertions \`tools/shared/tests/qa-skills.test.ts:993-998\` passed | ✅ PASS |
+| HSC-15 | Migration note links tagged v0.5.0 guide and does not invent or execute cleanup commands | \`CHANGELOG.md:14-19\`; tagged-guide assertions \`tools/shared/tests/qa-skills.test.ts:997-998\`; QA evidence records cleanup commands executed: 0 | ✅ PASS |
+| HSC-16 | AD-011 supersedes AD-008, establishes host-neutral ownership, and mentions Orca only as rationale | \`.specs/STATE.md:99-118\`, \`.specs/STATE.md:150-162\`, \`.specs/AD-INDEX.md:16-19\`; index test/check passed | ✅ PASS |
+| HSC-17 | Preparation remains local-only: no tag, push, PR, merge, publication, release, deploy, or operator mutation | \`package.json:1-4\` is private; HEAD \`34c760e\` has no tag; locality evidence records no remote/publication commands; no such command was run here | ✅ PASS |
+
+**Spec-anchored result: 17/17 exact outcomes.**
+
+## Test-contract coverage
+
+| ID | Result | Evidence |
+| --- | --- | --- |
+| CT-001 | ✅ PASS | Targeted allowlist contract: 1 passed, 27 skipped; final scan has 0 unexpected |
+| CT-002 | ✅ PASS | Fresh packet contract: removal contract row HSC-05/HSC-07/HSC-08, \`tools/shared/tests/qa-skills.test.ts:105-143\` |
+| CT-003 | ✅ PASS | Targeted release parity: 1 passed, 27 skipped; package/lock/scenario/changelog all 0.6.0 |
+| CT-004 | ✅ PASS | Targeted history contract: 1 passed, 27 skipped; 65/0/0 comparison |
+| ADP-001 | ✅ PASS | \`scripts/test_adopt.py:276-298\`; clean disposable adoption has no removed artifacts |
+| ADP-002 | ✅ PASS | \`scripts/test_adopt.py:264-310\`; repeat adoption and host boundary stable |
+| REL-001 | ✅ PASS | \`tools/shared/tests/workflow-config.test.ts:70-103\`; npm pack dry-run removed paths \`[]\` |
+| QA-001 | ✅ PASS | \`docs/qa/reports/2026-08-25-release-0-6-0.md:17-24\` matrix; all rows terminal pass |
+
+## QA Plan and Execute
+
+| Artifact/scenario | Verdict | Evidence |
+| --- | --- | --- |
+| QA Plan | ✅ PASS | \`docs/qa/charters/CH-review-release-0-6-0-2026-08-25.md:1-114\` maps HSC-01..HSC-17 and declares CLI/manual adapter |
+| QA Execute / QA-001 | ✅ PASS | \`docs/qa/reports/2026-08-25-release-0-6-0.md:17-24\`; no pending matrix rows |
+| ADP adoption journey | ✅ PASS | \`docs/qa/scenarios/ADP-adopt-workflow-safely.md:9-15\`; fresh two-run disposable evidence |
+| REL release journey | ✅ PASS | \`docs/qa/scenarios/REL-report-current-workflow-release.md:9-15\`; reloaded package/parity/history/scan/migration/locality evidence |
+| QAS packet canary | ✅ PASS | \`docs/qa/scenarios/QAS-discover-independent-qa-skills.md:9-15\`; six packet pairs identical |
+| Bug fix/retest | ✅ PASS | \`docs/qa/bugs/BUG-20260825-scenario-pass-report-field.md:1-33\`; fix \`1593299\` changes canonical \`last_report\` lookup; targeted and full retests pass |
+
+QA limitation is explicit and non-blocking: this repository has no browser, API, mobile, server,
+authentication, or production-health surface. The CLI/manual adapter is the declared reachable path.
+The tagged historical guide was not fetched, and no external installer was invoked.
+
+## Review remediation and packet evidence
+
+Review remediation is revalidated by current source/test contracts:
+
+- Exact path allowlist, lifecycle-term coverage, package absence, history byte comparison, and fresh-QA state checks are enforced at \`tools/shared/tests/qa-skills.test.ts:146-244\` and \`:969-1057\`.
+- Deep Reviewer packets are included with Verifier packets at \`tools/shared/tests/qa-skills.test.ts:63-70\`; all six source/runtime pairs and required terms are recorded in \`docs/qa/evidence/2026-08-25-release-0-6-0/reviewer-packets.json\`.
+- Canonical scenario-field remediation is covered by \`tools/shared/tests/qa-skills.test.ts:236-239\` and bug retest evidence.
+- Current targeted contracts and full gate pass; no open implementation blocker or surviving review mutation remains.
+
+## Gate evidence
+
+| Command | Result |
 | --- | --- |
-| `python3 scripts/test_adopt.py` | 0; 19 registered checks, 0 failed, final `ok` |
-| `python3 tools/test_workflow_config.py` | 0; 37 passed, 0 failed |
-| `npm test` | 0; 7 files passed, 113 tests passed, 0 failed |
-| `python3 tools/test_ad_index.py` | 0; `ok` |
-| `python3 tools/ad-index.py --check` | 0; `AD-INDEX.md up to date` |
-| `python3 .agents/skills/tlc-spec-driven/scripts/validate_spec.py host-owned-session-continuation` | 0 errors, 0 warnings |
-| `python3 .agents/skills/tlc-spec-driven/scripts/validate_tasks.py host-owned-session-continuation` | 0 errors, 1 expected T1 `Tests: none` warning; matrix marks decision/metadata layer as none |
-| `git diff --check 1451afa960c65c120035a201210b95664b0d8..045acc2d87e7419c1f9a5e2a6c03b728f4c1536c` | 0; no output |
-| `npx vitest run tools/shared/tests/qa-skills.test.ts -t 'host-owned session continuation removal contract'` | 0; 4 passed, 24 selector-skipped |
-| `npm pack --dry-run --json` | 0; `my-workflow@0.6.0`, 289 package entries, removed paths `[]` |
-| Full Build gate: `python3 scripts/test_adopt.py && python3 tools/test_workflow_config.py && npm test && python3 tools/ad-index.py --check && git diff --check ...` | 0; all component gates passed |
+| \`python3 scripts/test_adopt.py\` | exit 0; 19 registered checks; 0 failed; final \`ok\` |
+| \`python3 tools/test_workflow_config.py\` | exit 0; 37 passed; 0 failed |
+| \`npm test\` | exit 0; 7 files passed; 113 tests passed; 0 failed |
+| \`python3 tools/test_ad_index.py\` | exit 0; \`ok\` |
+| \`python3 tools/ad-index.py --check\` | exit 0; \`AD-INDEX.md up to date\` |
+| \`npx vitest run tools/shared/tests/qa-skills.test.ts -t 'host-owned session continuation removal contract'\` | exit 0; 4 passed; 24 skipped |
+| \`npx vitest run tools/shared/tests/qa-skills.test.ts -t 'CT-003 reports release version 0.6.0 consistently'\` | exit 0; 1 passed; 27 skipped |
+| \`npx vitest run tools/shared/tests/qa-skills.test.ts -t 'CT-004 preserves v0.5.0 historical evidence and the v0.4.0 changelog section'\` | exit 0; 1 passed; 27 skipped |
+| \`npx vitest run tools/shared/tests/qa-skills.test.ts -t 'CT-001/CT-004 scans references with an explicit historical allowlist'\` | exit 0; 1 passed; 27 skipped |
+| \`npx vitest run tools/shared/tests/workflow-config.test.ts -t 'keeps local config/runtimes ignored and packages only example/templates'\` | exit 0; 1 passed; 4 skipped |
+| \`npx vitest run tools/shared/tests/deep-review-installation.test.ts -t 'keeps the skill, lock metadata, release version, and project discovery aligned'\` | exit 0; 1 passed |
+| \`npm pack --dry-run --json\` | exit 0; \`my-workflow@0.6.0\`; private; 292 entries; removed paths \`[]\` |
+| Exact protected-history comparison | 65 files; 0 missing; 0 byte differences; 0.4.0/0.5.0 changelog sections equal |
+| Final reference scan/classification | 295 tracked files; 30 terms; 58 matches; 20 historical QA evidence, 2 historical changelog, 36 v0.6 removal note; 0 unexpected |
+| \`git diff --check 1451afa..34c760e\` | exit 0; no output |
+| \`python3 /Users/antoniofulg/.agents/skills/tlc-spec-driven/scripts/validate_spec.py host-owned-session-continuation\` | exit 0; 0 errors, 0 warnings |
+| \`python3 /Users/antoniofulg/.agents/skills/tlc-spec-driven/scripts/validate_tasks.py host-owned-session-continuation\` | exit 0; 0 errors, 1 expected T1 matrix warning |
+| Full Build gate | exit 0; adoption, workflow-config, Vitest, AD index, and diff checks all pass |
 
-### Test-count integrity
+## Discrimination sensor
 
-The same Vitest command on isolated pre-feature commit `1451afa960c65c120035a201210b95664b0d8`
-passed 7 files and 108 tests. Current HEAD passed 7 files and 113 tests: delta `+5` tests.
+Real-tree baseline before sensor: \`git status --porcelain=v1\` empty. Three isolated detached worktrees were used; no \`git stash\`, remote, tag, release, or publication action occurred. Each scratch was removed and the real-tree status remained empty.
 
-## Local-Only Evidence
+| Mutation | Isolated scratch fault | Command/result | Killed |
+| --- | --- | --- | --- |
+| S1 | Replaced canonical \`last_report:\` with non-schema \`report:\` in the adopted scenario | HSC-09 targeted test: 1 failed, 27 skipped; failure at \`tools/shared/tests/qa-skills.test.ts:237-239\` | ✅ |
+| S2 | Reintroduced deleted \`scripts/ai-memory.zsh\` in scratch | removal contract: 1 failed, 3 passed, 24 skipped; HSC-01 failed at \`tools/shared/tests/qa-skills.test.ts:84-86\` | ✅ |
+| S3 | Removed \`Assigned evidence named by the packet.\` from Codex Verifier packet | removal contract: 1 failed, 3 passed, 24 skipped; HSC-07 failed at \`tools/shared/tests/qa-skills.test.ts:120-128\` | ✅ |
 
-- Current branch is `feat/host-owned-session-continuation` at `045acc2`; no tag points at this
-  feature HEAD.
-- Local repository already contains a separate `v0.6.0` ref at `22ae66c2` on `origin/main`; this
-  verifier did not create or move it, and it is not the feature branch's release tag.
-- No push, pull request, merge, publication, release, deploy, operator-shell, hook, database,
-  credential, or host-setting mutation command was run. Package check used `--dry-run` only.
+**Sensor result: 3/3 killed.** Scratch-only mutations discarded; real porcelain baseline restored.
 
-## QA Handoff
+## Final reference scan: every match and classification
 
-Technical packet closes with HSC-10/QA-001 pending. Fresh `qa-plan` and `qa-execute` packets must
-create the dated v0.6.0 charter and execution report, walk the declared CLI/manual adapter, and
-update the two current `untested` scenario rows only after independent evidence survives reload.
+The exact scan uses the 30 terms and the exact allowlist in \`tools/shared/tests/qa-skills.test.ts:146-220\`. Every result below is classified; no path outside the three approved categories matched.
 
-## Lessons
+| Path | Term | Classification |
+| --- | --- | --- |
+| \`.specs/features/agent-model-routing/validation.md\` | ai-memory | historical QA evidence |
+| \`.specs/features/release-0.4.0/validation.md\` | ai-memory | historical QA evidence |
+| \`.specs/features/release-0.4.0/validation.md\` | ai_memory | historical QA evidence |
+| \`.specs/features/release-0.4.0/validation.md\` | memory handoff | historical QA evidence |
+| \`CHANGELOG.md\` | ai-memory | historical changelog |
+| \`CHANGELOG.md\` | memory handoff | historical changelog |
+| \`docs/qa/bugs/BUG-20260824-noninteractive-codex-finalizes-open-session.md\` | ai-memory | historical QA evidence |
+| \`docs/qa/bugs/BUG-20260824-noninteractive-codex-finalizes-open-session.md\` | finalize-session | historical QA evidence |
+| \`docs/qa/bugs/BUG-20260824-release-overstates-lifecycle-qa.md\` | ai-memory | historical QA evidence |
+| \`docs/qa/charters/CH-agent-model-routing-adoption-boundary-2026-08-24.md\` | ai-memory | historical QA evidence |
+| \`docs/qa/charters/CH-ai-memory-handoff-2026-08-24.md\` | ai-memory | historical QA evidence |
+| \`docs/qa/charters/CH-ai-memory-handoff-2026-08-24.md\` | finalize-session | historical QA evidence |
+| \`docs/qa/charters/CH-review-release-0-4-0-2026-08-24.md\` | ai-memory | historical QA evidence |
+| \`docs/qa/charters/CH-review-release-0-5-0-2026-08-25.md\` | ai-memory | historical QA evidence |
+| \`docs/qa/charters/CH-review-release-0-5-0-2026-08-25.md\` | memory handoff | historical QA evidence |
+| \`docs/qa/reports/2026-08-24-agent-model-routing-local-state.md\` | ai-memory | historical QA evidence |
+| \`docs/qa/reports/2026-08-24-agent-model-routing.md\` | ai-memory | historical QA evidence |
+| \`docs/qa/reports/2026-08-24-ai-memory-handoff.md\` | ai-memory | historical QA evidence |
+| \`docs/qa/reports/2026-08-24-ai-memory-handoff.md\` | ai_memory | historical QA evidence |
+| \`docs/qa/reports/2026-08-24-ai-memory-handoff.md\` | memory handoff | historical QA evidence |
+| \`docs/qa/reports/2026-08-24-release-0-4-0.md\` | ai-memory | historical QA evidence |
+| \`docs/qa/reports/2026-08-25-release-0-5-0.md\` | ai-memory | historical QA evidence |
+| \`.specs/features/host-owned-session-continuation/design.md\` | ai-memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/spec.md\` | ai-memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/spec.md\` | session-memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/spec.md\` | handoff payload | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/tasks.md\` | ai-memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/tasks.md\` | session memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | ai-memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | ai_memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | ai memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | memory handoff | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | cross-provider handoff | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | install-hooks | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | finalize-session | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | session memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | session-memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | handoff payload | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | install ai-memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | install ai_memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | enable ai-memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | enable ai_memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | source ai-memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | source ai_memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | disable ai-memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | disable ai_memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | re-enable ai-memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | re-enable ai_memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | purge ai-memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | purge ai_memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | isolate ai-memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | isolate ai_memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | detect ai-memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | detect ai_memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | test ai-memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | test ai_memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | use ai-memory | v0.6 removal note |
+| \`.specs/features/host-owned-session-continuation/validation.md\` | use ai_memory | v0.6 removal note |
 
-No lesson recorded: no acceptance criterion failed, no mutant survived, no spec-precision gap or
-SPEC_DEVIATION was found, and all technical gates passed. HSC-10/QA-001 is an explicit phase
-handoff, not a verification failure.
+**Final scan result**: 295 tracked files scanned; 30 terms; 58 matches; classification counts historical QA evidence 20, historical changelog 2, v0.6 removal note 36; unexpected matches 0.
+
+## History, package, and local-only boundary
+
+- Protected-history comparison is exact: 65 files, 0 missing, 0 byte differences; 0.4.0 and 0.5.0 changelog sections equal.
+- npm pack dry-run JSON is \`my-workflow@0.6.0\`, 292 entries, private package, removed paths \`[]\`.
+- \`git rev-parse HEAD\` is \`34c760e74b98332eac4623b8ca1a0d589f362c0c\`; no tag points at HEAD.
+- Separate pre-existing \`v0.6.0\` resolves to \`2177564d1f16597ed566afb8f3b28f388e6aa5ce\`, the same commit as \`origin/main\`; it was not created, moved, fetched, pushed, or modified by this verification.
+- No push, pull request, merge, publication, release, deploy, remote contact, external installer, operator shell/hook/settings mutation, database, credential, or host-state command was run.
+- Adoption used only disposable project/host fixtures; current branch remains local and private.
+
+## Deviations and lessons
+
+No implementation deviation, AC gap, spec-precision gap, surviving mutant, gate failure, or security issue.
+
+One expected validator warning remains: T1 declares \`Tests: none\` and the task matrix explicitly marks the decision/metadata layer as no-test; \`validate_tasks.py\` reports 0 errors and this warning only.
+
+The spec traceability row for HSC-10 and the T5/T6 handoff prose were authored before the closing QA session and still use the prior pending wording. This verifier records the now-complete QA charter/report and pass-state evidence without rewriting those artifacts because the authorization allowed only this validation report.
+
+No lesson was recorded: final validation is clean and the prior QA field-name defect was fixed and retested.
+
+## Final status
+
+**Ready: PASS — 17/17 HSC acceptance criteria, 8/8 test-contract IDs, 3/3 sensor mutations killed, 19 adoption checks, 37 workflow-config checks, 113 Vitest tests, 65/65 protected history files, 58/58 classified reference matches, and all QA rows pass.**
+
+Only real-tree path changed by this verifier: \`.specs/features/host-owned-session-continuation/validation.md\`.
