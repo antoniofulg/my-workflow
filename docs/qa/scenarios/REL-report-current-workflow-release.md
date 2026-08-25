@@ -6,20 +6,21 @@ persona: Repository reader
 journey: J-review-workflow-release
 expected: Release 0.6.0 matches both package authorities and shipped public contracts, while the full test command scopes discovery to canonical tests under tools.
 entry_points: CHANGELOG.md; package.json; package-lock.json; README.md; docs/workflow/README.md
-qa_status: untested
-bug_ids: BUG-20260824-release-overstates-lifecycle-qa
+qa_status: pass
+bug_ids: BUG-20260824-release-overstates-lifecycle-qa; BUG-20260825-scenario-pass-report-field
 fix_status: fixed
 retest_status: pass
-fix_commits: 61f2e74
-evidence: docs/qa/evidence/2026-08-25-release-0-5-0/session.md
-last_report: docs/qa/reports/2026-08-25-release-0-5-0.md
+fix_commits: 61f2e74; 1593299
+evidence: docs/qa/evidence/2026-08-25-release-0-6-0/retest-package-summary.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-version-parity.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-protected-history.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-reference-scan.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-migration.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-locality.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-adoption.json
+last_report: docs/qa/reports/2026-08-25-release-0-6-0.md
 overlaps:
 ---
 
-For the v0.6.0 removal, the next fresh QA walk must inspect the host-owned README/workflow rule and
-reviewer packets, clean and repeated adoption, package dry-run membership, release-version parity,
-protected historical files against the v0.5.0 tag, and the explicit final reference-scan allowlist.
-This scenario is untested until the fresh QA Plan and QA Execute packets record those observables.
+QA retest on 2026-08-25 after fix `1593299` passed the v0.6.0 release walk. The reloaded package
+manifest, package and lockfile authorities, current release scenario, migration note, protected
+history, and exact reference classifications agree. The private local branch is not tagged or
+published by this walk; the separate existing v0.6.0 ref on origin/main is recorded as external
+coordination state.
 
 Version owner for public release consistency. For release `0.6.0`, the reader compares the
 newest changelog heading with both package authorities and checks its claims against the shipped
