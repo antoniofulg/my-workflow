@@ -149,7 +149,10 @@ def retry_helper_script(path: Path) -> None:
         "    raise RuntimeError('retry worker-slot bound exceeded')\n"
         "if attempt >= 2:\n"
         "    rendezvous(barrier + '.active')\n"
-        "    if current > 1: pathlib.Path(overlap).touch()\n"
+        "    with open(overlap, 'a+', encoding='utf-8') as stream:\n"
+        "        fcntl.flock(stream, fcntl.LOCK_EX)\n"
+        "        stream.seek(0, 2); stream.write(json.dumps({'label': label, 'attempt': attempt, 'active': current}) + '\\n'); stream.flush()\n"
+        "        fcntl.flock(stream, fcntl.LOCK_UN)\n"
         "with open(calls, 'a', encoding='utf-8') as stream: stream.write(f'{label}:{attempt}\\n')\n"
         "change(active, -1)\n"
         "if attempt == 1:\n"
@@ -624,7 +627,10 @@ class TokenMetricsTests(unittest.TestCase):
                     cwd=REPO, capture_output=True, text=True,
                 )
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-                self.assertTrue(overlap.exists())
+                evidence = [json.loads(line) for line in overlap.read_text(encoding="utf-8").splitlines()]
+                self.assertEqual({row["label"] for row in evidence}, {"job-1", "job-2"})
+                self.assertEqual(len(evidence), 2)
+                self.assertTrue(all(row["attempt"] >= 2 for row in evidence))
                 self.assertLessEqual(int(peak.read_text()), slots)
                 self.assertCountEqual(calls.read_text(encoding="utf-8").splitlines(), ["job-1:1", "job-1:2", "job-2:1", "job-2:2"])
                 status = json.loads((out / "runs/jobs-status.json").read_text(encoding="utf-8"))
