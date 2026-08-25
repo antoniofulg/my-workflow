@@ -158,6 +158,20 @@ def peak_helper_script(path: Path, *, fail_first: bool = False, inverted: bool =
         "change(-1)\n",
         encoding="utf-8",
     )
+
+
+def report_helper_script(path: Path) -> None:
+    path.write_text(
+        "import json, sys, time\n"
+        "prompt, output, label, calls, mode = sys.argv[1:]\n"
+        "with open(calls, 'a', encoding='utf-8') as stream: stream.write(label + '\\n')\n"
+        "delay = 0.20 if ((label == 'job-1') == (mode == 'inverted')) else 0.12\n"
+        "time.sleep(delay)\n"
+        "file = f'{label}.txt'\n"
+        "payload = {'defects': [{'file': file, 'line': 1, 'in_diff': False, 'hunk': None, 'category': 'potential-issue', 'severity': 'minor', 'quick_win': False, 'title': f'Defect {label}', 'body': f'Defect body for {label}.', 'rule_ids': [], 'evidence': [f'Premise: {label} is observable → Path: {file}:1 → Verdict: report it.']}], 'advisories': [{'file': file, 'line': 1, 'in_diff': False, 'hunk': None, 'category': 'refactor', 'severity': 'minor', 'quick_win': False, 'title': f'Advisory {label}', 'body': f'Advisory body for {label}.', 'rule_ids': [], 'evidence': [f'Premise: the review can be clearer → Improvement: distinguish {label} → Fix: keep this advisory.']}], 'suppressions': [], 'coverage': {'hunks': [], 'rules': []}}\n"
+        "json.dump(payload, open(output, 'w', encoding='utf-8'))\n",
+        encoding="utf-8",
+    )
 def runner(out: Path, jobs: Path, helper: Path, calls: Path, *, db: Path | None = None, ledger: Path | None = None, extra: list[str] | None = None, helper_suffix: list[Path] | None = None, freeze_check: bool = False) -> list[str]:
     command = [sys.executable, str(SCRIPTS / "run_jobs.py"), "--out", str(out), "--jobs-file", str(jobs), "--no-freeze-check"]
     if freeze_check:
@@ -239,7 +253,7 @@ class TokenMetricsTests(unittest.TestCase):
             with self.subTest(concurrency=concurrency, count=count), tempfile.TemporaryDirectory() as raw:
                 root = Path(raw)
                 out, jobs = REPO / f".deep-review/peak-{concurrency}-{count}", root / "jobs.json"
-                calls, state, peak, attempts = root / "calls", root / "state", root / "peak", root / "attempts"
+                calls = root / "calls"
                 write_manifest(out, concurrency)
                 write_jobs(jobs, str(out.relative_to(REPO)), count=count)
                 helper = root / "peak.py"
@@ -416,12 +430,12 @@ class TokenMetricsTests(unittest.TestCase):
                     "## Estimated code review effort\n\n## Review details\n",
                     encoding="utf-8",
                 )
-                calls, state, peak, attempts = root / "calls", root / "state", root / "peak", root / "attempts"
+                calls = root / "calls"
                 helper = root / "ordered.py"
-                peak_helper_script(helper, inverted=mode == "inverted")
+                report_helper_script(helper)
                 try:
                     run = subprocess.run(
-                        runner(out, jobs, helper, calls, helper_suffix=[state, peak, attempts, mode]),
+                        runner(out, jobs, helper, calls, helper_suffix=[mode]),
                         cwd=REPO, capture_output=True, text=True,
                     )
                     self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
@@ -440,8 +454,17 @@ class TokenMetricsTests(unittest.TestCase):
                     shutil.rmtree(out, ignore_errors=True)
         self.assertEqual([row["label"] for row in artifacts[0][0]], [f"job-{i}" for i in range(1, 5)])
         self.assertEqual(artifacts[0][0], artifacts[1][0])
+        first_findings = artifacts[0][1]
+        self.assertEqual([finding["title"] for finding in first_findings["findings"]], [f"Defect job-{i}" for i in range(1, 5)])
+        self.assertEqual([advisory["title"] for advisory in first_findings["advisories"]], [f"Advisory job-{i}" for i in range(1, 5)])
+        self.assertEqual([finding["source_jobs"] for finding in first_findings["findings"]], [[f"job-{i}"] for i in range(1, 5)])
+        self.assertEqual([finding["raw_ids"] for finding in first_findings["findings"]], [[f"RD{i:04d}"] for i in range(1, 5)])
+        self.assertEqual([advisory["source_jobs"] for advisory in first_findings["advisories"]], [[f"job-{i}"] for i in range(1, 5)])
+        self.assertEqual([advisory["raw_ids"] for advisory in first_findings["advisories"]], [[f"RA{i:04d}"] for i in range(1, 5)])
         self.assertEqual(artifacts[0][1], artifacts[1][1])
         self.assertEqual(artifacts[0][2], artifacts[1][2])
+        for title in [f"Defect job-{i}" for i in range(1, 5)] + [f"Advisory job-{i}" for i in range(1, 5)]:
+            self.assertIn(title, artifacts[0][2])
 
     def test_drm02_runner_serializes_metrics_checkpoints_in_main_thread(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
