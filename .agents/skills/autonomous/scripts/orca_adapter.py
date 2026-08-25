@@ -574,11 +574,21 @@ class OrcaAdapter:
             if actual_dispatch not in (None, dispatch_id):
                 raise AdapterError("uncorrelated Orca dispatch status")
             status = status_response.get("status") or status_response.get("state")
-            if status not in {"failed", "stopped", "abandoned"}:
+            release = partial.get("recovery_release")
+            release_accepted = (
+                isinstance(release, Mapping)
+                and release.get("released") is True
+                and release.get("dispatch_id") == dispatch_id
+            )
+            if status == "released" and not release_accepted:
+                raise AdapterError(
+                    "Orca released dispatch lacks its recovery receipt",
+                    details={"code": "worker_outcome_unknown", "dispatch_id": dispatch_id, "status": status},
+                )
+            if status not in {"failed", "stopped", "abandoned", "released"}:
                 code = "worker_outcome_unknown" if status in {None, "unknown", "outcome_unknown"} else "worker_still_live"
                 raise AdapterError("Orca worker dispatch is not reclaimable", details={"code": code, "dispatch_id": dispatch_id, "status": status or "unknown"})
-            release = partial.get("recovery_release")
-            if not isinstance(release, Mapping):
+            if not release_accepted:
                 release = self._release({"idempotency_key": _text(action.get("key"), "idempotency key") + ":recovery-release", "dispatch_id": dispatch_id})
                 partial["recovery_release"] = dict(release)
             worker_path = self._discover_worktree(_text(receipt.get("worktree_path"), "worktree path"))

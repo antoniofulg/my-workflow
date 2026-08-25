@@ -217,10 +217,10 @@ def test_worktree_discovery_timeout_preserves_run_task_and_never_starts_worker()
         shutil.rmtree(root)
 
 
-def test_live_stalled_dispatch_fails_safely_without_release_or_retry() -> None:
+def test_unknown_stalled_dispatch_fails_safely_without_release_or_retry() -> None:
     root, lane, worktree = fixture()
     try:
-        cli = RecordingCLI([{"dispatch_id": "dispatch-A", "status": "running"}])
+        cli = RecordingCLI([{"dispatch_id": "dispatch-A", "status": "unknown"}])
         try:
             adapter(root, cli).reconcile_action({
                 "action": "worker", "key": KEY,
@@ -228,7 +228,7 @@ def test_live_stalled_dispatch_fails_safely_without_release_or_retry() -> None:
                 "worker_plan": lane, "worktree_receipt": worktree,
             })
         except orca_adapter.AdapterError as exc:
-            assert exc.details["code"] == "worker_still_live"
+            assert exc.details["code"] == "worker_outcome_unknown"
         else:
             raise AssertionError("live stalled dispatch must not be retried")
         assert [call[0][2] for call in cli.calls] == ["worker-show"]
@@ -236,13 +236,38 @@ def test_live_stalled_dispatch_fails_safely_without_release_or_retry() -> None:
         shutil.rmtree(root)
 
 
+def test_persisted_release_receipt_allows_retry_when_dispatch_status_is_released() -> None:
+    root, lane, worktree = fixture()
+    try:
+        cli = RecordingCLI([
+            {"dispatch_id": "dispatch-A", "status": "released"},
+            {"worktree_path": worktree["worktree_path"]},
+            worker_payload(worktree),
+        ])
+        worker = adapter(root, cli)
+        action = {
+            "action": "worker", "key": KEY,
+            "partial_effect": {
+                "run_id": "run-A", "task_id": "task-A", "dispatch_id": "dispatch-A", "terminal_handle": "terminal-A",
+                "recovery_release": {"released": True, "dispatch_id": "dispatch-A"},
+            },
+            "worker_plan": lane, "worktree_receipt": worktree,
+        }
+        receipt = worker.reconcile_action(action)
+        assert receipt is not None and receipt["run_id"] == "run-A"
+        assert [call[0][2] for call in cli.calls] == ["worker-show", "show", "worker-start"]
+    finally:
+        shutil.rmtree(root)
+
+
 def test_delivery_from_revoked_dispatch_is_rejected_as_stale() -> None:
     root, lane, worktree = fixture()
     try:
-        cli = RecordingCLI([{"deliveries": [live_delivery()]}])
+        cli = RecordingCLI([{"released": True, "dispatch_id": "dispatch-A"}, {"deliveries": [live_delivery()]}])
         worker = adapter(root, cli)
         receipt = {**worker_payload(worktree), "orchestration_task_id": "task-A"}
-        worker._revoked_dispatches.add("dispatch-A")
+        release = worker.release(receipt, {"accepted": True})
+        assert release["released"] is True
         try:
             worker.wait_events(receipt)
         except orca_adapter.AdapterError as exc:
