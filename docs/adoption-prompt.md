@@ -40,4 +40,3 @@ record `no user-visible change` and do not run QA. Activate `tlc-spec-driven`. A
 workflow work, activate `ponytail` at `full`; `AGENTS.md` carries the full-cycle session rule and
 the explicit stop commands.
 ```
-
