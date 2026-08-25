@@ -1887,3 +1887,64 @@ counts; no `review-fingerprints.json` update is required.
 **Overall:** **PASS** for `6975d4e610662c153105e1dac4f69ce0bcee839f`. Real Orca QA remains outside
 this technical verification; only this validation report changed in the checkout. No commit, push,
 merge, product/test change, or `docs/qa/**` evidence change was performed.
+
+## R10 retained-release envelope technical verification
+
+**Date:** 2026-08-25  
+**Commit under test:** `cd27409ca010fe7fa5296506ce596e1d05aa9b67`  
+**Base:** `bf1c8f2`  
+**Diff range:** `bf1c8f2..cd27409ca010fe7fa5296506ce596e1d05aa9b67`  
+**Verifier:** fresh independent Technical Verifier (author != verifier)  
+**Scoped verdict:** **PASS**
+
+This verification covers the R10 retained-release envelope and restart boundary only. No real Orca
+command ran. No product, QA, evidence, or test file outside the committed R10 change was modified.
+The existing dirty `docs/qa/**` paths were preserved byte-for-byte.
+
+### Spec-anchored outcomes
+
+| Criterion | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| Nested/camel/snake retained envelope promotion | A correlated retained release whose identity-unproven evidence is nested or aliased returns stable `release_identity_unproven`, not the provider's generic failure. | `.agents/skills/autonomous/scripts/orca_adapter.py:248-298,364-380,928-970` canonicalizes nested aliases and normalizes the worker-release failure; `tools/test_orca_adapter.py:783-824` asserts the stable code, provider code, retained state/reason, and correlated IDs. Read-only probes also returned the stable code for nested camel, nested snake, and outer state-alias envelopes. | PASS |
+| Retained evidence preservation | The failure retains `tab_not_found`, mutation, archive, request, ownership, and release-state/error evidence. | `tools/test_orca_adapter.py:817-827` asserts `lastError`/`releaseError`=`tab_not_found`, request ID, ownership, state/reason, nested mutation/archive, and `processAction`; `:758-766` retains release timestamps and resource ownership evidence. | PASS |
+| Executor fallback persistence | Adapter failure details are copied into the pending worker action and public serial fallback before the state is saved. | `.agents/skills/autonomous/scripts/parallel_execute.py:1432-1457` merges `AdapterError.details` into `partial_effect` before `_save`; `tools/test_parallel_executor.py:330-376` asserts every retained field on first fallback and restart, one start/reconcile attempt, one worktree effect, and no worker effect. | PASS |
+| Read-only replay | Replaying persisted retained evidence returns the same stable error and performs only authoritative `worker-show`; it emits no new release, retry, cleanup, or revocation effect. | `tools/test_orca_adapter.py:830-839` asserts one release call, stable idempotent error, and no revoked dispatch; `:906-915` asserts restart replay returns the stable idempotent error after `worker-show` only, with no `worker-release`, `show`, or `worker-start`. | PASS |
+| Other non-accepted reasons stay distinct | A retained response without `identity_unproven` keeps its provider/generic rejection code rather than being promoted to the R10 code. | `.agents/skills/autonomous/scripts/orca_adapter.py:954-970` gates promotion on `_is_identity_unproven_release` or the explicit `identity_unproven` code; read-only probes returned `other_reason` and `release_not_accepted` unchanged, each with one `worker-release` call. | PASS |
+| Completed path unchanged | Correlated `releaseState: completed` remains accepted and idempotent. | `tools/test_orca_adapter.py:844-857` asserts `released is True`, the expected dispatch, one provider call, and idempotent replay. | PASS |
+
+**Spec-anchored status:** 6 PASS, 0 FAIL, 0 spec-precision gaps for the scoped R10 contract.
+
+### Gate evidence
+
+- `rtk python3 tools/test_orca_adapter.py` -> exit 0, **45 passed, 0 failed**.
+- `rtk python3 tools/test_parallel_executor.py` -> exit 0, **44 passed, 0 failed**.
+- Parent comparison at `bf1c8f2`: adapter **44 -> 45** (+1); executor **44 -> 44** (+0).
+- `rtk env npm_config_offline=true npm run test:all` -> exit 0, **110 Vitest + 195 Python = 305 passed, 0 failed/skipped**.
+- Strict spec/tasks validators, `rtk python3 tools/ad-index.py --check`, Python compile, and `git diff --check bf1c8f2 cd27409ca010fe7fa5296506ce596e1d05aa9b67` -> exit 0.
+
+### Discrimination sensor
+
+Five detached scratch worktrees were created under `/tmp/r10-sensor-*`, mutated independently, run,
+and removed. The real checkout porcelain hash before and after the sensor was
+`561d12300a298de04ba18cb093902c48c5c5ab76db65134802d4c79c89b2de89`.
+
+| Mutation | Directed result | Outcome |
+| --- | --- | --- |
+| Remove the nested snake `ownership_state` alias used by retained envelope promotion. | Adapter suite failed at `tools/test_orca_adapter.py:824` with missing `ownershipState`. | KILLED |
+| Replace the normalized `release_identity_unproven` code with `release_not_accepted`. | Adapter suite failed at `tools/test_orca_adapter.py:815`. | KILLED |
+| Drop nested `result` evidence during failure projection. | Adapter suite failed at `tools/test_orca_adapter.py:331` because `result` disappeared. | KILLED |
+| Stop merging adapter details at the executor fallback boundary. | Executor suite failed at `tools/test_parallel_executor.py:363` with missing `dispatch_id`. | KILLED |
+| Bypass the persisted retained check during reconciliation. | Adapter suite attempted an unexpected second `worker-release` during replay and failed at `tools/test_orca_adapter.py:33`. | KILLED |
+
+**Sensor:** targeted, 5 injected, 5 killed, 0 survived. **PASS**.
+
+### Fingerprint accounting
+
+No new blocker or surviving mutant was found. Existing fingerprints remain closed at their recorded
+counts; `review-fingerprints.json` was not changed. No fingerprint reached the third-failure halt
+threshold.
+
+**Overall:** **PASS** for `cd27409ca010fe7fa5296506ce596e1d05aa9b67`. The exact R10 retained release
+envelope is normalized, persisted, and replay-safe; completed releases and other rejection reasons
+remain distinct. No commit, push, merge, real Orca action, product/test edit, or `docs/qa/**` edit
+was performed.
