@@ -1073,13 +1073,13 @@ def test_cli_loads_configured_cadence_into_json_and_snapshot() -> None:
         git_root(root)
         resolver = Path(__file__).resolve().parent.parent / ".agents/skills/workflow-config/scripts/workflow_config.py"
         cases = (
-            ("slice", 4, [[1], [2], [3], [4]]),
-            ("feature", 4, [[1, 2, 3, 4]]),
-            ("grouped.2", 6, [[1, 2], [3, 4], [5, 6]]),
-            ("grouped.4", 8, [[1, 2, 3, 4], [5, 6, 7, 8]]),
+            ("slice", 4, [[1], [2], [3], [4]], "", 3),
+            ("feature", 4, [[1, 2, 3, 4]], "\n[remediation]\nstall_attempts = 5\n", 5),
+            ("grouped.2", 6, [[1, 2], [3, 4], [5, 6]], "\n[remediation]\nstall_attempts = 0\n", 0),
+            ("grouped.4", 8, [[1, 2, 3, 4], [5, 6, 7, 8]], "", 3),
         )
-        for index, (cadence, slice_count, groups) in enumerate(cases):
-            write_config(root, cadence=cadence)
+        for index, (cadence, slice_count, groups, remediation_extra, stall_attempts) in enumerate(cases):
+            write_config(root, cadence=cadence, extra=remediation_extra)
             feature = f"configured-cadence-{index}"
             result = subprocess.run(
                 [sys.executable, str(resolver), "--root", str(root), "--feature", feature, "--slices", str(slice_count), "--native-provider", "codex"],
@@ -1090,8 +1090,33 @@ def test_cli_loads_configured_cadence_into_json_and_snapshot() -> None:
             expected = {"cadence": cadence, "groups": groups}
             payload = json.loads(result.stdout)
             assert payload["deep_review"] == expected
+            assert payload["remediation"] == {"stall_attempts": stall_attempts}
             snapshot = json.loads((root / f".specs/features/{feature}/workflow.json").read_text(encoding="utf-8"))
             assert snapshot["deep_review"] == expected
+            assert "remediation" not in snapshot
+
+        feature = "configured-cadence-resume"
+        write_config(root, cadence="grouped.2", extra="\n[remediation]\nstall_attempts = 5\n")
+        command = [
+            sys.executable, str(resolver), "--root", str(root), "--feature", feature,
+            "--slices", "6", "--native-provider", "codex",
+        ]
+        first_result = subprocess.run(command, text=True, capture_output=True, check=False)
+        assert first_result.returncode == 0
+        first_payload = json.loads(first_result.stdout)
+        snapshot_path = root / f".specs/features/{feature}/workflow.json"
+        snapshot_before = snapshot_path.read_bytes()
+        write_config(root, cadence="slice", extra="\n[remediation]\nstall_attempts = 7\n")
+        resumed_result = subprocess.run(
+            [*command[:-3], "8", "--native-provider", "cursor"],
+            text=True, capture_output=True, check=False,
+        )
+        assert resumed_result.returncode == 0
+        resumed_payload = json.loads(resumed_result.stdout)
+        assert resumed_payload["remediation"] == {"stall_attempts": 7}
+        assert resumed_payload["deep_review"] == first_payload["deep_review"]
+        assert "remediation" not in json.loads(snapshot_path.read_text(encoding="utf-8"))
+        assert snapshot_path.read_bytes() == snapshot_before
     finally:
         shutil.rmtree(root)
 

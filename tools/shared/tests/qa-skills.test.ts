@@ -259,6 +259,7 @@ describe("canonical QA skills", () => {
 
     const reviewRounds = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
     const workflowConfig = readRepositoryFile(".agents/skills/workflow-config/SKILL.md");
+    const autonomous = readRepositoryFile(".agents/skills/autonomous/SKILL.md");
 
     expect(reviewRounds).toContain("The provider `verifier` executes exactly one phase per packet");
     expect(reviewRounds).toContain("Deep-review is a separate orchestrator stage, not a Verifier phase");
@@ -301,6 +302,13 @@ describe("canonical QA skills", () => {
     expect(remediation.indexOf("a larger set increments it")).toBeGreaterThan(
       remediation.indexOf("strict subset of the running minimum"),
     );
+    const autonomousHalt = normalizePacket(
+      autonomous.slice(autonomous.indexOf("## Halt conditions")),
+    );
+    expect(autonomousHalt).toContain(
+      "The post-cap scoped gate is unavailable, or the configured remediation stall threshold is reached under docs/guidelines/REVIEW-ROUNDS.md; an open blocker alone does not halt while attempts are establishing new failure-set minima",
+    );
+    expect(autonomousHalt).not.toContain("leaves a blocker open");
   });
 
   it("IT-004 keeps QA scenario fields and statuses in one authoritative guideline", () => {
