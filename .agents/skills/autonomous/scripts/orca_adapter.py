@@ -613,8 +613,15 @@ class OrcaAdapter:
             dispatch_id = _opaque_token(partial.get("dispatch_id"), "dispatch id")
             status_response = self._call("worker-show", "--dispatch", dispatch_id)
             actual_dispatch = status_response.get("dispatch_id") or status_response.get("dispatchId")
-            if actual_dispatch not in (None, dispatch_id):
-                raise AdapterError("uncorrelated Orca dispatch status")
+            try:
+                normalized_actual = _opaque_token(actual_dispatch, "dispatch id")
+            except AdapterError:
+                normalized_actual = None
+            if normalized_actual != dispatch_id:
+                raise AdapterError(
+                    "uncorrelated Orca dispatch status",
+                    details={"code": "uncorrelated_dispatch", "dispatch_id": dispatch_id, "actual_dispatch": normalized_actual},
+                )
             status = status_response.get("status") or status_response.get("state")
             release = partial.get("recovery_release")
             release_accepted = (

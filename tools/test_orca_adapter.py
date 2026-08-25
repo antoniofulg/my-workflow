@@ -326,6 +326,25 @@ def test_persisted_release_receipt_allows_retry_when_dispatch_status_is_released
         shutil.rmtree(root)
 
 
+def test_nested_worker_show_missing_dispatch_id_halts_before_release_or_retry() -> None:
+    root, lane, worktree = fixture()
+    try:
+        cli = RecordingCLI([{"result": {"dispatch": {"status": "failed"}}}])
+        try:
+            adapter(root, cli).reconcile_action({
+                "action": "worker", "key": KEY,
+                "partial_effect": {"run_id": "run-A", "task_id": "task-A", "dispatch_id": "ctx_5f619d0f6298", "terminal_handle": "terminal-A"},
+                "worker_plan": lane, "worktree_receipt": worktree,
+            })
+        except orca_adapter.AdapterError as exc:
+            assert exc.details["code"] == "uncorrelated_dispatch"
+        else:
+            raise AssertionError("missing worker-show dispatch identity must halt recovery")
+        assert [call[0][2] for call in cli.calls] == ["worker-show"]
+    finally:
+        shutil.rmtree(root)
+
+
 def test_delivery_from_revoked_dispatch_is_rejected_as_stale() -> None:
     root, lane, worktree = fixture()
     try:
