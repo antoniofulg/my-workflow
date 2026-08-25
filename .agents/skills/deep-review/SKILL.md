@@ -7,7 +7,7 @@ argument-hint: "[--pr N | --base <ref> | --staged | --worktree] [--files p1,p2] 
 
 # Deep Review
 
-Review at CodeRabbit grade with no file cap and one assertive posture: funnel the diff, discover root/nested project instructions and relevant local skills, shard defects and polish into independent cohorts, run reviewers serially, then merge with complete hunk/rule accounting. Defects require causal evidence and control the verdict; advisories require a concrete improvement and always remain visible.
+Review at CodeRabbit grade with no file cap and one assertive posture: funnel the diff, discover root/nested project instructions and relevant local skills, shard defects and polish into independent cohorts, run reviewers with a bounded concurrency, then merge with complete hunk/rule accounting. Defects require causal evidence and control the verdict; advisories require a concrete improvement and always remain visible.
 
 Steps 1–4 drive an idempotent artifact pipeline under `<out>`: every stage gate is a bundled-script exit 0, valid agent outputs are never re-run, and an interrupted round resumes by re-running the same commands.
 
@@ -21,6 +21,7 @@ Steps 1–4 drive an idempotent artifact pipeline under `<out>`: every stage gat
 | `--base <ref>` / `--staged` | Local diff scope | merge-base with the origin default branch |
 | `--worktree` | Review uncommitted + untracked work against the base ref (always a full round) | — |
 | `--files <p1,p2>` | Restrict review to these paths | full diff |
+| `--concurrency <n>` | Override repository reviewer concurrency (`1`–`6`) while building the manifest | `.deep-review.yaml` or `3` |
 | `--spec <path>` | Spec file or directory; its contract-bearing artifacts become the conformance baseline (spec-parity sweep + verdict gate) | — |
 | `--subagent <runtime>` | Step 3 reviewer runtime: `native` \| `claude-opus` \| `grok` \| `codex` — non-native runs cross-LLM via `compozy exec` | `native` |
 | `--max-cohort-files <n>` | Maximum files assigned to one cohort; the ~6,000 changed-line cap still applies | `100` |
@@ -39,6 +40,7 @@ Optional repo-root file, the skill-native config standard. Any key absent there 
 
 | Key | Meaning |
 | --- | --- |
+| `concurrency` | Maximum simultaneous reviewer jobs, an integer from `1` through `6`; defaults to `3` and is pinned in `manifest.json` |
 | `path_filters` | Globs over repo-relative paths: `!pat` excludes; bare patterns, when present, restrict review to their matches and beat any exclude; built-in excludes (locks, vendor, generated, testdata, snapshots) always append |
 | `path_instructions` | `path` glob + verbatim `instructions` entries — the highest-precedence rubric source (Step 2) |
 | `request_changes_workflow` | publish-mode review-event gate |
@@ -54,9 +56,17 @@ The manifest builder resolves `path_filters` into manifest.json; the knowledge s
 - Run the repo's linters first and record every overlapping candidate as `linter-overlap` rather than reporting it again.
 - Cite rubric rules verbatim with their source path; severity comes from the taxonomy, never inflated.
 - Publishing needs `--publish` or the user's explicit go-ahead in this session; otherwise the review stays local.
+- Reviewer concurrency is resolved before dispatch: `--concurrency N` overrides `.deep-review.yaml`,
+  which overrides the default `3`; valid values are `1` through `6`. The resolved value is frozen in
+  `manifest.json`. The legacy no-op `--workers` option is rejected.
 - Every review ends with a **SHIP / FIX_BEFORE_SHIP / REWORK** verdict derived by render_review.py and stated only after that script exits 0.
 - `FIX_BEFORE_SHIP` is actionable, not a prompt for approval: in an approved loop, apply the remediation rule in `docs/guidelines/REVIEW-ROUNDS.md` automatically. After round 2, fix its blockers, run the scoped gate, and never start round 3.
-- Optional metrics snapshot provider totals and cumulative checkpoints without changing dispatch, the serial reviewer order, retries, outputs, or exits. Hosts without a compatible adapter record `unavailable` and continue the review normally. Before prompts are materialized, the pinned Graft CLI is attempted for repository map, blast radius, and symbol lookup; failed or absent Graft context falls back to ordinary repository inspection.
+- Optional metrics snapshot provider totals and cumulative checkpoints without changing dispatch,
+  retries, outputs, or exits. The main thread records serialized cumulative checkpoints without
+  per-job token attribution; totals finalize only after the full scope completes. Hosts without a
+  compatible adapter record `unavailable` and continue the review normally. Before prompts are
+  materialized, the pinned Graft CLI is attempted for repository map, blast radius, and symbol
+  lookup; failed or absent Graft context falls back to ordinary repository inspection.
 - External `--subagent` runtimes spend `compozy exec` credit.
 
 ## Procedure
@@ -67,7 +77,7 @@ The manifest builder resolves `path_filters` into manifest.json; the knowledge s
 
    ```bash
    python3 <skill-dir>/scripts/build_manifest.py --out <out> \
-     [--pr N | --base REF | --staged | --worktree] [--files p1,p2] [--full]
+     [--pr N | --base REF | --staged | --worktree] [--files p1,p2] [--full] [--concurrency N]
    ```
 
    It resolves repo path filters, detects generated / trivial / renamed files, scopes to the incremental delta when prior state exists, and pins the source-freeze snapshot.
@@ -96,7 +106,7 @@ The manifest builder resolves `path_filters` into manifest.json; the knowledge s
 
 *Done when:* build_jobs.py exits 0, every discovered source has an audited decision in rules.json, context-pack.md lists applied source/rule and linter outcomes without copying the full registry, and walkthrough.md satisfies its contract.
 
-**Step 3: Review — serialized jobs**
+**Step 3: Review — bounded concurrent jobs**
 
 Execute `<out>/jobs.json` with the mutating runner and engine contract loaded in Step 2. When `--subagent` is not `native`, read `<skill-dir>/references/subagent-runtimes.md` in full before execution. Completion is engine-independent — re-dispatch whatever is listed as pending/invalid until exit 0:
 
@@ -104,7 +114,9 @@ Execute `<out>/jobs.json` with the mutating runner and engine contract loaded in
 python3 <skill-dir>/scripts/run_jobs.py --out <out> --validate-only
 ```
 
-*Done when:* run_jobs.py `--validate-only` exits 0 — every defect, polish, and sweep output matches the schema and completely accounts for assigned hunks and rules. Execute materialized jobs one at a time, including retries; add optional metrics adapter flags only when compatible telemetry is configured.
+*Done when:* run_jobs.py `--validate-only` exits 0 — every defect, polish, and sweep output matches the schema and completely accounts for assigned hunks and rules. Execute materialized jobs with the bounded concurrency pinned in the manifest, keeping retries inside their worker slot; refill slots after completion, stop refilling after a provider block, and preserve manifest-order status for validation and reporting.
+
+Add optional metrics adapter flags only when compatible telemetry is configured.
 
 **Step 4: Merge + report**
 
