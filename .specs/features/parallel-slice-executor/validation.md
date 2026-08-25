@@ -2473,3 +2473,50 @@ Discrimination sensor: 7 injected, 7 killed, 0 survived. Config C1-C4 killed by 
 Fingerprints: `aa35ac5db72c69f0dcf0a7f7fb1d5cb744ef017a250470aed9f59a209e2f4174` count 2 **CLOSED**; `884502a08edabdbc14742927f8e8a02aa28a1f4a1ef8f33698b9be1098ba0b1b` count 1 **CLOSED**.
 
 External QA remains **BLOCKED-VERIFY** for terminal Orca/Codex lifecycle and cleanup per `docs/qa/reports/2026-08-25-parallel-slice-executor-final.md:12-32`; this is outside technical verdict and does not claim a real Orca pilot.
+
+## T7R6 adoption pilot fix technical verification — 2026-08-25
+
+**Verdict:** **PASS**. **Commit:** `816afd66de4430c1df6138b0e21764bfc5884ce8`.
+**Base/diff:** `28798c729ac470a0427d430198e70005fc45f089..816afd66de4430c1df6138b0e21764bfc5884ce8`.
+Fresh independent Technical Verifier; author != verifier. Scope is T7R6 and
+`BUG-20260825-adoption-omits-parallel-pilot`; the existing external Orca QA disposition is unchanged.
+
+### Spec-anchored outcomes
+
+| T7R6 / bug outcome | `file:line` + assertion evidence | Result |
+| --- | --- | --- |
+| Fresh adoption installs the public pilot byte-identically. | `scripts/adopt.py:43-50,234-238` includes the pilot in the canonical managed-copy path; `scripts/test_adopt.py:362-370` asserts the adopted file exists and its bytes equal `tools/qa_parallel_pilot.py`. | PASS |
+| Re-adoption replaces a stale managed pilot with exact source bytes. | `scripts/test_adopt.py:372-377` writes stale bytes, re-adopts, and asserts exact source equality. | PASS |
+| Re-adoption preserves consumer-owned `.my-workflow.toml`. | `scripts/test_adopt.py:373-378` records consumer bytes before re-adoption and asserts exact equality afterward. | PASS |
+| A second re-adoption is byte-idempotent and leaves other adopted tools intact. | `scripts/test_adopt.py:380-382` asserts pilot/source byte identity after the third adoption. An independent public-CLI fixture compared the complete non-Git adopted tree across both re-adoptions: **206/206 entries** (files, directories, and symlinks) remained identical while the stale pilot was restored and consumer config stayed unchanged. | PASS |
+
+**Scoped outcome status:** 4/4 matched; 0 FAIL; 0 spec-precision gaps. Source and adopted
+pilot SHA-256: `58e8642a5cd2b01f428aceb043edaf57038828a6a7ccb2dffb0bc20ed3fc2df6`.
+
+### Gates
+
+- `rtk python3 scripts/test_adopt.py` -> exit 0, **19/19 registered adoption tests passed**; base had 18, delta **+1**, 0 failed/skipped.
+- Public CLI fixture (`python3 scripts/adopt.py <disposable-target>` three times) -> exit 0: fresh source equality, stale-copy restoration, consumer-config preservation, and 206-entry byte/symlink idempotence all passed.
+- `rtk npm run test:all` -> exit 0: **8/8 Vitest files, 110/110 tests**, plus all **12 discovered Python suites**, 0 failures/skips.
+- `rtk git diff --check 28798c7..816afd6` -> exit 0.
+
+### Discrimination sensor
+
+Three detached scratch worktrees were mutated independently and removed:
+
+| Mutation | Canonical failure | Result |
+| --- | --- | --- |
+| Remove `tools/qa_parallel_pilot.py` from `COPY_PATHS`. | `scripts/test_adopt.py:369` failed because adopted pilot was absent. | KILLED |
+| Route the pilot destination to wrong/stale `scripts/adopt.py` bytes. | `scripts/test_adopt.py:370` failed exact byte equality. | KILLED |
+| Overwrite consumer `.my-workflow.toml` from the example during every adoption. | `scripts/test_adopt.py:185` failed exact consumer-config preservation. | KILLED |
+
+**Sensor:** 3 injected, 3 killed, 0 survived. **PASS**. Scratch root removed and no scratch
+worktree remains.
+
+### Isolation and summary
+
+Real-tree porcelain before and after the sensor/gates matched exactly: three pre-existing modified
+QA documents and three pre-existing untracked QA artifacts. Their six SHA-256 hashes remained
+`ad409cb7…`, `bbbdaef0…`, `aa4bdbf0…`, `a7855528…`, `c2867197…`, and `006148de…` respectively.
+No product, test, or QA artifact was changed by this verifier; only this validation receipt was
+added. No blocker, surviving mutant, or lesson signal was found.
