@@ -46,8 +46,10 @@ only after `python3 tools/qa_parallel_pilot.py lifecycle-check` proves exactly t
 lanes have terminal worker, read-before-ack, and release receipts; timeout or incomplete lifecycle
 retains the fixture for diagnosis.
 
-Normal cleanup also requires a lifecycle authorization digest bound to the owner repository/common
-directory, source worktree identity, frozen heads, exact lane worktree IDs, and lifecycle version.
+`lifecycle-check --root <fixture>` is the only command that persists the lifecycle authorization
+digest bound to the owner repository/common directory, source worktree identity, frozen heads,
+exact lane worktree IDs, and lifecycle version. Normal cleanup only consumes that pre-existing
+authorization and never mints one.
 `cleanup --abort-incomplete` is an explicit diagnostic path; it never claims cleaned success and
 refuses removal while an accepted or recoverable worker effect may still be live.
 

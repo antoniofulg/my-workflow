@@ -24,6 +24,7 @@ for attempt in $(seq 1 60); do
   test "$attempt" -lt 60 || { echo "pilot did not reach terminal worker receipts" >&2; exit 1; }
 done
 python3 tools/qa_parallel_pilot.py lifecycle-check <<<"$STATUS_JSON"
+python3 tools/qa_parallel_pilot.py lifecycle-check --root "$FIXTURE_ROOT"
 trap - EXIT
 python3 tools/qa_parallel_pilot.py cleanup --root "$FIXTURE_ROOT"
 ```

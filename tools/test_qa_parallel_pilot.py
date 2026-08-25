@@ -25,6 +25,7 @@ def test_pilot_handoff_uses_disposable_safe_fixture_and_dry_run_two_lanes() -> N
     assert "qa_parallel_pilot.py setup" in handoff
     assert "qa_parallel_pilot.py dry-run" in handoff
     assert "qa_parallel_pilot.py cleanup" in handoff
+    assert "lifecycle-check --root" in handoff
     assert "--feature parallel-slice-executor" not in handoff
     setup = subprocess.run([sys.executable, str(HARNESS), "setup"], text=True, capture_output=True, check=True)
     fixture = json.loads(setup.stdout)["root"]
@@ -52,7 +53,7 @@ def test_pilot_handoff_uses_disposable_safe_fixture_and_dry_run_two_lanes() -> N
         assert subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=child, text=True).strip() == result["source_git_head"]
     finally:
         refused = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--root", fixture], text=True, capture_output=True, check=False)
-        assert refused.returncode != 0 and json.loads(refused.stdout)["reason"] == "lifecycle-incomplete"
+        assert refused.returncode != 0 and json.loads(refused.stdout)["reason"] == "cleanup-authorization-missing"
         first_cleanup = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], text=True, capture_output=True, check=False)
         assert json.loads(first_cleanup.stdout)["aborted"] is True
         assert json.loads(first_cleanup.stdout)["cleaned"] is False
@@ -110,6 +111,15 @@ def test_normal_cleanup_requires_lifecycle_authorization_and_removes_exact_sourc
         state = parallel_execute.new_runtime_state(str(fixture_root.resolve()), "parallel-pilot", "safe", source_head)
         state["lanes"] = lanes
         state["actions"] = actions
+        parallel_execute.atomic_write_json(parallel_execute.runtime_state_path(fixture_root, "parallel-pilot"), state)
+        authorized = subprocess.run([sys.executable, str(HARNESS), "lifecycle-check", "--root", fixture], text=True, capture_output=True, check=True)
+        assert json.loads(authorized.stdout)["authorized"] is True
+        state["lanes"]["slice-A"]["state"] = "serial"
+        parallel_execute.atomic_write_json(parallel_execute.runtime_state_path(fixture_root, "parallel-pilot"), state)
+        stale = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--root", fixture], text=True, capture_output=True, check=False)
+        assert stale.returncode != 0
+        assert fixture_root.exists() and (sibling_root / OWNED_WORKTREES[0]).exists()
+        state["lanes"]["slice-A"]["state"] = "complete"
         parallel_execute.atomic_write_json(parallel_execute.runtime_state_path(fixture_root, "parallel-pilot"), state)
         cleanup = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--root", fixture], text=True, capture_output=True, check=False)
         assert cleanup.returncode == 0, cleanup.stdout + cleanup.stderr

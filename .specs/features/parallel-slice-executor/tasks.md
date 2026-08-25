@@ -370,7 +370,7 @@ remain blocked only until Slice A passes its Technical Verifier.
 
 - [x] Setup freezes committed fixture metadata in a source worktree sharing the owner Git common directory; cleanup removes exact lane/source worktrees through that owner.
 - [x] Structured nonzero Orca JSON preserves bounded redacted failure details and accepted Run/Task partial effects; retry reuses exact IDs without duplicate creation.
-- [x] Normal cleanup requires lifecycle state plus external authorization digest; incomplete cleanup refuses deletion, while `--abort-incomplete` remains diagnostic and refuses live/recoverable workers.
+- [x] `lifecycle-check --root` persists lifecycle state plus external authorization digest; normal cleanup consumes only that pre-existing authorization, while `--abort-incomplete` remains diagnostic and refuses live/recoverable workers.
 
 **Remediation tests:** Orca structured failure, executor partial-effect retry, pilot owner/common-dir and lifecycle authorization/abort suites, IT-007, full discovery.
 **Remediation gate:** Directed pilot/adapter/executor/planner/IT-007, `npm run test:all`, strict validators/index, compile, diff, and check_commit.

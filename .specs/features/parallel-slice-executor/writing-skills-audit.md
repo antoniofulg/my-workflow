@@ -136,7 +136,7 @@ complete definition; all other edits are short pointers.
 | --- | --- | --- |
 | Shared Git ownership | Pass | Pilot source setup is a registered owner worktree; canonical tests compare source and owner common directories and verify exact source removal. |
 | Partial external effects | Pass | Structured `selector_not_found` data is redacted/bounded, persisted on the pending worker action, exposed in fallback state, and retried with the exact Run/Task IDs. |
-| Cleanup authorization | Pass | Normal cleanup requires lifecycle state and an external digest-bound authorization; diagnostic abort is explicit, never cleaned, and refuses live/recoverable workers. |
+| Cleanup authorization | Pass | `lifecycle-check --root` writes the external digest-bound authorization; normal cleanup only consumes it, while diagnostic abort is explicit, never cleaned, and refuses live/recoverable workers. |
 | QA boundary | Pass | QA FAIL artifacts remain untouched; no QA pass or author Orca run is claimed. |
 
 ## Grouped C-D review remediation delta

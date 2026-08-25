@@ -233,6 +233,40 @@ def _state_digest(status: dict[str, object]) -> str:
     return hashlib.sha256(json.dumps(status.get("state"), sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
+def _authorization_record(
+    root: Path, ownership: dict[str, object], snapshot: dict[str, object], status: dict[str, object],
+    lane_ids: dict[str, str], *, diagnostic: bool = False,
+) -> dict[str, object]:
+    return {
+        "feature": FEATURE,
+        "root": str(root),
+        "owner_root": str(ownership["owner_root"]),
+        "owner_common_dir": str(ownership["owner_common_dir"]),
+        "source_worktree": str(root),
+        "source_worktree_id": ownership["source_worktree_id"],
+        "source_git_head": ownership["source_git_head"],
+        "workflow_git_head": snapshot["git_head"],
+        "worktrees": list(OWNED_WORKTREES),
+        "lane_worktree_ids": lane_ids,
+        "lifecycle_version": LIFECYCLE_VERSION,
+        "lifecycle_digest": _state_digest(status),
+        "status": "diagnostic-authorized" if diagnostic else "authorized",
+        "residual_paths": [],
+    }
+
+
+def authorize_lifecycle(root_value: str) -> dict[str, object]:
+    root, ownership, snapshot, _ = _validate_fixture(root_value)
+    status = _executor_status(root)
+    if not lifecycle_complete(status):
+        return {"authorized": False, "reason": "lifecycle-incomplete", "root": root_value}
+    lane_ids = _lane_worktree_ids(status, _worktree_root(root))
+    attestation = root.parent / f".{root.name}.parallel-pilot-cleaned"
+    record = _authorization_record(root, ownership, snapshot, status, lane_ids)
+    _write_tombstone(attestation, record)
+    return {"authorized": True, "lifecycle_version": LIFECYCLE_VERSION, "lifecycle_digest": record["lifecycle_digest"], "root": root_value}
+
+
 def _lane_worktree_ids(status: dict[str, object], worktree_root: Path) -> dict[str, str]:
     state = status.get("state")
     lanes = state.get("lanes") if isinstance(state, dict) else None
@@ -349,6 +383,8 @@ def cleanup(root_value: str, *, abort_incomplete: bool = False) -> dict[str, obj
         _validate_tombstone(root, prior_authorization)
         if prior_authorization.get("status") not in {"authorized", "diagnostic-authorized"}:
             raise ValueError("pilot cleanup authorization is stale")
+    elif not abort_incomplete:
+        return {"cleaned": False, "aborted": False, "diagnostic_cleanup": False, "reason": "cleanup-authorization-missing", "root": root_value}
     status = _executor_status(root)
     lifecycle = lifecycle_complete(status)
     if not lifecycle and not abort_incomplete:
@@ -356,27 +392,13 @@ def cleanup(root_value: str, *, abort_incomplete: bool = False) -> dict[str, obj
     if abort_incomplete and _accepted_worker_effect(status):
         return {"cleaned": False, "aborted": False, "diagnostic_cleanup": True, "reason": "worker-may-be-live", "instruction": "release accepted workers before diagnostic abort", "root": root_value}
     lane_ids = _lane_worktree_ids(status, worktree_root) if lifecycle else {lane_id: "unverified" for lane_id in EXPECTED_LANES}
-    if prior_authorization is not None and prior_authorization.get("lifecycle_digest") != _state_digest(status):
+    if not abort_incomplete and (prior_authorization is None or prior_authorization.get("lifecycle_digest") != _state_digest(status)):
         raise ValueError("pilot cleanup authorization digest is stale")
     residual: list[str] = []
-    owner_common = str(ownership["owner_common_dir"])
-    record = {
-        "feature": FEATURE,
-        "root": str(root),
-        "owner_root": str(owner),
-        "owner_common_dir": owner_common,
-        "source_worktree": str(root),
-        "source_worktree_id": ownership["source_worktree_id"],
-        "source_git_head": ownership["source_git_head"],
-        "workflow_git_head": snapshot["git_head"],
-        "worktrees": list(OWNED_WORKTREES),
-        "lane_worktree_ids": lane_ids,
-        "lifecycle_version": LIFECYCLE_VERSION,
-        "lifecycle_digest": _state_digest(status),
-        "status": "diagnostic-authorized" if abort_incomplete else "authorized",
-        "residual_paths": residual,
-    }
-    _write_tombstone(attestation, record)
+    record = _authorization_record(root, ownership, snapshot, status, lane_ids, diagnostic=abort_incomplete)
+    record["residual_paths"] = residual
+    if abort_incomplete:
+        _write_tombstone(attestation, record)
     residual = _remove_owned_worktrees(owner, worktree_root)
     _prune_empty_worktree_dirs(worktree_root)
     residual.extend(_residual_paths(worktree_root))
@@ -396,6 +418,10 @@ def main() -> int:
     parser.add_argument("--abort-incomplete", action="store_true")
     args = parser.parse_args()
     if args.command == "lifecycle-check":
+        if args.root:
+            result = authorize_lifecycle(args.root)
+            print(json.dumps(result, sort_keys=True))
+            return 0 if result["authorized"] else 1
         result = {"complete": lifecycle_complete(json.load(sys.stdin))}
         print(json.dumps(result, sort_keys=True))
         return 0 if result["complete"] else 1

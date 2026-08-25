@@ -86,6 +86,10 @@ existing checkout. Nonzero Orca JSON is parsed into bounded redacted failure det
 creation succeeds before worker start fails, the pending worker action stores those exact IDs and
 reconciles them on resume without creating duplicate Run/Task objects.
 
+Pilot cleanup is two-phase: `lifecycle-check --root` validates the exact current state and writes
+an external digest-bound authorization; normal cleanup reloads and revalidates that authorization
+before any deletion, then writes only the terminal cleanup tombstone. Diagnostic abort is separate.
+
 ### Git adapter
 
 - **Purpose:** Synchronize one exact producer checkpoint and integrate verified slice branches.
