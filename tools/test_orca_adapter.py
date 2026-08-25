@@ -236,6 +236,27 @@ def test_unknown_stalled_dispatch_fails_safely_without_release_or_retry() -> Non
         shutil.rmtree(root)
 
 
+def test_running_stalled_dispatch_fails_safely_without_release_or_retry() -> None:
+    root, lane, worktree = fixture()
+    try:
+        cli = RecordingCLI([{"dispatch_id": "dispatch-A", "status": "running"}])
+        try:
+            adapter(root, cli).reconcile_action({
+                "action": "worker", "key": KEY,
+                "partial_effect": {"run_id": "run-A", "task_id": "task-A", "dispatch_id": "dispatch-A", "terminal_handle": "terminal-A"},
+                "worker_plan": lane, "worktree_receipt": worktree,
+            })
+        except orca_adapter.AdapterError as exc:
+            assert exc.details["code"] == "worker_still_live"
+        else:
+            raise AssertionError("running stalled dispatch must not be retried")
+        commands = [call[0][2] for call in cli.calls]
+        assert commands == ["worker-show"]
+        assert "worker-release" not in commands and "worker-start" not in commands
+    finally:
+        shutil.rmtree(root)
+
+
 def test_persisted_release_receipt_allows_retry_when_dispatch_status_is_released() -> None:
     root, lane, worktree = fixture()
     try:
