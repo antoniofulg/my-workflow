@@ -187,10 +187,12 @@ T4 -> T5 -> T6
 
 **Done when**:
 
-- [ ] `npm version 0.6.0 --no-git-tag-version` regenerates package and lockfile versions without a tag.
-- [ ] Changelog removal and migration note contain all required statements and link the tagged v0.5.0 guide.
-- [ ] CT-001, CT-003, CT-004, and REL-001 use exact values and an explicit path allowlist.
-- [ ] `npm test`, release parity, `npm pack --dry-run --json`, and final classified reference scan pass.
+- [x] `npm version 0.6.0 --no-git-tag-version` regenerates package and lockfile versions without a tag.
+- [x] Changelog removal and migration note contain all required statements and link the tagged v0.5.0 guide.
+- [x] CT-001, CT-003, CT-004, and REL-001 use exact values and an explicit path allowlist.
+- [x] `npm test`, release parity, `npm pack --dry-run --json`, and final classified reference scan pass.
+
+**Status:** complete — release contract gates passed locally; fresh technical verification and closing QA remain for the orchestrator.
 
 **Tests**: unit and integration contract
 **Gate**: build

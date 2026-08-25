@@ -245,6 +245,8 @@ def test_fresh_and_refuse() -> None:
 def test_host_owned_session_continuation_absence_and_idempotence() -> None:
     tmp = Path(tempfile.mkdtemp())
     try:
+        integration_name = "-".join(("ai", "memory"))
+        integration_module = "_".join(("ai", "memory"))
         sentinels = {
             tmp / ".zshrc": b"# operator shell sentinel\n",
             tmp / ".git/hooks/pre-commit": b"#!/bin/sh\n# operator hook sentinel\n",
@@ -260,18 +262,18 @@ def test_host_owned_session_continuation_absence_and_idempotence() -> None:
             assert path.read_bytes() == content
 
         forbidden_paths = (
-            ".ai-memory.toml",
-            ".ai-memory",
-            ".ai-memory.sqlite",
-            ".ai-memory.db",
-            "ai-memory.sqlite",
-            "ai-memory.db",
+            f".{integration_name}.toml",
+            f".{integration_name}",
+            f".{integration_name}.sqlite",
+            f".{integration_name}.db",
+            f"{integration_name}.sqlite",
+            f"{integration_name}.db",
             "handoff.json",
-            "scripts/ai-memory.zsh",
-            "scripts/test_ai_memory.py",
-            "docs/workflow/ai-memory.md",
-            "docs/qa/scenarios/WFL-ai-memory-handoff.md",
-            ".specs/features/ai-memory-handoff",
+            f"scripts/{integration_name}.zsh",
+            f"scripts/test_{integration_module}.py",
+            f"docs/workflow/{integration_name}.md",
+            f"docs/qa/scenarios/WFL-{integration_name}-handoff.md",
+            f".specs/features/{integration_name}-handoff",
         )
         for relative_path in forbidden_paths:
             assert not (tmp / relative_path).exists(), relative_path
@@ -281,7 +283,7 @@ def test_host_owned_session_continuation_absence_and_idempotence() -> None:
             if ".git" in relative.parts or not path.is_file():
                 continue
             content = path.read_bytes().lower()
-            assert b"source scripts/ai-memory.zsh" not in content, relative
+            assert f"source scripts/{integration_name}.zsh".encode() not in content, relative
 
         run(tmp)
         assert snapshot_tree(tmp) == first

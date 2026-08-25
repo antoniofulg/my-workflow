@@ -127,13 +127,13 @@ None. The feature removes a runtime and performs no shell startup, hook, externa
 | HSC-08 | Publish host-owned continuation | Tasks | Verified |
 | HSC-09 | Preserve history and update QA | Tasks | Verified |
 | HSC-10 | Preserve history and update QA | Tasks | Pending |
-| HSC-11 | Preserve history and update QA | Tasks | Pending |
-| HSC-12 | Preserve history and update QA | Tasks | Pending |
-| HSC-13 | Prepare v0.6.0 | Tasks | Pending |
-| HSC-14 | Prepare v0.6.0 | Tasks | Pending |
-| HSC-15 | Prepare v0.6.0 | Tasks | Pending |
+| HSC-11 | Preserve history and update QA | Tasks | Verified |
+| HSC-12 | Preserve history and update QA | Tasks | Verified |
+| HSC-13 | Prepare v0.6.0 | Tasks | Verified |
+| HSC-14 | Prepare v0.6.0 | Tasks | Verified |
+| HSC-15 | Prepare v0.6.0 | Tasks | Verified |
 | HSC-16 | Prepare v0.6.0 | Tasks | Verified |
-| HSC-17 | Prepare v0.6.0 | Tasks | Pending |
+| HSC-17 | Prepare v0.6.0 | Tasks | Verified |
 
 **Coverage:** 17 total, 17 mapped to tasks, 0 unmapped.
 

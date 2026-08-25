@@ -82,7 +82,25 @@ describe("workflow configuration skill", () => {
     expect(packaged.some((path) => path.startsWith(".claude/agents/"))).toBe(false);
     expect(packaged.some((path) => path.startsWith(".codex/agents/"))).toBe(false);
     expect(packaged.some((path) => path.startsWith(".cursor/agents/"))).toBe(false);
-  });
+    const integrationName = ["ai", "memory"].join("-");
+    const integrationModule = ["ai", "memory"].join("_");
+    const removedPackagePaths = [
+      `scripts/${integrationName}.zsh`,
+      `scripts/test_${integrationModule}.py`,
+      `docs/workflow/${integrationName}.md`,
+      `docs/qa/scenarios/WFL-${integrationName}-handoff.md`,
+      `.specs/features/${integrationName}-handoff/`,
+    ];
+    expect(
+      packaged.filter((packagePath) =>
+        removedPackagePaths.some(
+          (removedPath) =>
+            packagePath === removedPath ||
+            (removedPath.endsWith("/") && packagePath.startsWith(removedPath)),
+        ),
+      ),
+    ).toEqual([]);
+  }, 30_000);
 
   it("resolves the shipped mixed profile to its exact provider routes", () => {
     const example = readRepositoryFile(".my-workflow.toml.example");

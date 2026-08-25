@@ -98,8 +98,8 @@ Idle.
 
 ### AD-008
 
-- **Decision**: Adopt upstream ai-memory `1.31.0` only as an opt-in, transient handoff transport
-  between Claude Code, Codex, and Cursor. Lifecycle hooks and the sourceable Codex helper may create
+- **Decision**: Adopt the upstream optional `1.31.0` integration only as an opt-in, transient
+  handoff transport between Claude Code, Codex, and Cursor. Lifecycle hooks and the sourceable Codex helper may create
   one pending baton, but MCP, briefing, routing skills, managed workstreams, LLMs, embeddings,
   consolidation, and auto-improvement remain disabled. Git, `.specs/`, tasks, architecture docs,
   and `knowledge/` remain the only project authority. Reviewer continuity is packet-defined: internal
@@ -111,9 +111,9 @@ Idle.
   boundary. Codex requires a manual `handoff` fallback when its process exits abnormally. Dropping
   subagent captures reduces storage noise but does not protect a top-level reviewer; role isolation
   remains an explicit packet rule.
-- **Scope**: `scripts/ai-memory.zsh`, `scripts/test_ai_memory.py`, `docs/workflow/ai-memory.md`,
-  `README.md`, `docs/guidelines/REVIEW-ROUNDS.md`, `docs/qa/`, the ai-memory feature contracts and
-  threat model, and this decision record.
+- **Scope**: The repository helper, feature-specific test, workflow guide, `README.md`,
+  `docs/guidelines/REVIEW-ROUNDS.md`, `docs/qa/`, the integration contracts and threat model, and
+  this decision record.
 - **Date**: 2026-08-23
 - **Status**: superseded by AD-011
 

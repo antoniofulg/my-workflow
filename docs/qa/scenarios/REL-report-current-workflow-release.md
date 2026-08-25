@@ -4,8 +4,8 @@ area: REL
 title: Report the current workflow release consistently
 persona: Repository reader
 journey: J-review-workflow-release
-expected: The newest changelog release matches both package authorities and shipped public contracts, while the full test command scopes discovery to canonical tests under tools.
-entry_points: CHANGELOG.md; package.json; package-lock.json
+expected: Release 0.6.0 matches both package authorities and shipped public contracts, while the full test command scopes discovery to canonical tests under tools.
+entry_points: CHANGELOG.md; package.json; package-lock.json; README.md; docs/workflow/README.md
 qa_status: untested
 bug_ids: BUG-20260824-release-overstates-lifecycle-qa
 fix_status: fixed
@@ -21,7 +21,7 @@ reviewer packets, clean and repeated adoption, package dry-run membership, relea
 protected historical files against the v0.5.0 tag, and the explicit final reference-scan allowlist.
 This scenario is untested until the fresh QA Plan and QA Execute packets record those observables.
 
-Version-neutral owner for public release consistency. For release `0.5.0`, the reader compares the
+Version owner for public release consistency. For release `0.6.0`, the reader compares the
 newest changelog heading with both package authorities and checks its claims against the shipped
 public contracts. The release walk reuses the adoption verdict as a canary instead of repeating its
 feature-level probes.

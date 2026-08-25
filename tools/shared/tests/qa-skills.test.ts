@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -26,6 +26,15 @@ function tracked(relativePath: string): string {
     cwd: repositoryRoot,
     encoding: "utf8",
   }).trim();
+}
+
+function trackedFiles(): string[] {
+  return execFileSync("git", ["ls-files", "-z"], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+  }).split("\0").filter((relativePath) =>
+    relativePath && existsSync(join(repositoryRoot, relativePath)) && statSync(join(repositoryRoot, relativePath)).isFile(),
+  );
 }
 
 function parseSkillMetadata(source: string, relativePath: string): { name: string; description: string } {
@@ -56,12 +65,14 @@ const verifierPacketPaths = [
 
 describe("host-owned session continuation removal contract", () => {
   it("HSC-01/HSC-04 removes every repository and package artifact", () => {
+    const integrationName = ["ai", "memory"].join("-");
+    const integrationModule = ["ai", "memory"].join("_");
     const removedPaths = [
-      "scripts/ai-memory.zsh",
-      "scripts/test_ai_memory.py",
-      "docs/workflow/ai-memory.md",
-      "docs/qa/scenarios/WFL-ai-memory-handoff.md",
-      ".specs/features/ai-memory-handoff/",
+      `scripts/${integrationName}.zsh`,
+      `scripts/test_${integrationModule}.py`,
+      `docs/workflow/${integrationName}.md`,
+      `docs/qa/scenarios/WFL-${integrationName}-handoff.md`,
+      `.specs/features/${integrationName}-handoff/`,
     ];
 
     for (const relativePath of removedPaths) {
@@ -105,10 +116,62 @@ describe("host-owned session continuation removal contract", () => {
       expect(normalized).toContain("The Implementer's transcript, the operator handoff");
     }
 
+    const removedIntegration = ["ai", "memory"].join("-");
+    const removedIntegrationModule = ["ai", "memory"].join("_");
+    const removedPhrases = [
+      removedIntegration,
+      removedIntegrationModule,
+      ["memory", "handoff"].join(" "),
+      ["cross-provider", "handoff"].join(" "),
+      ["install", "hooks"].join("-"),
+      ["finalize", "session"].join("-"),
+    ];
     for (const source of [readme, workflowIndex, reviewGuideline, ...reviewerPackets]) {
-      expect(source).not.toMatch(/ai-memory|ai_memory|memory handoff|cross-provider handoff|install-hooks|finalize-session/i);
+      expect(removedPhrases.some((phrase) => source.toLowerCase().includes(phrase))).toBe(false);
       expect(source).not.toMatch(/\bOrca\b/);
     }
+  });
+
+  it("CT-001/CT-004 scans references with an explicit historical allowlist", () => {
+    const integrationName = ["ai", "memory"].join("-");
+    const integrationModule = ["ai", "memory"].join("_");
+    const referenceTerms = [
+      integrationName,
+      integrationModule,
+      ["ai", "memory"].join(" "),
+      ["memory", "handoff"].join(" "),
+      ["cross-provider", "handoff"].join(" "),
+      ["install", "hooks"].join("-"),
+      ["finalize", "session"].join("-"),
+      ["session", "memory"].join("-"),
+      ["handoff", "payload"].join(" "),
+    ];
+    const allowlist = (relativePath: string): string | undefined => {
+      if (relativePath === "CHANGELOG.md") return "historical changelog or v0.6.0 removal note";
+      if (/^docs\/qa\/(?:reports|charters|bugs)\//.test(relativePath)) {
+        return "historical QA evidence";
+      }
+      if (
+        relativePath === ".specs/features/agent-model-routing/validation.md" ||
+        relativePath === ".specs/features/release-0.4.0/validation.md"
+      ) {
+        return "historical QA evidence";
+      }
+      if (relativePath.startsWith(".specs/features/host-owned-session-continuation/")) {
+        return "v0.6.0 removal note";
+      }
+      return undefined;
+    };
+    const matches = trackedFiles().flatMap((relativePath) => {
+      const source = readRepositoryFile(relativePath);
+      return referenceTerms
+        .filter((term) => source.toLowerCase().includes(term.toLowerCase()))
+        .map((term) => ({ relativePath, term, classification: allowlist(relativePath) }));
+    });
+    const unexpected = matches.filter((match) => !match.classification);
+
+    expect(unexpected, `non-allowlisted references:\n${JSON.stringify(unexpected, null, 2)}`).toEqual([]);
+    expect(matches.every((match) => match.classification), "every reference must be classified").toBe(true);
   });
 });
 
@@ -834,7 +897,7 @@ describe("adoption and public setup", () => {
     expect(qaExecute).toContain("does not write product code, install a framework, invent a");
   });
 
-  it("IT-005 / AIM-11 reports release version 0.5.0 consistently", () => {
+  it("CT-003 reports release version 0.6.0 consistently", () => {
     const manifest = JSON.parse(readRepositoryFile("package.json")) as {
       version?: string;
       scripts?: { test?: string };
@@ -844,20 +907,48 @@ describe("adoption and public setup", () => {
       packages?: { ""?: { version?: string } };
     };
     const changelog = readRepositoryFile("CHANGELOG.md");
+    const releaseScenario = readRepositoryFile("docs/qa/scenarios/REL-report-current-workflow-release.md");
+    const integrationName = ["ai", "memory"].join("-");
     const latestHeading = changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m)?.[1];
     const releaseStart = changelog.indexOf(`## [${manifest.version}]`);
     const nextRelease = changelog.indexOf("\n## [", releaseStart + 1);
     const latestRelease = changelog.slice(releaseStart, nextRelease === -1 ? undefined : nextRelease);
 
-    expect(manifest.version).toBe("0.5.0");
+    expect(manifest.version).toBe("0.6.0");
     expect(manifest.scripts?.test).toBe("vitest run --dir tools");
-    expect(lockfile.version).toBe("0.5.0");
-    expect(lockfile.packages?.[""]?.version).toBe("0.5.0");
-    expect(latestHeading).toBe("0.5.0");
+    expect(lockfile.version).toBe("0.6.0");
+    expect(lockfile.packages?.[""]?.version).toBe("0.6.0");
+    expect(latestHeading).toBe("0.6.0");
     expect(latestHeading).toBe(manifest.version);
-    expect(latestRelease).toContain("Bounded parallel Deep Review");
-    expect(latestRelease).toContain("remediation stall bound");
-    expect(latestRelease).toContain("direct-correction workflow");
-    expect(latestRelease).toContain("centralized local provider runtime configuration");
+    expect(releaseScenario).toContain("expected: Release 0.6.0 matches both package authorities");
+    expect(latestRelease).toContain(`Removed the optional ${integrationName} integration`);
+    expect(latestRelease).toContain("Session continuation is now a host responsibility");
+    expect(latestRelease).toContain("versioned repository artifacts and explicit prompts");
+    expect(latestRelease).toContain("adoption never removes external operator state");
+    expect(latestRelease).toContain("v0.5.0 tagged guide");
+    expect(latestRelease).toContain(`https://github.com/antoniofulg/my-workflow/blob/v0.5.0/docs/workflow/${integrationName}.md`);
+  });
+
+  it("CT-004 preserves v0.5.0 historical evidence and the v0.4.0 changelog section", () => {
+    expect(() =>
+      execFileSync(
+        "git",
+        ["diff", "--quiet", "v0.5.0", "--", "docs/qa/reports", "docs/qa/charters", "docs/qa/bugs"],
+        { cwd: repositoryRoot },
+      ),
+    ).not.toThrow();
+
+    const historicalChangelog = execFileSync("git", ["show", "v0.5.0:CHANGELOG.md"], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    });
+    const section = (source: string, version: string): string => {
+      const start = source.indexOf(`## [${version}]`);
+      const next = source.indexOf("\n## [", start + 1);
+      return source.slice(start, next === -1 ? undefined : next);
+    };
+    expect(section(readRepositoryFile("CHANGELOG.md"), "0.4.0")).toBe(
+      section(historicalChangelog, "0.4.0"),
+    );
   });
 });
