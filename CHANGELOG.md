@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented here.
 
+## [0.5.0] - 2026-08-25
+
+### Added
+
+- Bounded parallel Deep Review with a default concurrency of 3, configurable from 1 through 6, frozen source inputs, resumable runs, bounded retries, provider-block state, deterministic reporting, and cumulative content-safe metrics.
+- A configurable remediation stall bound of 3 consecutive stalls by default, with `0` selecting unbounded remediation.
+- A direct-correction workflow for exact human-defined changes, centralized local provider runtime configuration, and model/effort routing across Claude, Codex, and Cursor.
+- A refreshed adoption guide, autonomous scoped branch push, one pull request, and merge after readiness, and cleanup of merged feature worktrees.
+
+### Changed
+
+- Adoption now generates ignored provider runtime packets from the centralized local configuration while tracked templates remain the source of truth.
+- Deep Review replaces the legacy `--workers` option with bounded `--concurrency` selection and preserves manifest-order status when refilling reviewer slots.
+
+### Fixed
+
+- Provider fallback and block state now survive interrupted or resumed review runs without refilling work after a provider block.
+- Remediation edge cases now preserve deterministic progress and stall decisions across reordered or equal-size failing-test sets.
+
 ## [0.4.0] - 2026-08-24
 
 ### Added
