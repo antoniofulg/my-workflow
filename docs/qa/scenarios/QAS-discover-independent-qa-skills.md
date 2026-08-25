@@ -6,7 +6,7 @@ persona: Workflow adopter
 journey: J-adopt-workflow
 expected: The adopted tree exposes qa-plan and qa-execute, and every provider routes each phase through its existing Verifier contract.
 entry_points: .agents/skills/qa-plan/SKILL.md; .agents/skills/qa-execute/SKILL.md; .cursor/agents/verifier.md; .claude/agents/verifier.md; .codex/agents/verifier.toml
-qa_status: pass
+qa_status: untested
 bug_ids:
 fix_status:
 retest_status:
