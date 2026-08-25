@@ -243,54 +243,74 @@ def test_fresh_and_refuse() -> None:
 
 
 def test_host_owned_session_continuation_absence_and_idempotence() -> None:
-    tmp = Path(tempfile.mkdtemp())
+    project = Path(tempfile.mkdtemp())
+    host = Path(tempfile.mkdtemp())
     try:
         integration_name = "-".join(("ai", "memory"))
         integration_module = "_".join(("ai", "memory"))
-        sentinels = {
-            tmp / ".zshrc": b"# operator shell sentinel\n",
-            tmp / ".git/hooks/pre-commit": b"#!/bin/sh\n# operator hook sentinel\n",
-            tmp / ".operator-settings": b"operator-owned\n",
+        zsh_directory = host / ".config/zsh"
+        host_sentinels = {
+            host / ".zshrc": b"# disposable host shell sentinel\n",
+            zsh_directory / ".zshrc": b"# disposable ZDOTDIR sentinel\n",
+            host / ".config/operator/settings": b"operator-owned\n",
+            host / ".git/hooks/pre-commit": b"#!/bin/sh\n# disposable host hook sentinel\n",
         }
-        for path, content in sentinels.items():
+        for path, content in host_sentinels.items():
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(content)
+        project_hook = project / ".git/hooks/pre-commit"
+        project_hook.parent.mkdir(parents=True, exist_ok=True)
+        project_hook.write_bytes(b"#!/bin/sh\n# project hook sentinel\n")
+        host_before = snapshot_tree(host)
 
-        run(tmp)
-        first = snapshot_tree(tmp)
-        for path, content in sentinels.items():
-            assert path.read_bytes() == content
+        previous_environment = {
+            key: os.environ.get(key) for key in ("HOME", "ZDOTDIR")
+        }
+        os.environ["HOME"] = str(host)
+        os.environ["ZDOTDIR"] = str(zsh_directory)
+        try:
+            run(project)
+            first = snapshot_tree(project)
+            assert project_hook.read_bytes() == b"#!/bin/sh\n# project hook sentinel\n"
 
-        forbidden_paths = (
-            f".{integration_name}.toml",
-            f".{integration_name}",
-            f".{integration_name}.sqlite",
-            f".{integration_name}.db",
-            f"{integration_name}.sqlite",
-            f"{integration_name}.db",
-            "handoff.json",
-            f"scripts/{integration_name}.zsh",
-            f"scripts/test_{integration_module}.py",
-            f"docs/workflow/{integration_name}.md",
-            f"docs/qa/scenarios/WFL-{integration_name}-handoff.md",
-            f".specs/features/{integration_name}-handoff",
-        )
-        for relative_path in forbidden_paths:
-            assert not (tmp / relative_path).exists(), relative_path
+            forbidden_paths = (
+                f".{integration_name}.toml",
+                f".{integration_name}",
+                f".{integration_name}.sqlite",
+                f".{integration_name}.db",
+                f"{integration_name}.sqlite",
+                f"{integration_name}.db",
+                "handoff.json",
+                f"scripts/{integration_name}.zsh",
+                f"scripts/test_{integration_module}.py",
+                f"docs/workflow/{integration_name}.md",
+                f"docs/qa/scenarios/WFL-{integration_name}-handoff.md",
+                f".specs/features/{integration_name}-handoff",
+            )
+            for relative_path in forbidden_paths:
+                assert not (project / relative_path).exists(), relative_path
 
-        for path in tmp.rglob("*"):
-            relative = path.relative_to(tmp)
-            if ".git" in relative.parts or not path.is_file():
-                continue
-            content = path.read_bytes().lower()
-            assert f"source scripts/{integration_name}.zsh".encode() not in content, relative
+            for path in project.rglob("*"):
+                relative = path.relative_to(project)
+                if ".git" in relative.parts or not path.is_file():
+                    continue
+                content = path.read_bytes().lower()
+                assert f"source scripts/{integration_name}.zsh".encode() not in content, relative
 
-        run(tmp)
-        assert snapshot_tree(tmp) == first
-        for path, content in sentinels.items():
-            assert path.read_bytes() == content
+            run(project)
+            assert snapshot_tree(project) == first
+            assert project_hook.read_bytes() == b"#!/bin/sh\n# project hook sentinel\n"
+        finally:
+            for key, value in previous_environment.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
+        assert snapshot_tree(host) == host_before
     finally:
-        shutil.rmtree(tmp)
+        shutil.rmtree(project)
+        shutil.rmtree(host)
 
 
 def test_consumer_ad_index_is_preserved_on_readopt() -> None:
