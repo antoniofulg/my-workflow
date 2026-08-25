@@ -780,6 +780,67 @@ def test_retained_release_preserves_identity_unproven_evidence_and_replays_witho
         shutil.rmtree(root)
 
 
+def test_r10_real_retained_failure_promotes_nested_aliases_and_replays_stably() -> None:
+    root, lane, worktree = fixture()
+    dispatch_id = "ctx_5f619d0f6298"
+    terminal = "term_2dcb9465-d91c-4260-baa3-b92859412439"
+    request_id = "req-r10"
+    try:
+        failure = subprocess.CalledProcessError(
+            1,
+            ["orca", "orchestration", "worker-release"],
+            output=json.dumps({
+                "_meta": {"runtimeId": "runtime-A"}, "ok": True,
+                "code": "release_not_accepted", "dispatch_id": dispatch_id,
+                "idempotency_key": KEY + ":recovery-release", "lastError": "tab_not_found",
+                "message": "selector_not_found", "reason": "identity_unproven", "request_id": request_id,
+                "result": {
+                    "archive": {"source": "transcript", "status": "captured"},
+                    "dispatchId": dispatch_id,
+                    "mutation": {"replayed": False, "requestId": request_id},
+                    "processAction": "none", "reason": "identity_unproven", "state": "retained",
+                    "retained_reason": "identity_unproven", "release_state": "retained",
+                    "ownership_state": "owned", "release_error": "tab_not_found",
+                },
+                "state": "retained", "status": "retained", "run_id": "run-A", "task_id": "task-A",
+                "terminal_handle": terminal,
+            }),
+        )
+        cli = RecordingCLI([failure])
+        worker = adapter(root, cli)
+        receipt = {**worker_payload(worktree), "dispatch_id": dispatch_id, "terminal_handle": terminal}
+        try:
+            worker.release(receipt, {"accepted": True})
+        except orca_adapter.AdapterError as exc:
+            assert exc.details["code"] == "release_identity_unproven"
+            assert exc.details["provider_code"] == "release_not_accepted"
+            for field, expected in {
+                "state": "retained", "status": "retained", "releaseState": "retained",
+                "retainedReason": "identity_unproven", "ownershipState": "owned",
+                "releaseError": "tab_not_found", "reason": "identity_unproven",
+                "lastError": "tab_not_found", "message": "selector_not_found",
+                "request_id": request_id, "dispatch_id": dispatch_id, "terminal_handle": terminal,
+            }.items():
+                assert exc.details[field] == expected
+            assert exc.details["result"]["mutation"] == {"replayed": False, "requestId": request_id}  # type: ignore[index]
+            assert exc.details["result"]["archive"] == {"source": "transcript", "status": "captured"}  # type: ignore[index]
+            assert exc.details["result"]["processAction"] == "none"  # type: ignore[index]
+        else:
+            raise AssertionError("R10 retained release must be a stable structured failure")
+        try:
+            worker.release(receipt, {"accepted": True})
+        except orca_adapter.AdapterError as exc:
+            assert exc.details["code"] == "release_identity_unproven"
+            assert exc.details["idempotent"] is True
+            assert exc.details["request_id"] == request_id
+        else:
+            raise AssertionError("R10 replay must remain blocked")
+        assert len(cli.calls) == 1
+        assert dispatch_id not in worker._revoked_dispatches
+    finally:
+        shutil.rmtree(root)
+
+
 def test_release_state_completed_is_explicitly_correlated_and_idempotent() -> None:
     root, lane, worktree = fixture()
     dispatch_id = "ctx_5f619d0f6298"
@@ -829,14 +890,29 @@ def test_retained_reconcile_persists_structured_failure_without_retry_effect() -
             {"result": {"code": "identity_unproven", "state": "retained", "releaseState": "retained", "ownershipState": "owned", "retainedReason": "identity_unproven", "releaseError": "identity_unproven", "dispatch": {"id": dispatch_id}, "terminal": {"handle": terminal}}},
         ])
         action = {"action": "worker", "key": KEY, "partial_effect": {"run_id": "run-A", "task_id": "task-A", "dispatch_id": dispatch_id, "terminal_handle": terminal}, "worker_plan": lane, "worktree_receipt": worktree}
+        first_worker = adapter(root, cli)
         try:
-            adapter(root, cli).reconcile_action(action)
+            first_worker.reconcile_action(action)
         except orca_adapter.AdapterError as exc:
             assert exc.details["code"] == "release_identity_unproven"
+            persisted = {
+                **action,
+                "partial_effect": {**action["partial_effect"], **dict(exc.details)},
+            }
         else:
             raise AssertionError("retained release must not retry")
         assert [call[0][2] for call in cli.calls] == ["worker-show", "worker-release"]
         assert not any(call[0][2] in {"show", "worker-start"} for call in cli.calls)
+        replay_cli = RecordingCLI([{"result": {"dispatch": {"id": dispatch_id, "status": "failed"}, "terminal": {"handle": terminal}}}])
+        try:
+            adapter(root, replay_cli).reconcile_action(persisted)
+        except orca_adapter.AdapterError as exc:
+            assert exc.details["code"] == "release_identity_unproven"
+            assert exc.details["idempotent"] is True
+            assert exc.details["idempotency_key"] == KEY + ":recovery-release"
+        else:
+            raise AssertionError("persisted retained failure must remain blocked on restart")
+        assert [call[0][2] for call in replay_cli.calls] == ["worker-show"]
     finally:
         shutil.rmtree(root)
 

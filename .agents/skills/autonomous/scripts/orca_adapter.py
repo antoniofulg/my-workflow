@@ -246,7 +246,7 @@ def _canonical_projection(value: Mapping[str, Any]) -> dict[str, Any]:
     projected = dict(value)
     candidates = _canonical_candidates(value)
     for field, values in ((field, candidates[field]) for field in _IDENTITY_ALIASES):
-        present = [candidate for candidate in values if candidate not in (None, "")]
+        present = [candidate for candidate in values if candidate not in (None, "", "<redacted>")]
         normalized: list[str] = []
         for candidate in present:
             try:
@@ -265,6 +265,8 @@ def _canonical_projection(value: Mapping[str, Any]) -> dict[str, Any]:
             )
         if field not in projected and normalized:
             projected[field] = normalized[0]
+        elif field in projected and projected[field] == "<redacted>":
+            projected.pop(field)
         elif field in projected and projected[field] not in (None, ""):
             projected[field] = _opaque_token(projected[field], _IDENTITY_LABELS[field])
 
@@ -273,6 +275,14 @@ def _canonical_projection(value: Mapping[str, Any]) -> dict[str, Any]:
             for candidate in values:
                 projected[field] = candidate
                 break
+    if "releaseState" not in projected:
+        state = projected.get("status") or projected.get("state")
+        if state in {"retained", "released", "completed"}:
+            projected["releaseState"] = state
+    if "retainedReason" not in projected and projected.get("reason") == "identity_unproven":
+        projected["retainedReason"] = "identity_unproven"
+    if "releaseError" not in projected and "lastError" in projected:
+        projected["releaseError"] = projected["lastError"]
     for field in _PASSTHROUGH_ALIASES:
         if field not in projected:
             for candidate in candidates[field]:
@@ -280,6 +290,12 @@ def _canonical_projection(value: Mapping[str, Any]) -> dict[str, Any]:
                     projected[field] = candidate
                     break
     return projected
+
+
+def _is_identity_unproven_release(value: Mapping[str, Any]) -> bool:
+    state = value.get("releaseState") or value.get("release_state") or value.get("status") or value.get("state")
+    reason = value.get("retainedReason") or value.get("retained_reason") or value.get("reason")
+    return state == "retained" and reason == "identity_unproven"
 
 
 def _payload(value: Any) -> dict[str, Any]:
@@ -356,6 +372,10 @@ class OrcaAdapter:
             )
         except subprocess.CalledProcessError as exc:
             details = _failure_details(exc)
+            if "worker-release" in argv and _is_identity_unproven_release(details):
+                provider_code = details.get("code")
+                details = {**details, "code": "release_identity_unproven", "provider_code": provider_code}
+                raise AdapterError("Orca worker release blocked: release_identity_unproven", details=details) from exc
             code = details.get("code", "command_failed")
             raise AdapterError(f"Orca command failed: {code}", details=details) from exc
         except (OSError, subprocess.SubprocessError, core.ExecutorError, TypeError) as exc:
@@ -861,6 +881,18 @@ class OrcaAdapter:
             if status not in {"failed", "stopped", "abandoned", "released"}:
                 code = "worker_outcome_unknown" if status in {None, "unknown", "outcome_unknown"} else "worker_still_live"
                 raise AdapterError("Orca worker dispatch is not reclaimable", details={"code": code, "dispatch_id": dispatch_id, "status": status or "unknown"})
+            persisted_reason = normalized_partial.get("retainedReason") or normalized_partial.get("reason")
+            persisted_release_state = normalized_partial.get("releaseState") or normalized_partial.get("release_state")
+            if normalized_partial.get("code") == "release_identity_unproven" or (
+                persisted_release_state == "retained" and persisted_reason == "identity_unproven"
+            ):
+                details = {
+                    **dict(normalized_partial),
+                    "code": "release_identity_unproven",
+                    "dispatch_id": dispatch_id,
+                    "idempotent": True,
+                }
+                raise AdapterError("Orca worker release blocked: release_identity_unproven", details=details)
             if not release_accepted:
                 try:
                     release = self._release({"idempotency_key": _text(action.get("key"), "idempotency key") + ":recovery-release", "dispatch_id": dispatch_id})
@@ -904,7 +936,15 @@ class OrcaAdapter:
                 details={**dict(prior_failure["details"]), "idempotent": True},
             )
         dispatch_id = _opaque_token(receipt.get("dispatch_id"), "dispatch id")
-        response = self._call("worker-release", "--dispatch", dispatch_id)
+        try:
+            response = self._call("worker-release", "--dispatch", dispatch_id)
+        except AdapterError as exc:
+            if exc.details.get("code") != "release_identity_unproven":
+                raise
+            details = {**dict(exc.details), "dispatch_id": dispatch_id, "idempotency_key": key}
+            failure = {"message": "Orca worker release blocked: release_identity_unproven", "details": details}
+            self._release_failures[key] = failure
+            raise AdapterError(str(failure["message"]), details=details) from exc
         actual_dispatch = response.get("dispatch_id") or response.get("dispatchId")
         if actual_dispatch != dispatch_id:
             raise AdapterError(
@@ -916,7 +956,7 @@ class OrcaAdapter:
         accepted = explicit_released is True or (release_state in {"released", "completed"} and explicit_released is not False)
         if not accepted:
             code = str(response.get("code") or response.get("retainedReason") or "release_not_accepted")
-            if release_state == "retained" or code == "identity_unproven" or response.get("ownershipState") == "owned":
+            if _is_identity_unproven_release(response) or code == "identity_unproven":
                 code = "release_identity_unproven"
             details = {
                 **dict(response),
