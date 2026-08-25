@@ -1328,3 +1328,58 @@ None in this remediation scope.
 
 **Overall:** PASS at `941bbc5ddd02b6bd7893165c2be67a8a3044fce1`. The exact correlation
 blocker is closed. Real Orca QA remains outside this technical packet.
+
+## Persisted nested dispatch restart re-verification
+
+**Date:** 2026-08-25  
+**Diff range:** `b0d2c22..e24228c7e1e285a1b718e1c87466cfad29e1a078`  
+**Verifier:** independent Technical Verifier (author != verifier)  
+**Verdict:** PASS. The exact persisted QA shape with no top-level `dispatch_id` is normalized before
+the first adapter call, retains its Run/Task/terminal identity, and retries the same dispatch once.
+
+### Spec-anchored outcomes
+
+| Criterion | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| EXE-04 restart normalization | `partial_effect.result.dispatchId` and `partial_effect.result.dispatch.id` normalize to one canonical opaque dispatch ID while preserving Run/Task. | `tools/test_orca_adapter.py:182-212` covers `result.dispatch.id`; `tools/test_orca_adapter.py:348-368` supplies exact `ctx_5f619d0f6298` through `result.dispatchId`, asserts `run-A`, `task-A`, and the canonical persisted `dispatch_id`. | PASS |
+| SEC-005 canonical precedence | An explicit canonical dispatch identity wins over nested aliases and cannot be replaced by a foreign nested value. | `tools/test_orca_adapter.py:217-224` asserts canonical `dispatch_id == ctx_explicit` over `dispatch.id == ctx_other`; production precedence and validation are `.agents/skills/autonomous/scripts/orca_adapter.py:103-154`. | PASS |
+| EXE-04 exact recovery order | Restart performs one correlated `worker-show`, one release, then one `worker-start --retry-of` with the original task and dispatch; replay is idempotent. | `tools/test_orca_adapter.py:158-177` asserts exact command order, exact task/retry IDs, equal replay receipt, and no fifth call; `tools/test_orca_adapter.py:348-368` repeats the exact nested persisted shape. | PASS |
+| EXE-05 / EXE-11 invalid identity safety | Missing, malformed, or mismatched nested dispatch identities halt before any release or replacement-worker mutation. | `tools/test_orca_adapter.py:217-224,329-344,373-387` asserts unsafe/missing persisted or authoritative IDs and zero mutating calls; correlation guard precedes mutation at `.agents/skills/autonomous/scripts/orca_adapter.py:611-647`. | PASS |
+
+**Spec-anchored status:** 4 PASS, 0 FAIL, 0 spec-precision gaps in this remediation scope.
+
+### Gate evidence
+
+- `python3 tools/test_orca_adapter.py` -> 33 passed, 0 failed; 0 skipped.
+- `npm run test:all` -> exit 0: 110 Vitest tests plus 181 Python tests, 291 passed,
+  0 failed/skipped.
+- Adapter suite changed from 31 tests at `b0d2c22` to 33 at `e24228c7`; delta +2.
+- `git diff --check b0d2c22..e24228c7e1e285a1b718e1c87466cfad29e1a078` -> exit 0.
+- No real Orca command/state, product code, test, or retained `docs/qa/**` artifact was mutated by
+  this verification.
+
+### Discrimination sensor
+
+One detached temporary worktree at `e24228c7e1e285a1b718e1c87466cfad29e1a078` received three
+behavior faults. It was removed afterward; retained-checkout porcelain exactly matched its baseline.
+
+| Mutation | Directed result | Outcome |
+| --- | --- | --- |
+| M1 disable `result` envelope unwrapping. | Adapter suite exited 1 in nested dispatch recovery before a valid terminal status could be proven. | KILLED |
+| M2 replace the recovered `--retry-of` value with a foreign dispatch. | Adapter suite exited 1 at `tools/test_orca_adapter.py:212`. | KILLED |
+| M3 disable the cached-receipt replay short circuit. | Adapter suite exited 1 on an unexpected second `worker-show`. | KILLED |
+
+**Sensor:** lightweight, 3 mutations, 3 killed, 0 survived. PASS.
+
+### Fingerprint accounting
+
+- No new fingerprint opened; all prior dispatch-recovery fingerprints remain closed at their
+  historical counts.
+
+### Ranked gaps
+
+None in this remediation scope.
+
+**Overall:** PASS at `e24228c7e1e285a1b718e1c87466cfad29e1a078`. Exact persisted nested
+dispatch restart recovery is spec-correlated, idempotent, and discriminating. Real Orca QA remains
+outside this technical phase.
