@@ -2307,3 +2307,73 @@ created, and no existing unrelated fingerprint changed.
 scope. Retained evidence blocks before stop, post-stop terminal exit is proven, persisted replay
 restores dispatch revocation, all directed/full gates pass, and all six sensor mutants die. No
 commit, push, merge, real Orca action, product/test edit, or `docs/qa/**` edit was performed.
+
+## R17 contextual terminal-resource ownership technical verification
+
+**Date:** 2026-08-25
+**Commit under test:** `a7367570c19a9123d4d23e4081eaf82471783ba6`
+**Base:** `6db749d`
+**Diff range:** `6db749d..a7367570c19a9123d4d23e4081eaf82471783ba6`
+**Verifier:** fresh independent Technical Verifier (author != verifier)
+**Scoped verdict:** **PASS**
+
+This pass covers only the terminal-resource projection and recovery changes in
+`.agents/skills/autonomous/scripts/orca_adapter.py` plus their directed adapter assertions. No
+real Orca command ran. The pre-existing dirty/untracked `docs/qa/**` paths were preserved byte-for-byte;
+no product file or test file was changed. Only this validation report was updated.
+
+### Spec-anchored outcomes
+
+| Requested outcome | Evidence | Result |
+| --- | --- | --- |
+| Strict contextual `terminalResource` projection | `_resource_dispatch_identity` accepts only snake/camel owner/origin aliases and rejects conflicting values at `.agents/skills/autonomous/scripts/orca_adapter.py:168-183`; `_canonical_projection` projects owner/origin only from `_nested_resource` at `:297-359`. Fresh projection probes asserted terminal, worktree, resource, owner/origin, ownership, release, and retained fields while an outer generic `id` remained non-authoritative. | PASS |
+| Equal aliases are accepted | `tools/test_orca_adapter.py:647-651` asserts equal camel/snake owner/origin aliases; the fresh matrix also asserted equal terminal/worktree/resource aliases. | PASS |
+| Conflicting or missing identity fails before stop | `tools/test_orca_adapter.py:652-676` asserts owner/origin alias conflicts and missing owner/origin with calls limited to `worker-show`; fresh probes extended this to terminal/worktree/resource alias conflicts. | PASS |
+| Exact R16 owned resource reaches one stop, release, and retry | `tools/test_orca_adapter.py:627-642` asserts `worker-show, worker-stop, worker-show, worker-release, show, worker-start` and projected owner/origin/resource evidence. Fresh probe additionally asserted one count for each destructive/retry effect and same-instance replay with no new calls. | PASS |
+| R14 user-owned/takeover and retained/identity-unproven states have zero unsafe effects | Ownership guard is `.agents/skills/autonomous/scripts/orca_adapter.py:1200-1218`; takeover/foreign zero-effect assertions are `tools/test_orca_adapter.py:678-695`, and retained persisted/provider evidence is `:698-720`. Fresh probes added `user_owned`, missing owner/origin, and both retained sources; each observed only `worker-show`. | PASS |
+| Recovery replay is idempotent | Accepted release restores dispatch revocation at `.agents/skills/autonomous/scripts/orca_adapter.py:1001-1022`; fresh-adapter replay coverage is `tools/test_orca_adapter.py:578-623`, and verifier replay asserted no duplicate stop/release and one retry. | PASS |
+
+**Spec-anchored status:** 6/6 requested outcomes matched; 0 FAIL; 0 spec-precision gaps.
+
+### Directed and full gates
+
+- `rtk python3 tools/test_orca_adapter.py` -> exit 0, **59 passed, 0 failed**; base adapter count was 57, so this commit adds 2 directed cases.
+- `rtk python3 tools/test_parallel_executor.py` -> exit 0, **44 passed, 0 failed**.
+- Verifier-only stdin matrix -> exit 0, **17 scenarios passed** (4 projection, 5 alias conflicts, 1 owned R16 recovery, 6 R14 zero-effect, 1 replay).
+- `rtk env npm_config_offline=true npm run test:all` -> exit 0; **110 Vitest passed**, all **12 discovered Python suites passed**, including adapter 59 and executor 44; 0 failures/skips.
+- `rtk python3 .agents/skills/tlc-spec-driven/scripts/validate_spec.py .specs/features/parallel-slice-executor/spec.md --strict` -> exit 0, 0 errors, 0 warnings.
+- `rtk python3 .agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/parallel-slice-executor/tasks.md --strict` -> exit 0, 0 errors, 0 warnings.
+- `rtk python3 .agents/skills/tlc-spec-driven/scripts/validate_state.py parallel-slice-executor` -> exit 0, 0 errors.
+- `rtk python3 tools/ad-index.py --check` -> exit 0, `AD-INDEX.md up to date`.
+- `rtk python3 -m py_compile .agents/skills/autonomous/scripts/orca_adapter.py tools/test_orca_adapter.py .agents/skills/autonomous/scripts/parallel_execute.py tools/test_parallel_executor.py` -> exit 0.
+- `rtk git diff --check 6db749d..a7367570c19a9123d4d23e4081eaf82471783ba6` -> exit 0.
+
+### Discrimination sensor
+
+Five detached scratch worktrees under `/tmp/r17-sensor-*` were mutated one at a time and removed.
+Real-tree porcelain before and after matched the pre-existing QA-only baseline; no scratch
+worktree remains.
+
+| Mutation | Directed result | Outcome |
+| --- | --- | --- |
+| Remove camel owner/origin alias support from `_resource_dispatch_identity`. | Adapter suite failed in `test_r16_camel_terminal_resource_owner_origin_and_terminal_aliases_drive_stop` before `worker-stop`. | KILLED |
+| Suppress terminal-resource alias conflict rejection. | Adapter suite failed in `test_r16_terminal_resource_aliases_equal_or_conflicting_and_missing_owner`. | KILLED |
+| Fall back to outer generic `id` for scoped Run/Task identity. | Canonical adapter suite stayed green, but the fresh outer-generic-ID probe observed downstream `task-list`, `show`, and `worker-start` instead of halting after `run-create`; probe assertion failed. | KILLED |
+| Bypass exact owned owner/origin recovery guard. | Adapter suite failed on the missing-owner case after an unexpected `worker-stop`. | KILLED |
+| Skip persisted replay dispatch revocation. | Adapter suite failed on fresh-adapter stale `worker_done` replay. | KILLED |
+
+**Sensor:** 5 mutations injected, 5 killed, 0 survived. **PASS**.
+
+### Fingerprint disposition
+
+No new blocker, spec gap, or surviving mutant was found. Existing fingerprints remain closed at
+their recorded counts; `.specs/features/parallel-slice-executor/review-fingerprints.json` was not
+changed. No fingerprint reached the third-failure halt threshold.
+
+### Summary
+
+**Overall:** **PASS** for `a7367570c19a9123d4d23e4081eaf82471783ba6` in the requested contextual
+terminal-resource scope. Camel/snake ownership projection, exact identity correlation, fail-closed
+conflict/missing handling, owned stop/release/retry, adverse zero-effect states, and replay
+idempotency are evidenced. No commit, push, merge, real Orca action, product/test edit, or
+`docs/qa/**` edit was performed.
