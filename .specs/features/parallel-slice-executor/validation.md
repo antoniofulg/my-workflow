@@ -1499,3 +1499,203 @@ None in this remediation scope.
 **Overall:** PASS at `35a49bf8d5ddb3e3d836fa4963b3665c0f8a17cd`. The exact authoritative
 terminal persistence contract is now spec-correlated, ordered, idempotent, and discriminating.
 Real Orca QA remains outside this technical phase.
+
+## Orphaned Orca release reconciliation technical verification
+
+**Date:** 2026-08-25  
+**Diff range:** `48ec1cb97ce843fa084340b9c41e3fd320416686..87f1bb5b55255beb84b66b1c7621041ff6695cd8`  
+**Verifier:** independent Technical Verifier (author != verifier)  
+**Verdict:** FAIL. Runtime accepts only a structured `tab_not_found`, performs an authoritative
+post-release `worker-show`, requires the same dispatch and terminal to be exited, disconnected, and
+non-writable, persists a reconciled release receipt, revokes the old dispatch, and retries the
+original Run/Task once. The new canonical tests do not discriminate all of those safety boundaries.
+
+### Spec-anchored outcomes
+
+| Criterion | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| EXE-04 / SEC-005 exact release recovery | Only structured `tab_not_found` enters recovery; an authoritative post-release show must correlate the same dispatch and terminal. | Catch/dispatch is `.agents/skills/autonomous/scripts/orca_adapter.py:743-750`; correlation guard is `:291-316`; `tools/test_orca_adapter.py:419-435` proves the positive structured error and exact command order. Removing the post-show dispatch comparison leaves 37/37 tests green. | FAIL |
+| EXE-11 terminal liveness safety | Live, connected, writable, unknown, missing, or mismatched state remains `release_unknown` with zero replacement retry. | `.agents/skills/autonomous/scripts/orca_adapter.py:302-316`; `tools/test_orca_adapter.py:440-463` asserts connected, writable, terminal mismatch, and unknown cases stop after the post-show. The status mutant dies, but post-show dispatch mismatch/missing correlation is not discriminated. | FAIL |
+| EXE-03 / EXE-04 persisted release receipt | The repeated release uses the derived recovery request key and persists an explicit correlated reconciliation receipt before retry/restart. | Request and persistence are `.agents/skills/autonomous/scripts/orca_adapter.py:743-750`; receipt fields are `:318-329`; `tools/test_orca_adapter.py:428-435` asserts persistence, replay, and selected receipt fields. Replacing the request key or persisting `connected: true` leaves 37/37 tests green. | FAIL |
+| EXE-04 same Run/Task retry and replay | Accepted reconciliation starts one `worker-start --retry-of` for the original task/dispatch and replay creates no extra effect. | `.agents/skills/autonomous/scripts/orca_adapter.py:751-762`; `tools/test_orca_adapter.py:431-435` asserts Run/Task receipt, retry dispatch, equal replay, and five calls; `tools/test_orca_adapter.py:400-408` independently asserts the original task argument. Mutating the task argument kills the suite. | PASS |
+| EXE-08 / EXE-11 stale dispatch revocation | A reconciled orphaned dispatch is revoked before replacement so a late delivery cannot be accepted. | Revocation is `.agents/skills/autonomous/scripts/orca_adapter.py:317`; stale rejection is `:551-557`. `tools/test_orca_adapter.py:512-527` proves revocation for normal release only. Removing reconciliation-path revocation leaves 37/37 tests green. | FAIL |
+
+**Spec-anchored status:** 1 PASS, 4 FAIL, 0 spec-precision gaps in this remediation scope.
+
+### Gate evidence
+
+- `python3 tools/test_orca_adapter.py` -> 37 passed, 0 failed; 0 skipped.
+- `python3 tools/test_parallel_executor.py` -> 43 passed, 0 failed; 0 skipped.
+- `npm run test:all` -> exit 0: 110 Vitest tests plus 185 Python tests, 295 passed,
+  0 failed/skipped.
+- Adapter suite changed from 35 tests at `48ec1cb` to 37 at `87f1bb5`; delta +2.
+- Strict spec/tasks validators, AD index, `git diff --check 48ec1cb 87f1bb5`, and Python compile
+  -> exit 0.
+- No real Orca command/state, product code, test, or retained `docs/qa/**` artifact was mutated.
+
+### Discrimination sensor
+
+Two detached temporary worktrees at `87f1bb5b55255beb84b66b1c7621041ff6695cd8` received seven
+behavior faults and were removed. Retained-checkout porcelain returned to its baseline plus only
+this report and the convergence ledger.
+
+| Mutation | Directed result | Outcome |
+| --- | --- | --- |
+| M1 ignore post-release dispatch mismatch. | Adapter suite exited 0, 37/37 passed. | SURVIVED |
+| M2 accept unknown post-release status. | Adapter suite exited 1 in `test_tab_not_found_postcheck_live_unknown_or_mismatched_blocks_retry`. | KILLED |
+| M3 replace derived recovery idempotency key with a foreign constant. | Adapter suite exited 0, 37/37 passed. | SURVIVED |
+| M4 omit persisted `partial_effect.recovery_release`. | Adapter suite exited 1 with missing `recovery_release`. | KILLED |
+| M5 persist reconciled receipt as `connected: true`. | Adapter suite exited 0, 37/37 passed. | SURVIVED |
+| M6 omit reconciliation-path revoked-dispatch registration. | Adapter suite exited 0, 37/37 passed. | SURVIVED |
+| M7 retry a foreign task instead of the original task. | Adapter suite exited 1 at `tools/test_orca_adapter.py:406`. | KILLED |
+
+**Sensor:** lightweight, 7 mutations, 3 killed, 4 survived. FAIL.
+
+### Code quality and contract integrity
+
+- Production diff is surgical: one recovery helper plus one guarded call site; no unrelated
+  abstraction or dependency was added.
+- Assertions map to EXE-03/04/08/11 and SEC-005/008 at the adapter boundary, but four surviving
+  behavior mutations make the new cases hollow for those exact outcomes under
+  `docs/guidelines/TEST-CONTRACT.md:53-55`.
+- Product style and existing adapter patterns are preserved. Scope failure is evidence quality,
+  not an observed production-logic defect.
+
+### Fingerprint accounting
+
+- `daed6fc5e10de538fa15332810deb01973479f64eaa7e5ef4c2695b5c895f6c9` opened at
+  failed-remediation count 1 for EXE-03/EXE-04/EXE-11/SEC-005/SEC-008.
+- `e62a4e34b185bffdd09360d8ea603a47cf7007968bb19c3a7c5d93704c1c244c` opened at
+  failed-remediation count 1 for EXE-08/EXE-11.
+- Prior fingerprints remain closed at their historical counts.
+
+### Ranked gaps
+
+1. **Major / EXE-03, EXE-04, EXE-11, SEC-005, SEC-008.** Extend the canonical
+   `tab_not_found` recovery case to assert the derived recovery request key and every persisted
+   receipt field; add missing/mismatched post-show dispatch cases. The suite must fail if any
+   correlation or receipt field is weakened.
+2. **Major / EXE-08, EXE-11.** After accepted `tab_not_found` reconciliation, present a late
+   delivery from the orphaned dispatch and assert stale rejection. The test must fail if the helper
+   does not register that dispatch as revoked.
+
+**Overall:** FAIL for `87f1bb5b55255beb84b66b1c7621041ff6695cd8`. Runtime behavior matches the
+intended recovery path, and all gates are green, but evidence-or-zero rejects completion because
+four safety mutations survive. Real Orca QA remains outside this technical packet.
+
+## Orphaned Orca release reconciliation re-verification
+
+**Date:** 2026-08-25  
+**Diff range:** `87f1bb5b55255beb84b66b1c7621041ff6695cd8..f7930ff8c218ca466d0a971c6fffd97ce7576406`  
+**Verifier:** independent Technical Verifier (author != verifier)  
+**Verdict:** FAIL. Exact recovery key, complete persisted receipt, and reconciliation-path dispatch
+revocation are now directly asserted and discriminating. Post-release `worker-show` dispatch
+correlation remains undiscriminated: removing the comparison still leaves the adapter suite green.
+
+### Spec-anchored outcomes
+
+| Criterion | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| EXE-03 / EXE-04 recovery key | Recovery and replay use `action_key + ":recovery-release"`; a foreign key is rejected. | Production derives and validates the key at `.agents/skills/autonomous/scripts/orca_adapter.py:730-749,758-765`; `tools/test_orca_adapter.py:430-442` asserts the exact persisted key and `:305-324` rejects a mismatched persisted receipt. Key mutation kills the suite. | PASS |
+| EXE-04 / SEC-008 complete receipt | Persisted reconciled receipt proves exact dispatch, terminal, exited state, disconnected/non-writable state, and `tab_not_found` reason. | `.agents/skills/autonomous/scripts/orca_adapter.py:318-329,738-749`; exact receipt equality is `tools/test_orca_adapter.py:429-442`. Changing `connected` kills the suite. | PASS |
+| EXE-08 / EXE-11 revocation | Accepted reconciliation revokes the orphaned dispatch; a late `worker_done` from it is stale. | Revocation is `.agents/skills/autonomous/scripts/orca_adapter.py:317`; `tools/test_orca_adapter.py:446-455` presents a late delivery and asserts stale rejection. Removing revocation kills the suite. | PASS |
+| EXE-04 / EXE-11 / SEC-005 post-show dispatch correlation | The authoritative post-release show must name the same dispatch; missing or foreign dispatch remains `release_unknown` and causes zero retry. | Guard exists at `.agents/skills/autonomous/scripts/orca_adapter.py:291-316`, but adverse table `tools/test_orca_adapter.py:462-485` varies status, connection, writability, and terminal only. Removing line 305 leaves 37/37 tests green. | FAIL |
+
+**Spec-anchored status:** 3 PASS, 1 FAIL, 0 spec-precision gaps.
+
+### Gate evidence
+
+- `python3 tools/test_orca_adapter.py` -> 37 passed, 0 failed; 0 skipped.
+- `python3 tools/test_parallel_executor.py` -> 43 passed, 0 failed; 0 skipped.
+- `npm run test:all` -> exit 0: 110 Vitest tests plus 185 Python tests, 295 passed,
+  0 failed/skipped.
+- Strict spec/tasks validators, AD index, incremental `git diff --check`, and Python compile -> exit 0.
+- No real Orca command/state, product code, test, or retained `docs/qa/**` artifact was mutated.
+
+### Discrimination sensor
+
+One detached temporary worktree at `f7930ff8c218ca466d0a971c6fffd97ce7576406` received the four
+prior surviving behavior faults and was removed. Retained-checkout porcelain returned to baseline
+plus this report and convergence ledger.
+
+| Mutation | Directed result | Outcome |
+| --- | --- | --- |
+| M1 ignore post-release dispatch mismatch. | Adapter suite exited 0, 37/37 passed. | SURVIVED |
+| M2 derive a foreign recovery idempotency key. | Adapter suite exited 1 because persisted key no longer correlated. | KILLED |
+| M3 persist reconciled receipt as `connected: true`. | Adapter suite exited 1 at exact receipt equality. | KILLED |
+| M4 omit reconciliation-path revoked-dispatch registration. | Adapter suite exited 1 at late-delivery stale assertion. | KILLED |
+
+**Sensor:** lightweight, 4 mutations, 3 killed, 1 survived. FAIL.
+
+### Fingerprint accounting
+
+- `daed6fc5e10de538fa15332810deb01973479f64eaa7e5ef4c2695b5c895f6c9` remains OPEN at
+  failed-remediation count 2. Same requirement/root cause/failure path: post-release dispatch
+  identity is still not varied by the canonical adverse table.
+- `e62a4e34b185bffdd09360d8ea603a47cf7007968bb19c3a7c5d93704c1c244c` is CLOSED at historical
+  failed-remediation count 1. The production revocation path now owns a direct stale-delivery assertion.
+- No fingerprint reached the three-failure halt threshold.
+
+### Ranked gap
+
+1. **Major / EXE-04, EXE-11, SEC-005.** Add missing and foreign `dispatch.id` variants to the
+   post-`tab_not_found` authoritative `worker-show` table. Each must return `release_unknown`, make
+   exactly `worker-show, worker-release, worker-show`, and issue zero worktree discovery or
+   replacement `worker-start`. This assertion must kill removal of `actual_dispatch != dispatch_id`.
+
+**Overall:** FAIL for `f7930ff8c218ca466d0a971c6fffd97ce7576406`. Three prior safety gaps are
+closed; one same-fingerprint correlation gap remains at failed-remediation count 2. Real Orca QA
+remains outside this technical packet.
+
+## Orphaned Orca post-release dispatch correlation re-verification
+
+**Date:** 2026-08-25  
+**Diff range:** `f7930ff8c218ca466d0a971c6fffd97ce7576406..543d0a405cd27803e02f1aaf8bde1abe5731375f`  
+**Verifier:** independent Technical Verifier (author != verifier)  
+**Verdict:** PASS. Missing and foreign post-`tab_not_found` dispatch identities now remain
+`release_unknown`, persist no recovery receipt, register no revocation, and issue no worktree
+discovery or replacement retry. The valid matching `ctx` recovery path remains green.
+
+### Spec-anchored outcomes
+
+| Criterion | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| EXE-04 / EXE-11 / SEC-005 missing dispatch | A post-release authoritative show without `dispatch.id` returns `release_unknown` and performs no later effect. | `tools/test_orca_adapter.py:462-496` includes `post_dispatch: None`, asserts exact `worker-show, worker-release, worker-show`, no `recovery_release`, and no revocation. | PASS |
+| EXE-04 / EXE-11 / SEC-005 foreign dispatch | A post-release authoritative show naming another opaque dispatch follows the same fail-closed path. | `tools/test_orca_adapter.py:462-496` includes `post_dispatch: "ctx_foreign"` and the same zero-mutation assertions. | PASS |
+| EXE-04 valid matching dispatch | Matching `ctx_5f619d0f6298` still persists the complete correlated receipt and retries the original task/dispatch once. | `tools/test_orca_adapter.py:413-457` asserts exact receipt, command order, retry ID, stale late-delivery rejection, and idempotent replay. | PASS |
+
+**Spec-anchored status:** 3 PASS, 0 FAIL, 0 spec-precision gaps.
+
+### Gate evidence
+
+- `python3 tools/test_orca_adapter.py` -> 37 passed, 0 failed; 0 skipped.
+- `python3 tools/test_parallel_executor.py` -> 43 passed, 0 failed; 0 skipped.
+- `npm run test:all` -> exit 0: 110 Vitest tests plus 185 Python tests, 295 passed,
+  0 failed/skipped.
+- Strict spec/tasks validators, AD index, incremental `git diff --check`, and Python compile -> exit 0.
+- No real Orca command/state, product code, test, or retained `docs/qa/**` artifact was mutated.
+
+### Discrimination sensor
+
+One detached temporary worktree at `543d0a405cd27803e02f1aaf8bde1abe5731375f` removed the
+post-release `actual_dispatch != dispatch_id` guard. The adapter suite exited 1 when the new adverse
+case proceeded toward unexpected worktree discovery instead of returning `release_unknown`.
+Scratch removed; retained-checkout porcelain returned to baseline plus this report and ledger.
+
+**Sensor:** lightweight, 1 mutation, 1 killed, 0 survived. PASS.
+
+### Fingerprint accounting
+
+- `daed6fc5e10de538fa15332810deb01973479f64eaa7e5ef4c2695b5c895f6c9` is CLOSED at historical
+  failed-remediation count 2. This passing verification does not increment it to 3.
+- `e62a4e34b185bffdd09360d8ea603a47cf7007968bb19c3a7c5d93704c1c244c` remains CLOSED at historical
+  count 1.
+- No R7 fingerprint is open or halted.
+
+### Ranked gaps
+
+None in this remediation scope.
+
+**Overall:** PASS at `543d0a405cd27803e02f1aaf8bde1abe5731375f`. Exact orphaned-release
+correlation, receipt persistence, revocation, stale-delivery rejection, retry identity, and replay
+are now spec-correlated and discriminating. Real Orca QA remains outside this technical packet.
