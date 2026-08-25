@@ -358,6 +358,24 @@ remain blocked only until Slice A passes its Technical Verifier.
 **Remediation gate:** Directed suites, `npm run test:all`, strict validators, AD index, compile, diff, and check_commit.
 **Remediation commit:** `fix(workflow): close final parallel review blockers`.
 
+### QA fix loop: recover real Orca pilot lifecycle
+
+**Remediation status:** complete
+**Slice:** D QA fix loop
+**Remediation resources:** none
+**Observable behaviour:** The disposable pilot is a worktree of the registered repository, partial Orca worker-start effects are durable and retryable, and cleanup requires lifecycle authorization or an explicit diagnostic abort.
+**Where:** `tools/qa_parallel_pilot.py`, `.agents/skills/autonomous/scripts/orca_adapter.py`, `.agents/skills/autonomous/scripts/parallel_execute.py`
+**Remediation requirements:** E2E-001, EXE-06–EXE-11
+**Remediation done when:**
+
+- [x] Setup freezes committed fixture metadata in a source worktree sharing the owner Git common directory; cleanup removes exact lane/source worktrees through that owner.
+- [x] Structured nonzero Orca JSON preserves bounded redacted failure details and accepted Run/Task partial effects; retry reuses exact IDs without duplicate creation.
+- [x] Normal cleanup requires lifecycle state plus external authorization digest; incomplete cleanup refuses deletion, while `--abort-incomplete` remains diagnostic and refuses live/recoverable workers.
+
+**Remediation tests:** Orca structured failure, executor partial-effect retry, pilot owner/common-dir and lifecycle authorization/abort suites, IT-007, full discovery.
+**Remediation gate:** Directed pilot/adapter/executor/planner/IT-007, `npm run test:all`, strict validators/index, compile, diff, and check_commit.
+**Remediation commit:** `fix(workflow): recover real orca pilot lifecycle`.
+
 ### T2R4: Count verification attempts per blocker fingerprint
 
 **Remediation status:** complete

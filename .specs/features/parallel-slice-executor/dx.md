@@ -36,10 +36,20 @@ Technical verification is an explicit receipt input correlated to feature/slice/
 with `verdict: passed` and distinct `author` and `implementer`; worker completion is never inferred as verification.
 `status` is read-only.
 
+Worker-start failures preserve bounded redacted Orca JSON fields such as `code`, failed stage,
+Run/Task IDs, effects, and residual resources. A pending worker action carries those partial
+effects and is retryable through `resume` with the exact Run/Task selectors; the result never hides
+accepted external effects behind `actions: []`.
+
 For a real pilot, `start` is followed by bounded public `status`/`resume` calls. Cleanup is allowed
 only after `python3 tools/qa_parallel_pilot.py lifecycle-check` proves exactly the two expected
 lanes have terminal worker, read-before-ack, and release receipts; timeout or incomplete lifecycle
 retains the fixture for diagnosis.
+
+Normal cleanup also requires a lifecycle authorization digest bound to the owner repository/common
+directory, source worktree identity, frozen heads, exact lane worktree IDs, and lifecycle version.
+`cleanup --abort-incomplete` is an explicit diagnostic path; it never claims cleaned success and
+refuses removal while an accepted or recoverable worker effect may still be live.
 
 `--adapter auto` selects a proven installed adapter; the first supported adapter is `orca`. If none
 qualifies, the command returns a successful serial-fallback result and creates no worktree or worker.

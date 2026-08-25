@@ -14,6 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / ".agents/skills/autonomous/scripts"))
 import parallel_execute
+import orca_adapter
 
 
 def fake_git_worktree(destination: Path, source_head: str) -> dict[str, str]:
@@ -271,6 +272,46 @@ def test_restart_reconciles_accepted_effects_without_duplicate_keys_or_workers()
         assert adapters[1].effects == []
         assert len(first_result["state"]["actions"]) == 2  # type: ignore[index]
         assert second_result["state"]["actions"] == first_result["state"]["actions"]  # type: ignore[index]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_worker_start_partial_orca_effect_is_durable_and_retry_reconciles_without_duplicate_run_task() -> None:
+    root = make_repo()
+    try:
+        class PartialFailureAdapter(RecordingAdapter):
+            def __init__(self) -> None:
+                super().__init__()
+                self.failed = True
+                self.reconciled = False
+
+            def start_worker(self, lane: dict[str, object], receipt: dict[str, object], *, idempotency_key: str) -> dict[str, str]:
+                if self.failed:
+                    self.failed = False
+                    raise orca_adapter.AdapterError("Orca command failed: selector_not_found", details={"code": "selector_not_found", "stage": "worker-start", "run_id": "run-A", "task_id": "task-A"})
+                return super().start_worker(lane, receipt, idempotency_key=idempotency_key)
+
+            def reconcile_action(self, action: dict[str, object]) -> dict[str, str] | None:
+                assert action["partial_effect"]["run_id"] == "run-A"  # type: ignore[index]
+                assert action["partial_effect"]["task_id"] == "task-A"  # type: ignore[index]
+                self.reconciled = True
+                return self.start_worker(action["worker_plan"], action["worktree_receipt"], idempotency_key=str(action["key"]))  # type: ignore[arg-type,index]
+
+        adapter = PartialFailureAdapter()
+        first = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: adapter)
+        first._plan = lambda: lane_plan(resources=[])  # type: ignore[method-assign]
+        failed = first.start()
+        assert failed["fallback"] is True
+        assert failed["reason"] == "worker-failed"
+        assert failed["actions"] and failed["actions"][0]["action"] == "worker"
+        action = failed["state"]["actions"][failed["actions"][0]["key"]]  # type: ignore[index]
+        assert action["status"] == "pending"
+        assert action["partial_effect"]["code"] == "selector_not_found"
+        second = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: adapter)
+        second._plan = lambda: lane_plan(resources=[])  # type: ignore[method-assign]
+        retried = second.start(resume=True)
+        assert retried["fallback"] is False
+        assert adapter.reconciled is True
     finally:
         shutil.rmtree(root)
 

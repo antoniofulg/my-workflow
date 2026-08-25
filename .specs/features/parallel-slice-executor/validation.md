@@ -801,6 +801,15 @@ successful integration persists gate/Verifier/deep-review invalidation and a req
 gate state. Planner checkpoint paths are the normalized sorted producer-path union. The QA pilot uses
 the canonical lifecycle checker, which rejects missing or misordered terminal/ack/release receipts.
 
+## QA fix loop handoff
+
+The prior fresh-QA report found two defects and remains a FAIL artifact owned by QA. This product
+fix makes setup use a source worktree registered in the current repository common directory,
+preserves bounded structured Orca worker-start failures and exact Run/Task partial effects for
+resume, and requires lifecycle authorization before normal cleanup. `--abort-incomplete` is a
+diagnostic-only path that refuses accepted or recoverable workers. No QA pass or author-run Orca
+result is claimed by this implementation.
+
 ## T7R5 implementation evidence
 
 - `python3 tools/test_qa_parallel_pilot.py`: 6 tests passed, 0 failed; the ownership matrix covers root, feature, missing, extra, duplicate, outside, and reordered worktree values through subprocess cleanup.

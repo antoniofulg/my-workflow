@@ -16,6 +16,8 @@ OWNED_WORKTREES = ("parallel-pilot/A-T1", "parallel-pilot/B-T2")
 
 sys.path.insert(0, str(ROOT / "tools"))
 import qa_parallel_pilot
+sys.path.insert(0, str(ROOT / ".agents/skills/autonomous/scripts"))
+import parallel_execute
 
 
 def test_pilot_handoff_uses_disposable_safe_fixture_and_dry_run_two_lanes() -> None:
@@ -32,23 +34,29 @@ def test_pilot_handoff_uses_disposable_safe_fixture_and_dry_run_two_lanes() -> N
             [sys.executable, str(HARNESS), "dry-run", "--root", fixture],
             text=True,
             capture_output=True,
-            check=True,
+            check=False,
         )
         result = json.loads(dry_run.stdout)
         assert result["mode"] == "safe"
         assert result["validated"] is True
         assert result["repository_head"] == result["source_git_head"]
+        owner_common = subprocess.check_output(["git", "rev-parse", "--git-common-dir"], cwd=ROOT, text=True).strip()
+        source_common = subprocess.check_output(["git", "rev-parse", "--git-common-dir"], cwd=fixture_root, text=True).strip()
+        assert Path(source_common).resolve() == (ROOT / owner_common if not Path(owner_common).is_absolute() else Path(owner_common)).resolve()
         assert len(result["lanes"]) == 2
         assert all(lane["resources"] == [] for lane in result["lanes"])
         assert all(lane["status"] == "ready" for lane in result["lanes"])
-        child = fixture_root.parent / f".{fixture_root.name}-parallel-slices" / "parallel-pilot" / "A-T1"
+        child = qa_parallel_pilot._worktree_root(fixture_root) / "parallel-pilot" / "A-T1"
         subprocess.run(["git", "worktree", "add", "--detach", str(child), result["source_git_head"]], cwd=fixture_root, check=True, capture_output=True)
         assert (child / ".specs/features/parallel-pilot/tasks.md").read_text(encoding="utf-8").startswith("### T1: pilot A")
         assert subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=child, text=True).strip() == result["source_git_head"]
     finally:
-        first_cleanup = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--root", fixture], text=True, capture_output=True, check=True)
-        assert json.loads(first_cleanup.stdout)["idempotent"] is False
-        second_cleanup = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--root", fixture], text=True, capture_output=True, check=True)
+        refused = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--root", fixture], text=True, capture_output=True, check=False)
+        assert refused.returncode != 0 and json.loads(refused.stdout)["reason"] == "lifecycle-incomplete"
+        first_cleanup = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], text=True, capture_output=True, check=False)
+        assert json.loads(first_cleanup.stdout)["aborted"] is True
+        assert json.loads(first_cleanup.stdout)["cleaned"] is False
+        second_cleanup = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], text=True, capture_output=True, check=False)
         assert json.loads(second_cleanup.stdout)["idempotent"] is True
         (fixture_root.parent / f".{fixture_root.name}.parallel-pilot-cleaned").unlink()
     assert not fixture_root.exists()
@@ -75,6 +83,74 @@ def test_lifecycle_check_rejects_missing_receipts_and_wrong_order() -> None:
     assert qa_parallel_pilot.lifecycle_complete(state) is False
 
 
+def test_normal_cleanup_requires_lifecycle_authorization_and_removes_exact_source_worktree() -> None:
+    setup = subprocess.run([sys.executable, str(HARNESS), "setup"], text=True, capture_output=True, check=True)
+    fixture = json.loads(setup.stdout)["root"]
+    fixture_root = Path(fixture)
+    sibling_root = qa_parallel_pilot._worktree_root(fixture_root)
+    source_head = json.loads((fixture_root / ".specs/features/parallel-pilot/workflow.json").read_text(encoding="utf-8"))["git_head"]
+    try:
+        lanes: dict[str, dict[str, object]] = {}
+        actions: dict[str, dict[str, object]] = {}
+        for lane_id, slice_id, task_id, relative in (("slice-A", "A", "T1", OWNED_WORKTREES[0]), ("slice-B", "B", "T2", OWNED_WORKTREES[1])):
+            child = sibling_root / relative
+            child.parent.mkdir(parents=True, exist_ok=True)
+            subprocess.run(["git", "worktree", "add", "--detach", str(child), source_head], cwd=fixture_root, check=True, capture_output=True)
+            dispatch = f"dispatch-{slice_id}"
+            lanes[lane_id] = {
+                "slice": slice_id, "task": task_id, "state": "complete", "resources": [],
+                "worktree_id": qa_parallel_pilot._gitdir(child), "worktree_path": str(child), "dispatch_id": dispatch,
+                "lifecycle_events": ["worker_done", "worker_read", "worker_ack", "worker_release"],
+            }
+            actions.update({
+                f"worker-{slice_id}": {"key": f"worker-{slice_id}", "action": "worker", "status": "accepted", "lane": lane_id, "external_id": dispatch, "receipt": {"dispatch_id": dispatch}, "completion": {"delivery_id": f"delivery-{slice_id}"}, "delivery": {"event": "worker_done"}},
+                f"ack-{slice_id}": {"key": f"ack-{slice_id}", "action": "worker_ack", "status": "accepted", "lane": lane_id, "external_id": f"ack-{slice_id}", "receipt": {"acknowledged": True, "delivery_id": f"delivery-{slice_id}"}},
+                f"release-{slice_id}": {"key": f"release-{slice_id}", "action": "worker_release", "status": "accepted", "lane": lane_id, "external_id": f"release-{slice_id}", "receipt": {"released": True, "dispatch_id": dispatch}},
+            })
+        state = parallel_execute.new_runtime_state(str(fixture_root.resolve()), "parallel-pilot", "safe", source_head)
+        state["lanes"] = lanes
+        state["actions"] = actions
+        parallel_execute.atomic_write_json(parallel_execute.runtime_state_path(fixture_root, "parallel-pilot"), state)
+        cleanup = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--root", fixture], text=True, capture_output=True, check=False)
+        assert cleanup.returncode == 0, cleanup.stdout + cleanup.stderr
+        result = json.loads(cleanup.stdout)
+        assert result["cleaned"] is True
+        assert not fixture_root.exists()
+        record = json.loads((fixture_root.parent / f".{fixture_root.name}.parallel-pilot-cleaned").read_text(encoding="utf-8"))
+        assert record["lifecycle_version"] == 1
+        assert record["lane_worktree_ids"]["slice-A"] == lanes["slice-A"]["worktree_id"]
+        repeated = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--root", fixture], text=True, capture_output=True, check=True)
+        assert json.loads(repeated.stdout)["idempotent"] is True
+    finally:
+        if fixture_root.exists():
+            subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], check=False)
+        (fixture_root.parent / f".{fixture_root.name}.parallel-pilot-cleaned").unlink(missing_ok=True)
+
+
+def test_diagnostic_abort_refuses_pending_recoverable_worker_effect() -> None:
+    setup = subprocess.run([sys.executable, str(HARNESS), "setup"], text=True, capture_output=True, check=True)
+    fixture = json.loads(setup.stdout)["root"]
+    fixture_root = Path(fixture)
+    try:
+        source_head = json.loads((fixture_root / ".specs/features/parallel-pilot/workflow.json").read_text(encoding="utf-8"))["git_head"]
+        state = parallel_execute.new_runtime_state(str(fixture_root.resolve()), "parallel-pilot", "safe", source_head)
+        state["lanes"]["slice-A"] = {"slice": "A", "task": "T1", "state": "serial", "resources": []}
+        state["actions"]["worker-A"] = {
+            "key": "worker-A", "action": "worker", "status": "pending", "lane": "slice-A",
+            "partial_effect": {"code": "selector_not_found", "run_id": "run-A", "task_id": "task-A"},
+        }
+        parallel_execute.atomic_write_json(parallel_execute.runtime_state_path(fixture_root, "parallel-pilot"), state)
+        refused = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], text=True, capture_output=True, check=False)
+        result = json.loads(refused.stdout)
+        assert refused.returncode != 0
+        assert result["reason"] == "worker-may-be-live"
+        assert fixture_root.exists()
+    finally:
+        if fixture_root.exists():
+            state["actions"]["worker-A"].pop("partial_effect", None)
+            parallel_execute.atomic_write_json(parallel_execute.runtime_state_path(fixture_root, "parallel-pilot"), state)
+            subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], check=False)
+        (fixture_root.parent / f".{fixture_root.name}.parallel-pilot-cleaned").unlink(missing_ok=True)
 def test_pilot_dry_run_rejects_frozen_head_mutation_and_unmarked_cleanup() -> None:
     setup = subprocess.run([sys.executable, str(HARNESS), "setup"], text=True, capture_output=True, check=True)
     fixture = json.loads(setup.stdout)["root"]
@@ -100,7 +176,7 @@ def test_pilot_dry_run_rejects_frozen_head_mutation_and_unmarked_cleanup() -> No
     finally:
         workflow.write_text(json.dumps(original_snapshot), encoding="utf-8")
         ownership_path.write_text(json.dumps(ownership), encoding="utf-8")
-        subprocess.run([sys.executable, str(HARNESS), "cleanup", "--root", fixture], check=True)
+        subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], check=False)
         (fixture_root.parent / f".{fixture_root.name}.parallel-pilot-cleaned").unlink(missing_ok=True)
 
 
@@ -108,7 +184,7 @@ def test_cleanup_removes_exact_owned_worktree_and_preserves_unowned_sibling() ->
     setup = subprocess.run([sys.executable, str(HARNESS), "setup"], text=True, capture_output=True, check=True)
     fixture = json.loads(setup.stdout)["root"]
     fixture_root = Path(fixture)
-    sibling_root = fixture_root.parent / f".{fixture_root.name}-parallel-slices"
+    sibling_root = qa_parallel_pilot._worktree_root(fixture_root)
     owned = sibling_root / "parallel-pilot" / "A-T1"
     unowned = sibling_root / "parallel-pilot" / "unowned"
     try:
@@ -117,15 +193,16 @@ def test_cleanup_removes_exact_owned_worktree_and_preserves_unowned_sibling() ->
         unowned.mkdir()
         sentinel = unowned / "sentinel"
         sentinel.write_text("preserve\n", encoding="utf-8")
-        cleanup = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--root", fixture], text=True, capture_output=True, check=False)
+        cleanup = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], text=True, capture_output=True, check=False)
         assert cleanup.returncode != 0
+        assert json.loads(cleanup.stdout)["aborted"] is True
         assert not owned.exists()
         assert sentinel.read_text(encoding="utf-8") == "preserve\n"
     finally:
         if fixture_root.exists():
             subprocess.run(["git", "worktree", "remove", "--force", str(owned)], cwd=fixture_root, check=False, capture_output=True)
         if fixture_root.exists():
-            subprocess.run([sys.executable, str(HARNESS), "cleanup", "--root", fixture], check=False)
+            subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], check=False)
         if sibling_root.exists():
             shutil.rmtree(sibling_root)
         (fixture_root.parent / f".{fixture_root.name}.parallel-pilot-cleaned").unlink(missing_ok=True)
@@ -137,7 +214,7 @@ def test_cleanup_rejects_source_head_only_attestation_tamper_before_deletion() -
     fixture_root = Path(fixture)
     ownership_path = fixture_root / ".parallel-slice-qa-ownership.json"
     original = json.loads(ownership_path.read_text(encoding="utf-8"))
-    owned = fixture_root.parent / f".{fixture_root.name}-parallel-slices" / "parallel-pilot" / "A-T1"
+    owned = qa_parallel_pilot._worktree_root(fixture_root) / "parallel-pilot" / "A-T1"
     try:
         owned.parent.mkdir(parents=True)
         subprocess.run(["git", "worktree", "add", "--detach", str(owned), "HEAD"], cwd=fixture_root, check=True, capture_output=True)
@@ -145,7 +222,7 @@ def test_cleanup_rejects_source_head_only_attestation_tamper_before_deletion() -
         tampered["source_git_head"] = "0" * 40
         ownership_path.write_text(json.dumps(tampered), encoding="utf-8")
         rejected = subprocess.run(
-            [sys.executable, str(HARNESS), "cleanup", "--root", fixture],
+            [sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture],
             text=True,
             capture_output=True,
             check=False,
@@ -157,7 +234,7 @@ def test_cleanup_rejects_source_head_only_attestation_tamper_before_deletion() -
     finally:
         if fixture_root.exists():
             ownership_path.write_text(json.dumps(original), encoding="utf-8")
-            subprocess.run([sys.executable, str(HARNESS), "cleanup", "--root", fixture], check=True)
+            subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], check=False)
         (fixture_root.parent / f".{fixture_root.name}.parallel-pilot-cleaned").unlink(missing_ok=True)
 
 
@@ -165,14 +242,14 @@ def test_cleanup_retry_preserves_residual_failure_until_residual_is_gone() -> No
     setup = subprocess.run([sys.executable, str(HARNESS), "setup"], text=True, capture_output=True, check=True)
     fixture = json.loads(setup.stdout)["root"]
     fixture_root = Path(fixture)
-    sibling_root = fixture_root.parent / f".{fixture_root.name}-parallel-slices"
+    sibling_root = qa_parallel_pilot._worktree_root(fixture_root)
     residual = sibling_root / "parallel-pilot" / "unowned" / "sentinel"
     residual.parent.mkdir(parents=True)
     residual.write_text("preserve\n", encoding="utf-8")
     attestation = fixture_root.parent / f".{fixture_root.name}.parallel-pilot-cleaned"
     try:
         first = subprocess.run(
-            [sys.executable, str(HARNESS), "cleanup", "--root", fixture],
+            [sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture],
             text=True,
             capture_output=True,
             check=False,
@@ -182,11 +259,11 @@ def test_cleanup_retry_preserves_residual_failure_until_residual_is_gone() -> No
         assert first_result["cleaned"] is False
         assert str(residual) in first_result["residual_paths"]
         record = json.loads(attestation.read_text(encoding="utf-8"))
-        assert record["status"] == "cleaned-with-residual"
+        assert record["status"] == "diagnostic-aborted-with-residual"
         assert str(residual) in record["residual_paths"]
 
         retry = subprocess.run(
-            [sys.executable, str(HARNESS), "cleanup", "--root", fixture],
+            [sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture],
             text=True,
             capture_output=True,
             check=False,
@@ -201,17 +278,18 @@ def test_cleanup_retry_preserves_residual_failure_until_residual_is_gone() -> No
         residual.parent.rmdir()
         residual.parent.parent.rmdir()
         cleaned = subprocess.run(
-            [sys.executable, str(HARNESS), "cleanup", "--root", fixture],
+            [sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture],
             text=True,
             capture_output=True,
-            check=True,
+            check=False,
         )
         cleaned_result = json.loads(cleaned.stdout)
-        assert cleaned_result["cleaned"] is True
+        assert cleaned_result["cleaned"] is False
+        assert cleaned_result["aborted"] is True
         assert cleaned_result["idempotent"] is True
     finally:
         if fixture_root.exists():
-            subprocess.run([sys.executable, str(HARNESS), "cleanup", "--root", fixture], check=False)
+            subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], check=False)
         if sibling_root.exists():
             shutil.rmtree(sibling_root)
         attestation.unlink(missing_ok=True)
@@ -233,7 +311,7 @@ def test_cleanup_rejects_every_non_head_ownership_tamper_before_any_effect() -> 
         fixture_root = Path(fixture)
         ownership_path = fixture_root / ".parallel-slice-qa-ownership.json"
         original = json.loads(ownership_path.read_text(encoding="utf-8"))
-        sibling_root = fixture_root.parent / f".{fixture_root.name}-parallel-slices"
+        sibling_root = qa_parallel_pilot._worktree_root(fixture_root)
         owned = sibling_root / "parallel-pilot" / "A-T1"
         sentinel = sibling_root / "parallel-pilot" / "unowned" / "sentinel"
         try:
@@ -245,7 +323,7 @@ def test_cleanup_rejects_every_non_head_ownership_tamper_before_any_effect() -> 
             tamper(tampered, fixture_root)
             ownership_path.write_text(json.dumps(tampered), encoding="utf-8")
             rejected = subprocess.run(
-                [sys.executable, str(HARNESS), "cleanup", "--root", fixture],
+                [sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture],
                 text=True,
                 capture_output=True,
                 check=False,
@@ -258,7 +336,7 @@ def test_cleanup_rejects_every_non_head_ownership_tamper_before_any_effect() -> 
         finally:
             if fixture_root.exists():
                 ownership_path.write_text(json.dumps(original), encoding="utf-8")
-                subprocess.run([sys.executable, str(HARNESS), "cleanup", "--root", fixture], check=False)
+                subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], check=False)
             if sibling_root.exists():
                 shutil.rmtree(sibling_root)
             if fixture_root.exists():

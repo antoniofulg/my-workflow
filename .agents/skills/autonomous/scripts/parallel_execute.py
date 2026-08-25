@@ -34,7 +34,7 @@ TRANSITIONS: dict[str, set[str]] = {
     "gate_required": {"ready", "running", "waiting", "serial", "failed"},
     "complete": set(),
     "failed": set(),
-    "serial": set(),
+    "serial": {"ready"},
 }
 _ID = re.compile(r"^[A-Za-z0-9_.:/-]+$")
 
@@ -1251,6 +1251,16 @@ class Coordinator:
                         transition_lane(state, lane_id, "serial", expected=existing["state"])
                     self._save(state)
                     return _serial_result(self.feature, mode, "cleanup-failed", lanes)
+            worker_key = idempotency_key(self.feature, slice_id, task_id, "worker", state["source_git_head"])
+            pending_worker_retry = (
+                resume
+                and existing["state"] == "serial"
+                and isinstance(state["actions"].get(worker_key), Mapping)
+                and state["actions"][worker_key].get("status") == "pending"
+                and isinstance(state["actions"][worker_key].get("partial_effect"), Mapping)
+            )
+            if pending_worker_retry:
+                transition_lane(state, lane_id, "ready", expected="serial")
             if existing["state"] in {"complete", "failed", "serial"}:
                 continue
             worktree_key, worktree_action, worktree_created = self._record_action(state, lane_id, existing, "worktree")
@@ -1355,6 +1365,12 @@ class Coordinator:
                         self._save(state)
                         return _serial_result(self.feature, mode, "resource-acquire-failed", lanes)
             worker_key, worker_action, worker_created = self._record_action(state, lane_id, existing, "worker")
+            worker_action["worker_plan"] = dict(plan_lane)
+            worker_action["worktree_receipt"] = {
+                key: existing[key]
+                for key in ("worktree_id", "gitdir", "worktree_path", "branch", "pre_head")
+                if key in existing
+            }
             self._save(state)
             if worker_action["status"] == "pending":
                 try:
@@ -1376,6 +1392,10 @@ class Coordinator:
                         transition_lane(state, lane_id, "running", expected="ready")
                     actions.append({"action": "worker", "lane": lane_id, "key": worker_key})
                 except Exception as exc:
+                    details = getattr(exc, "details", None)
+                    if isinstance(details, Mapping):
+                        worker_action["partial_effect"] = dict(details)
+                    worker_action["error"] = str(exc)
                     existing["fallback_reason"] = "worker:" + str(exc)
                     transition_lane(state, lane_id, "serial")
                     self._save(state)
@@ -1384,7 +1404,12 @@ class Coordinator:
                             self._release_lease_state(snapshot, state, lane_id, provider)
                         except ExecutorError:
                             return _serial_result(self.feature, mode, "cleanup-failed", lanes)
-                    return _serial_result(self.feature, mode, "worker-failed", lanes)
+                    result = _serial_result(self.feature, mode, "worker-failed", lanes)
+                    result["state"] = state
+                    result["actions"] = [{"action": "worker", "lane": lane_id, "key": worker_key}]
+                    if isinstance(details, Mapping):
+                        result["partial_effects"] = dict(details)
+                    return result
                 self._save(state)
                 terminal = receipt.get("terminal") is True or receipt.get("status") in {
                     "accepted", "complete", "halted", "abandoned", "failed"

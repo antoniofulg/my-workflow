@@ -131,6 +131,41 @@ def test_start_attaches_existing_worktree_and_correlates_every_receipt_field() -
         shutil.rmtree(root)
 
 
+def test_structured_worker_start_failure_preserves_partial_effect_and_reuses_run_task_on_retry() -> None:
+    root, lane, worktree = fixture()
+    try:
+        failure = subprocess.CalledProcessError(
+            1, ["orca", "orchestration", "worker-start"],
+            output=json.dumps({"ok": False, "error": {"code": "selector_not_found", "stage": "worker-start", "run_id": "run-A", "task_id": "task-A", "residualResources": {"token": "secret"}}}),
+            stderr="",
+        )
+        cli = RecordingCLI(start_responses(worktree)[:4] + [failure])
+        worker = adapter(root, cli)
+        try:
+            worker.start_worker(lane, worktree, idempotency_key=KEY)
+        except orca_adapter.AdapterError as exc:
+            assert "selector_not_found" in str(exc)
+            assert exc.details["run_id"] == "run-A"
+            assert exc.details["task_id"] == "task-A"
+            assert exc.details["residualResources"]["token"] == "<redacted>"
+        else:
+            raise AssertionError("structured worker failure must be reported")
+
+        retry_cli = RecordingCLI([worker_payload(worktree)])
+        retry = adapter(root, retry_cli)
+        receipt = retry.reconcile_action({
+            "action": "worker", "key": KEY,
+            "partial_effect": {"run_id": "run-A", "task_id": "task-A"},
+            "worker_plan": lane,
+            "worktree_receipt": worktree,
+        })
+        assert receipt is not None and receipt["run_id"] == "run-A" and receipt["orchestration_task_id"] == "task-A"
+        assert retry_cli.calls[0][0][2] == "worker-start"
+        assert retry_cli.calls[0][0][retry_cli.calls[0][0].index("--task") + 1] == "task-A"
+    finally:
+        shutil.rmtree(root)
+
+
 def test_start_reuses_run_task_and_worker_by_idempotency_without_duplicate_effect() -> None:
     root, lane, worktree = fixture()
     try:

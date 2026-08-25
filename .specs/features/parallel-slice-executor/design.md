@@ -82,7 +82,9 @@ chooses or writes an unvalidated destination.
 
 The provider-neutral core creates the validated Git worktree before resource preparation. Orca does
 not expose a path-taking worktree-create command, so its adapter only attaches a worker to the
-existing checkout. The adapter accepts one Orca JSON schema; unknown/missing fields are failures.
+existing checkout. Nonzero Orca JSON is parsed into bounded redacted failure details. If Run/Task
+creation succeeds before worker start fails, the pending worker action stores those exact IDs and
+reconciles them on resume without creating duplicate Run/Task objects.
 
 ### Git adapter
 

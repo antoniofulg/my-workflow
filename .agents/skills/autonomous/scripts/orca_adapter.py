@@ -16,6 +16,10 @@ CAPABILITY = "orchestration.contract.v1"
 class AdapterError(core.ExecutorError):
     """Orca returned an unsupported, foreign, or failed lifecycle receipt."""
 
+    def __init__(self, message: str, *, details: Mapping[str, Any] | None = None) -> None:
+        super().__init__(message)
+        self.details = dict(details or {})
+
 
 _SENSITIVE_KEYS = {"environment", "env", "credentials", "secrets", "token", "password", "authorization", "transcript", "body"}
 
@@ -86,6 +90,34 @@ def _payload(value: Any) -> dict[str, Any]:
     return value
 
 
+def _bounded(value: Any, depth: int = 0) -> Any:
+    if depth > 3:
+        return "<truncated>"
+    if isinstance(value, Mapping):
+        return {str(key): _bounded(item, depth + 1) for key, item in list(value.items())[:32]}
+    if isinstance(value, list):
+        return [_bounded(item, depth + 1) for item in value[:32]]
+    if isinstance(value, str):
+        return value[:256]
+    return value
+
+
+def _failure_details(exc: subprocess.CalledProcessError) -> dict[str, Any]:
+    raw = exc.stdout or exc.stderr or ""
+    try:
+        payload = json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
+        return {"returncode": exc.returncode}
+    if not isinstance(payload, Mapping):
+        return {"returncode": exc.returncode}
+    error = payload.get("error") if isinstance(payload.get("error"), Mapping) else payload
+    details = _redact_payload(_bounded(error))
+    if not isinstance(details, dict):
+        details = {"message": details}
+    details["returncode"] = exc.returncode
+    return details
+
+
 class OrcaAdapter:
     """Attach workers to an already-created checkout and validate every receipt."""
 
@@ -120,6 +152,10 @@ class OrcaAdapter:
                 check=True,
                 shell=False,
             )
+        except subprocess.CalledProcessError as exc:
+            details = _failure_details(exc)
+            code = details.get("code", "command_failed")
+            raise AdapterError(f"Orca command failed: {code}", details=details) from exc
         except (OSError, subprocess.SubprocessError, core.ExecutorError, TypeError) as exc:
             raise AdapterError("Orca command failed") from exc
         try:
@@ -286,15 +322,12 @@ class OrcaAdapter:
             return dict(cached)
         run_id = self._ensure_run(key)
         task_id = self._ensure_task(run_id, lane, key)
-        response = self._call(
-            "worker-start",
-            "--task",
-            task_id,
-            "--worktree",
-            "path:" + worktree["worktree_path"],
-            "--agent",
-            "codex",
-        )
+        try:
+            response = self._call(
+                "worker-start", "--task", task_id, "--worktree", "path:" + worktree["worktree_path"], "--agent", "codex",
+            )
+        except AdapterError as exc:
+            raise AdapterError(str(exc), details={**exc.details, "run_id": run_id, "task_id": task_id}) from exc
         worker = self._authoritative_worker(response, lane, worktree, key, task_id=task_id)
         if worker["run_id"] != run_id:
             raise AdapterError("uncorrelated Orca run receipt")
@@ -453,6 +486,20 @@ class OrcaAdapter:
         return {"acknowledged": True, "delivery_id": delivery_id}
 
     def reconcile_action(self, action: Mapping[str, Any]) -> Mapping[str, Any] | None:
+        if action.get("action") == "worker":
+            partial = action.get("partial_effect")
+            plan = action.get("worker_plan")
+            receipt = action.get("worktree_receipt")
+            if not isinstance(partial, Mapping) or not isinstance(plan, Mapping) or not isinstance(receipt, Mapping):
+                return None
+            run_id = _text(partial.get("run_id"), "run id")
+            task_id = _text(partial.get("task_id"), "task id")
+            response = self._call("worker-start", "--task", task_id, "--worktree", "path:" + _text(receipt.get("worktree_path"), "worktree path"), "--agent", "codex")
+            worker = self._authoritative_worker(response, plan, receipt, _text(action.get("key"), "idempotency key"), task_id=task_id)
+            if worker.get("run_id") != run_id:
+                raise AdapterError("uncorrelated Orca run receipt")
+            worker["status"] = "running"
+            return worker
         if action.get("action") == "worker_ack":
             delivery_id = _text(action.get("delivery_id"), "delivery id")
             run_id = _text(action.get("run_id"), "run id")

@@ -28,6 +28,16 @@ trap - EXIT
 python3 tools/qa_parallel_pilot.py cleanup --root "$FIXTURE_ROOT"
 ```
 
+Normal cleanup refuses incomplete executor state and authorizes deletion only after the lifecycle
+oracle passes. For an incomplete run, use the explicit diagnostic path instead:
+
+```bash
+python3 tools/qa_parallel_pilot.py cleanup --abort-incomplete --root "$FIXTURE_ROOT"
+```
+
+Diagnostic abort never reports `cleaned: true`; it removes exact worktrees/source only when no
+accepted or recoverable worker effect exists and remains diagnostic on restart.
+
 The dry-run command must return `validated: true`, `mode: safe`, equal `source_git_head` and
 `repository_head`, and exactly two ready
 `Resources: none` lanes before QA mutates Orca. The journey must then observe two independent
@@ -47,4 +57,6 @@ when the bounded derived sibling has no residual paths; an unowned residual retu
 with exact paths until it is removed. Unmarked roots and tampered attestations are rejected.
 The ownership attestation contract includes the fixture root, feature, and the ordered exact
 `parallel-pilot/A-T1` and `parallel-pilot/B-T2` worktree list; missing, extra, duplicate, outside,
-or reordered values must fail closed before cleanup effects.
+or reordered values must fail closed before cleanup effects. The fixture source is a Git worktree
+of the registered repository's common directory, and cleanup removes exact lane and source
+worktrees through that owner.

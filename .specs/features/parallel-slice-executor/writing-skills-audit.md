@@ -130,6 +130,15 @@ complete definition; all other edits are short pointers.
 | Pilot lifecycle | Pass | Canonical lifecycle-check requires exactly two lanes and terminal/read-before-ack-before-release receipts; missing receipts are false. |
 | QA boundary | Pass | E2E-001 remains fresh-QA-owned and untested; no real Orca run is claimed. |
 
+## QA fix loop delta
+
+| Item | Result | Evidence |
+| --- | --- | --- |
+| Shared Git ownership | Pass | Pilot source setup is a registered owner worktree; canonical tests compare source and owner common directories and verify exact source removal. |
+| Partial external effects | Pass | Structured `selector_not_found` data is redacted/bounded, persisted on the pending worker action, exposed in fallback state, and retried with the exact Run/Task IDs. |
+| Cleanup authorization | Pass | Normal cleanup requires lifecycle state and an external digest-bound authorization; diagnostic abort is explicit, never cleaned, and refuses live/recoverable workers. |
+| QA boundary | Pass | QA FAIL artifacts remain untouched; no QA pass or author Orca run is claimed. |
+
 ## Grouped C-D review remediation delta
 
 | Item | Result | Evidence |
