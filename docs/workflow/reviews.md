@@ -31,7 +31,11 @@ has not started.
 
 They do not send work back to each other. A deep-review finding never restarts the Verifier. A
 round-2 blocker is fixed under the approved loop and its scoped gate; the cap does not open round 3.
-If a deep-review fix changes user-visible behaviour, re-walk **the affected scenario rows only**.
+Post-cap remediation follows the stall bound: each attempt runs the scoped gate, a smaller failing
+test set resets the counter, and an equal-size or larger set increments it. An unavailable gate
+halts immediately; a reached nonzero threshold halts with the normalized signature, attempt count,
+and fixes tried. If a deep-review fix changes user-visible behaviour, re-walk **the affected scenario
+rows only**.
 
 ## What blocks, what files
 
@@ -64,5 +68,6 @@ and `uiux.md` / `dx.md` field by field. Paraphrase is not parity.
 fresh command. Scope binds — unit tests do not justify “feature complete”. A passing review over a
 red gate is void.
 
-Escalate only when the post-fix gate fails or a blocker remains reproducible at the cap. A halt
-report is a result.
+Escalate when the post-cap gate is unavailable or the configured stall threshold is reached. An
+open blocker alone does not halt while remediation is making measurable progress. A halt report is
+a result.

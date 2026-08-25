@@ -11,8 +11,8 @@ bug_ids: BUG-20260822-deep-review-learnings-untrackable; BUG-20260822-feature-sp
 fix_status: fixed
 retest_status: pass
 fix_commits: 0413862; a7397d2; 43e9910; a3fc718; 5b5474e
-evidence: docs/qa/evidence/2026-08-24-agent-model-routing-local-state/session.log
-last_report: docs/qa/reports/2026-08-24-agent-model-routing-local-state.md
+evidence: docs/qa/evidence/2026-08-25-remediation-stall-bound/summary.json; docs/qa/evidence/2026-08-25-remediation-stall-bound/session.log
+last_report: docs/qa/reports/2026-08-25-remediation-stall-bound.md
 overlaps:
 ---
 
@@ -59,3 +59,7 @@ unchanged `HEAD` and index, and feature-state handoff through a sibling worktree
 QA on 2026-08-24 confirmed the ai-memory feature did not change ordinary adoption: fresh adoption
 and re-adoption remained byte-idempotent and installed no ai-memory marker, binary, runtime DB, hook
 tree, shell edit, or handoff file.
+
+QA on 2026-08-25 retained this verdict as an adjacent canary: fresh adoption included the tracked
+remediation example, re-adoption preserved a consumer-owned local config byte-for-byte, and only
+printed the external security installer command without invoking it.

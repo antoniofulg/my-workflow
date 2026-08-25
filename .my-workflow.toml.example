@@ -3,6 +3,11 @@ version = 2
 [deep_review]
 cadence = "grouped.3"
 
+# Post-cap remediation halts after this many consecutive non-progress attempts.
+# Default 3. 0 means unbounded: never halt for a stall.
+[remediation]
+stall_attempts = 3
+
 [profiles.mixed]
 implementer = "claude"
 verifier = "codex"

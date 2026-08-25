@@ -258,6 +258,8 @@ describe("canonical QA skills", () => {
     }
 
     const reviewRounds = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
+    const workflowConfig = readRepositoryFile(".agents/skills/workflow-config/SKILL.md");
+    const autonomous = readRepositoryFile(".agents/skills/autonomous/SKILL.md");
 
     expect(reviewRounds).toContain("The provider `verifier` executes exactly one phase per packet");
     expect(reviewRounds).toContain("Deep-review is a separate orchestrator stage, not a Verifier phase");
@@ -266,6 +268,47 @@ describe("canonical QA skills", () => {
     expect(readRepositoryFile("docs/workflow/reviews.md")).toContain(
       "Deep-review is a separate stage, not a Verifier phase.",
     );
+    expect(workflowConfig).toContain("[remediation]` table");
+    const remediation = reviewRounds.slice(
+      reviewRounds.indexOf("When a cap is reached"),
+      reviewRounds.indexOf("## Requirement and contract parity"),
+    );
+    expect(remediation).toContain("run its scoped gate after every attempt");
+    expect(remediation).toContain(
+      "stable signature from sorted failing-test identifiers after removing timings, absolute paths, and line numbers",
+    );
+    expect(remediation).toContain(
+      "current failing-test set that is a strict subset of the running minimum failing-test set resets the counter",
+    );
+    expect(remediation).toContain("equal-size set, including one with different members");
+    expect(remediation).toContain("a larger set increments it");
+    expect(remediation).toContain("`stall_attempts = 0` is unbounded");
+    expect(remediation).toContain(
+      "when a nonzero threshold is reached, halt with the repeated signature, attempt count, and fixes tried",
+    );
+    expect(remediation).toContain(
+      "If the gate is unavailable, halt immediately without another deep-review round",
+    );
+    expect(remediation).toContain("never starts round 3");
+    expect(remediation.indexOf("run its scoped gate after every attempt")).toBeLessThan(
+      remediation.indexOf("stable signature from sorted failing-test identifiers"),
+    );
+    expect(remediation.indexOf("stable signature from sorted failing-test identifiers")).toBeLessThan(
+      remediation.indexOf("strict subset of the running minimum"),
+    );
+    expect(remediation.indexOf("strict subset of the running minimum")).toBeLessThan(
+      remediation.indexOf("when a nonzero threshold is reached"),
+    );
+    expect(remediation.indexOf("a larger set increments it")).toBeGreaterThan(
+      remediation.indexOf("strict subset of the running minimum"),
+    );
+    const autonomousHalt = normalizePacket(
+      autonomous.slice(autonomous.indexOf("## Halt conditions")),
+    );
+    expect(autonomousHalt).toContain(
+      "The post-cap scoped gate is unavailable, or the configured remediation stall threshold is reached under docs/guidelines/REVIEW-ROUNDS.md; an open blocker alone does not halt while attempts are establishing new failure-set minima",
+    );
+    expect(autonomousHalt).not.toContain("leaves a blocker open");
   });
 
   it("IT-004 keeps QA scenario fields and statuses in one authoritative guideline", () => {
@@ -300,7 +343,7 @@ describe("canonical QA skills", () => {
       "do not start round 3",
       "escalate only",
       "post-fix gate fails",
-      "blocker remains reproducible",
+      "configured stall threshold is reached",
       "remote actions retain separate approval requirements",
     ]) {
       expect(approvedLoopRule).toContain(anchor);

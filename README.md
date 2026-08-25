@@ -112,6 +112,21 @@ The `cadence` controls the deep-review groups:
 - `grouped.N`: consecutive, balanced groups with at most `N` slices (`grouped.3` with four
   slices → `[1, 2] [3, 4]`).
 
+Post-cap remediation is bounded by `[remediation] stall_attempts`. It defaults to `3`; `0` means
+unbounded. The threshold is read from the current local config on every attempt and is not stored
+in the feature snapshot:
+
+```toml
+[remediation]
+stall_attempts = 3
+```
+
+After each remediation attempt, the scoped gate produces a normalized, sorted failing-test
+signature. A strictly smaller failing-test set resets the stall counter; an equal-size or larger
+set increments it, including when membership changes. A reached nonzero threshold halts with the
+signature, attempt count, and fixes tried. An unavailable gate halts immediately. The review cap
+never opens a third deep-review round.
+
 The resolver uses the native provider for every role unless a named profile or role override is
 selected. Precedence is `CLI override > profile > native provider`:
 

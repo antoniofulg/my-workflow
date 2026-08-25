@@ -27,8 +27,10 @@ EFFORTS = ("low", "medium", "high", "xhigh", "max", "ultra")
 CADENCE_DEFAULT = "grouped.3"
 CADENCE_RE = re.compile(r"^grouped\.(\d+)$")
 SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
-CONFIG_KEYS = {"version", "deep_review", "profiles", "models"}
+CONFIG_KEYS = {"version", "deep_review", "profiles", "models", "remediation"}
 DEEP_REVIEW_KEYS = {"cadence"}
+REMEDIATION_KEYS = {"stall_attempts"}
+STALL_ATTEMPTS_DEFAULT = 3
 MODEL_PROVIDERS = set(PROVIDERS)
 MODEL_KEYS = {"model", "effort"}
 MODEL_IDENTIFIER_RE = re.compile(r"^[^\\\s\[\]\"\x00-\x1f\x7f]+$")
@@ -122,6 +124,11 @@ def _cadence(config: dict[str, Any]) -> str:
     return section.get("cadence", CADENCE_DEFAULT)
 
 
+def _stall_attempts(config: dict[str, Any]) -> int:
+    section = config.get("remediation") or {}
+    return section.get("stall_attempts", STALL_ATTEMPTS_DEFAULT)
+
+
 def _profiles(config: dict[str, Any]) -> dict[str, dict[str, str]]:
     return config.get("profiles") or {}
 
@@ -156,6 +163,18 @@ def _validate_config_schema(config: dict[str, Any]) -> None:
     cadence = deep_review.get("cadence", CADENCE_DEFAULT)
     if not isinstance(cadence, str):
         raise _error("deep_review.cadence must be a string")
+
+    remediation = config.get("remediation", {})
+    if remediation is None:
+        remediation = {}
+    if not isinstance(remediation, dict):
+        raise _error("remediation must be a table")
+    unknown = set(remediation) - REMEDIATION_KEYS
+    if unknown:
+        raise _error(f"remediation contains unknown key {sorted(unknown)[0]!r}")
+    stall_attempts = remediation.get("stall_attempts", STALL_ATTEMPTS_DEFAULT)
+    if type(stall_attempts) is not int or stall_attempts < 0:
+        raise _error("remediation.stall_attempts must be an integer of at least 0")
 
     profiles = config.get("profiles", {})
     if profiles is None:
@@ -666,6 +685,8 @@ def resolve(
         raise _error(f"root is not a directory: {root}")
     if native_provider not in PROVIDERS:
         raise _error(f"invalid native provider {native_provider!r}")
+    config = _read_config(root)
+    remediation = {"stall_attempts": _stall_attempts(config)}
     snapshot_path = _snapshot_path(root, feature)
     if snapshot_path.exists() and not refresh:
         try:
@@ -673,9 +694,10 @@ def resolve(
                 snapshot = json.load(stream)
         except (OSError, json.JSONDecodeError) as exc:
             raise _error(f"existing snapshot is invalid: {snapshot_path}") from exc
-        return _validate_snapshot(root, feature, snapshot)
+        resolved = dict(_validate_snapshot(root, feature, snapshot))
+        resolved["remediation"] = remediation
+        return resolved
 
-    config = _read_config(root)
     cadence = _cadence(config)
     groups = balanced_groups(slice_count, cadence)
     profiles = _profiles(config)
@@ -721,7 +743,9 @@ def resolve(
         "roles": roles,
     }
     _write_snapshot(snapshot_path, snapshot)
-    return snapshot
+    resolved = dict(snapshot)
+    resolved["remediation"] = remediation
+    return resolved
 
 
 def _parser() -> argparse.ArgumentParser:
