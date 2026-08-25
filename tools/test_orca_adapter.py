@@ -203,25 +203,149 @@ def test_nested_dispatch_envelopes_preserve_ctx_identity_through_failure_show_re
         ])
         action = {
             "action": "worker", "key": KEY,
-            "partial_effect": {"run_id": "run-A", "task_id": "task-A", "dispatch_id": dispatch_id, "terminal_handle": "terminal-A"},
+            "partial_effect": {
+                "run_id": "run-A", "task_id": "task-A", "dispatch_id": dispatch_id, "terminal_handle": "terminal-A",
+                "result": {
+                    "dispatchId": dispatch_id, "state": "failed",
+                    "lastError": {"code": "agent_prompt_stalled"}, "mutation": {"requestId": "req-A"},
+                },
+            },
             "worker_plan": lane, "worktree_receipt": worktree,
         }
-        receipt = adapter(root, retry_cli).reconcile_action(action)
+        worker = adapter(root, retry_cli)
+        receipt = worker.reconcile_action(action)
         assert receipt is not None
+        assert action["partial_effect"]["run_id"] == "run-A"
+        assert action["partial_effect"]["request_id"] == "req-A"
+        assert action["partial_effect"]["state"] == "failed"
+        assert action["partial_effect"]["result"]["mutation"]["requestId"] == "req-A"  # type: ignore[index]
         worker_start = retry_cli.calls[-1][0]
         assert worker_start[worker_start.index("--retry-of") + 1] == dispatch_id
+        assert worker.reconcile_action(action) == receipt
+        assert len(retry_cli.calls) == 4
     finally:
         shutil.rmtree(root)
 
 
 def test_dispatch_identity_rejects_shell_forms_without_overwriting_explicit_id() -> None:
-    assert orca_adapter._payload({"dispatch_id": "ctx_explicit", "dispatch": {"id": "ctx_other"}})["dispatch_id"] == "ctx_explicit"
+    try:
+        orca_adapter._payload({"dispatch_id": "ctx_explicit", "dispatch": {"id": "ctx_other"}})
+    except orca_adapter.AdapterError as exc:
+        assert exc.details["code"] == "correlation_conflict"
+    else:
+        raise AssertionError("conflicting canonical dispatch identities must halt")
     for value in ("ctx bad", "ctx;rm", "ctx`id`", "ctx\nother", "ctx'quote'"):
         try:
             orca_adapter._payload({"result": {"dispatch": {"id": value}}})
         except orca_adapter.AdapterError:
             continue
         raise AssertionError(f"malicious dispatch identity must be rejected: {value!r}")
+
+
+def test_canonical_projection_merges_nested_effects_without_replacing_outer_envelope() -> None:
+    dispatch_id = "ctx_5f619d0f6298"
+    terminal = "term_2dcb9465-d91c-4260-baa3-b92859412439"
+    nested_effect = {
+        "dispatch": {"id": dispatch_id},
+        "state": "failed",
+        "lastError": {"code": "agent_prompt_stalled"},
+        "mutation": {"requestId": "req-A"},
+    }
+    cases = (
+        {
+            "run_id": "run-A", "task_id": "task-A", "dispatch_id": dispatch_id,
+            "terminal_handle": terminal, "result": nested_effect,
+        },
+        {
+            "result": {
+                "run": {"id": "run-A"}, "task": {"id": "task-A"},
+                "dispatch": {"id": dispatch_id}, "terminal": {"handle": terminal},
+                "mutation": {"requestId": "req-A"}, "state": "failed",
+            },
+        },
+        {
+            "runId": "run-A", "run_id": "run-A", "taskId": "task-A",
+            "dispatchId": dispatch_id, "terminal_handle": terminal,
+            "request_id": "req-A", "mutation": {"requestId": "req-A"},
+        },
+    )
+    for envelope in cases:
+        projected = orca_adapter._payload(envelope)
+        assert projected["run_id"] == "run-A"
+        assert projected["task_id"] == "task-A"
+        assert projected["dispatch_id"] == dispatch_id
+        assert projected["terminal_handle"] == terminal
+        assert projected["request_id"] == "req-A"
+    projected = orca_adapter._payload(cases[0])
+    assert projected["result"] == nested_effect
+    assert projected["state"] == "failed"
+    assert projected["lastError"] == {"code": "agent_prompt_stalled"}
+
+
+def test_canonical_projection_rejects_conflicting_identity_and_request_keys() -> None:
+    conflicts = (
+        ({"run_id": "run-A", "result": {"runId": "run-B"}}, "run_id"),
+        ({"task_id": "task-A", "result": {"taskId": "task-B"}}, "task_id"),
+        ({"dispatch_id": "ctx-A", "result": {"dispatch": {"id": "ctx-B"}}}, "dispatch_id"),
+        ({"terminal_handle": "term-A", "result": {"terminal": {"handle": "term-B"}}}, "terminal_handle"),
+        ({"request_id": "req-A", "mutation": {"requestId": "req-B"}}, "request_id"),
+        ({"idempotency_key": "key-A", "release": {"idempotencyKey": "key-B"}}, "idempotency_key"),
+        ({"retry_request": "retry-A", "result": {"retryRequest": "retry-B"}}, "retry_request"),
+    )
+    for envelope, field in conflicts:
+        try:
+            orca_adapter._payload(envelope)
+        except orca_adapter.AdapterError as exc:
+            assert exc.details["code"] == "correlation_conflict"
+            assert exc.details["field"] == field
+        else:
+            raise AssertionError(f"conflicting {field} must halt before use")
+
+
+def test_failure_projection_preserves_nested_error_effect_and_missing_run_task_has_zero_effects() -> None:
+    failure = subprocess.CalledProcessError(
+        1,
+        ["orca", "worker-start"],
+        output=json.dumps({
+            "ok": False,
+            "error": {
+                "code": "agent_prompt_stalled",
+                "result": {
+                    "runId": "run-A", "taskId": "task-A",
+                    "dispatch": {"id": "ctx_5f619d0f6298"},
+                    "terminal": {"handle": "term-A"},
+                    "state": "failed", "lastError": {"code": "stalled"},
+                    "mutation": {"requestId": "req-A"},
+                },
+            },
+        }),
+    )
+    details = orca_adapter._failure_details(failure)
+    assert details["run_id"] == "run-A"
+    assert details["task_id"] == "task-A"
+    assert details["dispatch_id"] == "ctx_5f619d0f6298"
+    assert details["terminal_handle"] == "term-A"
+    assert details["request_id"] == "req-A"
+    assert details["state"] == "failed"
+    assert details["lastError"] == {"code": "stalled"}
+    assert "result" in details
+
+    root, lane, worktree = fixture()
+    try:
+        cli = RecordingCLI([])
+        try:
+            adapter(root, cli).reconcile_action({
+                "action": "worker", "key": KEY,
+                "partial_effect": {"result": {"dispatch": {"id": "ctx_5f619d0f6298"}}},
+                "worker_plan": lane, "worktree_receipt": worktree,
+            })
+        except orca_adapter.AdapterError:
+            pass
+        else:
+            raise AssertionError("missing run/task must halt before recovery")
+        assert cli.calls == []
+    finally:
+        shutil.rmtree(root)
 
 
 def test_worktree_discovery_retries_selector_visibility_before_one_worker_start() -> None:

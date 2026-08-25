@@ -148,44 +148,138 @@ def _nested_terminal_state(value: Mapping[str, Any]) -> Mapping[str, Any] | None
     return None
 
 
+_IDENTITY_ALIASES = {
+    "run_id": ("run_id", "runId"),
+    "task_id": ("task_id", "taskId"),
+    "dispatch_id": ("dispatch_id", "dispatchId"),
+    "terminal_handle": ("terminal_handle", "terminalHandle", "agentTerminalHandle", "agent_terminal_handle"),
+    "request_id": ("request_id", "requestId"),
+    "idempotency_key": ("idempotency_key", "idempotencyKey"),
+    "retry_request": ("retry_request", "retryRequest", "retry_request_id", "retryRequestId", "retry_of", "retryOf"),
+}
+_IDENTITY_LABELS = {
+    "run_id": "run id",
+    "task_id": "task id",
+    "dispatch_id": "dispatch id",
+    "terminal_handle": "terminal handle",
+    "request_id": "request id",
+    "idempotency_key": "idempotency key",
+    "retry_request": "retry request",
+}
+_CONTAINER_IDENTITY = {
+    "run": ("run_id", "run id"),
+    "task": ("task_id", "task id"),
+    "dispatch": ("dispatch_id", "dispatch id"),
+}
+_STATE_ALIASES = {
+    "status": ("status", "state"),
+    "state": ("state", "status"),
+    "lastError": ("lastError", "last_error"),
+    "releaseState": ("releaseState", "release_state"),
+    "releaseError": ("releaseError", "release_error"),
+    "released": ("released",),
+    "reconciled": ("reconciled",),
+    "terminal_status": ("terminal_status", "terminalStatus"),
+    "connected": ("connected",),
+    "writable": ("writable",),
+    "reason": ("reason",),
+    "release_error": ("release_error",),
+    "error": ("error",),
+}
+_PASSTHROUGH_ALIASES = {
+    "feature": ("feature",),
+    "slice": ("slice",),
+    "task": ("task",),
+    "worktree_id": ("worktree_id", "worktreeId"),
+    "worktree_path": ("worktree_path", "worktreePath"),
+    "branch": ("branch",),
+    "pre_head": ("pre_head", "preHead", "sourceHead"),
+    "orchestration_task_id": ("orchestration_task_id", "orchestrationTaskId"),
+}
+
+
+def _canonical_candidates(value: Mapping[str, Any]) -> dict[str, list[Any]]:
+    candidates = {field: [] for field in _IDENTITY_ALIASES}
+    states = {field: [] for field in _STATE_ALIASES}
+    passthrough = {field: [] for field in _PASSTHROUGH_ALIASES}
+
+    def visit(node: Mapping[str, Any], container: str | None = None) -> None:
+        for key, item in node.items():
+            name = str(key)
+            if name in {alias for aliases in _IDENTITY_ALIASES.values() for alias in aliases}:
+                for field, aliases in _IDENTITY_ALIASES.items():
+                    if name in aliases:
+                        candidates[field].append(item)
+                        break
+            for field, aliases in _STATE_ALIASES.items():
+                if name in aliases:
+                    states[field].append(item)
+            for field, aliases in _PASSTHROUGH_ALIASES.items():
+                if name in aliases and not (field == "task" and isinstance(item, Mapping)):
+                    passthrough[field].append(item)
+            if container in _CONTAINER_IDENTITY and name == "id":
+                candidates[_CONTAINER_IDENTITY[container][0]].append(item)
+            if container in {"terminal", "terminalResource", "terminal_resource"} and name == "handle":
+                candidates["terminal_handle"].append(item)
+            if isinstance(item, Mapping):
+                visit(item, name)
+            elif isinstance(item, list):
+                for child in item:
+                    if isinstance(child, Mapping):
+                        visit(child, name)
+
+    visit(value)
+    return {**candidates, **states, **passthrough}
+
+
+def _canonical_projection(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Project nested Orca envelopes without discarding their outer evidence."""
+    projected = dict(value)
+    candidates = _canonical_candidates(value)
+    for field, values in ((field, candidates[field]) for field in _IDENTITY_ALIASES):
+        present = [candidate for candidate in values if candidate not in (None, "")]
+        normalized: list[str] = []
+        for candidate in present:
+            try:
+                normalized_value = _opaque_token(candidate, _IDENTITY_LABELS[field])
+            except AdapterError as exc:
+                code = "uncorrelated_terminal" if field == "terminal_handle" else "invalid_identity"
+                raise AdapterError(
+                    str(exc), details={"code": code, "field": field}
+                ) from exc
+            if normalized_value not in normalized:
+                normalized.append(normalized_value)
+        if len(normalized) > 1:
+            raise AdapterError(
+                f"conflicting Orca {field}",
+                details={"code": "correlation_conflict", "field": field},
+            )
+        if field not in projected and normalized:
+            projected[field] = normalized[0]
+        elif field in projected and projected[field] not in (None, ""):
+            projected[field] = _opaque_token(projected[field], _IDENTITY_LABELS[field])
+
+    for field, values in ((field, candidates[field]) for field in _STATE_ALIASES):
+        if field not in projected:
+            for candidate in values:
+                if candidate not in (None, ""):
+                    projected[field] = candidate
+                    break
+    for field in _PASSTHROUGH_ALIASES:
+        if field not in projected:
+            for candidate in candidates[field]:
+                if candidate not in (None, ""):
+                    projected[field] = candidate
+                    break
+    return projected
+
+
 def _payload(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise AdapterError("malformed Orca response")
     if value.get("ok") is False:
         raise AdapterError("Orca command failed")
-    result = value.get("result")
-    if isinstance(result, dict):
-        value = result
-    if "dispatch_id" not in value and "dispatchId" not in value:
-        nested_dispatch_id = _nested_dispatch_id(value)
-        if nested_dispatch_id is not None:
-            value["dispatch_id"] = nested_dispatch_id
-    if not any(field in value for field in ("terminal_handle", "terminalHandle", "agentTerminalHandle")):
-        nested_terminal_handle = _nested_terminal_handle(value)
-        if nested_terminal_handle is not None:
-            value["terminal_handle"] = nested_terminal_handle
-    for nested in ("run", "task", "worker", "dispatch", "worktree"):
-        if isinstance(value.get(nested), dict):
-            nested_value = value[nested]
-            value = {key: item for key, item in value.items() if key != nested}
-            value = {**value, **nested_value}
-    for field, aliases in {
-        "run_id": ("run_id", "runId"),
-        "task_id": ("task_id", "taskId"),
-        "dispatch_id": ("dispatch_id", "dispatchId"),
-        "terminal_handle": ("terminal_handle", "terminalHandle", "agentTerminalHandle"),
-        "worktree_id": ("worktree_id", "worktreeId"),
-        "worktree_path": ("worktree_path", "worktreePath"),
-        "pre_head": ("pre_head", "preHead", "sourceHead"),
-    }.items():
-        if field not in value:
-            for alias in aliases:
-                if alias in value:
-                    value[field] = value[alias]
-                    break
-    if "dispatch_id" in value:
-        value["dispatch_id"] = _opaque_token(value["dispatch_id"], "dispatch id")
-    return value
+    return _canonical_projection(value)
 
 
 def _bounded(value: Any, depth: int = 0) -> Any:
@@ -212,27 +306,7 @@ def _failure_details(exc: subprocess.CalledProcessError) -> dict[str, Any]:
     details = _redact_payload(_bounded(error))
     if not isinstance(details, dict):
         details = {"message": details}
-    for field, aliases in {
-        "run_id": ("run_id", "runId"),
-        "task_id": ("task_id", "taskId"),
-        "dispatch_id": ("dispatch_id", "dispatchId"),
-        "terminal_handle": ("terminal_handle", "terminalHandle", "agentTerminalHandle"),
-    }.items():
-        if field not in details:
-            for alias in aliases:
-                if alias in details:
-                    details[field] = details[alias]
-                    break
-    if "dispatch_id" not in details:
-        nested_dispatch_id = _nested_dispatch_id(details)
-        if nested_dispatch_id is not None:
-            details["dispatch_id"] = nested_dispatch_id
-    if "dispatch_id" in details:
-        details["dispatch_id"] = _opaque_token(details["dispatch_id"], "dispatch id")
-    if not any(field in details for field in ("terminal_handle", "terminalHandle", "agentTerminalHandle")):
-        nested_terminal_handle = _nested_terminal_handle(details)
-        if nested_terminal_handle is not None:
-            details["terminal_handle"] = _opaque_token(nested_terminal_handle, "terminal handle")
+    details = _canonical_projection(details)
     details["returncode"] = exc.returncode
     return details
 
@@ -434,10 +508,27 @@ class OrcaAdapter:
             "feature", "slice", "task", "worktree_id", "worktree_path", "branch", "pre_head", "idempotency_key",
             "run_id", "runId", "task_id", "taskId", "orchestration_task_id", "dispatch_id", "dispatchId",
             "terminal_handle", "terminalHandle", "agentTerminalHandle", "status",
+            "ok", "result", "error", "run", "task", "worker", "dispatch", "terminal", "terminalResource",
+            "terminal_resource", "mutation", "release", "state", "lastError", "last_error", "releaseState",
+            "release_state", "releaseError", "release_error", "request_id", "requestId", "idempotencyKey",
+            "retryRequest", "retry_request", "retryRequestId", "retry_request_id", "retryOf", "retry_of",
         }
         unknown = set(data) - allowed
         if unknown:
             raise AdapterError("unknown Orca worker receipt field")
+        pending = [data.get("worker")]
+        result = data.get("result")
+        if isinstance(result, Mapping):
+            pending.append(result.get("worker"))
+        while pending:
+            nested_worker = pending.pop()
+            if not isinstance(nested_worker, Mapping):
+                continue
+            if set(nested_worker) - allowed:
+                raise AdapterError("unknown Orca worker receipt field")
+            nested_result = nested_worker.get("result")
+            if isinstance(nested_result, Mapping):
+                pending.append(nested_result.get("worker"))
         expected = {
             "feature": self.feature,
             "slice": _text(lane.get("slice"), "lane slice"),
@@ -691,7 +782,11 @@ class OrcaAdapter:
                 return dict(cached)
             normalized_partial = _payload(dict(partial))
             if isinstance(partial, dict):
-                for field in ("run_id", "task_id", "dispatch_id", "terminal_handle"):
+                for field in (
+                    "run_id", "task_id", "dispatch_id", "terminal_handle", "request_id", "idempotency_key",
+                    "retry_request", "state", "lastError", "releaseState", "releaseError", "released",
+                    "reconciled", "terminal_status", "connected", "writable", "reason", "release_error",
+                ):
                     if field in normalized_partial:
                         partial[field] = normalized_partial[field]
             run_id = _text(normalized_partial.get("run_id"), "run id")
