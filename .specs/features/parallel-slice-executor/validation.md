@@ -1948,3 +1948,79 @@ threshold.
 envelope is normalized, persisted, and replay-safe; completed releases and other rejection reasons
 remain distinct. No commit, push, merge, real Orca action, product/test edit, or `docs/qa/**` edit
 was performed.
+
+## R11 Run/Task identity technical verification
+
+**Date:** 2026-08-25
+**Commit under test:** `f02b679fcdda0de40e6190bc37d36604363560d1`
+**Base:** `9493f9a`
+**Diff range:** `9493f9a..f02b679fcdda0de40e6190bc37d36604363560d1`
+**Verifier:** fresh independent Technical Verifier (author != verifier)
+**Scoped verdict:** **PASS**
+
+This pass covers only the R11 Orca Run/Task identity correlation change in
+`.agents/skills/autonomous/scripts/orca_adapter.py` and its directed adapter assertions. The
+pre-existing `docs/qa/**` modifications in the checkout were preserved. No real Orca command,
+product file, test file, or QA artifact was changed.
+
+### Spec-anchored outcomes
+
+| Criterion | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| Exact R11 create envelopes | Outer operation/request IDs remain evidence only; the nested `result.run.id` and `result.task.id` are the selected identities, with exact objective/spec/Run ownership. | `tools/test_orca_adapter.py:76-84` supplies `id`/`requestId` envelopes with nested Run/Task records; `:112-131` asserts the correlated receipt fields and lifecycle. | PASS |
+| Generic operation/request IDs never become Run or Task identity | Generic `id`/`requestId` values are ignored when scoped IDs exist; worker-start receives the scoped Task ID. | `tools/test_orca_adapter.py:136-155` asserts `run_658585e3a862`, `task_78fcfca161b8`, and `--task == task_78fcfca161b8 != operation-task`; selection is `.agents/skills/autonomous/scripts/orca_adapter.py:299-310,658-670`. | PASS |
+| Only canonical scoped Run/Task forms are accepted | Accepted forms are `run_id`, `runId`, `run.id` and `task_id`, `taskId`, `task.id`; generic outer `id` is not a fallback. | `.agents/skills/autonomous/scripts/orca_adapter.py:299-310` limits scoped lookup to field aliases or the named container's `id`; the fresh ephemeral alias matrix exercised all three Run/Task forms and passed 3/3. | PASS |
+| Missing Run/Task identity halts before downstream effects | A response with only generic/request identity raises before worktree discovery or worker-start; the same holds for Task creation. | `tools/test_orca_adapter.py:160-186` asserts generic-only Run/Task failures and exact call prefixes ending at `run-create`/`task-create`, with no `show` or `worker-start`. | PASS |
+| Conflicting canonical IDs halt before downstream effects | Conflicting scoped aliases raise `correlation_conflict` and do not reach worktree/worker effects. | `tools/test_orca_adapter.py:189-215` asserts `details["code"] == "correlation_conflict"` and exact call prefixes; conflict detection is `.agents/skills/autonomous/scripts/orca_adapter.py:242-263`. | PASS |
+| Selected Run objective is exact | Run-create accepts only the exact `parallel-slice:<feature>:<key>` objective; wrong objective stops before Task lookup. | `.agents/skills/autonomous/scripts/orca_adapter.py:507-516` compares the response objective exactly; fresh ephemeral negative probe asserted wrong objective stops after `run-create` (no `task-list`). | PASS |
+| Task spec and Run ownership are exact | Task-create accepts only the exact spec and either the absent or exact current Run ID; wrong spec/foreign Run stops before worktree discovery. | `.agents/skills/autonomous/scripts/orca_adapter.py:534-548` checks Run and spec; fresh ephemeral probes asserted wrong spec and foreign Run stop after `task-create` (no `show`/worker-start). | PASS |
+| Worker-start receives the exact canonical Task | The argv `--task` value is the selected scoped Task identity, never an operation/request UUID. | `tools/test_orca_adapter.py:151-155` asserts the exact `--task` argument; production argv construction is `.agents/skills/autonomous/scripts/orca_adapter.py:658-664`. | PASS |
+
+**Spec-anchored status:** 8 PASS, 0 FAIL, 0 spec-precision gaps for the R11 scope.
+
+### Test contract disposition
+
+| Case | Contracted outcome | Evidence | Result |
+| --- | --- | --- | --- |
+| R11 positive envelope | Nested canonical Run/Task identities survive operation/request envelopes and drive the worker. | `tools/test_orca_adapter.py:136-155`; `python3 tools/test_orca_adapter.py` -> 48 passed. | PASS |
+| R11 canonical-only negatives | Generic-only, missing, and conflicting scoped identities reject before downstream effects. | `tools/test_orca_adapter.py:160-215`; fresh alias/negative matrix -> 10/10 probes passed. | PASS |
+| Objective/spec/ownership negatives | Wrong Run objective, wrong Task spec, and foreign Task Run are rejected before worktree/worker effects. | Fresh ephemeral probes asserted exact call prefixes; source checks at `.agents/skills/autonomous/scripts/orca_adapter.py:507-548`. | PASS |
+
+### Gate evidence
+
+- `rtk python3 tools/test_orca_adapter.py` -> exit 0, **48 passed, 0 failed**; 0 skipped.
+- `rtk python3 tools/test_parallel_executor.py` -> exit 0, **44 passed, 0 failed**; 0 skipped.
+- `rtk env npm_config_offline=true npm run test:all` -> exit 0; **110 Vitest passed**, all discovered Python suites passed, and 0 failures/skips (the scoped adapter/executor counts above are included).
+- `rtk python3 .agents/skills/tlc-spec-driven/scripts/validate_spec.py .specs/features/parallel-slice-executor/spec.md --strict` -> exit 0, 0 errors, 0 warnings.
+- `rtk python3 .agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/parallel-slice-executor/tasks.md --strict` -> exit 0, 0 errors, 0 warnings.
+- `rtk python3 tools/ad-index.py --check` -> exit 0, `AD-INDEX.md up to date`.
+- `rtk python3 -m py_compile .agents/skills/autonomous/scripts/orca_adapter.py tools/test_orca_adapter.py .agents/skills/autonomous/scripts/parallel_execute.py tools/test_parallel_executor.py` -> exit 0.
+- `rtk git diff --check f02b679^ f02b679` -> exit 0, no whitespace errors.
+
+### Discrimination sensor
+
+The real checkout baseline was the pre-existing QA-only porcelain listed above. Five behavior
+mutations ran in separate detached temporary worktrees and were removed; the real checkout
+porcelain matched the baseline afterward. The two ephemeral negative probes were verifier-only
+stdin harnesses and were not added to the product test tree.
+
+| Mutation | Behavior fault | Directed result | Outcome |
+| --- | --- | --- | --- |
+| M1 | Prefer outer generic `id` in `_scoped_identifier`, allowing an operation UUID to replace a scoped Run/Task ID. | Adapter suite exited 1 with `uncorrelated Orca task receipt` during the clean-waiter path; the generic-ID contract could no longer complete. | KILLED |
+| M2 | Raise only when more than two canonical identity candidates conflict. | Adapter suite exited 1 at `tools/test_orca_adapter.py:384` (`conflicting run_id must halt`). | KILLED |
+| M3 | Remove the exact Run objective comparison. | Adapter suite remained green, but the fresh wrong-objective probe exited 1 on an unexpected downstream `task-list`; the mutant accepted the wrong Run and was detected before worker effects. | KILLED |
+| M4 | Remove the exact Task spec comparison. | Adapter suite remained green, but the fresh wrong-spec probe exited 1 on an unexpected downstream `worktree show`; the mutant accepted the wrong Task spec. | KILLED |
+| M5 | Replace worker-start `--task task_id` with the generic operation ID. | Adapter suite exited 1 at `tools/test_orca_adapter.py:154` on the exact `--task` assertion. | KILLED |
+
+**Sensor:** targeted R11, 5 injected, 5 killed, 0 survived. **PASS**.
+
+### Fingerprint accounting
+
+No new blocker or surviving mutant was found. Existing fingerprints remain closed at their recorded
+counts; `review-fingerprints.json` was not changed. No fingerprint reached the third-failure halt
+threshold.
+
+**Overall:** **PASS** for `f02b679fcdda0de40e6190bc37d36604363560d1` in the requested R11 scope. Generic
+operation/request UUIDs cannot become Run/Task identities; scoped aliases, exact objective/spec/
+ownership, conflict/missing rejection, and worker Task propagation are all evidenced. No commit,
+push, merge, real Orca action, product/test edit, or `docs/qa/**` edit was performed.
