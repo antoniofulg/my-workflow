@@ -2024,3 +2024,67 @@ threshold.
 operation/request UUIDs cannot become Run/Task identities; scoped aliases, exact objective/spec/
 ownership, conflict/missing rejection, and worker Task propagation are all evidenced. No commit,
 push, merge, real Orca action, product/test edit, or `docs/qa/**` edit was performed.
+
+## R12 bounded Orca worktree discovery technical verification
+
+**Date:** 2026-08-25
+**Commit under test:** `53e2d96de8e645418de72366967d89c9b4819fc4`
+**Base:** `84ef849`
+**Diff range:** `84ef849..53e2d96de8e645418de72366967d89c9b4819fc4`
+**Verifier:** fresh independent Technical Verifier (author != verifier)
+**Scoped verdict:** **PASS**
+
+This pass covers only bounded exact-selector worktree discovery and its worker-start boundary.
+No real Orca command ran. The existing dirty `docs/qa/**` paths were preserved byte-for-byte;
+no product code, product tests, or QA/evidence files were changed.
+
+### Spec-anchored outcomes
+
+| Criterion | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| EXE-06 exact selector and path | Discovery uses the recorded exact worktree path before worker attachment. | `.agents/skills/autonomous/scripts/orca_adapter.py:465-488,676-693` builds `path:<recorded path>`, validates the resolved candidate, and calls worker-start only afterward; `tools/test_orca_adapter.py:112-123,433-444` asserts exact path, call order, two discovery shows after one selector miss, and one worker-start. | PASS |
+| EXE-07 correlated worker receipt | A successful start returns correlated Run, Task, Dispatch, Terminal, worktree, branch, HEAD, and idempotency fields. | `tools/test_orca_adapter.py:124-131` asserts each returned identity/receipt field; `tools/test_orca_adapter.py:433-444` asserts the worker starts once only after exact discovery. | PASS |
+| EXE-11 fail-closed discovery | Mismatch, malformed, permission/auth failure, or exhausted selector discovery halts without a replacement worker. | `.agents/skills/autonomous/scripts/orca_adapter.py:489-503` retries only `selector_not_found` and emits stage/attempts/elapsed/selector; `tools/test_orca_adapter.py:449-479,484-505` asserts fake-clock exhaustion, bounded sleep, immediate adverse failures, and zero worker-start. | PASS |
+| SEC-005 correlated selector result | Only the expected worktree identity is accepted; foreign paths are rejected before effects. | `.agents/skills/autonomous/scripts/orca_adapter.py:479-487`; `tools/test_orca_adapter.py:484-505` supplies foreign, empty, and `permission_denied` responses and asserts exactly one `show`, no sleep, and no worker-start. | PASS |
+| EXE-02/EXE-03 at-most-once effects | Replaying the same idempotency key does not recreate Run, Task, worktree discovery, or worker effects. | `.agents/skills/autonomous/scripts/orca_adapter.py:681-700` checks cached worker receipts before Run/Task/discovery/start; the isolated duplicate-effect stdin harness asserted one each of `run-create`, `task-create`, `show`, and `worker-start` on two calls. | PASS |
+
+**Spec-anchored status:** 5/5 scoped criteria matched the specified outcome; 0 FAIL; 0
+spec-precision gaps.
+
+### Gate evidence
+
+- `rtk python3 tools/test_orca_adapter.py` -> exit 0, **49 passed, 0 failed**.
+- `rtk python3 tools/test_parallel_executor.py` -> exit 0, **44 passed, 0 failed**.
+- `rtk env npm_config_offline=true npm run test:all` -> exit 0, **110 Vitest + 200 Python = 310 passed**, 0 failed/skipped.
+- Strict spec validator -> exit 0, 0 errors, 0 warnings.
+- Strict tasks validator -> exit 0, 0 errors, 0 warnings.
+- `rtk python3 tools/ad-index.py --check` -> exit 0, `AD-INDEX.md up to date`.
+- `rtk git diff --check 84ef849..53e2d96de8e645418de72366967d89c9b4819fc4` -> exit 0.
+- Sensor scratch `git diff --exit-code` and real-tree porcelain comparison -> exit 0; baseline
+  remained the pre-existing QA-only edits/untracked artifacts.
+
+### Discrimination sensor
+
+One detached scratch worktree was used for five sequential behavior mutations; each mutant was
+reverted before the next, and the scratch was removed afterward. No real Orca command ran.
+
+| Mutation | Directed result | Outcome |
+| --- | --- | --- |
+| Bound `while True` to three attempts (unbounded-loop regression). | Adapter suite failed at `tools/test_orca_adapter.py:473` because exhaustion attempts changed from 5. | KILLED |
+| Replace `delay = min(backoff, remaining)` with `delay = backoff` (sleep-past-deadline regression). | Adapter suite failed at `tools/test_orca_adapter.py:474` because fake-clock elapsed time exceeded the 1-second deadline. | KILLED |
+| Retry every `AdapterError` instead of only `selector_not_found`. | Adapter suite failed at `tools/test_orca_adapter.py:498` on an unexpected second discovery call for mismatch/malformed/auth input. | KILLED |
+| Bypass `_discover_worktree` before worker-start. | Adapter suite failed in the clean-waiter lifecycle with an invalid dispatch receipt because the discovery response was consumed as worker-start input. | KILLED |
+| Disable the cached worker receipt branch. | Duplicate-effect stdin harness failed on an unexpected second `run-list`; the original harness passed with one each of Run/Task/show/worker-start effects. | KILLED |
+
+**Sensor:** targeted fake-clock/idempotency sensor, 5 injected, 5 killed, 0 survived. **PASS**.
+
+### Fingerprint accounting
+
+No new blocker, spec gap, or surviving mutant. Existing fingerprints remain closed at their recorded
+counts; `.specs/features/parallel-slice-executor/review-fingerprints.json` was not changed. No
+fingerprint reached the third-failure halt threshold.
+
+**Overall:** **PASS** for `53e2d96de8e645418de72366967d89c9b4819fc4`. Exact-selector discovery is
+monotonic, bounded, fail-closed, structured on exhaustion, and worker-start is single-shot after
+exact discovery. No commit, push, merge, real Orca action, product/test edit, or `docs/qa/**` edit
+was performed.
