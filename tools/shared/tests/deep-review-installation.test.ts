@@ -67,9 +67,9 @@ describe("deep-review installation", { timeout: 30_000 }, () => {
       version?: string;
       packages?: Record<string, { version?: string; devDependencies?: Record<string, string> }>;
     };
-    expect(packageManifest.version).toBe("0.4.0");
-    expect(packageLock.version).toBe("0.4.0");
-    expect(packageLock.packages?.[""]?.version).toBe("0.4.0");
+    expect(packageManifest.version).toBe("0.5.0");
+    expect(packageLock.version).toBe("0.5.0");
+    expect(packageLock.packages?.[""]?.version).toBe("0.5.0");
     expect(packageManifest.devDependencies?.skills).toBe("1.5.23");
     expect(packageLock.packages?.[""]?.devDependencies?.skills).toBe("1.5.23");
     expect(packageLock.packages?.["node_modules/skills"]?.version).toBe("1.5.23");
