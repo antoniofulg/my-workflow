@@ -327,6 +327,57 @@ def test_worker_start_partial_orca_effect_is_durable_and_retry_reconciles_withou
         shutil.rmtree(root)
 
 
+def test_retained_release_failure_is_persisted_with_safe_fallback_and_no_retry_effect() -> None:
+    root = make_repo()
+    try:
+        details = {
+            "code": "release_identity_unproven", "provider_code": "identity_unproven",
+            "state": "retained", "releaseState": "retained", "ownershipState": "owned",
+            "retainedReason": "identity_unproven", "releaseError": "identity_unproven",
+            "releaseRequestedAt": "2026-08-25T05:00:00Z", "releaseCompletedAt": None,
+            "request_id": "k" * 64 + ":recovery-release", "dispatch_id": "ctx_5f619d0f6298",
+            "terminal_handle": "term-A",
+        }
+
+        class RetainedReleaseAdapter(RecordingAdapter):
+            def __init__(self) -> None:
+                super().__init__()
+                self.start_attempts = 0
+                self.reconcile_attempts = 0
+
+            def start_worker(self, lane: dict[str, object], receipt: dict[str, object], *, idempotency_key: str) -> dict[str, str]:
+                self.start_attempts += 1
+                raise orca_adapter.AdapterError("Orca worker release blocked: release_identity_unproven", details=details)
+
+            def reconcile_action(self, action: dict[str, object]) -> dict[str, str] | None:
+                self.reconcile_attempts += 1
+                raise orca_adapter.AdapterError("Orca worker release blocked: release_identity_unproven", details=details)
+
+        adapter = RetainedReleaseAdapter()
+        first = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: adapter)
+        first._plan = lambda: lane_plan(resources=[])  # type: ignore[method-assign]
+        failed = first.start()
+        assert failed["fallback"] is True and failed["reason"] == "worker-failed"
+        first_partial = failed["partial_effects"]
+        for field, expected in details.items():
+            assert first_partial[field] == expected
+        assert adapter.start_attempts == 1
+        assert not any(effect[0] == "worker" for effect in adapter.effects)
+
+        second = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: adapter)
+        second._plan = lambda: lane_plan(resources=[])  # type: ignore[method-assign]
+        retried = second.start(resume=True)
+        assert retried["fallback"] is True and retried["reason"] == "worker-failed"
+        second_partial = retried["partial_effects"]
+        for field, expected in details.items():
+            assert second_partial[field] == expected
+        assert adapter.start_attempts == 1
+        assert adapter.reconcile_attempts == 1
+        assert len([effect for effect in adapter.effects if effect[0] == "worktree"]) == 1
+    finally:
+        shutil.rmtree(root)
+
+
 class RecordingProvider:
     def __init__(self, *, lease_id: str = "lease-A") -> None:
         self.lease_id = lease_id

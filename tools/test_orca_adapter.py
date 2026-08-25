@@ -734,6 +734,113 @@ def test_delivery_from_revoked_dispatch_is_rejected_as_stale() -> None:
         shutil.rmtree(root)
 
 
+def test_retained_release_preserves_identity_unproven_evidence_and_replays_without_effect() -> None:
+    root, lane, worktree = fixture()
+    dispatch_id = "ctx_5f619d0f6298"
+    terminal = "term_2dcb9465-d91c-4260-baa3-b92859412439"
+    try:
+        response = {"result": {
+            "code": "identity_unproven", "state": "retained", "releaseState": "retained",
+            "ownershipState": "owned", "retainedReason": "identity_unproven",
+            "releaseError": "identity_unproven", "releaseRequestedAt": "2026-08-25T05:00:00Z",
+            "releaseCompletedAt": None, "released": False, "requestId": KEY + ":recovery-release",
+            "dispatch": {"id": dispatch_id, "status": "failed"},
+            "terminal": {"handle": terminal}, "resource": {"id": "resource-A"},
+        }}
+        cli = RecordingCLI([response])
+        worker = adapter(root, cli)
+        receipt = {**worker_payload(worktree), "dispatch_id": dispatch_id, "terminal_handle": terminal}
+        try:
+            worker.release(receipt, {"accepted": True})
+        except orca_adapter.AdapterError as exc:
+            assert exc.details["code"] == "release_identity_unproven"
+            assert exc.details["provider_code"] == "identity_unproven"
+            for field, expected in {
+                "state": "retained", "releaseState": "retained", "ownershipState": "owned",
+                "retainedReason": "identity_unproven", "releaseError": "identity_unproven",
+                "releaseRequestedAt": "2026-08-25T05:00:00Z", "releaseCompletedAt": None,
+                "request_id": KEY + ":recovery-release", "dispatch_id": dispatch_id,
+                "terminal_handle": terminal, "resource_id": "resource-A",
+            }.items():
+                assert exc.details[field] == expected
+            assert exc.details["result"]["dispatch"]["id"] == dispatch_id  # type: ignore[index]
+        else:
+            raise AssertionError("retained identity-unproven release must remain blocked")
+        assert [call[0][2] for call in cli.calls] == ["worker-release"]
+        try:
+            worker.release(receipt, {"accepted": True})
+        except orca_adapter.AdapterError as exc:
+            assert exc.details["code"] == "release_identity_unproven"
+            assert exc.details["idempotent"] is True
+        else:
+            raise AssertionError("replayed retained release must remain blocked")
+        assert len(cli.calls) == 1
+        assert dispatch_id not in worker._revoked_dispatches
+    finally:
+        shutil.rmtree(root)
+
+
+def test_release_state_completed_is_explicitly_correlated_and_idempotent() -> None:
+    root, lane, worktree = fixture()
+    dispatch_id = "ctx_5f619d0f6298"
+    terminal = "term_2dcb9465-d91c-4260-baa3-b92859412439"
+    try:
+        cli = RecordingCLI([{"result": {"releaseState": "completed", "ownershipState": "owned", "dispatch": {"id": dispatch_id}, "terminal": {"handle": terminal}, "resource": {"id": "resource-A"}}}])
+        worker = adapter(root, cli)
+        receipt = {**worker_payload(worktree), "dispatch_id": dispatch_id, "terminal_handle": terminal}
+        released = worker.release(receipt, {"accepted": True})
+        assert released["released"] is True and released["dispatch_id"] == dispatch_id
+        assert worker.release(receipt, {"accepted": True})["idempotent"] is True
+        assert len(cli.calls) == 1
+    finally:
+        shutil.rmtree(root)
+
+
+def test_release_identity_missing_or_foreign_blocks_without_revocation() -> None:
+    dispatch_id = "ctx_5f619d0f6298"
+    for response in (
+        {"result": {"releaseState": "retained", "ownershipState": "owned", "dispatch": {"status": "failed"}}},
+        {"result": {"releaseState": "retained", "ownershipState": "owned", "dispatch": {"id": "ctx_foreign"}}},
+    ):
+        root, lane, worktree = fixture()
+        try:
+            cli = RecordingCLI([response])
+            worker = adapter(root, cli)
+            receipt = {**worker_payload(worktree), "dispatch_id": dispatch_id}
+            try:
+                worker.release(receipt, {"accepted": True})
+            except orca_adapter.AdapterError as exc:
+                assert exc.details.get("code") == "uncorrelated_release"
+            else:
+                raise AssertionError("missing or foreign release identity must block")
+            assert len(cli.calls) == 1
+            assert dispatch_id not in worker._revoked_dispatches
+        finally:
+            shutil.rmtree(root)
+
+
+def test_retained_reconcile_persists_structured_failure_without_retry_effect() -> None:
+    root, lane, worktree = fixture()
+    dispatch_id = "ctx_5f619d0f6298"
+    terminal = "term_2dcb9465-d91c-4260-baa3-b92859412439"
+    try:
+        cli = RecordingCLI([
+            {"result": {"dispatch": {"id": dispatch_id, "status": "failed"}, "terminal": {"handle": terminal, "status": "exited", "connected": False, "writable": False}}},
+            {"result": {"code": "identity_unproven", "state": "retained", "releaseState": "retained", "ownershipState": "owned", "retainedReason": "identity_unproven", "releaseError": "identity_unproven", "dispatch": {"id": dispatch_id}, "terminal": {"handle": terminal}}},
+        ])
+        action = {"action": "worker", "key": KEY, "partial_effect": {"run_id": "run-A", "task_id": "task-A", "dispatch_id": dispatch_id, "terminal_handle": terminal}, "worker_plan": lane, "worktree_receipt": worktree}
+        try:
+            adapter(root, cli).reconcile_action(action)
+        except orca_adapter.AdapterError as exc:
+            assert exc.details["code"] == "release_identity_unproven"
+        else:
+            raise AssertionError("retained release must not retry")
+        assert [call[0][2] for call in cli.calls] == ["worker-show", "worker-release"]
+        assert not any(call[0][2] in {"show", "worker-start"} for call in cli.calls)
+    finally:
+        shutil.rmtree(root)
+
+
 def test_start_reuses_run_task_and_worker_by_idempotency_without_duplicate_effect() -> None:
     root, lane, worktree = fixture()
     try:

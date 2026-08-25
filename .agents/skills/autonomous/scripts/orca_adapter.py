@@ -153,6 +153,7 @@ _IDENTITY_ALIASES = {
     "task_id": ("task_id", "taskId"),
     "dispatch_id": ("dispatch_id", "dispatchId"),
     "terminal_handle": ("terminal_handle", "terminalHandle", "agentTerminalHandle", "agent_terminal_handle"),
+    "resource_id": ("resource_id", "resourceId", "terminal_resource_id", "terminalResourceId"),
     "request_id": ("request_id", "requestId"),
     "idempotency_key": ("idempotency_key", "idempotencyKey"),
     "retry_request": ("retry_request", "retryRequest", "retry_request_id", "retryRequestId", "retry_of", "retryOf"),
@@ -162,6 +163,7 @@ _IDENTITY_LABELS = {
     "task_id": "task id",
     "dispatch_id": "dispatch id",
     "terminal_handle": "terminal handle",
+    "resource_id": "resource id",
     "request_id": "request id",
     "idempotency_key": "idempotency key",
     "retry_request": "retry request",
@@ -170,6 +172,8 @@ _CONTAINER_IDENTITY = {
     "run": ("run_id", "run id"),
     "task": ("task_id", "task id"),
     "dispatch": ("dispatch_id", "dispatch id"),
+    "resource": ("resource_id", "resource id"),
+    "terminalResource": ("resource_id", "resource id"),
 }
 _STATE_ALIASES = {
     "status": ("status", "state"),
@@ -185,6 +189,11 @@ _STATE_ALIASES = {
     "reason": ("reason",),
     "release_error": ("release_error",),
     "error": ("error",),
+    "code": ("code",),
+    "ownershipState": ("ownershipState", "ownership_state"),
+    "retainedReason": ("retainedReason", "retained_reason"),
+    "releaseRequestedAt": ("releaseRequestedAt", "release_requested_at"),
+    "releaseCompletedAt": ("releaseCompletedAt", "release_completed_at"),
 }
 _PASSTHROUGH_ALIASES = {
     "feature": ("feature",),
@@ -262,9 +271,8 @@ def _canonical_projection(value: Mapping[str, Any]) -> dict[str, Any]:
     for field, values in ((field, candidates[field]) for field in _STATE_ALIASES):
         if field not in projected:
             for candidate in values:
-                if candidate not in (None, ""):
-                    projected[field] = candidate
-                    break
+                projected[field] = candidate
+                break
     for field in _PASSTHROUGH_ALIASES:
         if field not in projected:
             for candidate in candidates[field]:
@@ -333,6 +341,7 @@ class OrcaAdapter:
         self._workers: dict[str, dict[str, Any]] = {}
         self._ended_waiters: set[str] = set()
         self._released: dict[str, dict[str, Any]] = {}
+        self._release_failures: dict[str, dict[str, Any]] = {}
         self._revoked_dispatches: set[str] = set()
         self._deliveries: set[str] = set()
 
@@ -511,7 +520,9 @@ class OrcaAdapter:
             "ok", "result", "error", "run", "task", "worker", "dispatch", "terminal", "terminalResource",
             "terminal_resource", "mutation", "release", "state", "lastError", "last_error", "releaseState",
             "release_state", "releaseError", "release_error", "request_id", "requestId", "idempotencyKey",
-            "retryRequest", "retry_request", "retryRequestId", "retry_request_id", "retryOf", "retry_of",
+            "retryRequest", "retry_request", "retryRequestId", "retry_request_id", "retryOf", "retry_of", "resource_id",
+            "resourceId", "ownershipState", "ownership_state", "retainedReason", "retained_reason",
+            "releaseRequestedAt", "release_requested_at", "releaseCompletedAt", "release_completed_at", "code",
         }
         unknown = set(data) - allowed
         if unknown:
@@ -886,13 +897,38 @@ class OrcaAdapter:
         key = _text(receipt.get("idempotency_key"), "idempotency key")
         if key in self._released:
             return {**self._released[key], "idempotency_key": key, "idempotent": True}
+        prior_failure = self._release_failures.get(key)
+        if prior_failure is not None:
+            raise AdapterError(
+                str(prior_failure["message"]),
+                details={**dict(prior_failure["details"]), "idempotent": True},
+            )
         dispatch_id = _opaque_token(receipt.get("dispatch_id"), "dispatch id")
         response = self._call("worker-release", "--dispatch", dispatch_id)
-        if response.get("released") is not True:
-            raise AdapterError("Orca worker release was not accepted")
-        if response.get("dispatch_id") != dispatch_id:
-            raise AdapterError("uncorrelated Orca release receipt")
-        result = {"released": True, "dispatch_id": dispatch_id, "idempotency_key": key}
+        actual_dispatch = response.get("dispatch_id") or response.get("dispatchId")
+        if actual_dispatch != dispatch_id:
+            raise AdapterError(
+                "uncorrelated Orca release receipt",
+                details={"code": "uncorrelated_release", "dispatch_id": dispatch_id, "actual_dispatch": actual_dispatch},
+            )
+        release_state = str(response.get("releaseState") or response.get("release_state") or "").lower()
+        explicit_released = response.get("released")
+        accepted = explicit_released is True or (release_state in {"released", "completed"} and explicit_released is not False)
+        if not accepted:
+            code = str(response.get("code") or response.get("retainedReason") or "release_not_accepted")
+            if release_state == "retained" or code == "identity_unproven" or response.get("ownershipState") == "owned":
+                code = "release_identity_unproven"
+            details = {
+                **dict(response),
+                "code": code,
+                "provider_code": response.get("code"),
+                "dispatch_id": dispatch_id,
+                "idempotency_key": key,
+            }
+            failure = {"message": f"Orca worker release blocked: {code}", "details": details}
+            self._release_failures[key] = failure
+            raise AdapterError(str(failure["message"]), details=details)
+        result = {**dict(response), "released": True, "dispatch_id": dispatch_id, "idempotency_key": key}
         self._released[key] = result
         self._revoked_dispatches.add(dispatch_id)
         return dict(result)
