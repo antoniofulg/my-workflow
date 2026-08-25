@@ -1040,3 +1040,176 @@ failed-remediation count changed. Existing ledger entries remain closed at their
 ### Ranked gaps
 
 None for this technical remediation. Fresh real Orca QA remains outside this packet.
+
+## Orca stalled-dispatch recovery technical verification
+
+**Date:** 2026-08-25  
+**Diff range:** `3a9f346..8675c6d64fe02bca8f1471fd4161b5327516b1b0`  
+**Verifier:** independent Technical Verifier (author != verifier)  
+**Verdict:** FAIL. Bounded start, structured partial-effect preservation, live-dispatch refusal,
+one correlated retry, and same-process retry caching are directly asserted. Restart after a persisted
+recovery release cannot converge, and two required safety branches are not discriminated.
+
+### Spec-anchored outcomes
+
+| Criterion | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| EXE-07 / SEC-003 bounded start | Every initial or follow-up worker start carries an explicit bounded timeout. | `tools/test_orca_adapter.py:112-131` asserts the exact `--timeout-ms` value on the initial `worker-start`; production applies it at `.agents/skills/autonomous/scripts/orca_adapter.py:393-396,585-589`. Sensor M1 removes the flag and dies. | PASS |
+| EXE-04 / EXE-07 structured partial effect | `agent_prompt_stalled` preserves redacted Run, Task, Dispatch, and terminal selectors for deterministic recovery. | `tools/test_orca_adapter.py:136-156` asserts the exact four selectors and redacted nested token; normalization is `.agents/skills/autonomous/scripts/orca_adapter.py:134-158`. | PASS |
+| EXE-04 one retry / same selectors | A reclaimable failed dispatch releases once, then one `worker-start --retry-of` reuses the exact Run and Task; replay in the same process creates no second effect. | `tools/test_orca_adapter.py:158-177` asserts `worker-show, worker-release, show, worker-start`, exact `task-A`, `--retry-of dispatch-A`, equal replay receipt, and four total calls. | PASS |
+| EXE-04 restart idempotency | After recovery release is persisted, restart continues the same logical retry without another release or duplicate Run/Task. | Adversarial restart probe supplied `partial_effect.recovery_release`, `worker-show status=released`, exact Run/Task, and a correlated retry response. `.agents/skills/autonomous/scripts/orca_adapter.py:576-583` rejected `released` as `worker_still_live` before consulting the persisted release, so no retry occurred. No canonical `file:line` assertion covers this restart boundary. | FAIL |
+| EXE-11 live/unknown safety | Live or unknown stalled dispatches halt with no release and no replacement retry. | `tools/test_orca_adapter.py:220-234` asserts the live `running` case and only one `worker-show`. No assertion covers `unknown`; sensor M4 makes `unknown` reclaimable and all 26 adapter tests still pass. | FAIL |
+| EXE-08 / EXE-11 stale revoked delivery | Release establishes revocation, and later `worker_done` for that dispatch is rejected. | `tools/test_orca_adapter.py:239-251` inserts `worker._revoked_dispatches.add(...)` directly, then asserts rejection. It never proves the release path at `.agents/skills/autonomous/scripts/orca_adapter.py:608-621` establishes the state; sensor M5 removes that registration and all 26 adapter tests still pass. This is a hollow contracted case under `docs/guidelines/TEST-CONTRACT.md:38-39`. | FAIL |
+
+**Spec-anchored status:** 3 PASS, 3 FAIL, 0 spec-precision gaps in this remediation scope.
+
+### Gate evidence
+
+- `python3 tools/test_orca_adapter.py` -> exit 0, 26 passed, 0 failed.
+- `python3 tools/test_parallel_executor.py` -> exit 0, 43 passed, 0 failed.
+- `npm run test:all` -> exit 0: 110 Vitest tests in 9 files plus 174 named tests across 12
+  Python suites passed; 0 failed/skipped.
+- `python3 -m py_compile .agents/skills/autonomous/scripts/orca_adapter.py tools/test_orca_adapter.py`
+  and `git diff --check 3a9f346..8675c6d64fe02bca8f1471fd4161b5327516b1b0` -> exit 0.
+- No real Orca command, retained Run/Task/Dispatch/terminal, pilot fixture, or QA execution was used.
+  All 15 pre-existing dirty/untracked `docs/qa/**` paths retained their baseline SHA-256 values.
+
+### Discrimination sensor
+
+Detached temporary worktrees at `8675c6d64fe02bca8f1471fd4161b5327516b1b0` were removed after
+each run. The retained checkout was never mutated by a sensor.
+
+| Mutation | Directed result | Outcome |
+| --- | --- | --- |
+| M1: remove initial `--timeout-ms`. | Adapter suite exited 1 at `tools/test_orca_adapter.py:123`. | KILLED |
+| M2: treat live `running` dispatch as reclaimable. | Adapter suite exited 1 in `test_live_stalled_dispatch_fails_safely_without_release_or_retry`. | KILLED |
+| M3: remove stale-delivery rejection guard. | Adapter suite exited 1 at `tools/test_orca_adapter.py:251`. | KILLED |
+| M4: treat `unknown` dispatch as reclaimable. | Adapter suite exited 0, 26 passed. | SURVIVED |
+| M5: remove revoked-dispatch registration from successful release. | Adapter suite exited 0, 26 passed. | SURVIVED |
+
+**Sensor:** lightweight, 5 mutations, 3 killed, 2 survived. FAIL.
+
+### Fingerprint accounting
+
+- `d2990822a9e55159df279a3589e8be3a245fcb9dbe1ddd537dd1934dc2aa3685` opened at count 1:
+  EXE-04 restart classifies a persisted released recovery as live before retry.
+- `f719a74c8684c3ed7be2f89e9b02aa6ee132c4cbb395d6dbb1859e36d6a9846a` opened at count 1:
+  EXE-11 unknown-status safety has no discriminating assertion.
+- `d493f883d50981fe0c2d9e1c4b7244a3e0cd456b26822144cb98a9fec3a529a2` opened at count 1:
+  EXE-08/EXE-11 stale-delivery test injects private state and does not prove release-to-revocation.
+
+### Ranked gaps
+
+1. **Major / EXE-04.** Reorder/extend reconciliation so a correlated persisted recovery release and
+   authoritative terminal `released|complete|completed` status can continue exactly one
+   `worker-start --retry-of` with the original Run/Task and zero additional release. Add a fresh
+   adapter/reloaded-action test that fails if release or retry duplicates.
+2. **Major / EXE-11.** Add a canonical `unknown`/missing-status case proving `worker_outcome_unknown`,
+   one `worker-show`, zero release, and zero retry.
+3. **Major / EXE-08, EXE-11.** Replace private-set injection with a public release-to-stale-delivery
+   lifecycle assertion; it must fail if successful release no longer registers revocation.
+
+**Overall:** FAIL for commit `8675c6d64fe02bca8f1471fd4161b5327516b1b0`. Gates are green but
+restart convergence and two required safety contracts lack valid proof. No real Orca QA was run.
+
+## Orca stalled-dispatch recovery re-verification — round 1
+
+**Date:** 2026-08-25  
+**Diff range:** `8675c6d64fe02bca8f1471fd4161b5327516b1b0..6419d2411d3d47f6466c39623aa25bf0d4b911d6`  
+**Verifier:** independent Technical Verifier (author != verifier)  
+**Verdict:** FAIL. All three prior fingerprints close at their historical count 1. Adding the
+unknown-status assertion removed the previously valid live/running-status assertion, producing one
+new EXE-11 coverage blocker.
+
+### Prior fingerprint disposition
+
+| Fingerprint | Required outcome | Evidence | Result |
+| --- | --- | --- | --- |
+| `d2990822a9e55159df279a3589e8be3a245fcb9dbe1ddd537dd1934dc2aa3685` | Persisted accepted recovery release plus authoritative `released` status proceeds to exactly one retry without another release. | `tools/test_orca_adapter.py:239-259` asserts persisted correlated release and exact `worker-show, show, worker-start`; implementation validates release before retry at `.agents/skills/autonomous/scripts/orca_adapter.py:576-605`. Sensor R1 removes `released` from reclaimable terminal states and dies. | CLOSED, count 1 |
+| `f719a74c8684c3ed7be2f89e9b02aa6ee132c4cbb395d6dbb1859e36d6a9846a` | Unknown status remains non-reclaimable with zero release/retry. | `tools/test_orca_adapter.py:220-235` asserts `worker_outcome_unknown` and only `worker-show`. Sensor R2 makes `unknown` reclaimable and dies on unexpected `worker-release`. | CLOSED, count 1 |
+| `d493f883d50981fe0c2d9e1c4b7244a3e0cd456b26822144cb98a9fec3a529a2` | Successful public worker release establishes revocation and stale `worker_done` is rejected. | `tools/test_orca_adapter.py:263-277` calls public `release`, asserts accepted release, then rejects stale delivery; production registers revocation at `.agents/skills/autonomous/scripts/orca_adapter.py:618-631`. Sensor R3 removes registration and dies. | CLOSED, count 1 |
+
+### New regression
+
+| Criterion | Spec-defined outcome | Evidence | Result |
+| --- | --- | --- | --- |
+| EXE-11 live stalled dispatch | Authoritative `running` status halts after one `worker-show`, with zero release and zero replacement retry. | No canonical test now supplies `status=running`; the former running case was replaced by the unknown case. Sensor R4 makes `running` reclaimable and `python3 tools/test_orca_adapter.py` still exits 0 with 27/27 passing. | FAIL |
+
+### Gate evidence
+
+- `python3 tools/test_orca_adapter.py` -> 27 passed, 0 failed.
+- `python3 tools/test_parallel_executor.py` -> 43 passed, 0 failed.
+- `npm run test:all` -> 110 Vitest + 175 Python = 285 passed, 0 failed/skipped.
+- No real Orca state or QA execution was used. Retained QA artifacts remained byte-identical.
+
+### Discrimination sensor
+
+| Mutation | Result | Outcome |
+| --- | --- | --- |
+| R1 remove `released` from correlated persisted-release recovery. | Adapter suite fails in `test_persisted_release_receipt_allows_retry_when_dispatch_status_is_released`. | KILLED |
+| R2 make `unknown` reclaimable. | Adapter suite fails in `test_unknown_stalled_dispatch_fails_safely_without_release_or_retry`. | KILLED |
+| R3 remove revocation registration from successful worker release. | Adapter suite fails at `tools/test_orca_adapter.py:276`. | KILLED |
+| R4 make live `running` reclaimable. | Adapter suite passes 27/27. | SURVIVED |
+
+**Sensor:** lightweight, 4 mutations, 3 killed, 1 survived. FAIL. Detached scratch removed; retained
+checkout never received sensor mutations.
+
+### Fingerprint accounting
+
+- Prior three fingerprints: `closed`, failed-remediation count remains 1 each.
+- `8917833abd974503a1d2c644cf910a1cee764e426a8181c2fc64170002e79d17` opened at count 1 for
+  EXE-11: adding unknown coverage replaced live/running coverage.
+
+### Ranked gap
+
+1. **Major / EXE-11.** Keep the unknown case and restore a separate `status=running` case asserting
+   `worker_still_live`, exactly one `worker-show`, zero `worker-release`, and zero `worker-start`.
+
+**Overall:** FAIL for round 1 at `6419d2411d3d47f6466c39623aa25bf0d4b911d6`. The exact three prior
+blockers are fixed; one distinct live-status coverage blocker remains.
+
+## Orca stalled-dispatch recovery re-verification — round 2
+
+**Date:** 2026-08-25  
+**Diff range:** `6419d2411d3d47f6466c39623aa25bf0d4b911d6..453a8ab28cba313142cacf433e27d2572bb5695d`  
+**Verifier:** independent Technical Verifier (author != verifier)  
+**Verdict:** PASS. The canonical suite now keeps separate live/running and unknown stalled-dispatch
+cases. Both refuse release and replacement retry after exactly one authoritative status read.
+
+### Spec-anchored outcomes
+
+| Criterion | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| EXE-11 live stalled dispatch | `running` halts with `worker_still_live`, one `worker-show`, zero release, and zero retry. | `tools/test_orca_adapter.py:239-255` asserts the exact error and command/effect absence. | PASS |
+| EXE-11 unknown stalled dispatch regression | `unknown` halts with `worker_outcome_unknown`, one `worker-show`, zero inferred recovery effects. | `tools/test_orca_adapter.py:220-234` asserts the exact error and sole command. | PASS |
+
+### Gate evidence
+
+- `python3 tools/test_orca_adapter.py` -> 28 passed, 0 failed.
+- `python3 tools/test_parallel_executor.py` -> 43 passed, 0 failed.
+- `npm run test:all` -> 110 Vitest + 176 Python = 286 passed, 0 failed/skipped.
+- Changed Python compiles and committed/in-checkout diffs pass `git diff --check`.
+- No real Orca command or QA execution ran; retained QA artifacts remained byte-identical.
+
+### Discrimination sensor
+
+| Mutation | Result | Outcome |
+| --- | --- | --- |
+| R2-M1 make authoritative `running` reclaimable. | Adapter suite exits 1 in `test_running_stalled_dispatch_fails_safely_without_release_or_retry` on unexpected `worker-release`. | KILLED |
+| R2-M2 make authoritative `unknown` reclaimable. | Adapter suite exits 1 in `test_unknown_stalled_dispatch_fails_safely_without_release_or_retry` on unexpected `worker-release`. | KILLED |
+
+**Sensor:** lightweight, 2 mutations, 2 killed, 0 survived. PASS. Detached scratch removed; retained
+checkout never received sensor mutations.
+
+### Fingerprint accounting
+
+- `8917833abd974503a1d2c644cf910a1cee764e426a8181c2fc64170002e79d17` closed at historical
+  failed-remediation count 1.
+- All feature fingerprints are now closed; this passing re-verification increments none.
+
+### Ranked gaps
+
+None in this remediation scope.
+
+**Overall:** PASS at `453a8ab28cba313142cacf433e27d2572bb5695d`. All stalled-dispatch
+recovery technical fingerprints are closed. Real Orca QA remains outside this technical phase.
