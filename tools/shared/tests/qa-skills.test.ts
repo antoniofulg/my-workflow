@@ -68,13 +68,11 @@ describe("host-owned session continuation removal contract", () => {
       expect(existsSync(join(repositoryRoot, relativePath))).toBe(false);
     }
 
-    const packageReport = JSON.parse(
-      execFileSync("npm", ["pack", "--dry-run", "--json"], {
-        cwd: repositoryRoot,
-        encoding: "utf8",
-      }),
-    ) as Array<{ files?: Array<{ path: string }> }>;
-    const packagePaths = packageReport.flatMap((entry) => entry.files ?? []).map((file) => file.path);
+    const packagePaths = execFileSync(
+      "rg",
+      ["--files", "--hidden", "--glob", "!.git/**", "--glob", "!node_modules/**"],
+      { cwd: repositoryRoot, encoding: "utf8" },
+    ).trim().split(/\r?\n/);
 
     expect(
       packagePaths.filter((packagePath) =>
@@ -85,6 +83,32 @@ describe("host-owned session continuation removal contract", () => {
         ),
       ),
     ).toEqual([]);
+  });
+
+  it("HSC-05/HSC-07/HSC-08 publishes host ownership and fresh reviewer packets", () => {
+    const readme = readRepositoryFile("README.md");
+    const workflowIndex = readRepositoryFile("docs/workflow/README.md");
+    const reviewGuideline = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
+    const reviewerPackets = verifierPacketPaths.map((relativePath) => readRepositoryFile(relativePath));
+    const hostRule =
+      "Cross-provider session continuation is owned by the host. Repository files, Git state, feature artifacts, and explicit handoff prompts remain the durable semantic context.";
+
+    expect(readme.replace(/\s+/g, " ")).toContain(hostRule);
+    expect(workflowIndex.replace(/\s+/g, " ")).toContain(hostRule);
+    expect(reviewGuideline.replace(/\s+/g, " ")).toContain(
+      "Verifier and Deep Reviewer receive fresh role packets. They do not inherit the Implementer's transcript or operator handoff. Their conclusions must come from the spec, diff, tests, and assigned evidence.",
+    );
+    for (const packet of reviewerPackets) {
+      const normalized = packet.replace(/\s+/g, " ");
+      expect(normalized).toContain("fresh role packet, exclude author and operator context");
+      expect(normalized).toContain("Assigned evidence named by the packet.");
+      expect(normalized).toContain("The Implementer's transcript, the operator handoff");
+    }
+
+    for (const source of [readme, workflowIndex, reviewGuideline, ...reviewerPackets]) {
+      expect(source).not.toMatch(/ai-memory|ai_memory|memory handoff|cross-provider handoff|install-hooks|finalize-session/i);
+      expect(source).not.toMatch(/\bOrca\b/);
+    }
   });
 });
 

@@ -135,10 +135,12 @@ T4 -> T5 -> T6
 
 **Done when**:
 
-- [ ] README and workflow index contain the exact concise host-owned rule.
-- [ ] Reviewer guidance contains every fresh-packet evidence source and no author/operator context inheritance.
-- [ ] Current generic instructions contain no Orca dependency or command.
-- [ ] CT-002 reviewer contract assertion passes.
+- [x] README and workflow index contain the exact concise host-owned rule.
+- [x] Reviewer guidance contains every fresh-packet evidence source and no author/operator context inheritance.
+- [x] Current generic instructions contain no Orca dependency or command.
+- [x] CT-002 reviewer contract assertion passes.
+
+**Status:** complete — `npm test` passed (`7` files, `110` tests, 0 failed).
 
 **Tests**: unit
 **Gate**: full

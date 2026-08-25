@@ -6,6 +6,9 @@ protects, and which trade-off it encodes.
 
 These pages do not restate the rules. The guidelines remain the source of truth for behaviour.
 
+Cross-provider session continuation is owned by the host. Repository files, Git state, feature
+artifacts, and explicit handoff prompts remain the durable semantic context.
+
 ## Walk this in order
 
 1. [Purpose — delivery and reliability](purpose.md)
