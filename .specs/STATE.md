@@ -115,7 +115,7 @@ Idle.
   `README.md`, `docs/guidelines/REVIEW-ROUNDS.md`, `docs/qa/`, the ai-memory feature contracts and
   threat model, and this decision record.
 - **Date**: 2026-08-23
-- **Status**: active
+- **Status**: superseded by AD-011
 
 ### AD-009
 
@@ -145,4 +145,18 @@ Idle.
 - **Scope**: Workflow configuration, provider templates/runtime packets, adoption, packaging, tests,
   documentation, and feature snapshots.
 - **Date**: 2026-08-24
+- **Status**: active
+
+### AD-011
+
+- **Decision**: Cross-provider session continuation is owned by the host. Repository files, Git
+  state, feature artifacts, and explicit handoff prompts remain the durable semantic context.
+- **Reason**: Host-native continuation now covers provider unavailability, instability, and token
+  exhaustion; Praxis CRM proved the approach with Orca's `Continue in New Session`, selectable
+  destination agents, focused handoffs, older transcript access, and unchanged original sessions.
+- **Trade-off**: Host capabilities vary, so the repository provides no replacement runtime,
+  wrapper, database, hook, protocol, or compatibility layer; operators use the host UI to continue.
+- **Scope**: Cross-provider continuation guidance, reviewer packets, adoption, QA, and release
+  contracts in this workflow pack.
+- **Date**: 2026-08-25
 - **Status**: active
