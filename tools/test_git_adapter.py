@@ -179,6 +179,7 @@ def test_verified_slice_integration_is_deterministic_and_preserves_commits() -> 
         assert result["status"] == "merged"
         assert result["merged"] == [commit_a, commit_b]
         assert result["changed_paths"] == ["a.txt", "b.txt"]
+        assert result["invalidated_evidence"] == ["gate", "technical_verifier", "deep_review"]
         assert run(root, "merge-base", "--is-ancestor", commit_a, "HEAD") == ""
         assert run(root, "merge-base", "--is-ancestor", commit_b, "HEAD") == ""
     finally:
@@ -231,6 +232,51 @@ def test_external_worktree_is_rejected_before_any_git_effect() -> None:
     finally:
         shutil.rmtree(root, ignore_errors=True)
         shutil.rmtree(external, ignore_errors=True)
+
+
+def test_same_repo_replacement_and_symlink_redirection_cannot_cross_lane_ownership() -> None:
+    root, base = repo()
+    lane_a = root / "lane-a"
+    lane_b = root / "lane-b"
+    try:
+        call(root, "worktree", "add", "-q", str(lane_a), base)
+        call(root, "worktree", "add", "-q", str(lane_b), base)
+        adapter = git_adapter.GitAdapter(root)
+        receipt = adapter.ownership_receipt(lane_a, pre_head=base)
+        call(root, "worktree", "remove", "--force", str(lane_a))
+        call(root, "worktree", "move", str(lane_b), str(lane_a))
+        replacement_head = run(lane_a, "rev-parse", "HEAD")
+        for operation in (
+            lambda: adapter.head(lane_a, expected_receipt=receipt, expected_head=base),
+            lambda: adapter.sync_checkpoint(lane_a, base, expected_receipt=receipt),
+            lambda: adapter.integrate_slices(lane_a, [], expected_receipt=receipt),
+            lambda: adapter.remove_worktree(lane_a, expected_receipt=receipt, expected_head=base),
+        ):
+            try:
+                operation()
+            except git_adapter.GitAdapterError:
+                pass
+            else:
+                raise AssertionError("replacement worktree must be rejected")
+        assert run(lane_a, "rev-parse", "HEAD") == replacement_head
+        assert not lane_b.exists()
+
+        call(root, "worktree", "remove", "--force", str(lane_a))
+        call(root, "worktree", "add", "-q", str(lane_b), base)
+        lane_a.symlink_to(lane_b, target_is_directory=True)
+        try:
+            adapter.head(lane_a, expected_receipt=receipt)
+        except git_adapter.GitAdapterError:
+            pass
+        else:
+            raise AssertionError("symlink redirection must be rejected")
+        assert lane_b.is_dir()
+    finally:
+        if lane_a.is_symlink():
+            lane_a.unlink()
+        for path in (lane_a, lane_b):
+            subprocess.run(["git", "worktree", "remove", "--force", str(path)], cwd=root, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        shutil.rmtree(root, ignore_errors=True)
 
 
 if __name__ == "__main__":

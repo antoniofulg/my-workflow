@@ -313,6 +313,13 @@ def plan(
             blocked[task.id] = list(dict.fromkeys(task_reasons))
             continue
         ready_tasks.append(task)
+        producer_paths = sorted(
+            {
+                path
+                for dependency_id in sync_after
+                for path in (by_id[dependency_id].declared_paths or ())
+            }
+        )
         ready.append(
             {
                 "id": "serial" if mode == "disabled" else f"slice-{task.slice_id}",
@@ -320,7 +327,7 @@ def plan(
                 "task": task.id,
                 "status": "follow_up" if task.status == "waiting" else "ready",
                 "sync_after": sync_after,
-                "declared_paths": list(task.declared_paths or []),
+                "declared_paths": producer_paths if sync_after else list(task.declared_paths or []),
                 "resources": list(task.resources or []),
             }
         )

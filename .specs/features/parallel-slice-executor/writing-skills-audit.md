@@ -119,6 +119,17 @@ complete definition; all other edits are short pointers.
 | Test necessity | Pass | Each variant maps to SEC-008 ownership binding and proves no tombstone or Git/filesystem effect. |
 | QA boundary | Pass | No real Orca pilot or product file is touched. |
 
+## Grouped C-D round 2 post-cap delta
+
+| Item | Result | Evidence |
+| --- | --- | --- |
+| Ownership boundary | Pass | Every lane Git read, sync, recovery, and cleanup receives the persisted path/gitdir/branch/HEAD ownership receipt; same-repo replacement and redirection tests assert zero effects. |
+| Verification boundary | Pass | Public `--technical-verifier-receipt` input is explicit, durable, fresh for the exact current HEAD, and rejects self-authored or malformed receipts. |
+| Integration evidence | Pass | Moved feature-root HEAD serializes before merge; successful Git integration invalidates gate/Technical Verifier/deep-review evidence and records a required post-integration gate. |
+| Producer paths | Pass | Dependent checkpoint declarations are the sorted union of producer task `Where` paths. |
+| Pilot lifecycle | Pass | Canonical lifecycle-check requires exactly two lanes and terminal/read-before-ack-before-release receipts; missing receipts are false. |
+| QA boundary | Pass | E2E-001 remains fresh-QA-owned and untested; no real Orca run is claimed. |
+
 ## Grouped C-D review remediation delta
 
 | Item | Result | Evidence |

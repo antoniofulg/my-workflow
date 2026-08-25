@@ -339,6 +339,25 @@ remain blocked only until Slice A passes its Technical Verifier.
 **Remediation gate:** Directed suites, `npm run test:all`, strict spec/tasks, AD index, compile, diff, and check_commit.
 **Remediation commit:** `fix(workflow): close parallel executor review blockers`.
 
+### Grouped C-D round 2: close final parallel review blockers
+
+**Remediation status:** complete
+**Slice:** C-D review group
+**Remediation resources:** none
+**Observable behaviour:** Git effects require exact lane ownership, integration requires explicit fresh technical verification on the frozen feature root, producer checkpoint paths are canonical, and pilot cleanup proves every required lifecycle receipt.
+**Where:** `.agents/skills/autonomous/scripts/git_adapter.py`, `.agents/skills/autonomous/scripts/parallel_execute.py`, `.agents/skills/workflow-config/scripts/parallel_plan.py`, `tools/qa_parallel_pilot.py`
+**Remediation requirements:** EXE-06–EXE-08, EXE-12–EXE-17, E2E-001
+**Remediation done when:**
+
+- [x] Same-repository replacement, symlink redirection, stale verifier, moved-root, and malformed lifecycle cases produce rejection or named serial recovery with zero merge/delete effects.
+- [x] A fresh provider-neutral Technical Verifier receipt is explicit, durable, correlated to the exact current HEAD, and authored by someone other than the implementer.
+- [x] Producer dependency paths are the normalized sorted union of canonical producer `Where` values.
+- [x] The pilot lifecycle checker requires exactly two lanes with terminal worker, acknowledgement, and release receipts in read-before-ack-before-release order.
+
+**Remediation tests:** Git ownership, planner producer-path, executor technical-verifier/root-head, QA lifecycle, IT-007, and full repository discovery.
+**Remediation gate:** Directed suites, `npm run test:all`, strict validators, AD index, compile, diff, and check_commit.
+**Remediation commit:** `fix(workflow): close final parallel review blockers`.
+
 ### T2R4: Count verification attempts per blocker fingerprint
 
 **Remediation status:** complete

@@ -14,6 +14,9 @@ HANDOFF = ROOT / ".specs/features/parallel-slice-executor/qa-pilot.md"
 HARNESS = ROOT / "tools/qa_parallel_pilot.py"
 OWNED_WORKTREES = ("parallel-pilot/A-T1", "parallel-pilot/B-T2")
 
+sys.path.insert(0, str(ROOT / "tools"))
+import qa_parallel_pilot
+
 
 def test_pilot_handoff_uses_disposable_safe_fixture_and_dry_run_two_lanes() -> None:
     handoff = HANDOFF.read_text(encoding="utf-8")
@@ -49,6 +52,27 @@ def test_pilot_handoff_uses_disposable_safe_fixture_and_dry_run_two_lanes() -> N
         assert json.loads(second_cleanup.stdout)["idempotent"] is True
         (fixture_root.parent / f".{fixture_root.name}.parallel-pilot-cleaned").unlink()
     assert not fixture_root.exists()
+
+
+def test_lifecycle_check_rejects_missing_receipts_and_wrong_order() -> None:
+    state = {"state": {"lanes": {}, "actions": {}}}
+    for lane_id, slice_id, task_id in (("slice-A", "A", "T1"), ("slice-B", "B", "T2")):
+        state["state"]["lanes"][lane_id] = {
+            "slice": slice_id, "task": task_id, "state": "complete",
+            "dispatch_id": f"dispatch-{slice_id}",
+            "lifecycle_events": ["worker_done", "worker_read", "worker_ack", "worker_release"],
+        }
+    assert qa_parallel_pilot.lifecycle_complete(state) is False
+    state["state"]["actions"] = {
+        "worker-A": {"action": "worker", "lane": "slice-A", "status": "accepted", "delivery": {"event": "worker_done"}, "completion": {"delivery_id": "delivery-A"}},
+        "worker_ack-A": {"action": "worker_ack", "lane": "slice-A", "status": "accepted", "receipt": {"acknowledged": True, "delivery_id": "delivery-A"}},
+        "worker_release-A": {"action": "worker_release", "lane": "slice-A", "status": "accepted", "receipt": {"released": True, "dispatch_id": "dispatch-A"}},
+        "worker-B": {"action": "worker", "lane": "slice-B", "status": "accepted", "delivery": {"event": "worker_done"}, "completion": {"delivery_id": "delivery-B"}},
+        "worker_ack-B": {"action": "worker_ack", "lane": "slice-B", "status": "accepted", "receipt": {"acknowledged": True, "delivery_id": "delivery-B"}},
+        "worker_release-B": {"action": "worker_release", "lane": "slice-B", "status": "accepted", "receipt": {"released": True, "dispatch_id": "dispatch-B"}},
+    }
+    state["state"]["lanes"]["slice-B"]["lifecycle_events"] = ["worker_done", "worker_ack", "worker_read", "worker_release"]
+    assert qa_parallel_pilot.lifecycle_complete(state) is False
 
 
 def test_pilot_dry_run_rejects_frozen_head_mutation_and_unmarked_cleanup() -> None:

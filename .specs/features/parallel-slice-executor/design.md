@@ -95,9 +95,12 @@ existing checkout. The adapter accepts one Orca JSON schema; unknown/missing fie
 Checkpoint sync rebases only a private dependent lane. It records pre-HEAD, exact producer commit,
 post-HEAD, and changed paths. A conflict runs `rebase --abort` and verifies the original clean HEAD.
 Verified slice integration is invoked by the coordinator only after every participating lane is
-complete with a successful worker_done packet and an owned current_head. It persists one ordered
-integration action and receipt; accepted integration is replayed without a second merge. A merge
-conflict runs `merge --abort` and returns serial recovery.
+terminal-complete with a successful worker_done packet, an explicit fresh Technical Verifier
+receipt whose author differs from the implementer, and an owned current_head. The feature root
+must still equal the frozen source head. It persists one ordered integration action and receipt;
+the Git receipt invalidates gate/Verifier/deep-review evidence and the state records a required
+post-integration gate at the merged head. Accepted integration is replayed without a second merge.
+A merge conflict or moved root runs serial recovery.
 
 Checkpoint receipts are consumed by the provider-neutral coordinator before worker start or
 follow-up. A changed HEAD persists `current_head`, the exact sync receipt, changed paths, and
@@ -128,14 +131,15 @@ RuntimeState {
 LaneReceipt {
   slice, task, state, worktree_id, worktree_path, branch,
   run_id, orchestration_task_id, dispatch_id, terminal_handle,
-  pre_head, current_head, lease, worktree_cleanup, fallback_reason,
+  pre_head, current_head, gitdir, lease, worktree_cleanup, fallback_reason,
   invalidated_evidence[]
-  # current_head is derived from the exact owned worktree after accepted worker_done.
+  # Git reads and cleanup require the persisted path, worktree_id/gitdir, branch, and safe HEAD.
 }
 
 ActionReceipt {
   key, action, status, lane, external_id, receipt,
-  dispatch_id, run_id, delivery_id, completion, delivery_ack
+  dispatch_id, run_id, delivery_id, completion, delivery_ack,
+  technical_verifier { receipt_id, current_head, author, implementer, verdict }
 }
 
 LeaseReceipt {

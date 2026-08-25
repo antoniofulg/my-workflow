@@ -3,12 +3,12 @@
 ## Handoff
 
 - **Feature**: `.specs/features/parallel-slice-executor`
-- **Phase / Task**: Execute / post-T7 grouped C-D review remediation
-- **Completed**: T1, T2, T2R1-T2R5, T3, T3R1, T3R2, TDR1, TDR2, T4, T4R1, T4R2, T5, T6, T7, T7R1-T7R5; Slice A-C Technical Verifiers PASS; grouped deep-review A-B closed
+- **Phase / Task**: Execute / post-cap grouped C-D review remediation complete
+- **Completed**: T1, T2, T2R1-T2R5, T3, T3R1, T3R2, TDR1, TDR2, T4, T4R1, T4R2, T5, T6, T7, T7R1-T7R5; grouped C-D round 1 and post-cap round 2 remediation; Slice A-C Technical Verifiers PASS; grouped deep-review A-B closed
 - **In-progress** (file:line): none
-- **Next step**: Fresh QA executes the disposable E2E-001 Orca handoff, then the feature-closing QA step records final evidence after grouped C-D review remediation.
-- **Blockers**: grouped C-D review remediation in progress; no author-run Orca pilot.
-- **Uncommitted files**: grouped C-D remediation batch
+- **Next step**: Fresh QA executes the disposable E2E-001 Orca handoff, then the feature-closing QA step records final evidence.
+- **Blockers**: no author-run Orca pilot; fresh QA and feature closure remain pending.
+- **Uncommitted files**: none
 - **Branch**: `feat/parallel-slice-executor`
 
 ## Decisions

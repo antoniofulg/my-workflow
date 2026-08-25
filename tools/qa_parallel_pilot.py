@@ -8,6 +8,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -18,6 +19,7 @@ OWNERSHIP = ".parallel-slice-qa-ownership.json"
 PREFIX = "parallel-slice-pilot-"
 ROOT = Path(__file__).resolve().parent.parent
 OWNED_WORKTREES = ("parallel-pilot/A-T1", "parallel-pilot/B-T2")
+EXPECTED_LANES = ("slice-A", "slice-B")
 
 
 def git(root: Path, *args: str, check: bool = True) -> str:
@@ -104,6 +106,39 @@ def _residual_paths(worktree_root: Path) -> list[str]:
         current_path = Path(current)
         paths.extend(str(current_path / name) for name in sorted(directories + files))
     return sorted(paths)
+
+
+def lifecycle_complete(status: dict[str, object]) -> bool:
+    state = status.get("state")
+    if not isinstance(state, dict) or set(state.get("lanes", {})) != set(EXPECTED_LANES):
+        return False
+    lanes = state["lanes"]
+    actions = state.get("actions")
+    if not isinstance(lanes, dict) or not isinstance(actions, dict):
+        return False
+    for lane_id in EXPECTED_LANES:
+        lane = lanes.get(lane_id)
+        if not isinstance(lane, dict) or lane.get("state") != "complete":
+            return False
+        if lane.get("lifecycle_events") != ["worker_done", "worker_read", "worker_ack", "worker_release"]:
+            return False
+        lane_actions = [action for action in actions.values() if isinstance(action, dict) and action.get("lane") == lane_id]
+        worker = next((action for action in lane_actions if action.get("action") == "worker"), None)
+        ack = next((action for action in lane_actions if action.get("action") == "worker_ack"), None)
+        release = next((action for action in lane_actions if action.get("action") == "worker_release"), None)
+        if not all(isinstance(action, dict) and action.get("status") in {"accepted", "released"} for action in (worker, ack, release)):
+            return False
+        completion = worker.get("completion")
+        delivery = worker.get("delivery")
+        ack_receipt = ack.get("receipt")
+        release_receipt = release.get("receipt")
+        if not isinstance(completion, dict) or not isinstance(delivery, dict) or delivery.get("event") != "worker_done":
+            return False
+        if not isinstance(ack_receipt, dict) or ack_receipt.get("acknowledged") is not True or ack_receipt.get("delivery_id") != completion.get("delivery_id"):
+            return False
+        if not isinstance(release_receipt, dict) or release_receipt.get("released") is not True or release_receipt.get("dispatch_id") != lane.get("dispatch_id"):
+            return False
+    return True
 
 
 def _validate_tombstone(root: Path, record: dict[str, object]) -> Path:
@@ -211,9 +246,13 @@ def cleanup(root_value: str) -> dict[str, object]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("setup", "dry-run", "cleanup"))
+    parser.add_argument("command", choices=("setup", "dry-run", "cleanup", "lifecycle-check"))
     parser.add_argument("--root")
     args = parser.parse_args()
+    if args.command == "lifecycle-check":
+        result = {"complete": lifecycle_complete(json.load(sys.stdin))}
+        print(json.dumps(result, sort_keys=True))
+        return 0 if result["complete"] else 1
     if args.command == "setup":
         result = setup()
     elif args.root:

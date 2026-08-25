@@ -791,6 +791,16 @@ serial recovery, owned worktree cleanup, pilot source metadata, QA terminal life
 stale T7/STATE handoff. The review artifacts remain immutable evidence; fresh grouped verification
 must re-run its findings against the committed batch. No real Orca pilot was executed by the author.
 
+## Grouped C-D round 2 post-cap remediation handoff
+
+This batch closes the six final review blockers without claiming E2E-001 execution. Git operations
+now require exact persisted lane path, gitdir, branch, and HEAD ownership, including re-checks before
+cleanup and recovery. Integration requires an explicit durable Technical Verifier receipt authored by
+someone other than the implementer, exact current HEAD correlation, and a frozen feature-root HEAD;
+successful integration persists gate/Verifier/deep-review invalidation and a required post-integration
+gate state. Planner checkpoint paths are the normalized sorted producer-path union. The QA pilot uses
+the canonical lifecycle checker, which rejects missing or misordered terminal/ack/release receipts.
+
 ## T7R5 implementation evidence
 
 - `python3 tools/test_qa_parallel_pilot.py`: 6 tests passed, 0 failed; the ownership matrix covers root, feature, missing, extra, duplicate, outside, and reordered worktree values through subprocess cleanup.

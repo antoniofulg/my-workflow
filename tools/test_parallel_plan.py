@@ -123,7 +123,22 @@ def test_full_mode_records_completed_cross_slice_dependency_checkpoint() -> None
         lane = first_task(plan, "T2")
         assert lane["sync_after"] == ["T1"]
         assert lane["status"] == "ready"
-        assert lane["declared_paths"] == ["src/t2.py"]
+        assert lane["declared_paths"] == ["src/t1.py"]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_full_mode_declares_sorted_union_of_producer_paths_for_checkpoint() -> None:
+    root = make_repo(
+        task("T1", "A", status="complete", where="src/z.py")
+        + task("T2", "B", status="complete", where="src/a.py")
+        + task("T3", "C", depends_on="T1, T2", where="src/consumer.py"),
+        mode="full",
+    )
+    try:
+        lane = first_task(parallel_plan.plan(root=root, feature="fixture"), "T3")
+        assert lane["sync_after"] == ["T1", "T2"]
+        assert lane["declared_paths"] == ["src/a.py", "src/z.py"]
     finally:
         shutil.rmtree(root)
 
@@ -244,7 +259,7 @@ def test_in_progress_is_blocked_and_waiting_follows_up_after_dependencies() -> N
                 "task": "T1",
                 "status": "follow_up",
                 "sync_after": ["T2"],
-                "declared_paths": ["src/t1.py"],
+                "declared_paths": ["src/t2.py"],
                 "resources": [],
             }
         ]
@@ -363,7 +378,7 @@ def test_cli_emits_the_point_in_time_plan() -> None:
                     "slice": "B",
                     "status": "ready",
                     "sync_after": ["T1"],
-                    "declared_paths": ["src/t2.py"],
+                    "declared_paths": ["src/t1.py"],
                     "resources": [],
                     "task": "T2",
                 }

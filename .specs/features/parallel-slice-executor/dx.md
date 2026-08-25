@@ -21,7 +21,8 @@ python3 .agents/skills/autonomous/scripts/parallel_execute.py start \
   --root . --feature <feature-slug> --adapter auto|orca
 
 python3 .agents/skills/autonomous/scripts/parallel_execute.py resume \
-  --root . --feature <feature-slug> --adapter auto|orca --wait-seconds <1..3600>
+  --root . --feature <feature-slug> --adapter auto|orca --wait-seconds <1..3600> \
+  --technical-verifier-receipt <receipt.json>
 
 python3 .agents/skills/autonomous/scripts/parallel_execute.py status \
   --root . --feature <feature-slug>
@@ -31,11 +32,14 @@ All commands emit one JSON object to stdout, including a `command` field identif
 `resume`, or `status`. Errors use stderr and a non-zero exit. `start` performs
 only actions allowed by the current frozen plan. `resume` reconciles persisted receipts, consumes at
 most the available correlated events, and may block inside the adapter without model polling.
+Technical verification is an explicit receipt input correlated to feature/slice/task/worktree/current_head
+with `verdict: passed` and distinct `author` and `implementer`; worker completion is never inferred as verification.
 `status` is read-only.
 
 For a real pilot, `start` is followed by bounded public `status`/`resume` calls. Cleanup is allowed
-only after status shows every lane terminal and the persisted worker acknowledgement/release
-receipts are accepted; timeout or incomplete lifecycle retains the fixture for diagnosis.
+only after `python3 tools/qa_parallel_pilot.py lifecycle-check` proves exactly the two expected
+lanes have terminal worker, read-before-ack, and release receipts; timeout or incomplete lifecycle
+retains the fixture for diagnosis.
 
 `--adapter auto` selects a proven installed adapter; the first supported adapter is `orca`. If none
 qualifies, the command returns a successful serial-fallback result and creates no worktree or worker.

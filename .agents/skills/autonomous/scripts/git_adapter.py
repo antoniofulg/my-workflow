@@ -44,8 +44,35 @@ class GitAdapter:
         if actual != path:
             raise GitAdapterError("repository root mismatch")
 
-    def _validate_worktree(self, path: Path | str) -> Path:
-        target = Path(path).resolve()
+    def _worktree_identity(self, target: Path) -> dict[str, str]:
+        gitdir_value = self._git(target, "rev-parse", "--git-dir").stdout.strip()
+        gitdir = (target / gitdir_value if not Path(gitdir_value).is_absolute() else Path(gitdir_value)).resolve()
+        branch_result = self._git(target, "symbolic-ref", "--short", "-q", "HEAD", check=False)
+        branch = branch_result.stdout.strip() or "(detached)"
+        return {
+            "worktree_id": str(gitdir),
+            "gitdir": str(gitdir),
+            "branch": branch,
+        }
+
+    def _validate_worktree(
+        self,
+        path: Path | str,
+        *,
+        expected_receipt: Mapping[str, Any] | None = None,
+        expected_head: str | None = None,
+    ) -> Path:
+        candidate = Path(path).absolute()
+        if candidate.is_symlink():
+            raise GitAdapterError("worktree path is redirected")
+        if expected_receipt is not None:
+            expected_path = expected_receipt.get("worktree_path")
+            if not isinstance(expected_path, str) or candidate.resolve() != Path(expected_path).resolve():
+                raise GitAdapterError("worktree path does not match ownership receipt")
+            for field in ("worktree_id", "gitdir", "branch"):
+                if not isinstance(expected_receipt.get(field), str) or not expected_receipt[field]:
+                    raise GitAdapterError("incomplete worktree ownership receipt")
+        target = candidate.resolve()
         if not target.is_dir():
             raise GitAdapterError("worktree is not a directory")
         common = self._git(target, "rev-parse", "--git-common-dir").stdout.strip()
@@ -53,6 +80,12 @@ class GitAdapter:
         if actual_common != self.common_dir:
             raise GitAdapterError("worktree belongs to another repository")
         self._git(target, "rev-parse", "--is-inside-work-tree")
+        if expected_receipt is not None:
+            identity = self._worktree_identity(target)
+            if any(identity[field] != expected_receipt[field] for field in ("worktree_id", "gitdir", "branch")):
+                raise GitAdapterError("worktree identity does not match ownership receipt")
+        if expected_head is not None and self._git(target, "rev-parse", "HEAD").stdout.strip() != expected_head:
+            raise GitAdapterError("worktree HEAD does not match ownership receipt")
         return target
 
     def reconcile_action(self, action: Mapping[str, Any]) -> Mapping[str, Any] | None:
@@ -60,21 +93,48 @@ class GitAdapter:
             return dict(action["receipt"])
         return None
 
-    def remove_worktree(self, worktree: Path | str) -> dict[str, Any]:
+    def ownership_receipt(self, worktree: Path | str, *, pre_head: str | None = None) -> dict[str, str]:
         target = self._validate_worktree(worktree)
+        head = self._git(target, "rev-parse", "HEAD").stdout.strip()
+        identity = self._worktree_identity(target)
+        return {
+            "worktree_id": identity["worktree_id"],
+            "gitdir": identity["gitdir"],
+            "worktree_path": str(target),
+            "branch": identity["branch"],
+            "pre_head": pre_head or head,
+        }
+
+    def remove_worktree(
+        self, worktree: Path | str, *, expected_receipt: Mapping[str, Any] | None = None,
+        expected_head: str | None = None,
+    ) -> dict[str, Any]:
+        target = self._validate_worktree(worktree, expected_receipt=expected_receipt, expected_head=expected_head)
         if target == self.root:
             raise GitAdapterError("cannot remove repository root")
+        if expected_receipt is not None:
+            self._validate_worktree(target, expected_receipt=expected_receipt, expected_head=expected_head)
         result = self._git(self.root, "worktree", "remove", "--force", str(target), check=False)
         if result.returncode != 0 or target.exists():
             raise GitAdapterError(result.stderr.strip() or "worktree cleanup failed")
         return {"removed": True, "worktree_path": str(target)}
 
-    def head(self, worktree: Path | str | None = None) -> str:
-        target = self.root if worktree is None else self._validate_worktree(worktree)
+    def head(
+        self, worktree: Path | str | None = None, *, expected_receipt: Mapping[str, Any] | None = None,
+        expected_head: str | None = None,
+    ) -> str:
+        target = self.root if worktree is None else self._validate_worktree(
+            worktree, expected_receipt=expected_receipt, expected_head=expected_head
+        )
         return self._git(target, "rev-parse", "HEAD").stdout.strip()
 
-    def is_clean(self, worktree: Path | str | None = None) -> bool:
-        target = self.root if worktree is None else self._validate_worktree(worktree)
+    def is_clean(
+        self, worktree: Path | str | None = None, *, expected_receipt: Mapping[str, Any] | None = None,
+        expected_head: str | None = None,
+    ) -> bool:
+        target = self.root if worktree is None else self._validate_worktree(
+            worktree, expected_receipt=expected_receipt, expected_head=expected_head
+        )
         return self._git(target, "status", "--porcelain", "--untracked-files=all").stdout == ""
 
     def _valid_commit(self, target: Path, value: Any) -> str:
@@ -92,9 +152,14 @@ class GitAdapter:
         output = self._git(target, "diff", "--name-only", before, after).stdout
         return sorted(path for path in output.splitlines() if path)
 
-    def _restore(self, target: Path, before: str) -> None:
+    def _restore(
+        self, target: Path, before: str, *, expected_receipt: Mapping[str, Any] | None = None
+    ) -> None:
+        self._validate_worktree(target, expected_receipt=expected_receipt)
         self._git(target, "rebase", "--abort", check=False)
+        self._validate_worktree(target, expected_receipt=expected_receipt)
         self._git(target, "merge", "--abort", check=False)
+        self._validate_worktree(target, expected_receipt=expected_receipt)
         self._git(target, "reset", "--hard", before)
 
     @staticmethod
@@ -115,10 +180,14 @@ class GitAdapter:
         producer_commit: str | Sequence[str],
         *,
         declared_paths: Sequence[str] | None = None,
+        expected_receipt: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
-        target = self._validate_worktree(consumer)
-        pre_head = self.head(target)
-        if not self.is_clean(target):
+        expected_head = expected_receipt.get("current_head") if isinstance(expected_receipt, Mapping) else None
+        if expected_head is None and isinstance(expected_receipt, Mapping):
+            expected_head = expected_receipt.get("pre_head")
+        target = self._validate_worktree(consumer, expected_receipt=expected_receipt, expected_head=expected_head)
+        pre_head = self.head(target, expected_receipt=expected_receipt, expected_head=expected_head)
+        if not self.is_clean(target, expected_receipt=expected_receipt, expected_head=expected_head):
             return self._serial(pre_head, "dirty-worktree")
         values = [producer_commit] if isinstance(producer_commit, str) else list(producer_commit)
         try:
@@ -150,15 +219,15 @@ class GitAdapter:
             }
         rebased = self._git(target, "rebase", producer, check=False)
         if rebased.returncode != 0:
-            self._restore(target, pre_head)
+            self._restore(target, pre_head, expected_receipt=expected_receipt)
             return self._serial(pre_head, "rebase-conflict")
-        post_head = self.head(target)
+        post_head = self.head(target, expected_receipt=expected_receipt)
         changed_paths = self._changed_paths(target, pre_head, post_head)
         if (declared_paths is not None and not set(changed_paths).issubset(set(declared_paths))) or not self._ancestor(target, producer, post_head):
-            self._restore(target, pre_head)
+            self._restore(target, pre_head, expected_receipt=expected_receipt)
             return self._serial(pre_head, "undeclared-changed-path", changed_paths=changed_paths)
-        if not self.is_clean(target):
-            self._restore(target, pre_head)
+        if not self.is_clean(target, expected_receipt=expected_receipt):
+            self._restore(target, pre_head, expected_receipt=expected_receipt)
             return self._serial(pre_head, "dirty-after-rebase", changed_paths=changed_paths)
         return {
             "status": "synced",
@@ -174,10 +243,15 @@ class GitAdapter:
         self,
         feature_worktree: Path | str,
         verified_slices: Sequence[Mapping[str, Any]],
+        *,
+        expected_receipt: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
-        target = self._validate_worktree(feature_worktree)
-        pre_head = self.head(target)
-        if not self.is_clean(target):
+        expected_head = expected_receipt.get("current_head") if isinstance(expected_receipt, Mapping) else None
+        if expected_head is None and isinstance(expected_receipt, Mapping):
+            expected_head = expected_receipt.get("pre_head")
+        target = self._validate_worktree(feature_worktree, expected_receipt=expected_receipt, expected_head=expected_head)
+        pre_head = self.head(target, expected_receipt=expected_receipt, expected_head=expected_head)
+        if not self.is_clean(target, expected_receipt=expected_receipt, expected_head=expected_head):
             return self._serial(pre_head, "dirty-worktree")
         try:
             entries = sorted(
@@ -192,12 +266,12 @@ class GitAdapter:
         for _, commit in entries:
             result = self._git(target, "merge", "--no-ff", "--no-edit", commit, check=False)
             if result.returncode != 0:
-                self._restore(target, pre_head)
+                self._restore(target, pre_head, expected_receipt=expected_receipt)
                 return self._serial(pre_head, "merge-conflict")
             merged.append(commit)
-        post_head = self.head(target)
-        if not self.is_clean(target):
-            self._restore(target, pre_head)
+        post_head = self.head(target, expected_receipt=expected_receipt)
+        if not self.is_clean(target, expected_receipt=expected_receipt):
+            self._restore(target, pre_head, expected_receipt=expected_receipt)
             return self._serial(pre_head, "dirty-after-merge")
         return {
             "status": "merged",
@@ -206,7 +280,7 @@ class GitAdapter:
             "post_head": post_head,
             "merged": merged,
             "changed_paths": self._changed_paths(target, pre_head, post_head),
-            "invalidated_evidence": [],
+            "invalidated_evidence": ["gate", "technical_verifier", "deep_review"],
         }
 
     def integrate_slice(self, feature_worktree: Path | str, verified_slices: Sequence[Mapping[str, Any]]) -> dict[str, Any]:

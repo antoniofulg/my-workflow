@@ -69,9 +69,9 @@ eligible slices can advance concurrently without agent polling.
 
 **Acceptance Criteria:**
 
-1. **EXE-06:** WHEN a lane becomes ready THEN the coordinator SHALL derive and validate one child Git worktree destination from the recorded base before creating it, and the Orca adapter SHALL attach its worker only to that existing worktree.
-2. **EXE-07:** WHEN worktree creation succeeds THEN the coordinator and adapter SHALL validate and return the exact worktree, branch, run, task, dispatch, terminal, and source-HEAD receipt before the lane becomes running.
-3. **EXE-08:** WHEN Orca reports `worker_done` THEN the adapter SHALL read the worker result, correlate it to the declared task, and release the worker only after the coordinator accepts the receipt.
+1. **EXE-06:** WHEN a lane becomes ready THEN the coordinator SHALL derive and validate one child Git worktree destination from the recorded base before creating it, and every later Git read or cleanup SHALL require the persisted path, Git worktree identity, branch/detached identity, and safe HEAD receipt for that lane.
+2. **EXE-07:** WHEN worktree creation succeeds THEN the coordinator and adapter SHALL validate and return the exact worktree, Git identity, branch, run, task, dispatch, terminal, and source-HEAD receipt before the lane becomes running.
+3. **EXE-08:** WHEN Orca reports `worker_done` THEN the adapter SHALL read the worker result, correlate it to the declared task, and release the worker only after the coordinator accepts the receipt; `worker_done` SHALL NOT substitute for an explicit Technical Verifier receipt.
 4. **EXE-09:** WHEN a worker reports a clean waiter THEN the coordinator SHALL mark the lane waiting, end that worker turn, and SHALL send follow-up to the same terminal only after the declared dependency event.
 5. **EXE-10:** WHEN no dependency event is available THEN the adapter SHALL use Orca's blocking event wait and SHALL NOT poll through model turns.
 6. **EXE-11:** IF a receipt is missing, mismatched, dirty, duplicated, escalated, or failed THEN the coordinator SHALL halt that lane and select serial recovery without starting a replacement worker.
@@ -89,7 +89,7 @@ that no task consumes missing upstream work and no review verdict survives a cha
 2. **EXE-13:** WHEN the producer commit is already an ancestor of the consumer HEAD THEN checkpoint synchronization SHALL be a no-op.
 3. **EXE-14:** IF checkpoint rebase conflicts or changes an undeclared path THEN the adapter SHALL abort the rebase, restore the pre-sync HEAD, and halt the lane with a serial-recovery receipt.
 4. **EXE-15:** WHEN checkpoint synchronization changes HEAD THEN the coordinator SHALL invalidate the affected gate, Technical Verifier, and deep-review receipts and SHALL require the affected gate before follow-up.
-5. **EXE-16:** WHEN a slice is technically verified THEN the Git adapter SHALL merge its preserved commits into the feature integration branch in deterministic slice order.
+5. **EXE-16:** WHEN every terminal slice has an explicit fresh Technical Verifier receipt authored by someone other than its implementer and the feature root HEAD equals the frozen source HEAD THEN the Git adapter SHALL merge preserved commits in deterministic slice order, persist gate/Verifier/deep-review invalidation, and require a post-integration gate at the merged HEAD.
 6. **EXE-17:** IF final slice integration conflicts THEN the Git adapter SHALL abort the merge and SHALL leave conflict resolution to the serial workflow.
 
 **Independent Test:** Use disposable Git repositories to cover exact-commit rebase, ancestor no-op, conflict abort, evidence invalidation, deterministic merge, and unchanged pre-operation trees after failures.

@@ -851,7 +851,7 @@ def test_executor_resume_consumes_run_delivery_reads_accepts_then_releases_worke
 
         adapter = LiveResumeAdapter(probe.state_path)
         class ResumeGit:
-            def head(self, worktree: str) -> str:
+            def head(self, worktree: str, **_: object) -> str:
                 assert worktree == str(destination)
                 return source_head
 
@@ -1051,7 +1051,7 @@ def test_waiting_dependency_checkpoint_blocks_then_follows_up_once_after_correla
         parallel_execute.atomic_write_json(first.state_path, state)
         plan = {
             "fallback": False,
-            "lanes": [{"id": "slice-A", "slice": "A", "task": "T1", "status": "follow_up", "sync_after": ["T0"], "resources": []}],
+            "lanes": [{"id": "slice-A", "slice": "A", "task": "T1", "status": "follow_up", "sync_after": ["T0"], "declared_paths": ["producer.txt"], "resources": []}],
         }
 
         class WaitingCheckpointAdapter(RecordingAdapter):
@@ -1060,7 +1060,8 @@ def test_waiting_dependency_checkpoint_blocks_then_follows_up_once_after_correla
                 self.state_path = state_path
                 self.calls: list[tuple[str, str]] = []
 
-            def sync_checkpoint(self, consumer: Path, producer: str, *, declared_paths: list[str] | None = None) -> dict[str, object]:
+            def sync_checkpoint(self, consumer: Path, producer: str, *, declared_paths: list[str] | None = None, expected_receipt: dict[str, object] | None = None) -> dict[str, object]:
+                assert declared_paths == ["producer.txt"]
                 current = json.loads(self.state_path.read_text(encoding="utf-8"))["source_git_head"]
                 return {
                     "status": "synced", "changed": True, "producer_commit": producer, "pre_head": current, "post_head": "waiting-checkpoint-head",
@@ -1165,7 +1166,7 @@ class CheckpointReceiptAdapter(RecordingAdapter):
         self.changed = changed
         self.sync_calls = 0
 
-    def sync_checkpoint(self, consumer: Path, producer: str, *, declared_paths: list[str] | None = None) -> dict[str, object]:
+    def sync_checkpoint(self, consumer: Path, producer: str, *, declared_paths: list[str] | None = None, expected_receipt: dict[str, object] | None = None) -> dict[str, object]:
         self.sync_calls += 1
         state = json.loads(self.state_path.read_text(encoding="utf-8"))
         assert state["actions"]
@@ -1180,7 +1181,7 @@ class CheckpointReceiptAdapter(RecordingAdapter):
             "invalidated_evidence": ["gate", "technical_verifier", "deep_review"] if self.changed else [],
         }
 
-    def remove_worktree(self, worktree: str) -> dict[str, object]:
+    def remove_worktree(self, worktree: str, **_: object) -> dict[str, object]:
         self.effects.append(("worktree_cleanup", worktree))
         return {"removed": True, "worktree_path": worktree}
 
@@ -1196,7 +1197,7 @@ def test_malformed_checkpoint_receipt_serializes_with_named_receipt_and_cleanup(
         parallel_execute.atomic_write_json(probe.state_path, state)
 
         class Malformed(CheckpointReceiptAdapter):
-            def sync_checkpoint(self, consumer: Path, producer: str, *, declared_paths: list[str] | None = None) -> dict[str, object]:
+            def sync_checkpoint(self, consumer: Path, producer: str, *, declared_paths: list[str] | None = None, expected_receipt: dict[str, object] | None = None) -> dict[str, object]:
                 return {"status": "synced", "pre_head": workflow["git_head"]}
 
         adapter = Malformed(probe.state_path)
@@ -1725,6 +1726,89 @@ def test_real_git_worktree_creation_and_cleanup_use_unpatched_argv_path() -> Non
             subprocess.run(["git", "worktree", "remove", "--force", str(destination)], cwd=root, check=False, capture_output=True, text=True)
 
 
+def test_integration_requires_fresh_external_technical_verifier_and_frozen_root_head() -> None:
+    for verifier in (None, {"current_head": "stale"}, {"current_head": "head-A", "author": "worker-A"}, {"malformed": True}):
+        root = make_repo(mode="full")
+        try:
+            probe = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter())
+            probe._prepare_repository()
+            source_head = json.loads((root / ".specs/features/fixture/workflow.json").read_text(encoding="utf-8"))["git_head"]
+            lane = {
+                "slice": "A", "task": "T1", "state": "complete", "resources": [], "current_head": "head-A",
+                "worktree_id": "wt-A", "worktree_path": str(root / "A-worktree"), "branch": "(detached)", "pre_head": source_head,
+            }
+            state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "full", source_head)
+            state["lanes"]["slice-A"] = lane
+            worker_key = parallel_execute.idempotency_key("fixture", "A", "T1", "worker", source_head)
+            state["actions"][worker_key] = {
+                "key": worker_key, "action": "worker", "status": "accepted", "lane": "slice-A", "external_id": "dispatch-A",
+                "receipt": {"dispatch_id": "dispatch-A"}, "completion": {"delivery_id": "delivery-A", "outcome": "succeeded"},
+                "delivery": {"event": "worker_done", "payload": {"outcome": "succeeded"}},
+            }
+            parallel_execute.atomic_write_json(probe.state_path, state)
+            plan = {"fallback": False, "lanes": [{"id": "slice-A", "slice": "A", "task": "T1", "status": "ready", "sync_after": [], "declared_paths": ["src/a.py"], "resources": []}]}
+
+            class GuardGit:
+                def __init__(self, moved: bool = False) -> None:
+                    self.calls = 0
+                    self.moved = moved
+
+                def head(self, _: Path) -> str:
+                    return "moved-head" if self.moved else source_head
+
+                def integrate_slices(self, *_: object) -> dict[str, object]:
+                    self.calls += 1
+                    raise AssertionError("integration must not run without a fresh verifier")
+
+            git = GuardGit()
+            coordinator = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter(), git_adapter_factory=lambda: git)
+            coordinator._plan = lambda: plan  # type: ignore[method-assign]
+            receipts = None
+            if verifier is not None and verifier.get("malformed"):
+                receipts = [{"receipt_id": "verifier-A"}]
+            elif verifier is not None:
+                receipts = [{
+                    "receipt_id": "verifier-A", "feature": "fixture", "slice": "A", "task": "T1",
+                    "worktree_id": "wt-A", "worktree_path": str(root / "A-worktree"), "current_head": verifier["current_head"],
+                    "author": verifier.get("author", "verifier-A"), "implementer": "worker-A", "verdict": "passed",
+                }]
+            result = coordinator.start(technical_verifier_receipts=receipts)
+            assert result["fallback"] is True
+            assert result["reason"] == "integration-unverified"
+            assert git.calls == 0
+        finally:
+            shutil.rmtree(root)
+
+    root = make_repo(mode="full")
+    try:
+        probe = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter())
+        probe._prepare_repository()
+        source_head = json.loads((root / ".specs/features/fixture/workflow.json").read_text(encoding="utf-8"))["git_head"]
+        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "full", source_head)
+        state["lanes"]["slice-A"] = {"slice": "A", "task": "T1", "state": "complete", "resources": [], "current_head": "head-A", "worktree_id": "wt-A", "worktree_path": str(root / "A-worktree"), "branch": "(detached)", "pre_head": source_head}
+        worker_key = parallel_execute.idempotency_key("fixture", "A", "T1", "worker", source_head)
+        state["actions"][worker_key] = {"key": worker_key, "action": "worker", "status": "accepted", "lane": "slice-A", "external_id": "dispatch-A", "receipt": {"dispatch_id": "dispatch-A"}, "completion": {"delivery_id": "delivery-A", "outcome": "succeeded"}, "delivery": {"event": "worker_done", "payload": {"outcome": "succeeded"}}}
+        parallel_execute.atomic_write_json(probe.state_path, state)
+        plan = {"fallback": False, "lanes": [{"id": "slice-A", "slice": "A", "task": "T1", "status": "ready", "sync_after": [], "declared_paths": ["src/a.py"], "resources": []}]}
+        receipt = {"receipt_id": "verifier-A", "feature": "fixture", "slice": "A", "task": "T1", "worktree_id": "wt-A", "worktree_path": str(root / "A-worktree"), "current_head": "head-A", "author": "verifier-A", "implementer": "worker-A", "verdict": "passed"}
+
+        class MovedGit:
+            def head(self, _: Path) -> str:
+                return "moved-head"
+
+            def integrate_slices(self, *_: object) -> dict[str, object]:
+                raise AssertionError("moved feature root must not merge")
+
+        coordinator = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter(), git_adapter_factory=lambda: MovedGit())
+        coordinator._plan = lambda: plan  # type: ignore[method-assign]
+        result = coordinator.start(technical_verifier_receipts=[receipt])
+        assert result["fallback"] is True
+        assert result["reason"] == "feature-head-moved"
+        assert result["state"]["integration_recovery"]["reason"] == "feature-head-moved"  # type: ignore[index]
+    finally:
+        shutil.rmtree(root)
+
+
 def test_full_coordinator_integrates_only_all_verified_complete_lanes_once() -> None:
     root = make_repo(mode="full")
     try:
@@ -1732,13 +1816,16 @@ def test_full_coordinator_integrates_only_all_verified_complete_lanes_once() -> 
         probe._prepare_repository()
         source_head = json.loads((root / ".specs/features/fixture/workflow.json").read_text(encoding="utf-8"))["git_head"]
         state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "full", source_head)
+        verifier_receipts: list[dict[str, str]] = []
         for lane_id, slice_id, task_id, current_head in (
             ("slice-A", "A", "T1", "head-A"),
             ("slice-B", "B", "T2", "head-B"),
         ):
+            worktree_path = str(root / f"{slice_id}-worktree")
             state["lanes"][lane_id] = {
                 "slice": slice_id, "task": task_id, "state": "complete", "resources": [],
-                "current_head": current_head,
+                "current_head": current_head, "worktree_id": f"wt-{slice_id}", "worktree_path": worktree_path,
+                "branch": "(detached)", "pre_head": source_head,
             }
             worker_key = parallel_execute.idempotency_key("fixture", slice_id, task_id, "worker", source_head)
             state["actions"][worker_key] = {
@@ -1748,6 +1835,11 @@ def test_full_coordinator_integrates_only_all_verified_complete_lanes_once() -> 
                 "completion": {"delivery_id": f"delivery-{slice_id}", "outcome": "succeeded"},
                 "delivery": {"event": "worker_done", "payload": {"outcome": "succeeded"}},
             }
+            verifier_receipts.append({
+                "receipt_id": f"verifier-{slice_id}", "feature": "fixture", "slice": slice_id, "task": task_id,
+                "worktree_id": f"wt-{slice_id}", "worktree_path": worktree_path, "current_head": current_head,
+                "author": f"verifier-{slice_id}", "implementer": f"worker-{slice_id}", "verdict": "passed",
+            })
         parallel_execute.atomic_write_json(probe.state_path, state)
         plan = {
             "fallback": False,
@@ -1763,14 +1855,19 @@ def test_full_coordinator_integrates_only_all_verified_complete_lanes_once() -> 
 
             def integrate_slices(self, feature_worktree: Path, entries: list[dict[str, str]]) -> dict[str, object]:
                 self.calls.append(entries)
-                return {"status": "merged", "pre_head": source_head, "post_head": "merged-head", "merged": ["head-A", "head-B"]}
+                return {"status": "merged", "pre_head": source_head, "post_head": "merged-head", "merged": ["head-A", "head-B"], "invalidated_evidence": ["gate", "technical_verifier", "deep_review"]}
+
+            def head(self, feature_worktree: Path) -> str:
+                assert feature_worktree == root.resolve()
+                return source_head
 
         git = IntegrationGit()
         first = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter(), git_adapter_factory=lambda: git)
         first._plan = lambda: plan  # type: ignore[method-assign]
-        result = first.start()
+        result = first.start(technical_verifier_receipts=verifier_receipts)
         assert result["fallback"] is False
         assert result["state"]["integration_receipt"]["post_head"] == "merged-head"  # type: ignore[index]
+        assert result["state"]["post_integration_gate"]["status"] == "required"  # type: ignore[index]
         assert git.calls == [[{"slice": "A", "commit": "head-A"}, {"slice": "B", "commit": "head-B"}]]
 
         class NoReplayGit:

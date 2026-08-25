@@ -57,6 +57,28 @@ def _require_text(value: Any, label: str) -> str:
     return value
 
 
+def _validate_technical_verifier_receipt(
+    receipt: Mapping[str, Any], lane: Mapping[str, Any], *, feature: str, current_head: str
+) -> None:
+    required = (
+        "receipt_id", "feature", "slice", "task", "worktree_id", "worktree_path",
+        "current_head", "author", "implementer", "verdict",
+    )
+    if any(not isinstance(receipt.get(field), str) or not receipt[field] for field in required):
+        raise StateError("malformed technical verifier receipt")
+    if (
+        receipt["feature"] != feature
+        or receipt["slice"] != lane.get("slice")
+        or receipt["task"] != lane.get("task")
+        or receipt["worktree_id"] != lane.get("worktree_id")
+        or receipt["worktree_path"] != lane.get("worktree_path")
+        or receipt["current_head"] != current_head
+        or receipt["verdict"] != "passed"
+        or receipt["author"] == receipt["implementer"]
+    ):
+        raise StateError("uncorrelated technical verifier receipt")
+
+
 def new_runtime_state(repository_id: str, feature: str, mode: str, source_git_head: str) -> dict[str, Any]:
     if mode not in MODES:
         raise StateError("invalid mode")
@@ -91,6 +113,15 @@ def validate_runtime_state(
     actions = state.get("actions")
     if not isinstance(lanes, Mapping) or not isinstance(actions, Mapping):
         raise StateError("runtime state lanes and actions must be objects")
+    post_gate = state.get("post_integration_gate")
+    if post_gate is not None:
+        if (
+            not isinstance(post_gate, Mapping)
+            or post_gate.get("status") != "required"
+            or not isinstance(post_gate.get("current_head"), str)
+            or post_gate.get("invalidated_evidence") != ["gate", "technical_verifier", "deep_review"]
+        ):
+            raise StateError("invalid post-integration gate state")
 
     active_slices: set[str] = set()
     seen_external: set[str] = set()
@@ -146,7 +177,7 @@ def validate_runtime_state(
         if not isinstance(key, str) or not _ID.fullmatch(key) or not isinstance(action, Mapping):
             raise StateError("invalid action receipt")
         if action.get("key") != key or action.get("action") not in {
-            "worktree", "worktree_cleanup", "worker", "follow_up", "acquire", "release", "worker_ack", "worker_release", "sync", "gate", "integrate"
+            "worktree", "worktree_cleanup", "worker", "follow_up", "acquire", "release", "worker_ack", "worker_release", "sync", "gate", "integrate", "technical_verifier"
         }:
             raise StateError("invalid action receipt")
         if action.get("status") not in {"pending", "accepted", "released", "failed"}:
@@ -174,8 +205,19 @@ def validate_runtime_state(
                 if receipt.get("lease_id") != external_id or receipt.get("released") is not True:
                     raise StateError("invalid release receipt")
             elif action["action"] == "integrate":
-                if receipt.get("status") != "merged" or not isinstance(receipt.get("post_head"), str):
+                if (
+                    receipt.get("status") != "merged"
+                    or not isinstance(receipt.get("post_head"), str)
+                    or receipt.get("invalidated_evidence") != ["gate", "technical_verifier", "deep_review"]
+                ):
                     raise StateError("invalid integration receipt")
+            elif action["action"] == "technical_verifier":
+                lane_head = lane.get("current_head")
+                if not isinstance(lane_head, str):
+                    raise StateError("technical verifier lacks current lane head")
+                _validate_technical_verifier_receipt(
+                    receipt, lane, feature=actual_feature, current_head=lane_head
+                )
         elif action.get("receipt") is not None:
             raise StateError("pending action contains receipt")
 
@@ -328,8 +370,11 @@ def create_git_worktree(root: Path, destination: Path, source_head: str) -> dict
         cwd=root,
         timeout=60,
     )
+    gitdir_value = run_argv(["git", "rev-parse", "--git-dir"], cwd=destination).stdout.strip()
+    gitdir = (destination / gitdir_value if not Path(gitdir_value).is_absolute() else Path(gitdir_value)).resolve()
     return {
-        "worktree_id": str(destination),
+        "worktree_id": str(gitdir),
+        "gitdir": str(gitdir),
         "worktree_path": str(destination),
         "branch": "(detached)",
         "pre_head": source_head,
@@ -613,6 +658,7 @@ class Coordinator:
             receipt = adapter.sync_checkpoint(
                 lane["worktree_path"], checkpoints[0] if len(checkpoints) == 1 else checkpoints,
                 declared_paths=declared if isinstance(declared, list) else None,
+                expected_receipt=dict(lane),
             )
             if not isinstance(receipt, Mapping):
                 raise ExecutorError("malformed checkpoint receipt")
@@ -730,7 +776,12 @@ class Coordinator:
         remover = getattr(adapter, "remove_worktree", None)
         if not callable(remover):
             raise ExecutorError("worktree cleanup unavailable")
-        receipt = remover(worktree_path)
+        expected_head = lane.get("current_head") or lane.get("pre_head")
+        receipt = remover(
+            worktree_path,
+            expected_receipt=dict(lane),
+            expected_head=expected_head if isinstance(expected_head, str) else None,
+        )
         if not isinstance(receipt, Mapping) or receipt.get("removed") is not True or receipt.get("worktree_path") != worktree_path:
             raise ExecutorError("uncorrelated worktree cleanup receipt")
         self._accept(action, external_id="worktree-cleanup:" + worktree_path, receipt=dict(receipt))
@@ -741,12 +792,56 @@ class Coordinator:
         worktree_path = lane.get("worktree_path")
         if not isinstance(worktree_path, str) or not worktree_path:
             raise ExecutorError("missing owned worktree for producer checkpoint")
-        current_head = self._git_adapter().head(worktree_path)
+        expected_head = lane.get("current_head") or lane.get("pre_head")
+        current_head = self._git_adapter().head(
+            worktree_path,
+            expected_receipt=dict(lane),
+            expected_head=expected_head if isinstance(expected_head, str) and lane.get("current_head") else None,
+        )
         if not isinstance(current_head, str) or not current_head:
             raise ExecutorError("missing producer worktree HEAD")
         lane["current_head"] = current_head
         self._save(state)
         return current_head
+
+    def _consume_technical_verifier_receipts(
+        self, state: dict[str, Any], receipts: Sequence[Mapping[str, Any]] | None
+    ) -> None:
+        if receipts is None:
+            return
+        for receipt in receipts:
+            if not isinstance(receipt, Mapping):
+                continue
+            lane_id = next(
+                (
+                    candidate_id
+                    for candidate_id, candidate in state["lanes"].items()
+                    if isinstance(candidate, Mapping)
+                    and candidate.get("slice") == receipt.get("slice")
+                    and candidate.get("task") == receipt.get("task")
+                ),
+                None,
+            )
+            if lane_id is None:
+                continue
+            lane = state["lanes"][lane_id]
+            key, action, _ = self._record_action(state, lane_id, lane, "technical_verifier")
+            try:
+                current_head = lane.get("current_head")
+                if not isinstance(current_head, str):
+                    raise StateError("technical verifier lacks current lane head")
+                _validate_technical_verifier_receipt(
+                    receipt, lane, feature=self.feature, current_head=current_head
+                )
+            except StateError as exc:
+                action["status"] = "failed"
+                action.pop("receipt", None)
+                action["error"] = str(exc)
+                self._save(state)
+                continue
+            self._accept(action, external_id=str(receipt["receipt_id"]), receipt=dict(receipt))
+            action["idempotency_key"] = key
+            self._save(state)
 
     def _integrate_verified_slices(self, state: dict[str, Any], plan: Mapping[str, Any]) -> str:
         if state.get("mode") != "full":
@@ -773,6 +868,21 @@ class Coordinator:
                 outcome = payload.get("outcome")
             if outcome not in {"succeeded", "passed", "complete"}:
                 return "unverified"
+            verifier_key = idempotency_key(
+                self.feature, str(plan_lane["slice"]), str(plan_lane["task"]), "technical_verifier", state["source_git_head"]
+            )
+            verifier_action = state["actions"].get(verifier_key)
+            if not isinstance(verifier_action, Mapping) or verifier_action.get("status") not in {"accepted", "released"}:
+                return "unverified"
+            verifier_receipt = verifier_action.get("receipt")
+            if not isinstance(verifier_receipt, Mapping):
+                return "unverified"
+            try:
+                _validate_technical_verifier_receipt(
+                    verifier_receipt, lane, feature=self.feature, current_head=current_head
+                )
+            except StateError:
+                return "unverified"
             entries.append({"slice": str(plan_lane["slice"]), "commit": current_head})
         lane_id = str(plan_lanes[0]["id"])
         lane = state["lanes"][lane_id]
@@ -788,6 +898,17 @@ class Coordinator:
                 self._save(state)
                 return "serial"
         else:
+            root_head = git.head(self.root)
+            if root_head != state["source_git_head"]:
+                lane["fallback_reason"] = "feature-head-moved"
+                state["integration_recovery"] = {
+                    "status": "serial",
+                    "reason": "feature-head-moved",
+                    "expected_head": state["source_git_head"],
+                    "actual_head": root_head,
+                }
+                self._save(state)
+                return "serial"
             receipt = git.integrate_slices(self.root, entries)
         if not isinstance(receipt, Mapping) or receipt.get("status") != "merged":
             lane["fallback_reason"] = "integration-failed"
@@ -801,6 +922,11 @@ class Coordinator:
             return "serial"
         self._accept(action, external_id=receipt["post_head"], receipt=dict(receipt))
         state["integration_receipt"] = dict(receipt)
+        state["post_integration_gate"] = {
+            "status": "required",
+            "current_head": receipt["post_head"],
+            "invalidated_evidence": ["gate", "technical_verifier", "deep_review"],
+        }
         self._save(state)
         return "merged"
 
@@ -882,6 +1008,7 @@ class Coordinator:
                 accepted = adapter.accept_worker_done(dict(lane), dict(delivery), dict(output))
                 accepted = {**dict(accepted), "delivery_id": delivery["delivery_id"]}
                 worker_action["completion"] = dict(accepted)
+                lane["lifecycle_events"] = ["worker_done", "worker_read"]
                 self._save(state)
             else:
                 accepted = dict(completion)
@@ -902,6 +1029,7 @@ class Coordinator:
                     raise ExecutorError("delivery acknowledgement is uncorrelated")
                 self._accept(ack_action, external_id="ack:" + str(delivery["delivery_id"]), receipt=dict(ack))
                 worker_action["delivery_ack"] = dict(ack)
+                lane["lifecycle_events"] = ["worker_done", "worker_read", "worker_ack"]
                 self._save(state)
             release_key, release_action, release_created = self._record_action(state, lane_id, lane, "worker_release")
             release_action["dispatch_id"] = lane["dispatch_id"]
@@ -920,6 +1048,7 @@ class Coordinator:
                 ):
                     raise ExecutorError("worker release receipt was not accepted")
                 self._accept(release_action, external_id="release:" + str(lane["dispatch_id"]), receipt=dict(release_receipt))
+                lane["lifecycle_events"] = ["worker_done", "worker_read", "worker_ack", "worker_release"]
                 self._save(state)
             if lane.get("lease") is not None:
                 self._release_lease_state(snapshot, state, lane_id, provider)
@@ -1030,7 +1159,13 @@ class Coordinator:
         self._save(state)
         return {"released": True, "lease_id": lease_id, "idempotent": False}
 
-    def start(self, *, resume: bool = False, wait_seconds: float = 30) -> dict[str, Any]:
+    def start(
+        self,
+        *,
+        resume: bool = False,
+        wait_seconds: float = 30,
+        technical_verifier_receipts: Sequence[Mapping[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         snapshot = self._workflow()
         mode = snapshot["parallelization"]["mode"]
         if mode == "disabled":
@@ -1133,7 +1268,7 @@ class Coordinator:
                     self._validate_worktree_receipt(receipt, destinations[lane_id], state["source_git_head"])
                     bounded_path(_git_common_dir(self.root).parent.parent, receipt["worktree_path"])
                     self._accept(worktree_action, external_id=receipt.get("worktree_id"), receipt=dict(receipt))
-                    existing.update({key: receipt[key] for key in ("worktree_id", "worktree_path", "branch", "pre_head") if key in receipt})
+                    existing.update({key: receipt[key] for key in ("worktree_id", "gitdir", "worktree_path", "branch", "pre_head") if key in receipt})
                 except Exception as exc:
                     existing["fallback_reason"] = "worktree:" + str(exc)
                     if existing["state"] in {"ready", "running"}:
@@ -1260,10 +1395,21 @@ class Coordinator:
                     except ExecutorError:
                         return _serial_result(self.feature, mode, "cleanup-failed", lanes)
                 if terminal and existing["state"] == "running":
+                    if mode == "full" and not isinstance(existing.get("current_head"), str):
+                        try:
+                            self._record_producer_head(state, lane_id, existing)
+                        except ExecutorError as exc:
+                            existing["fallback_reason"] = "producer-head:" + str(exc)
+                            transition_lane(state, lane_id, "serial", expected="running")
+                            self._save(state)
+                            return _serial_result(self.feature, mode, "producer-head-failed", lanes)
                     transition_lane(state, lane_id, "complete", expected="running")
+        self._consume_technical_verifier_receipts(state, technical_verifier_receipts)
         integration_status = self._integrate_verified_slices(state, plan)
         if integration_status == "serial":
-            return _serial_result(self.feature, mode, "integration-failed", lanes)
+            result = _serial_result(self.feature, mode, state.get("integration_recovery", {}).get("reason", "integration-failed"), lanes)
+            result["state"] = state
+            return result
         if integration_status == "unverified":
             return _serial_result(self.feature, mode, "integration-unverified", lanes)
         self._save(state)
@@ -1285,6 +1431,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--feature", required=True)
     parser.add_argument("--adapter", choices=("auto", "orca"), default="auto")
     parser.add_argument("--wait-seconds", type=_wait_seconds, default=30.0)
+    parser.add_argument("--technical-verifier-receipt", action="append", type=Path, default=[])
     return parser
 
 
@@ -1333,7 +1480,17 @@ def main(
         if args.command == "status":
             result = coordinator.status()
         else:
-            result = coordinator.start(resume=args.command == "resume", wait_seconds=args.wait_seconds)
+            receipts: list[Mapping[str, Any]] = []
+            for receipt_path in args.technical_verifier_receipt:
+                payload = json.loads(receipt_path.read_text(encoding="utf-8"))
+                if not isinstance(payload, Mapping):
+                    raise ExecutorError("technical verifier receipt must be an object")
+                receipts.append(payload)
+            result = coordinator.start(
+                resume=args.command == "resume",
+                wait_seconds=args.wait_seconds,
+                technical_verifier_receipts=receipts,
+            )
         result = {**result, "command": args.command}
         print(json.dumps(result, sort_keys=True))
         return 0

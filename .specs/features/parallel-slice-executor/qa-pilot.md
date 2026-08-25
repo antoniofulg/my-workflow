@@ -16,14 +16,14 @@ python3 .agents/skills/autonomous/scripts/parallel_execute.py start \
 for attempt in $(seq 1 60); do
   STATUS_JSON="$(python3 .agents/skills/autonomous/scripts/parallel_execute.py status \
     --root "$FIXTURE_ROOT" --feature parallel-pilot)"
-  if python3 -c 'import json,sys; s=json.load(sys.stdin).get("state") or {}; lanes=s.get("lanes", {}); actions=s.get("actions", {}); terminal=lanes and all(lane.get("state") == "complete" for lane in lanes.values()); lifecycle=all(action.get("action") not in {"worker_ack", "worker_release"} or action.get("status") in {"accepted", "released"} for action in actions.values()); raise SystemExit(0 if terminal and lifecycle else 1)' <<<"$STATUS_JSON"; then
+  if python3 tools/qa_parallel_pilot.py lifecycle-check <<<"$STATUS_JSON"; then
     break
   fi
   python3 .agents/skills/autonomous/scripts/parallel_execute.py resume \
     --root "$FIXTURE_ROOT" --feature parallel-pilot --adapter auto --wait-seconds 30
   test "$attempt" -lt 60 || { echo "pilot did not reach terminal worker receipts" >&2; exit 1; }
 done
-python3 -c 'import json,sys; s=json.load(sys.stdin).get("state") or {}; lanes=s.get("lanes", {}); assert lanes and all(lane.get("state") == "complete" for lane in lanes.values()); assert all(action.get("action") not in {"worker_ack", "worker_release"} or action.get("status") in {"accepted", "released"} for action in s.get("actions", {}).values())' <<<"$STATUS_JSON"
+python3 tools/qa_parallel_pilot.py lifecycle-check <<<"$STATUS_JSON"
 trap - EXIT
 python3 tools/qa_parallel_pilot.py cleanup --root "$FIXTURE_ROOT"
 ```
@@ -36,8 +36,10 @@ dispatch, and terminal receipts active in one run; correlated `worker_done` deli
 ack-before-release ordering; clean waiter end and same-terminal dependency follow-up; deterministic
 checkpoint/gate or no-op evidence; and owned worker/worktree cleanup. Record command output and
 receipt identities without transcripts, environment values, or credentials. The bounded loop uses
-public `status` and `resume` only, waits at most 60 attempts of 30 seconds, and inspects terminal,
-acknowledgement, and worker-release receipts before cleanup. Abort the pilot rather
+public `status` and `resume` only, waits at most 60 attempts of 30 seconds, and the canonical
+`lifecycle-check` requires exactly the two expected lanes, terminal worker completion, and
+correlated read-before-ack-before-release receipts before cleanup. Missing receipts are false,
+never vacuous. Abort the pilot rather
 than substituting a fake result if the capability gate returns serial fallback. Cleanup is attested
 outside the disposable root and independently binds the ownership source HEAD to the fixture
 repository and frozen workflow before deletion. A repeated cleanup returns idempotent success only

@@ -24,6 +24,7 @@ describe("autonomous parallel slice dispatch contract", () => {
     );
 
     expect(executor).toContain('parser.add_argument("--adapter", choices=("auto", "orca")');
+    expect(executor).toContain('parser.add_argument("--technical-verifier-receipt"');
     expect(executor).toContain('"unsupported-adapter"');
     expect(executor).toContain("resource_provider");
     expect(executor).toContain("gate_required");
