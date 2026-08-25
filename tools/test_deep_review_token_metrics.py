@@ -586,6 +586,7 @@ class TokenMetricsTests(unittest.TestCase):
             db, out, jobs = root / "codex.sqlite", REPO / ".deep-review/metrics-retries", root / "jobs.json"
             calls, state_dir, ledger = root / "calls", root / "attempts", root / "metrics.json"
             active, overlap = root / "active", root / "overlap"
+            shutil.rmtree(out, ignore_errors=True)
             create_db(db)
             write_jobs(jobs, ".deep-review/metrics-retries")
             helper = root / "job.py"
