@@ -19,9 +19,10 @@ Nobody is reading. A run that finishes Specify and reports for acknowledgement h
 stays stopped until someone happens to look — which is the whole cost the human was avoiding. A run
 that proves readiness continues through the scoped remote delivery below.
 
-Carry straight through Specify, Design, Tasks and Execute. Announcing what just finished is fine;
-waiting after announcing it is not. A run ends **merged only after readiness and the scoped delivery
-steps are complete**, or **halted** on the conditions listed at the end of this file.
+For feature runs, carry straight through Specify, Design, Tasks and Execute. Announcing what just
+finished is fine; waiting after announcing it is not. A run ends **merged only after readiness and
+the scoped delivery steps are complete**, or **halted** on the conditions listed at the end of this
+file.
 
 Ambiguity that does not change what gets built is a decision to make, record in `decisions.md`, and
 move past — not a reason to pause. Only the halt conditions stop the run, and hitting one ends it
@@ -36,6 +37,7 @@ choice in one line with the reason, and proceed — this is a judgment to make, 
 
 | The work is | Path |
 | --- | --- |
+| **A direct correction** — an exact human-defined single invariant with no product ambiguity or implicit-requirement surface | The direct-correction path in `tlc-spec-driven` |
 | **A feature** — a capability or behaviour the product lacks | The full loop in `AGENTS.md` |
 | **An issue batch** — work already filed and reviewed | The filed-issue path in `docs/guidelines/REVIEW-ROUNDS.md` |
 
@@ -45,8 +47,8 @@ a one-line fix re-does work already done, which is the ceremony this workflow ex
 
 Two cases that look ambiguous and are not:
 
-- **A defect nobody filed** takes the feature path at its auto-sized depth. Nothing has reviewed it,
-  so nothing can be skipped on the grounds that it already was.
+- **A defect nobody filed** takes the direct-correction path when it meets that predicate; otherwise
+  it takes the feature path at its auto-sized depth.
 - **A request spanning both** — "fix the P2s and add the new capability" — splits into separate runs
   with separate pull requests. One run, one path; a batch that grows a feature inside it stops being
   a batch.
@@ -73,7 +75,7 @@ for a batch, every selected issue is read and grouped, with the ones you skipped
 
 ## 2. Settle every decision, or halt now
 
-List the decisions the work needs that the documents do not already answer. Either decide from
+For feature runs, list the decisions the work needs that the documents do not already answer. Either decide from
 evidence in the repository and record it as an `AD-NNN` in `.specs/STATE.md`, or mark it as needing
 the human.
 
@@ -98,6 +100,10 @@ unattended run gets wrong:
 - **The feature-closing step is the QA session** and writes no product code, so it takes no Verifier
   and no deep-review.
 
+**A direct correction:** follow the direct-correction path in `tlc-spec-driven`: inspect, implement,
+run the scoped validation, and commit. Create no feature artifacts and skip fresh Verifier,
+deep-review, and QA.
+
 **An issue batch:** `implement → scoped gate → one commit per batch`. No spec, no verifier, no
 deep-review round. Three things still fire, because they are about the change rather than the review:
 a user-visible fix flags and walks its scenario, a fix touching a security surface reads
@@ -118,7 +124,7 @@ The following conditions prove that a remote delivery would be safe to consider:
 
 | | |
 | --- | --- |
-| The consuming project's full gate exits 0 | On the final tree, after the last commit. A cached or partial result is not evidence. `make check` when the project has it |
+| The applicable gate exits 0 | The full gate for feature work, or the scoped gate for a direct correction, on the final tree after the last commit. A cached or partial result is not evidence. `make check` when the project has it |
 | No blocking findings remain | `Blocker` and `Major` per `docs/guidelines/REVIEW-ROUNDS.md` |
 | `main` has not moved underneath | If it has: integrate it, re-run the full gate, then re-prove readiness |
 | Every flagged scenario is terminal | See the three cases below. Only when the change is user-visible |
@@ -147,9 +153,10 @@ are complete, or the run halted with the reason and the out-of-scope action awai
 
 ## 5. Report
 
-Write `.specs/features/<slug>/decisions.md` — everything the run chose while nobody was watching, in
-a form a stakeholder can review and reverse. It is the deliverable that makes an unattended run
-accountable, so it is written even when the run halts.
+For feature work, write `.specs/features/<slug>/decisions.md` — everything the run chose while
+nobody was watching, in a form a stakeholder can review and reverse. It is the deliverable that
+makes an unattended run accountable, so it is written even when the run halts. Direct corrections
+have no feature artifact to report.
 
 Each decision carries: **what was chosen**, **why**, **the alternatives rejected and why**, **what it
 would cost to change now**, and **what it costs the user today**. Decisions weighty enough to outlive

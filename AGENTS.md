@@ -45,8 +45,11 @@ feature snapshots freeze delegated settings. Cursor also sees `.claude/` and `.c
 
 ## How work happens
 
-Use the `tlc-spec-driven` skill. It auto-sizes. At the start of workflow work, activate `ponytail`
-at `full` and keep it active for the entire session: Specify, Design, Tasks, Execute, every
+Use the `tlc-spec-driven` skill and size the work before creating feature artifacts. An exact
+human-defined direct correction follows that skill's direct-correction path; only feature work
+uses the hierarchy below. At the start of workflow work, activate `ponytail`
+at `full` and keep it active for the entire session; for direct corrections, this means through
+inspect, implement, validation, and commit. For feature work, it includes Specify, Design, Tasks, Execute, every
 subagent prompt, fix, and review, until the human explicitly says `stop ponytail` or `normal mode`.
 
 **Public hierarchy is `Feature -> Vertical Slice -> Task`.** A vertical slice is one observable
@@ -54,10 +57,9 @@ end-to-end behaviour; its tasks are the smallest implementation units plus their
 when the slice opens a journey nothing else already walks. Resolve review cadence before dispatch
 with `.agents/skills/workflow-config/SKILL.md`. Caps and QA rules: `docs/guidelines/REVIEW-ROUNDS.md`.
 
-At every size: the gate decides done; one atomic Conventional Commit per task; update `tasks.md`
-when present, or the inline execution plan when Tasks is skipped, before committing; Verifier ≠
-author on every code-changing slice; every counted claim carries the command that produced the
-number.
+For each feature slice: the gate decides done; one atomic Conventional Commit per task; update `tasks.md` when present, or the inline execution plan when Tasks is skipped, before committing;
+Verifier ≠ author on every code-changing slice; every counted claim carries the command that
+produced the number.
 
 Delivery is human-scheduled. Git and the artifacts named below own durable state.
 
