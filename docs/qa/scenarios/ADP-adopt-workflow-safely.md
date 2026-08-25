@@ -11,8 +11,8 @@ bug_ids: BUG-20260822-deep-review-learnings-untrackable; BUG-20260822-feature-sp
 fix_status: fixed
 retest_status: pass
 fix_commits: 0413862; a7397d2; 43e9910; a3fc718; 5b5474e
-evidence: docs/qa/evidence/2026-08-25-remediation-stall-bound/summary.json; docs/qa/evidence/2026-08-25-remediation-stall-bound/session.log
-last_report: docs/qa/reports/2026-08-25-remediation-stall-bound.md
+evidence: docs/qa/evidence/2026-08-25-parallel-deep-review/adoption-summary.json; docs/qa/evidence/2026-08-25-parallel-deep-review/npm-pack.log; docs/qa/evidence/2026-08-25-parallel-deep-review/adopt-first.log; docs/qa/evidence/2026-08-25-parallel-deep-review/adopt-second.log
+last_report: docs/qa/reports/2026-08-25-parallel-deep-review.md
 overlaps:
 ---
 
@@ -63,3 +63,8 @@ tree, shell edit, or handoff file.
 QA on 2026-08-25 retained this verdict as an adjacent canary: fresh adoption included the tracked
 remediation example, re-adoption preserved a consumer-owned local config byte-for-byte, and only
 printed the external security installer command without invoking it.
+
+QA on 2026-08-25 reconfirmed the retained verdict for Parallel Deep Review: package membership
+included all changed Deep Review surfaces; two adoptions installed source-identical files,
+preserved consumer-owned bytes, retained tracked lock provenance, and only printed the external
+installer command.
