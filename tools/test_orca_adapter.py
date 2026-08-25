@@ -609,9 +609,17 @@ def test_r15_failed_owned_live_terminal_stops_once_then_releases_and_retries() -
         else:
             raise AssertionError("stopped/released dispatch must reject late delivery")
         replay_cli = RecordingCLI([show("stopped", False, False), {"worktree_path": worktree["worktree_path"]}, worker])
-        replay_receipt = adapter(root, replay_cli).reconcile_action(action)
+        replay_adapter = adapter(root, replay_cli)
+        replay_receipt = replay_adapter.reconcile_action(action)
         assert replay_receipt is not None and replay_receipt["dispatch_id"] == dispatch_id
         assert [call[0][2] for call in replay_cli.calls] == ["worker-show", "show", "worker-start"]
+        replay_cli.responses.append({"deliveries": [{"id": "late-r15-replay", "run_id": "run-A", "type": "worker_done", "from_handle": terminal, "payload": json.dumps({"taskId": "task-A", "dispatchId": dispatch_id, "outcome": "succeeded"})}]})
+        try:
+            replay_adapter.wait_events(replay_receipt)
+        except orca_adapter.AdapterError as exc:
+            assert "stale" in str(exc)
+        else:
+            raise AssertionError("fresh adapter must restore revoked dispatch before delivery checks")
     finally:
         shutil.rmtree(root)
 
@@ -634,6 +642,52 @@ def test_r15_live_takeover_or_unsupervised_terminal_blocks_stop_and_release() ->
             assert [call[0][2] for call in cli.calls] == ["worker-show"]
         finally:
             shutil.rmtree(root)
+
+
+def test_retained_release_evidence_blocks_live_recovery_before_stop() -> None:
+    dispatch_id = "ctx_d9be12345678"
+    terminal = "term_d33912345678"
+    for persisted, resource_state in ((True, "not_requested"), (False, "retained")):
+        root, lane, worktree = fixture()
+        try:
+            response = {"result": {"dispatch": {"id": dispatch_id, "status": "failed"}, "terminal": {"handle": terminal, "status": "running", "connected": True, "writable": True}, "terminalResource": {"id": "wtr-r15", "ownershipState": "owned", "owner": {"dispatchId": dispatch_id}, "origin": {"dispatchId": dispatch_id}, "releaseState": resource_state, "retainedReason": "identity_unproven"}}}
+            cli = RecordingCLI([response])
+            partial = {"run_id": "run-A", "task_id": "task-A", "dispatch_id": dispatch_id, "terminal_handle": terminal}
+            if persisted:
+                partial.update({"releaseState": "retained", "retainedReason": "identity_unproven", "lastError": "tab_not_found"})
+            action = {"action": "worker", "key": KEY, "partial_effect": partial, "worker_plan": lane, "worktree_receipt": worktree}
+            try:
+                adapter(root, cli).reconcile_action(action)
+            except orca_adapter.AdapterError as exc:
+                assert exc.details["code"] == "release_identity_unproven"
+                assert exc.details["releaseState"] == "retained"
+                assert exc.details["retainedReason"] == "identity_unproven"
+            else:
+                raise AssertionError("retained release evidence must block before stop")
+            assert [call[0][2] for call in cli.calls] == ["worker-show"]
+        finally:
+            shutil.rmtree(root)
+
+
+def test_r15_post_stop_running_terminal_blocks_before_release_or_retry() -> None:
+    root, lane, worktree = fixture()
+    dispatch_id = "ctx_d9be12345678"
+    terminal = "term_d33912345678"
+    try:
+        show_live = {"result": {"dispatch": {"id": dispatch_id, "status": "failed"}, "terminal": {"handle": terminal, "status": "running", "connected": True, "writable": True}, "terminalResource": {"id": "wtr-r15", "ownershipState": "owned", "owner": {"dispatchId": dispatch_id}, "origin": {"dispatchId": dispatch_id}}}}
+        stop = {"result": {"stopped": True, "dispatch": {"id": dispatch_id, "status": "stopped"}}}
+        post_running = {"result": {"dispatch": {"id": dispatch_id, "status": "stopped"}, "terminal": {"handle": terminal, "status": "running", "connected": False, "writable": False}, "terminalResource": {"id": "wtr-r15", "ownershipState": "owned", "owner": {"dispatchId": dispatch_id}, "origin": {"dispatchId": dispatch_id}}}}
+        cli = RecordingCLI([show_live, stop, post_running])
+        action = {"action": "worker", "key": KEY, "partial_effect": {"run_id": "run-A", "task_id": "task-A", "dispatch_id": dispatch_id, "terminal_handle": terminal}, "worker_plan": lane, "worktree_receipt": worktree}
+        try:
+            adapter(root, cli).reconcile_action(action)
+        except orca_adapter.AdapterError as exc:
+            assert exc.details["code"] == "recovery_stop_unproven"
+        else:
+            raise AssertionError("post-stop running terminal must block")
+        assert [call[0][2] for call in cli.calls] == ["worker-show", "worker-stop", "worker-show"]
+    finally:
+        shutil.rmtree(root)
 
 
 def test_r15_pending_stop_receipt_reuses_exact_request_on_restart() -> None:

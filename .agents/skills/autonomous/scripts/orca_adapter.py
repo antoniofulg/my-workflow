@@ -983,6 +983,8 @@ class OrcaAdapter:
                         "error": "tab_not_found",
                     }.items()
                 )
+            if release_accepted:
+                self._revoked_dispatches.add(dispatch_id)
             if status == "released" and not release_accepted:
                 raise AdapterError(
                     "Orca released dispatch lacks its recovery receipt",
@@ -991,6 +993,28 @@ class OrcaAdapter:
             if status not in {"failed", "stopped", "abandoned", "revoked", "exited", "released"}:
                 code = "worker_outcome_unknown" if status in {None, "unknown", "outcome_unknown"} else "worker_still_live"
                 raise AdapterError("Orca worker dispatch is not reclaimable", details={"code": code, "dispatch_id": dispatch_id, "status": status or "unknown"})
+            persisted_reason = normalized_partial.get("retainedReason") or normalized_partial.get("reason")
+            persisted_release_state = normalized_partial.get("releaseState") or normalized_partial.get("release_state")
+            provider_resource = _nested_resource(status_response)
+            provider_release_state = None if provider_resource is None else provider_resource.get("releaseState") or provider_resource.get("release_state")
+            provider_reason = None if provider_resource is None else provider_resource.get("retainedReason") or provider_resource.get("retained_reason") or provider_resource.get("reason")
+            retained_state = persisted_release_state == "retained" or provider_release_state == "retained"
+            retained_reason = persisted_reason or provider_reason
+            if not release_accepted and (
+                normalized_partial.get("code") == "release_identity_unproven"
+                or retained_state
+                or retained_reason in {"identity_unproven", "user_takeover"}
+            ):
+                code = "release_identity_unproven" if retained_reason == "identity_unproven" else "recovery_stop_unproven"
+                details = {
+                    **dict(normalized_partial), "code": code, "dispatch_id": dispatch_id,
+                    "releaseState": persisted_release_state or provider_release_state,
+                    "retainedReason": retained_reason,
+                    "idempotent": True,
+                }
+                if provider_resource is not None:
+                    details["terminalResource"] = dict(provider_resource)
+                raise AdapterError("Orca retained terminal resource blocks recovery", details=details)
             stop_request = action_key + ":recovery-stop"
             if status in {"failed", "stopped", "revoked"} and self._requires_recovery_stop(status_response, dispatch_id, authoritative_terminal):
                 stop = partial.get("recovery_stop")
@@ -1025,6 +1049,7 @@ class OrcaAdapter:
                     or stopped_terminal != authoritative_terminal
                     or stopped_status not in {"stopped", "exited", "released"}
                     or not isinstance(stopped_state, Mapping)
+                    or stopped_state.get("status") != "exited"
                     or stopped_state.get("connected") is not False
                     or stopped_state.get("writable") is not False
                 ):
@@ -1034,18 +1059,6 @@ class OrcaAdapter:
                     )
                 status_response = stopped_response
                 status = stopped_status
-            persisted_reason = normalized_partial.get("retainedReason") or normalized_partial.get("reason")
-            persisted_release_state = normalized_partial.get("releaseState") or normalized_partial.get("release_state")
-            if normalized_partial.get("code") == "release_identity_unproven" or (
-                persisted_release_state == "retained" and persisted_reason == "identity_unproven"
-            ):
-                details = {
-                    **dict(normalized_partial),
-                    "code": "release_identity_unproven",
-                    "dispatch_id": dispatch_id,
-                    "idempotent": True,
-                }
-                raise AdapterError("Orca worker release blocked: release_identity_unproven", details=details)
             if not release_accepted:
                 try:
                     release = self._release({"idempotency_key": _text(action.get("key"), "idempotency key") + ":recovery-release", "dispatch_id": dispatch_id})
