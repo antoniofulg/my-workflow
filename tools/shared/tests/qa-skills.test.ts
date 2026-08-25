@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -53,6 +53,40 @@ const verifierPacketPaths = [
   "templates/agents/claude/verifier.md",
   "templates/agents/codex/verifier.toml",
 ] as const;
+
+describe("host-owned session continuation removal contract", () => {
+  it("HSC-01/HSC-04 removes every repository and package artifact", () => {
+    const removedPaths = [
+      "scripts/ai-memory.zsh",
+      "scripts/test_ai_memory.py",
+      "docs/workflow/ai-memory.md",
+      "docs/qa/scenarios/WFL-ai-memory-handoff.md",
+      ".specs/features/ai-memory-handoff/",
+    ];
+
+    for (const relativePath of removedPaths) {
+      expect(existsSync(join(repositoryRoot, relativePath))).toBe(false);
+    }
+
+    const packageReport = JSON.parse(
+      execFileSync("npm", ["pack", "--dry-run", "--json"], {
+        cwd: repositoryRoot,
+        encoding: "utf8",
+      }),
+    ) as Array<{ files?: Array<{ path: string }> }>;
+    const packagePaths = packageReport.flatMap((entry) => entry.files ?? []).map((file) => file.path);
+
+    expect(
+      packagePaths.filter((packagePath) =>
+        removedPaths.some(
+          (removedPath) =>
+            packagePath === removedPath ||
+            (removedPath.endsWith("/") && packagePath.startsWith(removedPath)),
+        ),
+      ),
+    ).toEqual([]);
+  });
+});
 
 describe("QA workflow artifact policy", () => {
   it("IT-007 ignores generated Deep Review output but keeps learnings eligible", () => {

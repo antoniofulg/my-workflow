@@ -83,10 +83,12 @@ T4 -> T5 -> T6
 
 **Done when**:
 
-- [ ] Required implementation, test, guide, active scenario, and obsolete feature tree are absent.
-- [ ] No stub, alias, wrapper, placeholder, empty directory, or compatibility path remains.
-- [ ] CT deleted-path assertions and package absence assertion pass.
-- [ ] `npm test` passes with no silent test deletion outside the required feature test.
+- [x] Required implementation, test, guide, active scenario, and obsolete feature tree are absent.
+- [x] No stub, alias, wrapper, placeholder, empty directory, or compatibility path remains.
+- [x] CT deleted-path assertions and package absence assertion pass.
+- [x] `npm test` passes with no silent test deletion outside the required feature test.
+
+**Status:** complete — `npm test` (7 files, 109 tests, 0 failed).
 
 **Tests**: unit
 **Gate**: full

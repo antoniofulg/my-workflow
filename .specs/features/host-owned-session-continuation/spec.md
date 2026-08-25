@@ -117,10 +117,10 @@ None. The feature removes a runtime and performs no shell startup, hook, externa
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| HSC-01 | Remove the published integration | Tasks | Pending |
+| HSC-01 | Remove the published integration | Tasks | Verified |
 | HSC-02 | Remove the published integration | Tasks | Pending |
 | HSC-03 | Remove the published integration | Tasks | Pending |
-| HSC-04 | Remove the published integration | Tasks | Pending |
+| HSC-04 | Remove the published integration | Tasks | Verified |
 | HSC-05 | Publish host-owned continuation | Tasks | Pending |
 | HSC-06 | Publish host-owned continuation | Tasks | Pending |
 | HSC-07 | Publish host-owned continuation | Tasks | Pending |
