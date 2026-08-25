@@ -439,17 +439,21 @@ class TokenMetricsTests(unittest.TestCase):
                         cwd=REPO, capture_output=True, text=True,
                     )
                     self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+                    run_status = json.loads((out / "runs/jobs-status.json").read_text(encoding="utf-8"))
+                    expected_labels = [f"job-{i}" for i in range(1, 5)]
+                    self.assertEqual([row["label"] for row in run_status["jobs"]], expected_labels)
                     validate = subprocess.run(
                         [sys.executable, str(SCRIPTS / "run_jobs.py"), "--out", str(out), "--jobs-file", str(jobs), "--no-freeze-check", "--validate-only"],
                         cwd=REPO, capture_output=True, text=True,
                     )
                     self.assertEqual(validate.returncode, 0, validate.stdout + validate.stderr)
-                    status = json.loads((out / "runs/jobs-status.json").read_text(encoding="utf-8"))
+                    validation_status = json.loads((out / "runs/jobs-status.json").read_text(encoding="utf-8"))
+                    self.assertEqual([row["label"] for row in validation_status["jobs"]], expected_labels)
                     merge = subprocess.run([sys.executable, str(SCRIPTS / "merge_findings.py"), "--out", str(out)], cwd=REPO, capture_output=True, text=True)
                     self.assertEqual(merge.returncode, 0, merge.stdout + merge.stderr)
                     render = subprocess.run([sys.executable, str(SCRIPTS / "render_review.py"), "--out", str(out), "--no-freeze-check"], cwd=REPO, capture_output=True, text=True)
                     self.assertEqual(render.returncode, 0, render.stdout + render.stderr)
-                    artifacts.append((status["jobs"], json.loads((out / "findings.json").read_text(encoding="utf-8")), (out / "review.md").read_text(encoding="utf-8")))
+                    artifacts.append((run_status["jobs"], json.loads((out / "findings.json").read_text(encoding="utf-8")), (out / "review.md").read_text(encoding="utf-8")))
                 finally:
                     shutil.rmtree(out, ignore_errors=True)
         self.assertEqual([row["label"] for row in artifacts[0][0]], [f"job-{i}" for i in range(1, 5)])

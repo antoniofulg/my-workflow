@@ -301,6 +301,15 @@ class DeepReviewContractTests(unittest.TestCase):
             result = run_script(BUILD_MANIFEST, root, "--out", str(override), "--base", "HEAD", "--head", "HEAD", "--concurrency", "2")
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(json.loads((override / "manifest.json").read_text())["concurrency"], 2)
+            (root / ".deep-review.yaml").write_text("concurrency: 1\n", encoding="utf-8")
+            one = root / ".deep-review" / "one"
+            result = run_script(BUILD_MANIFEST, root, "--out", str(one), "--base", "HEAD", "--head", "HEAD")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(json.loads((one / "manifest.json").read_text())["concurrency"], 1)
+            six = root / ".deep-review" / "six"
+            result = run_script(BUILD_MANIFEST, root, "--out", str(six), "--base", "HEAD", "--head", "HEAD", "--concurrency", "6")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(json.loads((six / "manifest.json").read_text())["concurrency"], 6)
 
         for raw_value in ("true", "false", "0", "7", '"3"', "1.5"):
             with self.subTest(raw_value=raw_value), tempfile.TemporaryDirectory() as raw:
