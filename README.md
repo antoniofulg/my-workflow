@@ -78,6 +78,9 @@ does not require a Git `HEAD`. Before running the workflow-config resolver, the 
 repository with at least one commit. Node.js and npm are needed only to validate this source pack's
 gates, not to adopt it.
 
+Adoption is a review before it is a command. [`docs/adoption-prompt.md`](docs/adoption-prompt.md)
+carries the prompt for the read-only inspection, adoption command, and diff review.
+
 Feature workflow state follows the [artifact lifecycle](docs/guidelines/ARTIFACT-LIFECYCLE.md) and
 remains visible to Git. Adoption removes only the exact legacy `.specs/features/` ignore line,
 including duplicates, preserves consumer-owned lines and comments, and never stages or commits
@@ -145,6 +148,54 @@ python3 .agents/skills/workflow-config/scripts/workflow_config.py \
 The complete contract is in the
 [workflow-config skill](.agents/skills/workflow-config/SKILL.md).
 
+## Update an adopted project
+
+Start from a clean tree and a dedicated update branch. Read the changelog since the version the
+project adopted, run adoption with the appropriate agent-file choice, then inspect the complete diff
+before committing:
+
+```bash
+cd /path/to/target-project
+git status --short
+git switch -c chore/update-my-workflow
+python3 /path/to/my-workflow/scripts/adopt.py --skip-agents .
+git diff
+```
+
+Use the default command for a new project or a target that still has the product stencil. Use
+`--skip-agents` when the target has a product-specific `AGENTS.md`; it preserves `AGENTS.md` and
+`CLAUDE.md`, so merge workflow instruction changes manually. Read [`CHANGELOG.md`](CHANGELOG.md)
+between the adopted version and the current package version before accepting the update.
+
+## Managed paths
+
+Review the managed paths: adoption replaces workflow-owned documentation, knowledge scaffolding, and bundled skills. It
+creates missing `docs/qa/README.md`, `tools/ad-index.py`, `.my-workflow.toml.example`, and
+`templates/agents/`; an existing consumer QA profile remains untouched. It merges workflow ignore
+entries and relinks Claude skill pointers. Product documentation, `.specs/`, and an existing local
+`.my-workflow.toml` remain consumer-owned.
+
+The local config is the source for generated provider packets. Adoption preserves an existing
+`.my-workflow.toml`, installs tracked templates when missing, and runs `--sync-agents`; sync creates
+the local config when absent and regenerates or overwrites the ignored `.claude/agents/`,
+`.codex/agents/`, and `.cursor/agents/` packets from the templates and config. Edit the config or
+tracked templates, not generated runtime packets.
+
+## Troubleshooting
+
+**`refusing to overwrite AGENTS.md: What this project is is not the stencil.`** The target has a
+product-specific description. Re-run with `--skip-agents`, then merge workflow changes into
+`AGENTS.md` and `CLAUDE.md` manually.
+
+**`refusing adoption: Makefile:N uses machine-global TLC path`** Point the target's gate at the
+vendored `.agents/skills/tlc-spec-driven/scripts/...` path.
+
+**Claude skill symlinks point nowhere.** Re-run `adopt.py`; it recreates the `.claude/skills/`
+links into `.agents/skills/`.
+
+**A runtime packet has the wrong model or effort.** Edit the local `.my-workflow.toml`, then run
+the documented `workflow_config.py --sync-agents` command. Runtime packets are generated output.
+
 ## Optional integrations
 
 The workflow stays stack- and tool-agnostic. Optional capabilities can improve a stage when
@@ -160,44 +211,6 @@ available:
 
 No integration is mandatory or installed by adoption. Keep daemon, port, CLI and version details in
 the relevant integration documentation.
-
-Paste this once to an agent, replacing the pack and target paths:
-
-```
-Adopt the agent OS from /path/to/my-workflow into /path/to/target-project.
-
-First check `git status --short`; do not stash, reset, clean, or hide unrelated changes. Read the
-pack's README.md, AGENTS.md, and adoption script. Inspect the target read-only: package and build
-manifests, declared gates, CI jobs, production-parity start and health paths, public interfaces,
-authentication, fixtures or seed data, cleanup and residue checks, and installed QA tooling. Never
-invent a command or install a QA framework during adoption.
-
-Before writing, report the managed paths and every target path that could be replaced. Preserve
-product-owned product, architecture, design, and stack documentation. For a new project, replace
-the AGENTS.md product stencil and create product docs only as the product earns them. For an
-existing project, the default command refuses a filled product paragraph; use `--skip-agents` when
-you want the rest of the workflow installed first, then merge the delivery loop into `AGENTS.md`
-and update `CLAUDE.md` by hand. Preserve an existing local `.my-workflow.toml` byte-for-byte.
-Install missing example/templates, then let `--sync-agents` generate the ignored runtime packets;
-runtime edits are disposable and tracked templates are the instruction source.
-
-Run `python3 /path/to/my-workflow/scripts/adopt.py /path/to/target-project` only after that review.
-For a filled product paragraph, use `--skip-agents` as described above. Adoption also runs the
-target's explicit `--sync-agents` command after installing missing example/templates.
-If `docs/qa/README.md` is absent, create it. If it exists, merge only newly discovered facts into
-the existing profile; never overwrite existing content. Record the discovered interfaces, existing
-runner or manual adapter, start and health authority, authentication, fixtures, cleanup, and
-limitations. Keep command facts in the target's executable manifests or CI and link to them from
-the profile.
-
-Review the complete diff, managed-path overwrites, and the target's declared full gate. Record the
-exact gate command and result. If the change exposes a user-visible UI, API, CLI, mobile, public
-configuration, adoption, or docs-as-interface promise, send the existing Verifier a fresh
-`qa-plan` packet followed by a separate `qa-execute` packet. For a purely internal refactor,
-record `no user-visible change` and do not run QA. Activate `tlc-spec-driven`. At the start of
-workflow work, activate `ponytail` at `full`; `AGENTS.md` carries the full-cycle session rule and
-the explicit stop commands.
-```
 
 The script merges the workflow-owned ignore entries, copies missing example/templates, generates
 local runtime packets, and creates the QA profile only when the target does not already have one.

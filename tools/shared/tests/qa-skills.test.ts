@@ -627,23 +627,26 @@ describe("adoption and public setup", () => {
 
   it("IT-010 makes adoption reviewable and routes QA by observability", () => {
     const readme = readRepositoryFile("README.md");
+    const prompt = readRepositoryFile("docs/adoption-prompt.md");
     const adopt = readRepositoryFile("scripts/adopt.py");
 
-    expect(readme).toContain("git status --short");
-    expect(readme).toContain("read-only");
-    expect(readme).toContain("package and build");
-    expect(readme).toContain("manifests");
-    expect(readme).toContain("CI jobs");
+    expect(readme).toContain("docs/adoption-prompt.md");
     expect(readme).toContain("managed paths");
-    expect(readme).toContain("complete diff");
-    expect(readme).toContain("declared full gate");
-    expect(readme).toContain("If `docs/qa/README.md` is absent, create it");
-    expect(readme).toContain("If it exists, merge only newly discovered facts");
-    expect(readme).toContain("never overwrite existing content");
-    expect(readme).toContain("qa-plan");
-    expect(readme).toContain("qa-execute");
-    expect(readme).toContain("purely internal refactor");
-    expect(readme).toContain("no user-visible change");
+    expect(prompt).toContain("git status --short");
+    expect(prompt).toContain("read-only");
+    expect(prompt).toContain("package and build");
+    expect(prompt).toContain("manifests");
+    expect(prompt).toContain("CI jobs");
+    expect(prompt).toContain("managed paths");
+    expect(prompt).toContain("complete diff");
+    expect(prompt).toContain("declared full gate");
+    expect(prompt).toContain("If `docs/qa/README.md` is absent, create it");
+    expect(prompt).toContain("If it exists, merge only newly discovered facts");
+    expect(prompt).toContain("never overwrite existing content");
+    expect(prompt).toContain("qa-plan");
+    expect(prompt).toContain("qa-execute");
+    expect(prompt).toContain("purely internal refactor");
+    expect(prompt).toContain("no user-visible change");
     expect(adopt).toContain('".agents/skills/qa-plan"');
     expect(adopt).toContain('".agents/skills/qa-execute"');
     expect(adopt).toContain('".my-workflow.toml.example"');
@@ -672,7 +675,7 @@ describe("adoption and public setup", () => {
   it("IT-021 keeps Ponytail active from workflow start through the full cycle", () => {
     const agents = readRepositoryFile("AGENTS.md");
     const loop = readRepositoryFile("docs/workflow/loop.md");
-    const readme = readRepositoryFile("README.md");
+    const prompt = readRepositoryFile("docs/adoption-prompt.md");
     const ponytail = readRepositoryFile(".agents/skills/ponytail/SKILL.md");
 
     expect(agents).toContain(
@@ -684,7 +687,7 @@ describe("adoption and public setup", () => {
     expect(agents).toContain("until the human explicitly says `stop ponytail` or `normal mode`");
     expect(loop).toContain("`AGENTS.md` carries the activation and session\npersistence rule");
     expect(loop).toContain("[Ponytail skill](../../.agents/skills/ponytail/SKILL.md)");
-    expect(readme).toContain(
+    expect(prompt).toContain(
       "At the start of\nworkflow work, activate `ponytail` at `full`; `AGENTS.md` carries the full-cycle",
     );
     expect(ponytail).toContain("ACTIVE EVERY RESPONSE");
