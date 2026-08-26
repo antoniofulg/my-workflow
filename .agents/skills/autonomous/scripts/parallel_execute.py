@@ -424,6 +424,26 @@ def _serial_result(feature: str, mode: str, reason: str, lanes: list[dict[str, A
     }
 
 
+def _compatibility_is_usable(result: Mapping[str, Any]) -> bool:
+    """Only an explicit, clean compatibility result may authorize host effects."""
+    proof = result.get("proof")
+    return result.get("status") == "compatible" and isinstance(proof, Mapping) and proof.get("cleanup") == "clean"
+
+
+def _adapter_fallback(
+    feature: str,
+    mode: str,
+    result: Mapping[str, Any],
+    lanes: list[dict[str, Any]],
+) -> dict[str, Any]:
+    adapter = result.get("adapter", "unknown")
+    reason = result.get("reason")
+    if not isinstance(reason, str) or not reason:
+        missing = result.get("missing_capabilities")
+        reason = "missing-capabilities:" + ",".join(str(item) for item in missing) if isinstance(missing, list) and missing else "incompatible"
+    return _serial_result(feature, mode, f"{adapter}:{reason}", lanes)
+
+
 class ResourceProvider:
     """Validate the consumer executable's correlated JSON lease protocol."""
 
@@ -552,6 +572,71 @@ class Coordinator:
         if state is None:
             return {"version": 1, "feature": self.feature, "mode": workflow["parallelization"]["mode"], "state": None, "actions": []}
         return {"version": 1, "feature": self.feature, "mode": state["mode"], "state": state, "actions": []}
+
+    def preflight(self, *, adapter: str, canary: bool = False) -> dict[str, Any]:
+        """Inspect one host adapter before any scheduler or checkout effect."""
+        workflow = self._workflow()
+        mode = workflow["parallelization"]["mode"]
+        if mode == "disabled":
+            return {
+                "version": 1,
+                "feature": self.feature,
+                "mode": mode,
+                "adapter": adapter,
+                "status": "disabled",
+                "reason": "disabled-mode",
+                "proof": {"cleanup": "not-run"},
+            }
+        if self.adapter_factory is None:
+            return {
+                "version": 1,
+                "feature": self.feature,
+                "mode": mode,
+                "adapter": adapter,
+                "status": "unsupported",
+                "reason": "adapter-unavailable",
+                "proof": {"cleanup": "not-run"},
+            }
+        try:
+            instance = self.adapter_factory()
+            probe = getattr(instance, "probe", None)
+            if not callable(probe):
+                return {
+                    "version": 1,
+                    "feature": self.feature,
+                    "mode": mode,
+                    "adapter": adapter,
+                    "status": "unsupported",
+                    "reason": "compatibility-probe-unavailable",
+                    "proof": {"cleanup": "not-run"},
+                }
+            result = probe()
+            if not isinstance(result, Mapping):
+                raise ExecutorError("malformed compatibility result")
+            if canary and result.get("status") == "candidate":
+                run_canary = getattr(instance, "canary", None)
+                if not callable(run_canary):
+                    return {**dict(result), "status": "unsupported", "reason": "canary-unavailable"}
+                try:
+                    run_canary()
+                except Exception as exc:
+                    details = getattr(exc, "details", None)
+                    failure = {"status": "unsupported", "reason": str(exc)}
+                    if isinstance(details, Mapping):
+                        failure["failure"] = dict(details)
+                    return {**dict(result), **failure}
+                result = probe()
+            return dict(result)
+        except Exception as exc:
+            return {
+                "version": 1,
+                "feature": self.feature,
+                "mode": mode,
+                "adapter": adapter,
+                "status": "unsupported",
+                "reason": str(exc),
+                "proof": {"cleanup": "not-run"},
+            }
 
     def _lane_resources(self, lane: Mapping[str, Any]) -> list[str] | None:
         resources = lane.get("resources")
@@ -1228,7 +1313,17 @@ class Coordinator:
             return _serial_result(self.feature, mode, "missing-resource-provider", lanes)
         if self.adapter_factory is None:
             return _serial_result(self.feature, mode, "unsupported-adapter", lanes)
-        adapter = self.adapter_factory()
+        try:
+            adapter = self.adapter_factory()
+            probe = getattr(adapter, "probe", None)
+            if callable(probe):
+                compatibility = probe()
+                if not isinstance(compatibility, Mapping) or not _compatibility_is_usable(compatibility):
+                    if isinstance(compatibility, Mapping):
+                        return _adapter_fallback(self.feature, mode, compatibility, lanes)
+                    return _serial_result(self.feature, mode, "adapter:malformed-compatibility", lanes)
+        except Exception as exc:
+            return _serial_result(self.feature, mode, "adapter:" + str(exc), lanes)
         actions: list[dict[str, Any]] = []
         slice_lane_ids: dict[str, list[str]] = {}
         for plan_lane in lanes:
@@ -1499,10 +1594,11 @@ class Coordinator:
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("start", "resume", "status"))
+    parser.add_argument("command", choices=("start", "resume", "status", "preflight"))
     parser.add_argument("--root", type=Path, default=Path.cwd())
     parser.add_argument("--feature", required=True)
-    parser.add_argument("--adapter", choices=("auto", "orca"), default="auto")
+    parser.add_argument("--adapter", choices=("auto", "orca", "maestri"), default="auto")
+    parser.add_argument("--canary", action="store_true")
     parser.add_argument("--wait-seconds", type=_wait_seconds, default=30.0)
     parser.add_argument("--technical-verifier-receipt", action="append", type=Path, default=[])
     return parser
@@ -1519,13 +1615,27 @@ def _wait_seconds(value: str) -> float:
 
 
 def _adapter_factory(name: str, root: Path, feature: str) -> Callable[[], Any] | None:
+    maestri_selected = name == "maestri" or (name == "auto" and bool(os.environ.get("MAESTRI_SOCKET")))
+    if maestri_selected:
+        if shutil.which("maestri") is None:
+            return None
+        try:
+            import maestri_adapter  # type: ignore[import-not-found]
+        except ImportError:
+            return None
+        factory = getattr(maestri_adapter, "Adapter", None) or getattr(maestri_adapter, "MaestriAdapter", None)
+        if factory is None:
+            return None
+        return lambda: factory(root=root, feature=feature)
     if name not in {"auto", "orca"}:
+        return None
+    if shutil.which("orca") is None:
         return None
     try:
         import orca_adapter  # type: ignore[import-not-found]
     except ImportError:
         return None
-    if shutil.which("orca") is None or getattr(orca_adapter, "CAPABILITY", None) != "orchestration.contract.v1":
+    if getattr(orca_adapter, "CAPABILITY", None) != "orchestration.contract.v1":
         return None
     factory = getattr(orca_adapter, "Adapter", None) or getattr(orca_adapter, "OrcaAdapter", None)
     if factory is None:
@@ -1552,6 +1662,8 @@ def main(
         )
         if args.command == "status":
             result = coordinator.status()
+        elif args.command == "preflight":
+            result = coordinator.preflight(adapter=args.adapter, canary=args.canary)
         else:
             receipts: list[Mapping[str, Any]] = []
             for receipt_path in args.technical_verifier_receipt:

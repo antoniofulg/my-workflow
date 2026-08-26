@@ -205,6 +205,62 @@ def test_disabled_coordinator_returns_serial_without_constructing_adapter() -> N
         shutil.rmtree(root)
 
 
+def test_incompatible_adapter_probe_serializes_before_worktree_effect() -> None:
+    root = make_repo()
+    original_plan = parallel_execute.Coordinator._plan
+    try:
+        class IncompatibleAdapter(RecordingAdapter):
+            def probe(self) -> dict[str, object]:
+                return {
+                    "adapter": "fixture",
+                    "status": "unsupported",
+                    "reason": "known-incompatible-runtime",
+                    "proof": {"cleanup": "not-run"},
+                }
+
+        adapter = IncompatibleAdapter()
+        parallel_execute.Coordinator._plan = lambda self: lane_plan(resources=[])  # type: ignore[method-assign]
+        result = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: adapter).start()
+        assert result["fallback"] is True
+        assert result["reason"] == "fixture:known-incompatible-runtime"
+        assert adapter.effects == []
+        assert not list(root.parent.glob(f".{root.name}-parallel-slices"))
+    finally:
+        parallel_execute.Coordinator._plan = original_plan  # type: ignore[method-assign]
+        shutil.rmtree(root)
+
+
+def test_preflight_cli_emits_one_structured_result_without_starting_scheduler() -> None:
+    root = make_repo()
+    try:
+        class CompatibleAdapter:
+            def probe(self) -> dict[str, object]:
+                return {
+                    "version": 1,
+                    "feature": "fixture",
+                    "adapter": "fixture",
+                    "status": "compatible",
+                    "runtime": {"app_version": "candidate"},
+                    "proof": {"cleanup": "clean"},
+                }
+
+        stdout = io.StringIO()
+        with redirect_stdout(stdout):
+            exit_code = parallel_execute.main(
+                ["preflight", "--root", str(root), "--feature", "fixture", "--adapter", "orca"],
+                adapter_factory=lambda: CompatibleAdapter(),
+            )
+        assert exit_code == 0
+        lines = stdout.getvalue().splitlines()
+        assert len(lines) == 1
+        result = json.loads(lines[0])
+        assert result["command"] == "preflight"
+        assert result["status"] == "compatible"
+        assert result["proof"]["cleanup"] == "clean"
+    finally:
+        shutil.rmtree(root)
+
+
 class RecordingAdapter:
     def __init__(self) -> None:
         self.effects: list[tuple[str, str]] = []
