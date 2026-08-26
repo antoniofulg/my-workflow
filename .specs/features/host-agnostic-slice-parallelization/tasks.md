@@ -80,7 +80,7 @@ T4
 
 ### T2: Prove Orca compatibility with a lifecycle canary
 
-**Status:** pending
+**Status:** complete
 **Slice:** B
 **Resources:** none
 **Observable behaviour:** Known-bad Orca stops read-only; a candidate runtime becomes compatible only after correlated completion and zero-residue cleanup, with PASS cached by identity.

@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import os
 import re
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -17,6 +20,7 @@ WORKTREE_DISCOVERY_TIMEOUT_SECONDS = 30.0
 WORKTREE_DISCOVERY_INITIAL_BACKOFF_SECONDS = 0.1
 WORKTREE_DISCOVERY_MAX_BACKOFF_SECONDS = 1.0
 WORKER_START_TIMEOUT_MS = 120_000
+KNOWN_INCOMPATIBLE_VERSIONS = {"1.4.188"}
 
 
 class AdapterError(core.ExecutorError):
@@ -444,6 +448,8 @@ class OrcaAdapter:
         clock: Callable[[], float] = time.monotonic,
         sleep: Callable[[float], None] = time.sleep,
         discovery_timeout: float = WORKTREE_DISCOVERY_TIMEOUT_SECONDS,
+        worktree_creator: Callable[[Path, str], Mapping[str, Any]] | None = None,
+        worktree_remover: Callable[[Mapping[str, Any]], Mapping[str, Any]] | None = None,
     ) -> None:
         self.root = Path(root).resolve()
         self.feature = _text(feature, "feature")
@@ -465,6 +471,224 @@ class OrcaAdapter:
         self._stop_failures: dict[str, dict[str, Any]] = {}
         self._revoked_dispatches: set[str] = set()
         self._deliveries: set[str] = set()
+        self._worktree_creator = worktree_creator
+        self._worktree_remover = worktree_remover
+
+    def _cache_path(self) -> Path:
+        try:
+            return core.runtime_state_path(self.root, self.feature).with_name(
+                core.runtime_state_path(self.root, self.feature).stem + "-orca-compatibility.json"
+            )
+        except (core.ExecutorError, OSError, subprocess.SubprocessError):
+            return self.root / ".parallel-slice-executor" / f"{self.feature}-orca-compatibility.json"
+
+    def _executable_identity(self) -> dict[str, Any]:
+        resolved = Path(shutil.which(self.executable) or self.executable).resolve()
+        identity: dict[str, Any] = {"path": str(resolved)}
+        try:
+            stat = resolved.stat()
+        except OSError:
+            return identity
+        identity.update({"size": stat.st_size, "mtime_ns": stat.st_mtime_ns})
+        return identity
+
+    @staticmethod
+    def _status_value(value: Mapping[str, Any], names: set[str]) -> Any:
+        pending: list[Any] = [value]
+        while pending:
+            current = pending.pop(0)
+            if not isinstance(current, Mapping):
+                continue
+            for key, item in current.items():
+                if str(key) in names:
+                    return item
+                if isinstance(item, Mapping):
+                    pending.append(item)
+                elif isinstance(item, list):
+                    pending.extend(item)
+        return None
+
+    def _status_call(self) -> dict[str, Any]:
+        try:
+            completed = self.runner(
+                [self.executable, "status", "--json"], cwd=self.root, timeout=self.timeout,
+                check=True, shell=False,
+            )
+        except (subprocess.CalledProcessError, OSError, subprocess.SubprocessError, core.ExecutorError, TypeError) as exc:
+            raise AdapterError("Orca status probe failed", details={"code": "status-unreachable"}) from exc
+        try:
+            payload = json.loads(completed.stdout)
+        except (AttributeError, TypeError, json.JSONDecodeError) as exc:
+            raise AdapterError("malformed Orca status response", details={"code": "malformed-status"}) from exc
+        if not isinstance(payload, Mapping):
+            raise AdapterError("malformed Orca status response", details={"code": "malformed-status"})
+        return _payload(payload)
+
+    def _runtime_identity(self, status: Mapping[str, Any]) -> dict[str, Any]:
+        app_version = self._status_value(status, {"appVersion", "app_version", "version"})
+        capabilities = self._status_value(status, {"capabilities", "capabilitySet", "capability_set"})
+        if isinstance(capabilities, Mapping):
+            capabilities = [key for key, enabled in capabilities.items() if enabled is True]
+        if not isinstance(capabilities, list):
+            capabilities = []
+        capabilities = sorted({str(item) for item in capabilities if isinstance(item, str) and item})
+        return {
+            "app_version": app_version if isinstance(app_version, str) else "",
+            "capabilities": capabilities,
+            "executable_identity": self._executable_identity(),
+        }
+
+    def _load_cached(self, identity: Mapping[str, Any]) -> dict[str, Any] | None:
+        try:
+            value = json.loads(self._cache_path().read_text(encoding="utf-8"))
+        except (FileNotFoundError, OSError, json.JSONDecodeError):
+            return None
+        if not isinstance(value, Mapping) or value.get("status") != "compatible":
+            return None
+        if value.get("repository") != str(self.root) or value.get("runtime") != dict(identity):
+            return None
+        proof = value.get("proof")
+        if not isinstance(proof, Mapping) or proof.get("cleanup") != "clean":
+            return None
+        return dict(value)
+
+    def identity(self) -> dict[str, Any]:
+        status = self._status_call()
+        return self._runtime_identity(status)
+
+    def probe(self) -> dict[str, Any]:
+        """Return a read-only compatibility decision; never start a canary implicitly."""
+        status = self._status_call()
+        runtime = self._runtime_identity(status)
+        version = runtime["app_version"]
+        ready = self._status_value(status, {"ready", "reachable", "connected"})
+        status_name = self._status_value(status, {"status", "state"})
+        result: dict[str, Any] = {
+            "version": 1, "feature": self.feature, "adapter": "orca", "runtime": runtime,
+            "proof": {"source": "lifecycle-canary", "cleanup": "not-run"},
+        }
+        if ready is not True and status_name not in {"ready", "connected", "running"}:
+            return {**result, "status": "unsupported", "reason": "runtime-not-ready"}
+        if not version:
+            return {**result, "status": "unsupported", "reason": "missing-app-version"}
+        if CAPABILITY not in runtime["capabilities"]:
+            return {**result, "status": "unsupported", "reason": "missing-capability:" + CAPABILITY}
+        if version in KNOWN_INCOMPATIBLE_VERSIONS:
+            return {**result, "status": "unsupported", "reason": "known-incompatible-version:" + version}
+        cached = self._load_cached(runtime)
+        if cached is not None:
+            return cached
+        return {**result, "status": "candidate", "reason": "canary-required"}
+
+    def _canary_source_head(self) -> str:
+        try:
+            return core.run_argv(["git", "rev-parse", "HEAD"], cwd=self.root, timeout=self.timeout).stdout.strip()
+        except (OSError, subprocess.SubprocessError, core.ExecutorError) as exc:
+            raise AdapterError("Orca canary could not resolve source head", details={"stage": "worktree-create"}) from exc
+
+    def _canary_absence(self, path: Path) -> None:
+        try:
+            response = self._json_call([self.executable, "worktree", "show", "--worktree", "path:" + str(path), "--json"])
+        except AdapterError as exc:
+            code = str(exc.details.get("code", ""))
+            if code in {"not_found", "worktree_not_found", "selector_not_found"}:
+                return
+            raise AdapterError("Orca canary could not prove checkout absence", details={"stage": "absence", **dict(exc.details)}) from exc
+        if response.get("exists") is False or response.get("status") in {"removed", "not_found"}:
+            return
+        raise AdapterError("Orca canary checkout remains discoverable", details={"stage": "absence", "worktree_path": str(path)})
+
+    def canary(self) -> dict[str, Any]:
+        """Exercise the full worker lifecycle once, then persist only a clean proof."""
+        decision = self.probe()
+        if decision.get("status") == "unsupported":
+            raise AdapterError(str(decision.get("reason", "Orca runtime is unsupported")), details={"stage": "preflight"})
+        if decision.get("status") == "compatible":
+            return decision
+        runtime = decision.get("runtime")
+        if not isinstance(runtime, Mapping):
+            raise AdapterError("Orca canary lacks runtime identity", details={"stage": "preflight"})
+        source_head = self._canary_source_head()
+        destination = self.root.parent / ("." + self.root.name + "-orca-canary-" + self.feature)
+        lane = {"id": "orca-canary", "feature": self.feature, "slice": "canary", "task": "lifecycle"}
+        key = hashlib.sha256((self.feature + "\0" + source_head).encode("utf-8")).hexdigest()
+        worktree: Mapping[str, Any] | None = None
+        worker: Mapping[str, Any] | None = None
+        accepted: Mapping[str, Any] | None = None
+        released = False
+        removed = False
+        stage = "worktree-create"
+        details: dict[str, Any] = {}
+        try:
+            creator = self._worktree_creator
+            worktree = creator(destination, source_head) if creator is not None else core.create_git_worktree(self.root, destination, source_head)
+            if not isinstance(worktree, Mapping):
+                raise AdapterError("Orca canary worktree receipt is malformed")
+            stage = "worker-start"
+            worker = self.start_worker(lane, worktree, idempotency_key=key)
+            stage = "worker-done"
+            event = self.wait_events(worker, timeout=min(self.timeout, 30))
+            if event.get("event") != "worker_done" or event.get("status") != "accepted":
+                raise AdapterError("Orca canary worker did not complete", details={"event": dict(event)})
+            stage = "worker-read"
+            output = self.read_worker(worker)
+            accepted = self.accept_worker_done(worker, event, output)
+            stage = "worker-ack"
+            self.ack_delivery(worker, event)
+            stage = "worker-release"
+            self.release(worker, accepted)
+            released = True
+            stage = "release-proof"
+            status = self._call("worker-show", "--dispatch", _opaque_token(worker.get("dispatch_id"), "dispatch id"))
+            if status.get("status") not in {"released", "completed", "complete", "exited"}:
+                raise AdapterError("Orca canary release was not settled", details={"stage": stage, "dispatch_id": worker.get("dispatch_id")})
+            stage = "worktree-remove"
+            remover = self._worktree_remover
+            removal = remover(worktree) if remover is not None else __import__("git_adapter").GitAdapter(self.root).remove_worktree(
+                worktree["worktree_path"], expected_receipt=worktree, expected_head=source_head
+            )
+            if not isinstance(removal, Mapping) or removal.get("removed") is not True:
+                raise AdapterError("Orca canary checkout removal was not proven")
+            removed = True
+            stage = "absence"
+            self._canary_absence(Path(str(worktree["worktree_path"])))
+            proof = {"source": "lifecycle-canary", "checked_at": time.time(), "cleanup": "clean"}
+            receipt = {
+                "version": 1, "feature": self.feature, "repository": str(self.root), "adapter": "orca",
+                "runtime": dict(runtime), "proof": proof, "status": "compatible",
+            }
+            core.atomic_write_json(self._cache_path(), receipt)
+            return receipt
+        except Exception as exc:
+            error_details = getattr(exc, "details", None)
+            if isinstance(error_details, Mapping):
+                details.update(error_details)
+            details.setdefault("stage", stage)
+            for field in ("run_id", "task_id", "dispatch_id", "terminal_handle"):
+                if worker is not None and isinstance(worker.get(field), str):
+                    details[field] = worker[field]
+            if worktree is not None and isinstance(worktree.get("worktree_path"), str):
+                details["worktree_path"] = worktree["worktree_path"]
+            raise AdapterError("Orca canary failed at " + str(details.get("stage", stage)), details=_redact_payload(details)) from exc
+        finally:
+            if worker is not None and accepted is not None and not released:
+                try:
+                    self.release(worker, accepted)
+                    released = True
+                except Exception:
+                    details.setdefault("cleanup", "worker-retained")
+            if worktree is not None and released and not removed:
+                try:
+                    remover = self._worktree_remover
+                    if remover is not None:
+                        remover(worktree)
+                    else:
+                        __import__("git_adapter").GitAdapter(self.root).remove_worktree(
+                            worktree["worktree_path"], expected_receipt=worktree, expected_head=source_head
+                        )
+                    removed = True
+                except Exception:
+                    details.setdefault("cleanup", "worktree-retained")
 
     def _json_call(self, argv: list[str], *, timeout: float | None = None) -> dict[str, Any]:
         try:
