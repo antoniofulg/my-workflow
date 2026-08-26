@@ -6,6 +6,7 @@ import json
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -43,6 +44,11 @@ def _cleanup_exact_fixture_artifacts(
         candidate = sibling_root / candidate_relative
         if not candidate.is_relative_to(sibling_root):
             raise AssertionError("fixture cleanup path escaped sibling root")
+        current_component = sibling_root
+        for component in candidate_relative.parts:
+            current_component = current_component / component
+            if current_component.is_symlink():
+                raise AssertionError("fixture cleanup path contains a symlink")
         if candidate.is_symlink():
             candidate.unlink()
         elif candidate.exists():
@@ -479,6 +485,37 @@ def test_symlink_lane_sentinel_is_rejected_before_diagnostic_deletion() -> None:
         if fixture_root.exists():
             subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], check=False)
         (fixture_root.parent / f".{fixture_root.name}.parallel-pilot-cleaned").unlink(missing_ok=True)
+
+
+def test_fixture_teardown_rejects_intermediate_symlink_without_touching_external_paths() -> None:
+    setup = subprocess.run([sys.executable, str(HARNESS), "setup"], text=True, capture_output=True, check=True)
+    fixture = json.loads(setup.stdout)["root"]
+    fixture_root = Path(fixture)
+    sibling_root = qa_parallel_pilot._worktree_root(fixture_root)
+    redirect_target = Path(tempfile.mkdtemp(prefix="parallel-pilot-external-"))
+    external_worktree = redirect_target / "parallel-pilot" / "A-T1"
+    try:
+        external_worktree.mkdir(parents=True)
+        sentinel = external_worktree / "sentinel"
+        sentinel.write_text("do not delete\n", encoding="utf-8")
+        sibling_root.mkdir(parents=True)
+        (sibling_root / "parallel-pilot").symlink_to(redirect_target / "parallel-pilot", target_is_directory=True)
+        try:
+            _cleanup_exact_fixture_artifacts(fixture_root, worktree_relative=OWNED_WORKTREES[0])
+        except AssertionError as exc:
+            assert str(exc) == "fixture cleanup path contains a symlink"
+        else:
+            raise AssertionError("intermediate symlink must block fixture teardown")
+        assert sentinel.read_text(encoding="utf-8") == "do not delete\n"
+        assert external_worktree.is_dir()
+    finally:
+        redirected = sibling_root / "parallel-pilot"
+        if redirected.is_symlink():
+            redirected.unlink()
+        if fixture_root.exists():
+            subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], check=False)
+        (fixture_root.parent / f".{fixture_root.name}.parallel-pilot-cleaned").unlink(missing_ok=True)
+        shutil.rmtree(redirect_target)
 
 
 def test_symlinked_cleanup_anchor_is_rejected_before_destructive_deletion() -> None:
