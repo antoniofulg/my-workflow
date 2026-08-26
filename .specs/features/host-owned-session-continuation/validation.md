@@ -46,7 +46,7 @@ The feature range contains the six task commits plus review remediation and QA c
 | HSC-13 | Package, lockfile, current release scenario, and release assertions equal 0.6.0 | \`tools/shared/tests/qa-skills.test.ts:969-999\`; \`tools/shared/tests/deep-review-installation.test.ts:70-72\`; package and lock parity passed | ✅ PASS |
 | HSC-14 | Changelog records removal, host responsibility, durable semantic context, and external-state rule | \`CHANGELOG.md:5-19\`; exact assertions \`tools/shared/tests/qa-skills.test.ts:993-998\` passed | ✅ PASS |
 | HSC-15 | Migration note links tagged v0.5.0 guide and does not invent or execute cleanup commands | \`CHANGELOG.md:14-19\`; tagged-guide assertions \`tools/shared/tests/qa-skills.test.ts:997-998\`; QA evidence records cleanup commands executed: 0 | ✅ PASS |
-| HSC-16 | AD-011 supersedes AD-008, establishes host-neutral ownership, and mentions Orca only as rationale | \`.specs/STATE.md:99-118\`, \`.specs/STATE.md:150-162\`, \`.specs/AD-INDEX.md:16-19\`; index test/check passed | ✅ PASS |
+| HSC-16 | AD-015 supersedes AD-008, establishes host-neutral ownership, and mentions Orca only as rationale | \`.specs/STATE.md\`, \`.specs/AD-INDEX.md\`; index test/check passed | ✅ PASS |
 | HSC-17 | Preparation remains local-only: no tag, push, PR, merge, publication, release, deploy, or operator mutation | \`package.json:1-4\` is private; HEAD \`34c760e\` has no tag; locality evidence records no remote/publication commands; no such command was run here | ✅ PASS |
 
 **Spec-anchored result: 17/17 exact outcomes.**

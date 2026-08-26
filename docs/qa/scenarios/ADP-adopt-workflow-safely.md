@@ -7,11 +7,11 @@ journey: J-adopt-workflow
 expected: A fresh target receives the workflow resolver, tracked example/templates, initialized local config, generated runtime packets, tools/ad-index.py, and a valid workflow tour; re-adoption preserves consumer-owned local state, creates no removed integration artifacts, and leaves host-boundary sentinels unchanged.
 entry_points: README.md#adopt-the-workflow; docs/guidelines/ARTIFACT-LIFECYCLE.md; scripts/adopt.py; .my-workflow.toml.example; .my-workflow.toml; templates/agents/
 qa_status: pass
-bug_ids: BUG-20260822-deep-review-learnings-untrackable; BUG-20260822-feature-specs-ignored; BUG-20260822-feature-state-gate-conflicts; BUG-20260825-scenario-pass-report-field
+bug_ids: BUG-20260822-deep-review-learnings-untrackable; BUG-20260822-feature-specs-ignored; BUG-20260822-feature-state-gate-conflicts; BUG-20260825-scenario-pass-report-field; BUG-20260825-adoption-omits-parallel-pilot
 fix_status: fixed
 retest_status: pass
-fix_commits: 0413862; a7397d2; 43e9910; a3fc718; 5b5474e; 1593299
-evidence: docs/qa/evidence/2026-08-25-release-0-6-0/retest-adoption.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-contracts.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-package-summary.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-protected-history.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-reference-scan.json
+fix_commits: 0413862; a7397d2; 43e9910; a3fc718; 5b5474e; 816afd6; 1593299
+evidence: docs/qa/evidence/2026-08-25-release-0-6-0/session.md; docs/qa/evidence/2026-08-25-release-0-6-0/retest-adoption.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-contracts.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-package-summary.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-protected-history.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-reference-scan.json
 last_report: docs/qa/reports/2026-08-25-release-0-6-0.md
 overlaps:
 ---
@@ -70,3 +70,12 @@ QA on 2026-08-25 reconfirmed the retained verdict for Parallel Deep Review: pack
 included all changed Deep Review surfaces; two adoptions installed source-identical files,
 preserved consumer-owned bytes, retained tracked lock provenance, and only printed the external
 installer command.
+
+QA on 2026-08-25 found the `0.6.0` adoption regression: executor and adapter files install, but the
+public `tools/qa_parallel_pilot.py` lifecycle entry point does not. See
+`BUG-20260825-adoption-omits-parallel-pilot`.
+
+Fresh QA after `816afd6` passed the affected adoption journey. The pilot installed with exact source
+bytes, an intentionally stale managed copy was repaired, two re-adoptions preserved consumer-owned
+configuration byte-for-byte, and all 15 generated provider packets remained unchanged. The linked
+release/package canary also passed; see the current report.

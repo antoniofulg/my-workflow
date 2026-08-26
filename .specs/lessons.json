@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 3,
+  "next_id": 21,
   "lessons": [
     {
       "id": "L-001",
@@ -40,6 +40,330 @@
       ],
       "created": "2026-08-23T06:43:47Z",
       "last_seen": "2026-08-23T06:43:47Z"
+    },
+    {
+      "id": "L-003",
+      "key": "ac_gap::evaluate dependency eligibility before write conflicts so blocked consumers cannot become dispatch candidates",
+      "text": "Evaluate dependency eligibility before write conflicts so blocked consumers cannot become dispatch candidates.",
+      "signal": "ac_gap",
+      "scope": "planner",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-dispatch"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/parallel-slice-dispatch/validation.md:103 (PAR-09) (planner)"
+      ],
+      "created": "2026-08-24T05:56:15Z",
+      "last_seen": "2026-08-24T05:56:15Z"
+    },
+    {
+      "id": "L-004",
+      "key": "ac_gap::assert the complete ordered fallback reason set for malformed task graphs",
+      "text": "Assert the complete ordered fallback reason set for malformed task graphs.",
+      "signal": "ac_gap",
+      "scope": "planner",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-dispatch"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/parallel-slice-dispatch/validation.md:104 (PAR-10) (planner)"
+      ],
+      "created": "2026-08-24T05:56:15Z",
+      "last_seen": "2026-08-24T05:56:15Z"
+    },
+    {
+      "id": "L-005",
+      "key": "spec_precision_gap::define and assert dispatch behavior for every accepted task status",
+      "text": "Define and assert dispatch behavior for every accepted task status.",
+      "signal": "spec_precision_gap",
+      "scope": "planner",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-dispatch"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/parallel-slice-dispatch/validation.md:152 (planner)"
+      ],
+      "created": "2026-08-24T05:56:15Z",
+      "last_seen": "2026-08-24T05:56:15Z"
+    },
+    {
+      "id": "L-006",
+      "key": "ac_gap::pin every waiting worker checkpoint and event precondition with an exact contract assertion",
+      "text": "Pin every waiting-worker checkpoint and event precondition with an exact contract assertion.",
+      "signal": "ac_gap",
+      "scope": "orchestration",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-dispatch"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/parallel-slice-dispatch/validation.md:274 (PAR-13) (orchestration)"
+      ],
+      "created": "2026-08-24T05:56:15Z",
+      "last_seen": "2026-08-24T05:56:15Z"
+    },
+    {
+      "id": "L-007",
+      "key": "ac_gap::assert checkpoint synchronization ordering and the affected gate rerun before continuation",
+      "text": "Assert checkpoint synchronization ordering and the affected gate rerun before continuation.",
+      "signal": "ac_gap",
+      "scope": "orchestration",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-dispatch"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/parallel-slice-dispatch/validation.md:275 (PAR-14) (orchestration)"
+      ],
+      "created": "2026-08-24T05:56:15Z",
+      "last_seen": "2026-08-24T05:56:15Z"
+    },
+    {
+      "id": "L-008",
+      "key": "ac_gap::assert reviewed tree invalidation and repeated evidence before the next workflow stage",
+      "text": "Assert reviewed-tree invalidation and repeated evidence before the next workflow stage.",
+      "signal": "ac_gap",
+      "scope": "orchestration",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-dispatch"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/parallel-slice-dispatch/validation.md:276 (PAR-15) (orchestration)"
+      ],
+      "created": "2026-08-24T05:56:16Z",
+      "last_seen": "2026-08-24T05:56:16Z"
+    },
+    {
+      "id": "L-009",
+      "key": "surviving_mutant::assert conditional reconciliation no ops so unconditional rebases fail the contract suite",
+      "text": "Assert conditional reconciliation no-ops so unconditional rebases fail the contract suite.",
+      "signal": "surviving_mutant",
+      "scope": "orchestration",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-dispatch"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/parallel-slice-dispatch/validation.md:310 (orchestration)"
+      ],
+      "created": "2026-08-24T05:56:16Z",
+      "last_seen": "2026-08-24T05:56:16Z"
+    },
+    {
+      "id": "L-010",
+      "key": "surviving_mutant::use an otherwise valid snapshot when testing feature identity rejection",
+      "text": "Use an otherwise valid snapshot when testing feature identity rejection.",
+      "signal": "surviving_mutant",
+      "scope": "planner",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-dispatch"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/parallel-slice-dispatch/validation.md:518 (planner)"
+      ],
+      "created": "2026-08-24T05:56:16Z",
+      "last_seen": "2026-08-24T05:56:16Z"
+    },
+    {
+      "id": "L-011",
+      "key": "surviving_mutant::use an otherwise valid snapshot when testing schema version rejection",
+      "text": "Use an otherwise valid snapshot when testing schema version rejection.",
+      "signal": "surviving_mutant",
+      "scope": "planner",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-dispatch"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/parallel-slice-dispatch/validation.md:519 (planner)"
+      ],
+      "created": "2026-08-24T05:56:16Z",
+      "last_seen": "2026-08-24T05:56:16Z"
+    },
+    {
+      "id": "L-012",
+      "key": "surviving_mutant::assert persisted intent at every external effect boundary not only one representative boundary",
+      "text": "Assert persisted intent at every external-effect boundary, not only one representative boundary",
+      "signal": "surviving_mutant",
+      "scope": "workflow-executor",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-executor"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md:M2 (workflow-executor)"
+      ],
+      "created": "2026-08-24T12:17:07Z",
+      "last_seen": "2026-08-24T12:17:07Z"
+    },
+    {
+      "id": "L-013",
+      "key": "surviving_mutant::exercise pending receipt reconciliation for every effect type before claiming restart safety",
+      "text": "Exercise pending-receipt reconciliation for every effect type before claiming restart safety",
+      "signal": "surviving_mutant",
+      "scope": "workflow-executor",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-executor"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md:M3 (workflow-executor)"
+      ],
+      "created": "2026-08-24T12:17:07Z",
+      "last_seen": "2026-08-24T12:17:07Z"
+    },
+    {
+      "id": "L-014",
+      "key": "ac_gap::validate and redact recovered provider receipts through the same boundary as fresh receipts",
+      "text": "Validate and redact recovered provider receipts through the same boundary as fresh receipts",
+      "signal": "ac_gap",
+      "scope": "workflow-executor",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-executor"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md:pending-acquire-recovery (workflow-executor)"
+      ],
+      "created": "2026-08-24T12:41:41Z",
+      "last_seen": "2026-08-24T12:41:41Z"
+    },
+    {
+      "id": "L-015",
+      "key": "ac_gap::exercise every public cli verb through its observable state transition",
+      "text": "Exercise every public CLI verb through its observable state transition",
+      "signal": "ac_gap",
+      "scope": "workflow-executor",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-executor"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md:cli-resume (workflow-executor)"
+      ],
+      "created": "2026-08-24T12:41:41Z",
+      "last_seen": "2026-08-24T12:41:41Z"
+    },
+    {
+      "id": "L-016",
+      "key": "surviving_mutant::assert acceptance validation precedes destructive cleanup with a negative zero effect case",
+      "text": "Assert acceptance validation precedes destructive cleanup with a negative zero-effect case",
+      "signal": "surviving_mutant",
+      "scope": "workflow-executor",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-executor"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md:Slice-B-M1 (workflow-executor)"
+      ],
+      "created": "2026-08-24T15:34:19Z",
+      "last_seen": "2026-08-24T15:34:19Z"
+    },
+    {
+      "id": "L-017",
+      "key": "ac_gap::model provider inbox deliveries and worker output as distinct schemas at integration boundaries",
+      "text": "Model provider inbox deliveries and worker output as distinct schemas at integration boundaries",
+      "signal": "ac_gap",
+      "scope": "workflow-executor",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-executor"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md:Slice-B-live-delivery (workflow-executor)"
+      ],
+      "created": "2026-08-24T15:34:19Z",
+      "last_seen": "2026-08-24T15:34:19Z"
+    },
+    {
+      "id": "L-018",
+      "key": "surviving_mutant::use missing field negative fixtures to prove provider receipts cannot inherit local expected values",
+      "text": "Use missing-field negative fixtures to prove provider receipts cannot inherit local expected values",
+      "signal": "surviving_mutant",
+      "scope": "workflow-executor",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-executor"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md:Slice-B-R1-M2 (workflow-executor)"
+      ],
+      "created": "2026-08-24T15:54:47Z",
+      "last_seen": "2026-08-24T15:54:47Z"
+    },
+    {
+      "id": "L-019",
+      "key": "ac_gap::redact nested provider payloads before returning or persisting boundary data",
+      "text": "Redact nested provider payloads before returning or persisting boundary data",
+      "signal": "ac_gap",
+      "scope": "workflow-executor",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-executor"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md:Slice-B-waiter-secret (workflow-executor)"
+      ],
+      "created": "2026-08-24T15:54:47Z",
+      "last_seen": "2026-08-24T15:54:47Z"
+    },
+    {
+      "id": "L-020",
+      "key": "surviving_mutant::exercise every persisted lane state through checkpoint revalidation before permitting follow up",
+      "text": "Exercise every persisted lane state through checkpoint revalidation before permitting follow-up",
+      "signal": "surviving_mutant",
+      "scope": "workflow-executor",
+      "status": "candidate",
+      "features": [
+        "parallel-slice-executor"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md:Slice-C-R1-waiting-follow-up (workflow-executor)"
+      ],
+      "created": "2026-08-24T18:42:24Z",
+      "last_seen": "2026-08-24T18:42:24Z"
     }
   ]
 }

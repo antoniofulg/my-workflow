@@ -159,6 +159,20 @@ function writePack(directory: string, lock: object): string {
   return pack;
 }
 
+async function waitForTargetLock(target: string): Promise<void> {
+  const owner = join(target, ".my-workflow-security-skills.lock", "owner");
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    try {
+      if (readFileSync(owner, "utf8").includes("pid=")) return;
+    } catch {
+      // The lock directory/owner file may not exist until the child acquires it.
+    }
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+  throw new Error("first installer did not publish its target-lock owner");
+}
+
 function runPackInstaller(
   pack: string,
   target: string,
@@ -1030,7 +1044,7 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
         encoding: "utf8",
       },
     );
-    await new Promise((resolve) => setTimeout(resolve, 60));
+    await waitForTargetLock(target);
     const second = spawnSync(
       "python3",
       [join(pack, "scripts/install_security_skills.py"), target, "--yes"],

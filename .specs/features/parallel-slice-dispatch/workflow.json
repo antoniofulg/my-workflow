@@ -1,0 +1,38 @@
+{
+  "deep_review": {
+    "cadence": "grouped.3",
+    "groups": [
+      [
+        1,
+        2,
+        3
+      ]
+    ]
+  },
+  "feature": "parallel-slice-dispatch",
+  "git_head": "6675d5574e692a7534b676519e89fbc484289b46",
+  "overrides": {},
+  "parallelization": {
+    "mode": "disabled"
+  },
+  "profile": null,
+  "roles": {
+    "deep_reviewer": {
+      "agent_file": ".codex/agents/deep-reviewer.toml",
+      "provider": "codex"
+    },
+    "explorer": {
+      "agent_file": ".codex/agents/explorer.toml",
+      "provider": "codex"
+    },
+    "implementer": {
+      "agent_file": ".codex/agents/implementer.toml",
+      "provider": "codex"
+    },
+    "verifier": {
+      "agent_file": ".codex/agents/verifier.toml",
+      "provider": "codex"
+    }
+  },
+  "version": 1
+}

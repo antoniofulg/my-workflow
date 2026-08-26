@@ -113,23 +113,51 @@ def helper_script(path: Path, *, overlap: bool = False) -> None:
 
 def retry_helper_script(path: Path) -> None:
     path.write_text(
-        "import json, os, pathlib, sys, time\n"
-        "prompt, output, label, calls, state_dir, active, overlap = sys.argv[1:]\n"
+        "import fcntl, json, pathlib, sys, time\n"
+        "prompt, output, label, calls, state_dir, active, overlap, barrier, peak, slots = sys.argv[1:]\n"
         "state = pathlib.Path(state_dir) / label\n"
         "attempt = int(state.read_text()) + 1 if state.exists() else 1\n"
         "state.parent.mkdir(parents=True, exist_ok=True)\n"
         "state.write_text(str(attempt))\n"
-        "if os.path.exists(active): open(overlap, 'w', encoding='utf-8').close()\n"
-        "open(active, 'w', encoding='utf-8').close()\n"
+        "def change(path, delta):\n"
+        "    with open(path, 'a+', encoding='utf-8') as stream:\n"
+        "        fcntl.flock(stream, fcntl.LOCK_EX)\n"
+        "        stream.seek(0); current = int(stream.read() or '0') + delta\n"
+        "        stream.seek(0); stream.truncate(); stream.write(str(current)); stream.flush()\n"
+        "        fcntl.flock(stream, fcntl.LOCK_UN)\n"
+        "    return current\n"
+        "def rendezvous(path):\n"
+        "    with open(path, 'a+', encoding='utf-8') as stream:\n"
+        "        fcntl.flock(stream, fcntl.LOCK_EX)\n"
+        "        stream.seek(0); ready = int(stream.read() or '0') + 1\n"
+        "        stream.seek(0); stream.truncate(); stream.write(str(ready)); stream.flush()\n"
+        "        if ready >= 2: pathlib.Path(path + '.go').touch()\n"
+        "        fcntl.flock(stream, fcntl.LOCK_UN)\n"
+        "    deadline = time.monotonic() + 5\n"
+        "    while not pathlib.Path(path + '.go').exists():\n"
+        "        if time.monotonic() >= deadline: raise RuntimeError('retry test barrier timeout')\n"
+        "        time.sleep(0.01)\n"
+        "if attempt >= 2: rendezvous(barrier)\n"
+        "current = change(active, 1)\n"
+        "with open(peak, 'a+', encoding='utf-8') as stream:\n"
+        "    fcntl.flock(stream, fcntl.LOCK_EX)\n"
+        "    stream.seek(0); maximum = max(int(stream.read() or '0'), current)\n"
+        "    stream.seek(0); stream.truncate(); stream.write(str(maximum)); stream.flush()\n"
+        "    fcntl.flock(stream, fcntl.LOCK_UN)\n"
+        "if current > int(slots):\n"
+        "    change(active, -1)\n"
+        "    raise RuntimeError('retry worker-slot bound exceeded')\n"
+        "if attempt >= 2:\n"
+        "    rendezvous(barrier + '.active')\n"
+        "    with open(overlap, 'a+', encoding='utf-8') as stream:\n"
+        "        fcntl.flock(stream, fcntl.LOCK_EX)\n"
+        "        stream.seek(0, 2); stream.write(json.dumps({'label': label, 'attempt': attempt, 'active': current}) + '\\n'); stream.flush()\n"
+        "        fcntl.flock(stream, fcntl.LOCK_UN)\n"
         "with open(calls, 'a', encoding='utf-8') as stream: stream.write(f'{label}:{attempt}\\n')\n"
-        "time.sleep(0.2)\n"
+        "change(active, -1)\n"
         "if attempt == 1:\n"
-        "    try: os.unlink(active)\n"
-        "    except FileNotFoundError: pass\n"
         "    raise SystemExit(1)\n"
-        "json.dump({'defects': [], 'advisories': [], 'suppressions': [], 'coverage': {'hunks': [], 'rules': []}}, open(output, 'w', encoding='utf-8'))\n"
-        "try: os.unlink(active)\n"
-        "except FileNotFoundError: pass\n",
+        "json.dump({'defects': [], 'advisories': [], 'suppressions': [], 'coverage': {'hunks': [], 'rules': []}}, open(output, 'w', encoding='utf-8'))\n",
         encoding="utf-8",
     )
 
@@ -586,17 +614,24 @@ class TokenMetricsTests(unittest.TestCase):
             db, out, jobs = root / "codex.sqlite", REPO / ".deep-review/metrics-retries", root / "jobs.json"
             calls, state_dir, ledger = root / "calls", root / "attempts", root / "metrics.json"
             active, overlap = root / "active", root / "overlap"
+            barrier = root / "barrier"
+            peak, slots = root / "peak", 3
+            shutil.rmtree(out, ignore_errors=True)
             create_db(db)
             write_jobs(jobs, ".deep-review/metrics-retries")
             helper = root / "job.py"
             retry_helper_script(helper)
             try:
                 result = subprocess.run(
-                    runner(out, jobs, helper, calls, db=db, ledger=ledger, extra=["--attempts", "2"], helper_suffix=[state_dir, active, overlap]),
+                    runner(out, jobs, helper, calls, db=db, ledger=ledger, extra=["--attempts", "2"], helper_suffix=[state_dir, active, overlap, barrier, peak, slots]),
                     cwd=REPO, capture_output=True, text=True,
                 )
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-                self.assertTrue(overlap.exists())
+                evidence = [json.loads(line) for line in overlap.read_text(encoding="utf-8").splitlines()]
+                self.assertEqual({row["label"] for row in evidence}, {"job-1", "job-2"})
+                self.assertEqual(len(evidence), 2)
+                self.assertTrue(all(row["attempt"] >= 2 for row in evidence))
+                self.assertLessEqual(int(peak.read_text()), slots)
                 self.assertCountEqual(calls.read_text(encoding="utf-8").splitlines(), ["job-1:1", "job-1:2", "job-2:1", "job-2:2"])
                 status = json.loads((out / "runs/jobs-status.json").read_text(encoding="utf-8"))
                 self.assertEqual([row["attempt"] for row in status["jobs"]], [2, 2])

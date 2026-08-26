@@ -27,8 +27,11 @@ EFFORTS = ("low", "medium", "high", "xhigh", "max", "ultra")
 CADENCE_DEFAULT = "grouped.3"
 CADENCE_RE = re.compile(r"^grouped\.(\d+)$")
 SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
-CONFIG_KEYS = {"version", "deep_review", "profiles", "models", "remediation"}
+PARALLELIZATION_DEFAULT = "disabled"
+PARALLELIZATION_MODES = ("disabled", "safe", "full")
+CONFIG_KEYS = {"version", "deep_review", "parallelization", "profiles", "models", "remediation"}
 DEEP_REVIEW_KEYS = {"cadence"}
+PARALLELIZATION_KEYS = {"mode", "resource_provider"}
 REMEDIATION_KEYS = {"stall_attempts"}
 STALL_ATTEMPTS_DEFAULT = 3
 MODEL_PROVIDERS = set(PROVIDERS)
@@ -124,6 +127,39 @@ def _cadence(config: dict[str, Any]) -> str:
     return section.get("cadence", CADENCE_DEFAULT)
 
 
+def _resource_provider(root: Path, value: Any) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value:
+        raise _error("parallelization.resource_provider must be a non-empty path or null")
+    raw = Path(value)
+    if raw.is_absolute() or ".." in raw.parts:
+        raise _error("parallelization.resource_provider must stay inside the repository")
+    target = root.joinpath(*raw.parts)
+    current = root
+    for component in raw.parts:
+        current /= component
+        if current.is_symlink():
+            raise _error("parallelization.resource_provider cannot use a symlink")
+    resolved = target.resolve(strict=False)
+    try:
+        resolved.relative_to(root)
+    except ValueError as exc:
+        raise _error("parallelization.resource_provider must stay inside the repository") from exc
+    if not target.is_file():
+        raise _error("parallelization.resource_provider must be an executable file")
+    if not os.access(target, os.X_OK):
+        raise _error("parallelization.resource_provider must be executable")
+    return target.relative_to(root).as_posix()
+
+
+def _parallelization(config: dict[str, Any], root: Path) -> dict[str, str | None]:
+    section = config.get("parallelization") or {}
+    return {
+        "mode": section.get("mode", PARALLELIZATION_DEFAULT),
+        "resource_provider": _resource_provider(root, section.get("resource_provider")),
+    }
+
 def _stall_attempts(config: dict[str, Any]) -> int:
     section = config.get("remediation") or {}
     return section.get("stall_attempts", STALL_ATTEMPTS_DEFAULT)
@@ -163,6 +199,21 @@ def _validate_config_schema(config: dict[str, Any]) -> None:
     cadence = deep_review.get("cadence", CADENCE_DEFAULT)
     if not isinstance(cadence, str):
         raise _error("deep_review.cadence must be a string")
+
+    parallelization = config.get("parallelization", {})
+    if parallelization is None:
+        parallelization = {}
+    if not isinstance(parallelization, dict):
+        raise _error("parallelization must be a table")
+    unknown = set(parallelization) - PARALLELIZATION_KEYS
+    if unknown:
+        raise _error(f"parallelization contains unknown key {sorted(unknown)[0]!r}")
+    mode = parallelization.get("mode", PARALLELIZATION_DEFAULT)
+    if not isinstance(mode, str) or mode not in PARALLELIZATION_MODES:
+        raise _error(
+            "parallelization.mode must be one of "
+            + ", ".join(repr(value) for value in PARALLELIZATION_MODES)
+        )
 
     remediation = config.get("remediation", {})
     if remediation is None:
@@ -577,6 +628,7 @@ def _validate_snapshot(root: Path, feature: str, snapshot: Any) -> dict[str, Any
         "profile",
         "overrides",
         "deep_review",
+        "parallelization",
         "roles",
     }
     if set(snapshot) != required:
@@ -614,6 +666,14 @@ def _validate_snapshot(root: Path, feature: str, snapshot: Any) -> dict[str, Any
     if balanced_groups(len(flattened), cadence) != groups:
         raise _error("existing snapshot deep_review.groups do not match cadence")
 
+    parallelization = snapshot["parallelization"]
+    if not isinstance(parallelization, dict) or not set(parallelization).issubset(PARALLELIZATION_KEYS) or "mode" not in parallelization:
+        raise _error("existing snapshot parallelization has an incomplete schema")
+    mode = parallelization["mode"]
+    if not isinstance(mode, str) or mode not in PARALLELIZATION_MODES:
+        raise _error("existing snapshot parallelization.mode is invalid")
+    normalized_provider = _resource_provider(root, parallelization.get("resource_provider"))
+
     roles = snapshot["roles"]
     if not isinstance(roles, dict) or set(roles) != set(DELEGATED_ROLES):
         raise _error("existing snapshot roles must contain every delegated workflow role")
@@ -644,7 +704,9 @@ def _validate_snapshot(root: Path, feature: str, snapshot: Any) -> dict[str, Any
                 f"role {role!r} packet metadata differs from frozen snapshot; "
                 "run --sync-agents, then explicitly use --refresh"
             )
-    return snapshot
+    normalized = dict(snapshot)
+    normalized["parallelization"] = {"mode": mode, "resource_provider": normalized_provider}
+    return normalized
 
 
 def _write_snapshot(path: Path, snapshot: dict[str, Any]) -> None:
@@ -699,6 +761,7 @@ def resolve(
         return resolved
 
     cadence = _cadence(config)
+    parallelization = _parallelization(config, root)
     groups = balanced_groups(slice_count, cadence)
     profiles = _profiles(config)
     if profile is not None and profile not in profiles:
@@ -740,6 +803,7 @@ def resolve(
         "profile": profile,
         "overrides": parsed_overrides,
         "deep_review": {"cadence": cadence, "groups": groups},
+        "parallelization": parallelization,
         "roles": roles,
     }
     _write_snapshot(snapshot_path, snapshot)

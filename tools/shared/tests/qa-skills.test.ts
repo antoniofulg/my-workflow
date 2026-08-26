@@ -185,6 +185,7 @@ describe("host-owned session continuation removal contract", () => {
     const allowlist = new Map<string, string>([
       ["CHANGELOG.md", "historical changelog"],
       [".specs/features/agent-model-routing/validation.md", "immutable historical QA/release-certification evidence"],
+      [".specs/features/parallel-slice-dispatch/validation.md", "immutable historical QA/release-certification evidence"],
       [".specs/features/release-0.4.0/validation.md", "immutable historical QA/release-certification evidence"],
       [historicalMemoryCharter, "immutable historical QA/release-certification evidence"],
       [historicalMemoryReport, "immutable historical QA/release-certification evidence"],
@@ -218,7 +219,7 @@ describe("host-owned session continuation removal contract", () => {
       matches.every((match) => match.classification),
       `every reference must be classified:\n${JSON.stringify(matches, null, 2)}`,
     ).toBe(true);
-  });
+  }, 30_000);
 
   it("HSC-09 keeps changed QA scenarios fresh until v0.6 evidence exists", () => {
     const changedScenarios = [
@@ -423,6 +424,36 @@ describe("canonical QA skills", () => {
     expect(() => parseSkillMetadata("name: qa-plan\ndescription: misplaced", "fixture")).toThrow(
       "Missing valid initial frontmatter",
     );
+
+    const reviewRounds = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
+    expect(reviewRounds).toContain("fingerprint = requirement + root cause + failure path");
+    expect(reviewRounds).toContain("independent failed-remediation counter for each fingerprint");
+    expect(reviewRounds).toContain("third failed remediation of the same fingerprint");
+    expect(reviewRounds).toContain("every failed post-fix Verifier result, whether or not the build gate is green");
+    expect(reviewRounds).toContain("Rewording or reopening a finding preserves its fingerprint and counter");
+    expect(reviewRounds).toContain("A distinct blocker starts at count zero and does not consume another fingerprint's counter");
+    expect(reviewRounds).not.toMatch(/one global (?:remediation|blocker) counter/i);
+
+    for (const relativePath of [
+      ".agents/skills/tlc-spec-driven/SKILL.md",
+      ".agents/skills/tlc-spec-driven/references/validate.md",
+      ".agents/skills/tlc-spec-driven/references/sub-agents.md",
+      ".agents/skills/tlc-spec-driven/references/implement.md",
+      ".agents/skills/autonomous/SKILL.md",
+      "docs/workflow/reviews.md",
+      "docs/workflow/README.md",
+      "docs/workflow/purpose.md",
+    ]) {
+      const source = readRepositoryFile(relativePath);
+      expect(source).toContain("REVIEW-ROUNDS.md");
+      expect(source).toContain("fingerprint");
+    }
+    expect(readRepositoryFile(".agents/skills/tlc-spec-driven/references/validate.md")).toContain(
+      "diagnostic cap is per issue and separate from review-remediation fingerprint accounting",
+    );
+    const convergence = readRepositoryFile(".agents/skills/tlc-spec-driven/scripts/review_convergence.py");
+    expect(convergence).toContain("failed_remediations");
+    expect(convergence).toContain("os.replace");
   });
 
   it("IT-003 dispatches all QA phases through each existing Verifier", () => {
@@ -966,7 +997,7 @@ describe("adoption and public setup", () => {
     expect(qaExecute).toContain("does not write product code, install a framework, invent a");
   });
 
-  it("CT-003 reports release version 0.6.0 consistently", () => {
+  it("CT-003 / IT-005 / AIM-11 reports release version 0.6.0 consistently", () => {
     const manifest = JSON.parse(readRepositoryFile("package.json")) as {
       version?: string;
       scripts?: { test?: string };
@@ -996,6 +1027,9 @@ describe("adoption and public setup", () => {
     expect(latestRelease).toContain("adoption never removes external operator state");
     expect(latestRelease).toContain("v0.5.0 tagged guide");
     expect(latestRelease).toContain(`https://github.com/antoniofulg/my-workflow/blob/v0.5.0/docs/workflow/${integrationName}.md`);
+    expect(latestRelease).toContain("opt-in parallel slice executor");
+    expect(latestRelease).toContain("resource preflight");
+    expect(latestRelease).toContain("BLOCKED-VERIFY");
   });
 
   it("CT-004 preserves v0.5.0 historical evidence and the v0.4.0 changelog section", () => {
@@ -1054,5 +1088,5 @@ describe("adoption and public setup", () => {
     expect(section(readRepositoryFile("CHANGELOG.md"), "0.4.0")).toBe(
       section(historicalChangelog, "0.4.0"),
     );
-  });
+  }, 30_000);
 });

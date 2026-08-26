@@ -92,6 +92,10 @@ an implementation is found months later.
 feature workflow with `.agents/skills/workflow-config` before dispatch. Three rules an
 unattended run gets wrong:
 
+When the frozen workflow opts into inter-slice dispatch, read
+`.agents/skills/autonomous/references/parallelization.md` after workflow resolution and before
+planning. It is an optional orchestration layer above TLC; its serial fallback remains the default.
+
 - **Every implementation slice closes its technical review before the next opens** — implement,
   scoped gate, commit, Verifier, and a QA walk when it puts something in front of a user. Deep-review
   runs at the resolved review groups, before final QA, so a feature can balance reading cost without
@@ -179,7 +183,9 @@ Stop, write up what exists, and do not continue delivery:
 - A decision from step 2 would change what gets built
 - The post-cap scoped gate is unavailable, or the configured remediation stall threshold is reached
   under `docs/guidelines/REVIEW-ROUNDS.md`; an open blocker alone does not halt while attempts are
-  establishing new failure-set minima
+  establishing new failure-set minima. Count attempts by the same immutable blocker fingerprint,
+  persist each failed Verifier result with `review_convergence.py`, and halt at that configured
+  threshold; the final deep-review round has no round 3.
 - The work turns out to need a capability that does not exist yet
 - The full gate cannot be made to run
 - A required action is outside the scoped delivery authority and lacks explicit instruction

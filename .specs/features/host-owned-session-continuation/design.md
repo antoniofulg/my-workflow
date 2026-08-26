@@ -34,7 +34,7 @@ The user selected deletion and host ownership in the feature brief, so no additi
 | Adoption fixture suite | `scripts/test_adopt.py` | Extend canonical clean and repeat adoption checks |
 | Workflow contract suite | `tools/shared/tests/qa-skills.test.ts` | Own deleted-path, reference-allowlist, reviewer, history, package, and release assertions |
 | Version owner | `npm version 0.6.0 --no-git-tag-version` | Regenerate package and lockfile versions without a tag |
-| Decision indexer | `tools/ad-index.py` | Regenerate `.specs/AD-INDEX.md` after `AD-011` |
+| Decision indexer | `tools/ad-index.py` | Regenerate `.specs/AD-INDEX.md` after `AD-015` |
 | QA CLI/manual adapter | `docs/qa/README.md` | Plan and execute public-interface verification without installing tools |
 
 ## Components
@@ -100,4 +100,4 @@ No runtime model, config, database, marker, payload, hook, or protocol remains. 
 | Reviewer context | Fresh role packets | Independent conclusions cannot inherit author/operator narrative |
 | Historical migration help | Link tagged v0.5.0 guide | Exact historical commands stay available without copying or executing them |
 
-Project-level ownership is recorded by `AD-011`, which supersedes `AD-008`.
+Project-level ownership is recorded by `AD-015`, which supersedes `AD-008`.

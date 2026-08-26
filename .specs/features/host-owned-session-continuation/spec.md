@@ -90,7 +90,7 @@ The repository publishes an optional session-memory integration even though host
 1. The package manifest, lockfile, current QA release scenario, and every release-version assertion SHALL equal `0.6.0`. (HSC-13)
 2. The v0.6.0 changelog entry SHALL record removal, host responsibility, durable semantic context, and the rule that adoption never removes external operator state. (HSC-14)
 3. The v0.6.0 migration note SHALL link to the tagged v0.5.0 lifecycle guide and SHALL not invent or execute cleanup commands. (HSC-15)
-4. The project decision `AD-011` SHALL supersede `AD-008`, name Orca only as rationale evidence, and establish the host-neutral ownership boundary. (HSC-16)
+4. The project decision `AD-015` SHALL supersede `AD-008`, name Orca only as rationale evidence, and establish the host-neutral ownership boundary. (HSC-16)
 5. The prepared repository SHALL remain local-only with no tag, push, pull request, merge, publication, release, deploy, or operator-machine mutation performed by this feature. (HSC-17)
 
 **Independent Test**: Run release parity, decision-index, Git-state, and local package checks.
@@ -107,7 +107,7 @@ The repository publishes an optional session-memory integration even though host
 | Data lifecycle and expiry | External runtime state is never removed; repository-owned obsolete paths are deleted. |
 | Observability | Gate, QA, package, and final scan commands provide counted evidence. |
 | External-dependency failure | The migration note links historical guidance; it does not invoke an external runtime. |
-| State-transition integrity | `AD-008` becomes superseded only when `AD-011` is appended and the decision index is regenerated. |
+| State-transition integrity | `AD-008` becomes superseded only when `AD-015` is appended and the decision index is regenerated. |
 
 ## Security Surfaces
 

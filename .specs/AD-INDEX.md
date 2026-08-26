@@ -9,11 +9,16 @@ When recording an `AD-NNN`, run `python3 tools/ad-index.py` in the same commit.
 | --- | --- | --- |
 | `AD-001` | active | Agent always-on is a thin `AGENTS.md` (contract + pointers). |
 | `AD-002` | active | QA planning and QA execution are separate provider-neutral skills dispatched in fresh sessions by the existing Verifier. |
-| `AD-003` | active | `.specs/features/` is ignored local state. |
+| `AD-003` | superseded by AD-007 | `.specs/features/` is ignored local state. |
 | `AD-004` | active | Workflow routing is consumer-configurable in `.my-workflow.toml`. |
 | `AD-005` | active | Keep the optional, checkout-local Graft `0.10.1` integration as the deep-review context aid. |
 | `AD-006` | active | Keep the workflow stack- and tool-agnostic while allowing optional capability integrations. |
-| `AD-008` | superseded by AD-011 | Adopt the upstream optional `1.31.0` integration only as an opt-in, transient handoff transport between Claude Code, Codex, and Cursor. |
+| `AD-007` | active | `.specs/features/` is versioned, durable workflow state. |
+| `AD-008` | superseded by AD-015 | Adopt the upstream optional `1.31.0` integration only as an opt-in, transient handoff transport between Claude Code, Codex, and Cursor. |
 | `AD-009` | superseded by AD-010 | `.my-workflow.toml` is the single editable source for bundled Claude, Codex, and Cursor agent models and efforts. |
 | `AD-010` | active | Track `.my-workflow.toml.example` and provider packet templates, while keeping `.my-workflow.toml` and generated `.claude`, `.codex`, and `… |
-| `AD-011` | active | Cross-provider session continuation is owned by the host. |
+| `AD-011` | active | Parallelization is an opt-in inter-slice orchestration layer above unchanged TLC; `disabled` is the default, `safe` consumes independent or… |
+| `AD-012` | active | Parallel execution uses a provider-neutral deterministic coordinator whose adapters own external effects. |
+| `AD-013` | active | The provider-neutral coordinator derives and validates a deterministic sibling Git worktree destination, creates that checkout with fixed a… |
+| `AD-014` | active | Technical Verifier remediation is bounded per blocker fingerprint, defined by the requirement, root cause, and concrete failure path. |
+| `AD-015` | active | Cross-provider session continuation is owned by the host. |

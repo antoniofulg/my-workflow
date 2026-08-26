@@ -2,7 +2,14 @@
 
 ## Handoff
 
-Idle.
+- **Feature**: `.specs/features/parallel-slice-executor`
+- **Phase / Task**: Complete / release v0.6.0
+- **Completed**: T1, T2, T2R1-T2R5, T3, T3R1, T3R2, TDR1, TDR2, T4, T4R1, T4R2, T5, T6, T7, T7R1-T7R5; grouped C-D round 1 and post-cap round 2 remediation; Slice A-C Technical Verifiers PASS; grouped deep-review A-B closed
+- **In-progress** (file:line): none
+- **Next step**: Deliver v0.6.0 locally; remote publication remains separately authorized.
+- **Blockers**: External Orca/Codex lifecycle remains terminal `BLOCKED-VERIFY`; this is non-blocking for local release readiness, and no author-run Orca pilot is claimed.
+- **Uncommitted files**: none.
+- **Branch**: `feat/parallel-slice-executor`
 
 ## Decisions
 
@@ -46,7 +53,7 @@ Idle.
   checkout owns its planning state until durable knowledge is promoted.
 - **Scope**: `.gitignore`, `AGENTS.md`, TLC workflow guidance, artifact lifecycle and commit evidence.
 - **Date**: 2026-08-20
-- **Status**: active
+- **Status**: superseded by AD-007
 
 ### AD-004
 
@@ -96,6 +103,19 @@ Idle.
 - **Date**: 2026-08-23
 - **Status**: active
 
+### AD-007
+
+- **Decision**: `.specs/features/` is versioned, durable workflow state. Completed feature state is
+  retained by default, archived explicitly when needed, and never auto-deleted.
+- **Reason**: Worktrees, gates, handoffs, and audit need the same specs, tasks, snapshots, and
+  validation state across branches and fresh checkouts.
+- **Trade-off**: The repository retains small planning artifacts and maintainers must choose when to
+  archive them.
+- **Scope**: `.specs/features/`, `.gitignore`, `AGENTS.md`, artifact lifecycle guidance, and TLC
+  workflow state handling.
+- **Date**: 2026-08-24
+- **Status**: active
+
 ### AD-008
 
 - **Decision**: Adopt the upstream optional `1.31.0` integration only as an opt-in, transient
@@ -115,7 +135,7 @@ Idle.
   `docs/guidelines/REVIEW-ROUNDS.md`, `docs/qa/`, the integration contracts and threat model, and
   this decision record.
 - **Date**: 2026-08-23
-- **Status**: superseded by AD-011
+- **Status**: superseded by AD-015
 
 ### AD-009
 
@@ -148,6 +168,60 @@ Idle.
 - **Status**: active
 
 ### AD-011
+
+- **Decision**: Parallelization is an opt-in inter-slice orchestration layer above unchanged TLC;
+  `disabled` is the default, `safe` consumes independent or verified cross-slice producers, and
+  `full` consumes completed gated checkpoints with sync and revalidation. Uncertainty falls back to
+  serial execution; waiting turns end and resume by dependency event; sync occurs at checkpoints,
+  and affected evidence is revalidated after integration or remediation.
+- **Reason**: Reduce wall time only when isolation and dependency evidence are proven, while keeping
+  the reliable sequential task contract and every readiness stage.
+- **Trade-off**: Capable orchestrators own worktree/runtime isolation and reconciliation, and full
+  mode can pay rebase and repeated evidence costs; tasks inside a slice never run in parallel.
+- **Scope**: `.my-workflow.toml`, frozen feature workflow snapshots, workflow-config planning,
+  autonomous orchestration, and Verifier/deep-review/QA integration.
+- **Date**: 2026-08-24
+- **Status**: active
+
+### AD-012
+
+- **Decision**: Parallel execution uses a provider-neutral deterministic coordinator whose adapters
+  own external effects. Orca is the first worktree/worker/event adapter; checkpoint sync rebases only
+  the private dependent lane, verified slices merge without rewriting their commits, and any missing
+  adapter or consumer resource-provider capability falls back to serial execution.
+- **Reason**: Restart safety, event correlation, Git evidence, and isolation policy must behave the
+  same across agents and IDEs, while real port/runtime/database semantics remain owned by each
+  consuming project.
+- **Trade-off**: Non-Orca environments stay serial until they implement the conformance protocol,
+  and resource-bearing concurrency requires a small project executable plus adoption QA.
+- **Scope**: Autonomous parallel execution, workflow snapshots and task resource metadata, Orca/Git
+  adapters, consumer resource providers, and future IDE adapters.
+- **Date**: 2026-08-24
+- **Status**: active
+
+### AD-013
+
+- **Decision**: The provider-neutral coordinator derives and validates a deterministic sibling Git worktree destination, creates that checkout with fixed argv, and gives Orca only an existing worktree to attach a worker to.
+- **Reason**: Orca's public worktree-create command does not accept a destination path, while SEC-004 requires destination validation before the first writer or worker process.
+- **Trade-off**: The core owns this narrow Git worktree primitive; adapter-specific worker and event effects remain behind the provider-neutral protocol.
+- **Scope**: Parallel slice executor worktree creation, adapter contracts, and future worktree/worker providers.
+- **Date**: 2026-08-24
+- **Status**: active
+
+### AD-014
+
+- **Decision**: Technical Verifier remediation is bounded per blocker fingerprint, defined by the
+  requirement, root cause, and concrete failure path. Distinct blockers start independent counts;
+  the same fingerprint halts only after its third failed remediation, and reopening retains its
+  identity and count.
+- **Reason**: A slice-global round cap can stop an unattended run even while each cycle closes a
+  different defect, wasting the delivery window without signalling non-convergence.
+- **Trade-off**: A slice with many distinct blockers can run longer, while repeated or renamed
+  versions of one blocker remain bounded and all other halt conditions still apply.
+- **Scope**: Technical Verifier fix/reverify loops, autonomous halt decisions, TLC verifier guidance,
+  review workflow documentation, and their contract tests.
+
+### AD-015
 
 - **Decision**: Cross-provider session continuation is owned by the host. Repository files, Git
   state, feature artifacts, and explicit handoff prompts remain the durable semantic context.

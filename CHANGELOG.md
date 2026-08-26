@@ -4,6 +4,18 @@ All notable changes to this project are documented here.
 
 ## [0.6.0] - 2026-08-25
 
+### Added
+
+- An opt-in parallel slice executor with `disabled`, `safe`, and `full` modes, deterministic worktree/worker follow-ups, checkpoint rebase/integration, and resource preflight.
+
+### Changed
+
+- Slice execution now preserves TLC task order while coordinating provider-neutral worker lifecycle, checkpoint evidence, and serial fallback for unproven capabilities.
+
+### Fixed
+
+- Lifecycle cleanup, recovery, and blocker convergence fail closed on uncorrelated ownership or external receipts; the real Orca/Codex two-lane journey remains `BLOCKED-VERIFY` and is not reported as a completed pilot.
+
 ### Removed
 
 - Removed the optional ai-memory integration, including its repository scripts, guide,
