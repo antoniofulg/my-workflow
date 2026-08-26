@@ -115,6 +115,8 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(policy).toContain("explicitly authorized operator path");
     expect(policy).toContain("does not write a compatibility PASS");
     expect(policy).toMatch(/automatic execution remains\s+unsupported and serial/);
+    expect(policy).not.toContain("worktree create --agent");
+    expect(dx).not.toContain("worktree create --agent");
     expect(policy).toContain("roles.implementer.provider");
     expect(policy).toContain("roles.implementer.model");
     expect(policy).toContain("roles.implementer.effort");

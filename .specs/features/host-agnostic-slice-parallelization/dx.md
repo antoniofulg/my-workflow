@@ -76,7 +76,7 @@ commit into the dependent worktree, reruns the affected gate, and follows up the
 stale handle is reacquired from that worktree; a dirty, ambiguous, conflicting, or failed lane
 returns to serial recovery without automatic conflict resolution. Cleanup removes only clean,
 integrated, coordinator-owned worktrees after deterministic integration and proves zero owned
-residue. Before cleanup, revalidate the exact create receipt (full worktree id, instance, path,
+residue. Before cleanup, immediately revalidate the exact create receipt (full worktree id, instance, path,
 branch, worker handle, and HEAD), Orca show/list identity, Git worktree/gitdir/path/no-symlink/HEAD/
 clean/no-operation-in-progress state, and slice-head ancestry of integration HEAD. Stop the exact
 worker, recheck, remove only by full id, and prove Orca/Git/path/terminal absence. Any mismatch or

@@ -173,13 +173,13 @@ sync, and leaves zero owned worktree or terminal residue.
 | MAE-02 | Maestri capability probe | C | ✅ Verified |
 | MAE-03 | Maestri capability probe | C | ✅ Verified |
 | MAE-04 | Maestri capability probe | C | ✅ Verified |
-| AST-01 | Coordinator-assisted Orca contract | D | ✅ Verified |
-| AST-02 | Coordinator-assisted Orca contract | D | ✅ Verified |
-| AST-03 | Coordinator-assisted Orca contract | D | ✅ Verified |
-| AST-04 | Coordinator-assisted Orca contract | D | ✅ Verified |
-| AST-05 | Coordinator-assisted Orca contract | D | ✅ Verified |
-| AST-06 | Coordinator-assisted Orca contract | D | ✅ Verified |
-| AST-07 | Coordinator-assisted Orca contract | D | ✅ Verified |
+| AST-01 | Coordinator-assisted Orca contract | D | ✅ Contract verified; E2E pending |
+| AST-02 | Coordinator-assisted Orca contract | D | ✅ Contract verified; E2E pending |
+| AST-03 | Coordinator-assisted Orca contract | D | ✅ Contract verified; E2E pending |
+| AST-04 | Coordinator-assisted Orca contract | D | ✅ Contract verified; E2E pending |
+| AST-05 | Coordinator-assisted Orca contract | D | ✅ Contract verified; E2E pending |
+| AST-06 | Coordinator-assisted Orca contract | D | ✅ Contract verified; E2E pending |
+| AST-07 | Coordinator-assisted Orca contract | D | ✅ Contract verified; E2E pending |
 | SEC-001 | Boundary, probes, and cleanup | A–C | ✅ Verified |
 | SEC-002 | Boundary, probes, and cleanup | A–C | ✅ Verified |
 | SEC-003 | Boundary, probes, and cleanup | A–C | ✅ Verified |
@@ -187,7 +187,7 @@ sync, and leaves zero owned worktree or terminal residue.
 | SEC-005 | Boundary, probes, and cleanup | A–C | ✅ Verified |
 | SEC-006 | Boundary, probes, and cleanup | A–C | ✅ Verified |
 | SEC-007 | Boundary, probes, and cleanup | A–C | ✅ Verified |
-| SEC-008 | Assisted coordinator ownership and cleanup | D | ✅ Verified |
+| SEC-008 | Assisted coordinator ownership and cleanup | D | ✅ Contract verified; E2E pending |
 
 **Coverage:** 30 total requirements, 30 mapped, 0 unmapped.
 

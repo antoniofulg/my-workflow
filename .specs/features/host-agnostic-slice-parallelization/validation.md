@@ -105,8 +105,8 @@ No candidate canary ran. No live Orca worktree, worker, or terminal was created.
 
 ## Requirement Traceability Update
 
-`spec.md` now marks all 30 requirements `Verified`. E2E-001 remains a separate final-QA handoff and
-is not represented as executed here.
+`spec.md` marks the AST-01 through AST-07 and SEC-008 requirements as `Contract verified; E2E
+pending`. E2E-001 remains a separate final-QA handoff and is not represented as executed here.
 
 ## Summary
 

@@ -141,7 +141,7 @@ The coordinator follows this lifecycle:
    failure stops that lane and enters the existing serial recovery path. The coordinator does not
    resolve conflicts automatically. A changed checkpoint invalidates affected gate, Verifier, and
    deep-review evidence until the gate is rerun on the new head.
-5. After verified slice commits are integrated in deterministic slice order, revalidate the exact
+5. After verified slice commits are integrated in deterministic slice order, immediately revalidate the exact
    create receipt before cleanup. `orca worktree show`/`list` must still match the full worktree id,
    instance, absolute path, branch, and worker handle; Git must show the exact worktree/gitdir/path,
    no symlink, the recorded HEAD, a clean state, and no merge/rebase/cherry-pick/revert in progress;
