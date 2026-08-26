@@ -25,10 +25,15 @@ def _cleanup_exact_fixture_artifacts(
     *,
     worktree_relative: str | None = None,
     sibling_relative: str | None = None,
+    derived_sibling_root: Path | None = None,
 ) -> None:
     """Remove only the fixture-owned child and its derived sibling root."""
-    sibling_root = qa_parallel_pilot._worktree_root(fixture_root)
-    if sibling_root.is_symlink() or sibling_root.parent != sibling_root.parent.resolve():
+    sibling_root = derived_sibling_root or qa_parallel_pilot._worktree_root(fixture_root)
+    if (
+        sibling_root.is_symlink()
+        or sibling_root.name != f".{fixture_root.name}-parallel-slices"
+        or sibling_root.parent != sibling_root.parent.resolve()
+    ):
         raise AssertionError("fixture sibling root escaped its derived parent")
     relative = worktree_relative or sibling_relative
     if relative is not None:
@@ -44,14 +49,31 @@ def _cleanup_exact_fixture_artifacts(
             if worktree_relative is not None:
                 subprocess.run(
                     ["git", "worktree", "remove", "--force", str(candidate)],
-                    cwd=ROOT,
-                    check=False,
+                    cwd=fixture_root,
+                    check=True,
                     capture_output=True,
                 )
+                assert not candidate.exists()
+                registered = subprocess.check_output(
+                    ["git", "worktree", "list", "--porcelain"], cwd=fixture_root, text=True
+                )
+                assert str(candidate.resolve()) not in registered
             else:
-                shutil.rmtree(candidate)
-    if sibling_root.exists() and not sibling_root.is_symlink():
-        shutil.rmtree(sibling_root)
+                if sibling_relative is not None and candidate.is_dir():
+                    for child in candidate.iterdir():
+                        if child.name != "keep" or not child.is_file():
+                            raise AssertionError("fixture sibling contains an unexpected path")
+                        child.unlink()
+                candidate.rmdir()
+    current = sibling_root / Path(relative).parent if relative is not None else sibling_root
+    while current != sibling_root.parent and current.is_relative_to(sibling_root):
+        if current.is_symlink():
+            break
+        try:
+            current.rmdir()
+        except OSError:
+            break
+        current = current.parent
 
 
 def test_pilot_handoff_uses_disposable_safe_fixture_and_dry_run_two_lanes() -> None:
@@ -64,6 +86,8 @@ def test_pilot_handoff_uses_disposable_safe_fixture_and_dry_run_two_lanes() -> N
     setup = subprocess.run([sys.executable, str(HARNESS), "setup"], text=True, capture_output=True, check=True)
     fixture = json.loads(setup.stdout)["root"]
     fixture_root = Path(fixture)
+    sibling_root = qa_parallel_pilot._worktree_root(fixture_root)
+    child = sibling_root / OWNED_WORKTREES[0]
     try:
         dry_run = subprocess.run(
             [sys.executable, str(HARNESS), "dry-run", "--root", fixture],
@@ -81,20 +105,35 @@ def test_pilot_handoff_uses_disposable_safe_fixture_and_dry_run_two_lanes() -> N
         assert len(result["lanes"]) == 2
         assert all(lane["resources"] == [] for lane in result["lanes"])
         assert all(lane["status"] == "ready" for lane in result["lanes"])
-        child = qa_parallel_pilot._worktree_root(fixture_root) / "parallel-pilot" / "A-T1"
         subprocess.run(["git", "worktree", "add", "--detach", str(child), result["source_git_head"]], cwd=fixture_root, check=True, capture_output=True)
         assert (child / ".specs/features/parallel-pilot/tasks.md").read_text(encoding="utf-8").startswith("### T1: pilot A")
         assert subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=child, text=True).strip() == result["source_git_head"]
     finally:
-        _cleanup_exact_fixture_artifacts(fixture_root, worktree_relative=OWNED_WORKTREES[0])
-        refused = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--root", fixture], text=True, capture_output=True, check=False)
-        assert refused.returncode != 0 and json.loads(refused.stdout)["reason"] == "cleanup-authorization-missing"
-        first_cleanup = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], text=True, capture_output=True, check=False)
-        assert json.loads(first_cleanup.stdout)["aborted"] is True
-        assert json.loads(first_cleanup.stdout)["cleaned"] is False
-        second_cleanup = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], text=True, capture_output=True, check=False)
-        assert json.loads(second_cleanup.stdout)["idempotent"] is True
-        (fixture_root.parent / f".{fixture_root.name}.parallel-pilot-cleaned").unlink()
+        try:
+            refused = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--root", fixture], text=True, capture_output=True, check=False)
+            assert refused.returncode != 0 and json.loads(refused.stdout)["reason"] == "cleanup-authorization-missing"
+            assert child.exists()
+            registered_before = subprocess.check_output(["git", "worktree", "list", "--porcelain"], cwd=fixture_root, text=True)
+            assert str(child.resolve()) in registered_before
+            first_cleanup = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], text=True, capture_output=True, check=False)
+            first_result = json.loads(first_cleanup.stdout)
+            assert first_result["aborted"] is True
+            assert first_result["cleaned"] is False
+            assert not child.exists()
+            registered_after = subprocess.check_output(["git", "worktree", "list", "--porcelain"], cwd=ROOT, text=True)
+            assert str(child.resolve()) not in registered_after
+            assert str(child) not in first_result["residual_paths"]
+            second_cleanup = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], text=True, capture_output=True, check=False)
+            assert json.loads(second_cleanup.stdout)["idempotent"] is True
+        finally:
+            _cleanup_exact_fixture_artifacts(
+                fixture_root,
+                worktree_relative=OWNED_WORKTREES[0],
+                derived_sibling_root=sibling_root,
+            )
+            if fixture_root.exists():
+                subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], check=False)
+            (fixture_root.parent / f".{fixture_root.name}.parallel-pilot-cleaned").unlink(missing_ok=True)
     assert not fixture_root.exists()
 
 
