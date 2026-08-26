@@ -969,6 +969,20 @@ def test_executor_cli_start_resume_status_emit_one_json_object_and_status_has_no
         shutil.rmtree(root)
 
 
+def test_disabled_cli_does_not_resolve_or_import_an_adapter() -> None:
+    root = make_repo(mode="disabled")
+    original_factory = parallel_execute._adapter_factory
+    calls: list[str] = []
+    try:
+        parallel_execute._adapter_factory = lambda name, root, feature: calls.append(name) or None  # type: ignore[assignment]
+        result = parallel_execute.main(["start", "--root", str(root), "--feature", "fixture"])
+        assert result == 0
+        assert calls == []
+    finally:
+        parallel_execute._adapter_factory = original_factory  # type: ignore[assignment]
+        shutil.rmtree(root)
+
+
 def test_executor_cli_selects_orca_adapter_and_threads_non_default_wait_budget() -> None:
     root = make_repo()
     try:

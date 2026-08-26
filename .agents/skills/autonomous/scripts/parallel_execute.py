@@ -1643,6 +1643,15 @@ def _adapter_factory(name: str, root: Path, feature: str) -> Callable[[], Any] |
     return lambda: factory(root=root, feature=feature)
 
 
+def _workflow_is_disabled(root: Path, feature: str) -> bool:
+    try:
+        path = Path(root) / ".specs" / "features" / feature / "workflow.json"
+        snapshot = json.loads(path.read_text(encoding="utf-8"))
+        return isinstance(snapshot, Mapping) and snapshot.get("parallelization", {}).get("mode") == "disabled"
+    except (OSError, TypeError, AttributeError, json.JSONDecodeError):
+        return False
+
+
 def main(
     argv: list[str] | None = None,
     *,
@@ -1652,7 +1661,7 @@ def main(
     args = _parser().parse_args(argv)
     try:
         selected_adapter_factory = adapter_factory
-        if selected_adapter_factory is None and args.command != "status":
+        if selected_adapter_factory is None and args.command != "status" and not _workflow_is_disabled(args.root, args.feature):
             selected_adapter_factory = _adapter_factory(args.adapter, args.root, args.feature)
         coordinator = Coordinator(
             args.root,
