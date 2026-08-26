@@ -165,8 +165,23 @@ def retry_helper_script(path: Path) -> None:
 def peak_helper_script(path: Path, *, fail_first: bool = False, inverted: bool = False) -> None:
     path.write_text(
         "import fcntl, json, os, pathlib, sys, time\n"
-        "prompt, output, label, calls, state, peak, attempts, mode = sys.argv[1:]\n"
+        "prompt, output, label, calls, state, peak, attempts, mode, *barrier_args = sys.argv[1:]\n"
         "state_path, peak_path, attempts_path = map(pathlib.Path, (state, peak, attempts))\n"
+        "slots = int(barrier_args[0]) if barrier_args else 1\n"
+        "initial_barrier = pathlib.Path(barrier_args[1]) if len(barrier_args) > 1 else state_path.parent / 'initial-wave'\n"
+        "retry_barrier = pathlib.Path(barrier_args[2]) if len(barrier_args) > 2 else state_path.parent / 'retry-wave'\n"
+        "def rendezvous(path, parties):\n"
+        "    path.parent.mkdir(parents=True, exist_ok=True)\n"
+        "    with open(path, 'a+', encoding='utf-8') as stream:\n"
+        "        fcntl.flock(stream, fcntl.LOCK_EX)\n"
+        "        stream.seek(0); ready = int(stream.read() or '0') + 1\n"
+        "        stream.seek(0); stream.truncate(); stream.write(str(ready)); stream.flush()\n"
+        "        if ready >= parties: pathlib.Path(str(path) + '.go').touch()\n"
+        "        fcntl.flock(stream, fcntl.LOCK_UN)\n"
+        "    deadline = time.monotonic() + 5\n"
+        "    while not pathlib.Path(str(path) + '.go').exists():\n"
+        "        if time.monotonic() >= deadline: raise RuntimeError('peak test barrier timeout')\n"
+        "        time.sleep(0.01)\n"
         "def change(delta):\n"
         "    with state_path.open('a+', encoding='utf-8') as stream:\n"
         "        fcntl.flock(stream, fcntl.LOCK_EX)\n"
@@ -183,9 +198,21 @@ def peak_helper_script(path: Path, *, fail_first: bool = False, inverted: bool =
         "attempt = int(attempt_file.read_text()) + 1 if attempt_file.exists() else 1\n"
         "attempt_file.write_text(str(attempt))\n"
         "change(1)\n"
+        "if mode == 'normal': rendezvous(initial_barrier, slots)\n"
+        "if mode == 'retry' and attempt == 1:\n"
+        "    rendezvous(initial_barrier, slots)\n"
+        "    if label == 'job-1': pathlib.Path(str(retry_barrier) + '.ready').touch()\n"
+        "    else:\n"
+        "        deadline = time.monotonic() + 5\n"
+        "        while not pathlib.Path(str(retry_barrier) + '.ready').exists():\n"
+        "            if time.monotonic() >= deadline: raise RuntimeError('retry wave readiness timeout')\n"
+        "            time.sleep(0.01)\n"
+        "        rendezvous(retry_barrier, slots)\n"
+        "if mode == 'retry' and attempt >= 2: rendezvous(retry_barrier, slots)\n"
         "with open(calls, 'a', encoding='utf-8') as stream: stream.write(f'{label}:{attempt}\\n')\n"
-        "delay = 0.20 if ((label == 'job-1') == (mode == 'inverted')) else 0.12\n"
-        "time.sleep(delay)\n"
+        "if not barrier_args:\n"
+        "    delay = 0.20 if ((label == 'job-1') == (mode == 'inverted')) else 0.12\n"
+        "    time.sleep(delay)\n"
         + ("if attempt == 1 and label == 'job-1':\n    change(-1)\n    raise SystemExit(1)\n" if fail_first else "")
         + "json.dump({'defects': [], 'advisories': [], 'suppressions': [], 'coverage': {'hunks': [], 'rules': []}}, open(output, 'w', encoding='utf-8'))\n"
         "change(-1)\n",
@@ -294,7 +321,11 @@ class TokenMetricsTests(unittest.TestCase):
                 peak_helper_script(helper)
                 try:
                     result = subprocess.run(
-                        runner(out, jobs, helper, calls, helper_suffix=[state, peak, attempts, "normal"], extra=["--attempts", "1"]),
+                        runner(
+                            out, jobs, helper, calls,
+                            helper_suffix=[state, peak, attempts, "normal", str(min(concurrency, count)), str(root / "initial-wave")],
+                            extra=["--attempts", "1"],
+                        ),
                         cwd=REPO, capture_output=True, text=True,
                     )
                     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -315,7 +346,11 @@ class TokenMetricsTests(unittest.TestCase):
             peak_helper_script(helper, fail_first=True)
             try:
                 result = subprocess.run(
-                    runner(out, jobs, helper, calls, helper_suffix=[state, peak, attempts, "normal"], extra=["--attempts", "2"]),
+                    runner(
+                        out, jobs, helper, calls,
+                        helper_suffix=[state, peak, attempts, "retry", "3", str(root / "initial-wave"), str(root / "retry-wave")],
+                        extra=["--attempts", "2"],
+                    ),
                     cwd=REPO, capture_output=True, text=True,
                 )
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
