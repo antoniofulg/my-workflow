@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 21,
+  "next_id": 24,
   "lessons": [
     {
       "id": "L-001",
@@ -364,6 +364,60 @@
       ],
       "created": "2026-08-24T18:42:24Z",
       "last_seen": "2026-08-24T18:42:24Z"
+    },
+    {
+      "id": "L-021",
+      "key": "ac_gap::exercise adapter compatibility through the executor boundary before accepting a host capability proof",
+      "text": "Exercise adapter compatibility through the executor boundary before accepting a host capability proof",
+      "signal": "ac_gap",
+      "scope": "host-adapters",
+      "status": "candidate",
+      "features": [
+        "host-agnostic-slice-parallelization"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md:ranked-gap-1/MAE-01 (host-adapters)"
+      ],
+      "created": "2026-08-26T16:20:33Z",
+      "last_seen": "2026-08-26T16:20:33Z"
+    },
+    {
+      "id": "L-022",
+      "key": "ac_gap::test every lifecycle failure stage for no success receipt and exact retained resource evidence",
+      "text": "Test every lifecycle failure stage for no success receipt and exact retained-resource evidence",
+      "signal": "ac_gap",
+      "scope": "host-adapters",
+      "status": "candidate",
+      "features": [
+        "host-agnostic-slice-parallelization"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md:ranked-gap-3/ORC-05 (host-adapters)"
+      ],
+      "created": "2026-08-26T16:20:33Z",
+      "last_seen": "2026-08-26T16:20:33Z"
+    },
+    {
+      "id": "L-023",
+      "key": "gate_fail::keep canonical workflow wording synchronized with contract assertions when changing published policy",
+      "text": "Keep canonical workflow wording synchronized with contract assertions when changing published policy",
+      "signal": "gate_fail",
+      "scope": "workflow-contracts",
+      "status": "candidate",
+      "features": [
+        "host-agnostic-slice-parallelization"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md:gate-check (workflow-contracts)"
+      ],
+      "created": "2026-08-26T16:20:33Z",
+      "last_seen": "2026-08-26T16:20:33Z"
     }
   ]
 }

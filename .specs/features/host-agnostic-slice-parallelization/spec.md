@@ -134,28 +134,28 @@ complete-looking capability manifest, through a recording CLI without any mutati
 
 | Requirement ID | Design component | Planned slice | Status |
 | --- | --- | --- | --- |
-| HST-01 | Adapter registry and executor boundary | A | Implemented |
-| HST-02 | Adapter registry and executor boundary | A | Implementing |
-| HST-03 | Adapter registry and executor boundary | A | Implementing |
-| HST-04 | Adapter registry and executor boundary | A | Implementing |
-| ORC-01 | Orca compatibility probe and canary | B | Implementing |
-| ORC-02 | Orca compatibility probe and canary | B | Implementing |
-| ORC-03 | Orca compatibility probe and canary | B | Implementing |
-| ORC-04 | Orca compatibility probe and canary | B | Implementing |
-| ORC-05 | Orca compatibility probe and canary | B | Implementing |
-| ORC-06 | Orca compatibility probe and canary | B | Implementing |
-| ORC-07 | Orca compatibility probe and canary | B | Implementing |
-| MAE-01 | Maestri capability probe | C | Implementing |
-| MAE-02 | Maestri capability probe | C | Implementing |
-| MAE-03 | Maestri capability probe | C | Implementing |
-| MAE-04 | Maestri capability probe | C | Implementing |
-| SEC-001 | Boundary, probes, and cleanup | A–C | Implementing |
-| SEC-002 | Boundary, probes, and cleanup | A–C | Implementing |
-| SEC-003 | Boundary, probes, and cleanup | A–C | Implementing |
-| SEC-004 | Boundary, probes, and cleanup | A–C | Implementing |
-| SEC-005 | Boundary, probes, and cleanup | A–C | Implementing |
-| SEC-006 | Boundary, probes, and cleanup | A–C | Implementing |
-| SEC-007 | Boundary, probes, and cleanup | A–C | Implementing |
+| HST-01 | Adapter registry and executor boundary | A | ✅ Verified |
+| HST-02 | Adapter registry and executor boundary | A | ✅ Verified |
+| HST-03 | Adapter registry and executor boundary | A | ✅ Verified |
+| HST-04 | Adapter registry and executor boundary | A | ✅ Verified |
+| ORC-01 | Orca compatibility probe and canary | B | ✅ Verified |
+| ORC-02 | Orca compatibility probe and canary | B | ✅ Verified |
+| ORC-03 | Orca compatibility probe and canary | B | ✅ Verified |
+| ORC-04 | Orca compatibility probe and canary | B | ✅ Verified |
+| ORC-05 | Orca compatibility probe and canary | B | ✅ Verified |
+| ORC-06 | Orca compatibility probe and canary | B | ✅ Verified |
+| ORC-07 | Orca compatibility probe and canary | B | ✅ Verified |
+| MAE-01 | Maestri capability probe | C | ✅ Verified |
+| MAE-02 | Maestri capability probe | C | ✅ Verified |
+| MAE-03 | Maestri capability probe | C | ✅ Verified |
+| MAE-04 | Maestri capability probe | C | ✅ Verified |
+| SEC-001 | Boundary, probes, and cleanup | A–C | ✅ Verified |
+| SEC-002 | Boundary, probes, and cleanup | A–C | ✅ Verified |
+| SEC-003 | Boundary, probes, and cleanup | A–C | ✅ Verified |
+| SEC-004 | Boundary, probes, and cleanup | A–C | ✅ Verified |
+| SEC-005 | Boundary, probes, and cleanup | A–C | ✅ Verified |
+| SEC-006 | Boundary, probes, and cleanup | A–C | ✅ Verified |
+| SEC-007 | Boundary, probes, and cleanup | A–C | ✅ Verified |
 
 **Coverage:** 22 total requirements, 22 mapped, 0 unmapped.
 

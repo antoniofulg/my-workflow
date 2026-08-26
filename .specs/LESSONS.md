@@ -134,6 +134,24 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: validation.md:Slice-C-R1-waiting-follow-up (workflow-executor)
 - last seen: 2026-08-24T18:42:24Z
 
+### L-021 - Exercise adapter compatibility through the executor boundary before accepting a host capability proof
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `host-adapters` · harmful: 0
+- features: host-agnostic-slice-parallelization
+- evidence: validation.md:ranked-gap-1/MAE-01 (host-adapters)
+- last seen: 2026-08-26T16:20:33Z
+
+### L-022 - Test every lifecycle failure stage for no success receipt and exact retained-resource evidence
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `host-adapters` · harmful: 0
+- features: host-agnostic-slice-parallelization
+- evidence: validation.md:ranked-gap-3/ORC-05 (host-adapters)
+- last seen: 2026-08-26T16:20:33Z
+
+### L-023 - Keep canonical workflow wording synchronized with contract assertions when changing published policy
+- signal: `gate_fail` · recurrence: 1 feature(s) · scope: `workflow-contracts` · harmful: 0
+- features: host-agnostic-slice-parallelization
+- evidence: validation.md:gate-check (workflow-contracts)
+- last seen: 2026-08-26T16:20:33Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.
