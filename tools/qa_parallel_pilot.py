@@ -69,7 +69,7 @@ def setup() -> dict[str, str]:
         (feature_dir / "workflow.json").write_text(
             json.dumps(
                 {
-                    "version": 1,
+                    "version": 2,
                     "feature": FEATURE,
                     "git_head": head,
                     "parallelization": {"mode": "safe", "resource_provider": None},

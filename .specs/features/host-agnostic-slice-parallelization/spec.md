@@ -81,13 +81,13 @@ mistakes a visually available floor for a machine-verifiable lifecycle.
 
 **Acceptance Criteria:**
 
-1. **MAE-01:** WHEN Maestri is evaluated THEN the adapter SHALL require the current terminal identity, daemon socket, CLI path, structured floor/agent lifecycle receipts, and machine floor cleanup.
+1. **MAE-01:** WHEN Maestri is evaluated THEN the adapter SHALL require the current terminal identity, daemon socket, CLI path, structured floor/agent lifecycle receipts, and machine floor cleanup. Until host-owned execution is implemented, no capability claim SHALL return `compatible`.
 2. **MAE-02:** IF any required Maestri capability is absent THEN the adapter SHALL report `unsupported` with the missing capabilities and SHALL NOT create a floor, recruit an agent, or invoke Git worktree commands.
-3. **MAE-03:** WHILE Maestri lacks structured lifecycle receipts or floor deletion, safe and full execution SHALL remain serial even when `floor create`, `recruit`, `ask`, `check`, and `dismiss` are otherwise available.
+3. **MAE-03:** WHILE Maestri lacks a tracked host-owned execution implementation, safe and full execution SHALL remain serial even when `floor create`, `recruit`, `ask`, `check`, and `dismiss` are otherwise available. Capability claims alone SHALL never authorize generic Git-worktree execution.
 4. **MAE-04:** The Maestri adapter SHALL NOT parse human-readable output as an ownership, completion, or cleanup receipt.
 
-**Independent Test:** Evaluate absent environment, documented current capabilities, and a future
-complete capability manifest through a recording CLI without any mutating command.
+**Independent Test:** Evaluate absent environment and documented current capabilities, including a
+complete-looking capability manifest, through a recording CLI without any mutating command.
 
 ## Security Surfaces
 

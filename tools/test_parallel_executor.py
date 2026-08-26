@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import builtins
 import io
 import os
 import shutil
@@ -1029,6 +1030,34 @@ def test_executor_accepts_current_v2_snapshot_and_rejects_obsolete_v1() -> None:
             raise AssertionError("obsolete workflow schema must be rejected")
     finally:
         shutil.rmtree(root)
+
+
+def test_auto_inside_maestri_selects_only_maestri_without_importing_orca() -> None:
+    import maestri_adapter
+
+    original_which = parallel_execute.shutil.which
+    original_import = builtins.__import__
+    original_socket = os.environ.get("MAESTRI_SOCKET")
+    try:
+        os.environ["MAESTRI_SOCKET"] = "/tmp/maestri.sock"
+        parallel_execute.shutil.which = lambda name: "/usr/local/bin/" + name  # type: ignore[assignment]
+
+        def guarded_import(name: str, *args: object, **kwargs: object) -> object:
+            if name == "orca_adapter":
+                raise AssertionError("Maestri auto-selection must not import Orca")
+            return original_import(name, *args, **kwargs)
+
+        builtins.__import__ = guarded_import  # type: ignore[assignment]
+        factory = parallel_execute._adapter_factory("auto", Path("."), "fixture")
+        assert factory is not None
+        assert isinstance(factory(), maestri_adapter.MaestriAdapter)
+    finally:
+        builtins.__import__ = original_import  # type: ignore[assignment]
+        parallel_execute.shutil.which = original_which  # type: ignore[assignment]
+        if original_socket is None:
+            os.environ.pop("MAESTRI_SOCKET", None)
+        else:
+            os.environ["MAESTRI_SOCKET"] = original_socket
 
 
 def test_executor_cli_selects_orca_adapter_and_threads_non_default_wait_budget() -> None:

@@ -97,17 +97,20 @@ class MaestriAdapter:
         if cli_path:
             present.add("cli_path")
         missing = [name for name in REQUIRED_CAPABILITIES if name not in present]
+        # A capability declaration is not an execution receipt. The current adapter has no
+        # implementation for creating, supervising, and deleting host-owned Maestri resources,
+        # so it must remain blocked even when a future-looking manifest claims every capability.
         result: dict[str, Any] = {
             "version": 1,
             "feature": self.feature,
             "adapter": "maestri",
-            "status": "unsupported" if missing or malformed else "compatible",
+            "status": "unsupported",
             "runtime": {
                 "app_version": os.environ.get("MAESTRI_VERSION", ""),
                 "capabilities": sorted(present),
                 "executable_identity": {"path": str(Path(cli_path).resolve()) if cli_path else self.executable},
             },
-            "proof": {"source": "capability-manifest", "cleanup": "clean" if not missing and not malformed else "not-run"},
+            "proof": {"source": "capability-manifest", "cleanup": "not-run"},
         }
         if malformed:
             result["reason"] = "malformed-capability-manifest"
@@ -116,7 +119,8 @@ class MaestriAdapter:
             result["reason"] = "missing-capabilities"
             result["missing_capabilities"] = missing
         else:
-            result["reason"] = "capability-manifest-complete"
+            result["reason"] = "host-owned-execution-unimplemented"
+            result["missing_capabilities"] = []
         return result
 
 

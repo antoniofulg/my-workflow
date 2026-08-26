@@ -6,8 +6,8 @@ TLC remains unchanged, and tasks inside a slice remain sequential.
 ## Entry gate
 
 1. Resolve the feature workflow with `.agents/skills/workflow-config/SKILL.md`.
-2. Read the frozen `workflow.json` (schema version `2`) before planning. Never plan from current configuration while
-   resuming a feature.
+2. Read the frozen `workflow.json` before planning. It must use schema version `2`. Never plan from
+   current configuration while resuming a feature.
 3. Run the read-only planner from the repository root:
 
    ```bash

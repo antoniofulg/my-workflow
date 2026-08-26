@@ -8,7 +8,7 @@
 | UT-002 | HST-02–HST-04 | Host selection | Auto inside/outside Maestri or explicit backend | Current host only; incompatible result serializes; scheduler stages remain unchanged. |
 | UT-003 | ORC-01, ORC-02 | Orca read-only probe | Ready/invalid status or app version `1.4.188` | Exact compatibility result; known-bad version creates no effect. |
 | UT-004 | ORC-06, ORC-07 | Compatibility cache | Matching or changed identity | Matching PASS is reused; any changed field invalidates it. |
-| UT-005 | MAE-01–MAE-04 | Maestri capability probe | Missing env or documented current capabilities | Exact missing capabilities; no mutation and no text parsing. |
+| UT-005 | MAE-01–MAE-04 | Maestri capability probe | Missing env, current capabilities, or complete-looking claims | Exact unsupported reason/capabilities; no mutation, generic Git execution, or text parsing. |
 | UT-006 | HST-01 | Workflow snapshot schema | Current v2 snapshot or obsolete v1 snapshot | v2 is accepted; v1 is rejected before planning or host effects. |
 
 ## Integration
