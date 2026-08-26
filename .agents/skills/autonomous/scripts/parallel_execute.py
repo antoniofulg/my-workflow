@@ -37,6 +37,7 @@ TRANSITIONS: dict[str, set[str]] = {
     "serial": {"ready"},
 }
 _ID = re.compile(r"^[A-Za-z0-9_.:/-]+$")
+_FEATURE_SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
 class ExecutorError(ValueError):
@@ -49,6 +50,12 @@ class StateError(ExecutorError):
 
 class PathBoundaryError(ExecutorError):
     """A path leaves its declared root or crosses an unsafe symlink."""
+
+
+def canonical_feature_slug(value: Any) -> str:
+    if not isinstance(value, str) or not _FEATURE_SLUG.fullmatch(value):
+        raise PathBoundaryError("invalid feature slug")
+    return value
 
 
 def _require_text(value: Any, label: str) -> str:
@@ -339,8 +346,7 @@ def _git_common_dir(root: Path) -> Path:
 
 def runtime_state_path(root: Path, feature: str) -> Path:
     root = _repository_root(Path(root).resolve())
-    if not _ID.fullmatch(feature):
-        raise ExecutorError("invalid feature")
+    feature = canonical_feature_slug(feature)
     common = _git_common_dir(root)
     if common.is_symlink():
         raise PathBoundaryError("unsafe git common directory")
@@ -496,7 +502,7 @@ class Coordinator:
         worktree_creator: Callable[[Path, str], Mapping[str, Any]] | None = None,
     ):
         self.root = Path(root).resolve()
-        self.feature = feature
+        self.feature = canonical_feature_slug(feature)
         self.adapter_factory = adapter_factory
         self.git_adapter_factory = git_adapter_factory
         self.gate_receipt_factory = gate_receipt_factory
@@ -1306,12 +1312,13 @@ class Coordinator:
         try:
             adapter = self.adapter_factory()
             probe = getattr(adapter, "probe", None)
-            if callable(probe):
-                compatibility = probe()
-                if not isinstance(compatibility, Mapping) or not _compatibility_is_usable(compatibility):
-                    if isinstance(compatibility, Mapping):
-                        return _adapter_fallback(self.feature, mode, compatibility, lanes)
-                    return _serial_result(self.feature, mode, "adapter:malformed-compatibility", lanes)
+            if not callable(probe):
+                return _serial_result(self.feature, mode, "adapter:compatibility-probe-unavailable", lanes)
+            compatibility = probe()
+            if not isinstance(compatibility, Mapping) or not _compatibility_is_usable(compatibility):
+                if isinstance(compatibility, Mapping):
+                    return _adapter_fallback(self.feature, mode, compatibility, lanes)
+                return _serial_result(self.feature, mode, "adapter:malformed-compatibility", lanes)
         except Exception as exc:
             return _serial_result(self.feature, mode, "adapter:" + str(exc), lanes)
         actions: list[dict[str, Any]] = []

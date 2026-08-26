@@ -42,6 +42,12 @@ def fixture() -> tuple[Path, dict[str, object], dict[str, str]]:
     root = Path(tempfile.mkdtemp())
     worktree = root / "existing-worktree"
     worktree.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=root, check=True)
+    (root / "seed").write_text("seed\n", encoding="utf-8")
+    subprocess.run(["git", "add", "seed"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "seed"], cwd=root, check=True)
     lane = {"id": "slice-A", "slice": "A", "task": "T1", "feature": "fixture"}
     worktree_receipt = {
         "worktree_id": "wt-A",
@@ -116,7 +122,7 @@ class CanaryDouble(orca_adapter.OrcaAdapter):
         super().__init__(
             root,
             "fixture",
-            runner=RecordingCLI([{"exists": failure == "absence"}]),
+            runner=RecordingCLI([{"exists": failure == "absence", "worktree_path": str(root / "canary-worktree")}]),
             worktree_creator=lambda destination, source: {
                 "worktree_id": "wt-canary", "worktree_path": str(root / "canary-worktree"),
                 "branch": "(detached)", "pre_head": HEAD,
@@ -183,13 +189,13 @@ class CanaryDouble(orca_adapter.OrcaAdapter):
 
     def _call(self, *arguments: str, timeout: float | None = None) -> dict[str, object]:
         if arguments[0] == "worker-show":
-            return {"status": "released"}
-        return {"exists": self.failure == "absence"}
+            return {"status": "released", "dispatch_id": "dispatch-canary", "terminal": {"handle": "terminal-canary", "status": "exited", "connected": False, "writable": False}}
+        return {"exists": self.failure == "absence", "worktree_path": str(self._canary_worker["worktree_path"])}
 
     def _remove(self, receipt: Mapping[str, object]) -> dict[str, object]:
         if self.failure == "removal":
             raise orca_adapter.AdapterError("worktree removal failed")
-        return {"removed": True}
+        return {"removed": True, "worktree_path": receipt["worktree_path"]}
 
 
 def test_start_attaches_existing_worktree_and_correlates_every_receipt_field() -> None:
@@ -231,7 +237,9 @@ def test_probe_rejects_installed_known_bad_version_without_lifecycle_effect() ->
 def test_probe_rejects_not_ready_missing_version_and_missing_contract() -> None:
     cases = (
         ({"ready": False, "appVersion": "1.4.189", "capabilities": [orca_adapter.CAPABILITY]}, "runtime-not-ready"),
+        ({"ready": False, "status": "running", "appVersion": "1.4.189", "capabilities": [orca_adapter.CAPABILITY]}, "runtime-not-ready"),
         ({"ready": True, "capabilities": [orca_adapter.CAPABILITY]}, "missing-app-version"),
+        ({"ready": True, "version": 1, "capabilities": [orca_adapter.CAPABILITY]}, "missing-app-version"),
         ({"ready": True, "appVersion": "1.4.189", "capabilities": []}, "missing-capability:" + orca_adapter.CAPABILITY),
     )
     for payload, reason in cases:
@@ -240,6 +248,9 @@ def test_probe_rejects_not_ready_missing_version_and_missing_contract() -> None:
             result = adapter(root, RecordingCLI([payload])).probe()
             assert result["status"] == "unsupported"
             assert result["reason"] == reason
+            if "appVersion" in payload:
+                assert result["envelope"]["app_version"] == payload["appVersion"]
+                assert result["envelope"]["protocol_version"] == payload.get("version")
         finally:
             shutil.rmtree(root)
 
@@ -408,18 +419,22 @@ def test_canary_requires_clean_removal_before_writing_compatibility_cache() -> N
 
             def _call(self, *arguments: str, timeout: float | None = None) -> dict[str, object]:
                 if arguments[0] == "worker-show":
-                    return {"status": "released"}
-                return {"exists": False}
+                    return {"status": "released", "dispatch_id": "dispatch-canary", "terminal": {"handle": "terminal-canary", "status": "exited", "connected": False, "writable": False}}
+                return {"exists": False, "worktree_path": str(worktree)}
 
-        cli = RecordingCLI([{"exists": False}])
+        cli = RecordingCLI([{"exists": False, "worktree_path": str(worktree)}])
         def create_worktree(destination: Path, source: str) -> dict[str, str]:
             creator_calls.append((destination, source))
             return receipt
 
+        def remove_worktree(value: Mapping[str, object]) -> dict[str, object]:
+            shutil.rmtree(worktree)
+            return {"removed": True, "worktree_path": str(worktree)}
+
         candidate = Candidate(
             root, "fixture", runner=cli,
             worktree_creator=create_worktree,
-            worktree_remover=lambda value: {"removed": True},
+            worktree_remover=remove_worktree,
         )
         result = candidate.canary()
         assert result["status"] == "compatible"

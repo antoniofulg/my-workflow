@@ -452,7 +452,10 @@ class OrcaAdapter:
         worktree_remover: Callable[[Mapping[str, Any]], Mapping[str, Any]] | None = None,
     ) -> None:
         self.root = Path(root).resolve()
-        self.feature = _text(feature, "feature")
+        try:
+            self.feature = core.canonical_feature_slug(feature)
+        except core.PathBoundaryError as exc:
+            raise AdapterError("invalid Orca feature slug") from exc
         self.runner = runner
         self.executable = _text(executable, "executable")
         if timeout <= 0:
@@ -476,11 +479,10 @@ class OrcaAdapter:
 
     def _cache_path(self) -> Path:
         try:
-            return core.runtime_state_path(self.root, self.feature).with_name(
-                core.runtime_state_path(self.root, self.feature).stem + "-orca-compatibility.json"
-            )
-        except (core.ExecutorError, OSError, subprocess.SubprocessError):
-            return self.root / ".parallel-slice-executor" / f"{self.feature}-orca-compatibility.json"
+            state_path = core.runtime_state_path(self.root, self.feature)
+        except (core.ExecutorError, OSError, subprocess.SubprocessError) as exc:
+            raise AdapterError("Orca compatibility cache requires a Git repository") from exc
+        return state_path.with_name(state_path.stem + "-orca-compatibility.json")
 
     def _executable_identity(self) -> dict[str, Any]:
         resolved = Path(shutil.which(self.executable) or self.executable).resolve()
@@ -493,20 +495,26 @@ class OrcaAdapter:
         return identity
 
     @staticmethod
-    def _status_value(value: Mapping[str, Any], names: set[str]) -> Any:
+    def _status_values(value: Mapping[str, Any], names: set[str]) -> list[Any]:
         pending: list[Any] = [value]
+        found: list[Any] = []
         while pending:
             current = pending.pop(0)
             if not isinstance(current, Mapping):
                 continue
             for key, item in current.items():
                 if str(key) in names:
-                    return item
+                    found.append(item)
                 if isinstance(item, Mapping):
                     pending.append(item)
                 elif isinstance(item, list):
                     pending.extend(item)
-        return None
+        return found
+
+    @staticmethod
+    def _status_value(value: Mapping[str, Any], names: set[str]) -> Any:
+        values = OrcaAdapter._status_values(value, names)
+        return values[0] if values else None
 
     def _status_call(self) -> dict[str, Any]:
         try:
@@ -525,7 +533,8 @@ class OrcaAdapter:
         return _payload(payload)
 
     def _runtime_identity(self, status: Mapping[str, Any]) -> dict[str, Any]:
-        app_version = self._status_value(status, {"appVersion", "app_version", "version"})
+        app_version = self._status_value(status, {"appVersion", "app_version"})
+        protocol_version = self._status_value(status, {"protocolVersion", "protocol_version", "version"})
         capabilities = self._status_value(status, {"capabilities", "capabilitySet", "capability_set"})
         if isinstance(capabilities, Mapping):
             capabilities = [key for key, enabled in capabilities.items() if enabled is True]
@@ -534,6 +543,7 @@ class OrcaAdapter:
         capabilities = sorted({str(item) for item in capabilities if isinstance(item, str) and item})
         return {
             "app_version": app_version if isinstance(app_version, str) else "",
+            "protocol_version": protocol_version,
             "capabilities": capabilities,
             "executable_identity": self._executable_identity(),
         }
@@ -543,7 +553,13 @@ class OrcaAdapter:
             value = json.loads(self._cache_path().read_text(encoding="utf-8"))
         except (FileNotFoundError, OSError, json.JSONDecodeError):
             return None
-        if not isinstance(value, Mapping) or value.get("status") != "compatible":
+        if (
+            not isinstance(value, Mapping)
+            or value.get("version") != 1
+            or value.get("feature") != self.feature
+            or value.get("adapter") != "orca"
+            or value.get("status") != "compatible"
+        ):
             return None
         if value.get("repository") != str(self.root) or value.get("runtime") != dict(identity):
             return None
@@ -565,9 +581,18 @@ class OrcaAdapter:
         status_name = self._status_value(status, {"status", "state"})
         result: dict[str, Any] = {
             "version": 1, "feature": self.feature, "adapter": "orca", "runtime": runtime,
+            "envelope": {"app_version": runtime["app_version"], "protocol_version": runtime["protocol_version"]},
             "proof": {"source": "lifecycle-canary", "cleanup": "not-run"},
         }
-        if ready is not True and status_name not in {"ready", "connected", "running"}:
+        explicit_readiness = [
+            value for value in self._status_values(status, {"ready", "reachable", "connected"})
+            if value is not None
+        ]
+        if explicit_readiness:
+            ready = all(value is True for value in explicit_readiness)
+        else:
+            ready = status_name in {"ready", "connected", "running"}
+        if not ready:
             return {**result, "status": "unsupported", "reason": "runtime-not-ready"}
         if not version:
             return {**result, "status": "unsupported", "reason": "missing-app-version"}
@@ -587,6 +612,7 @@ class OrcaAdapter:
             raise AdapterError("Orca canary could not resolve source head", details={"stage": "worktree-create"}) from exc
 
     def _canary_absence(self, path: Path) -> None:
+        expected = path.resolve()
         try:
             response = self._json_call([self.executable, "worktree", "show", "--worktree", "path:" + str(path), "--json"])
         except AdapterError as exc:
@@ -594,9 +620,28 @@ class OrcaAdapter:
             if code in {"not_found", "worktree_not_found", "selector_not_found"}:
                 return
             raise AdapterError("Orca canary could not prove checkout absence", details={"stage": "absence", **dict(exc.details)}) from exc
+        reported = response.get("worktree_path") or response.get("worktreePath")
+        if reported is None or Path(str(reported)).resolve() != expected:
+            raise AdapterError("Orca canary absence response is uncorrelated", details={"stage": "absence", "worktree_path": str(path)})
         if response.get("exists") is False or response.get("status") in {"removed", "not_found"}:
-            return
+            if not path.exists() and not path.is_symlink():
+                return
         raise AdapterError("Orca canary checkout remains discoverable", details={"stage": "absence", "worktree_path": str(path)})
+
+    def _validate_canary_release(self, response: Mapping[str, Any], worker: Mapping[str, Any]) -> None:
+        dispatch_id = response.get("dispatch_id") or response.get("dispatchId")
+        if dispatch_id != worker.get("dispatch_id"):
+            raise AdapterError("Orca canary release dispatch is uncorrelated", details={"stage": "release-proof", "dispatch_id": worker.get("dispatch_id")})
+        terminal_handle = _nested_terminal_handle(response)
+        if terminal_handle != worker.get("terminal_handle"):
+            raise AdapterError("Orca canary release terminal is uncorrelated", details={"stage": "release-proof", "dispatch_id": dispatch_id})
+        terminal_state = _nested_terminal_state(response)
+        if isinstance(terminal_state, Mapping):
+            settled = terminal_state.get("status") == "exited" and terminal_state.get("connected") is False and terminal_state.get("writable") is False
+        else:
+            settled = response.get("terminal_status") == "exited" and response.get("connected") is False and response.get("writable") is False
+        if not settled:
+            raise AdapterError("Orca canary terminal is not settled", details={"stage": "release-proof", "dispatch_id": dispatch_id, "terminal_handle": terminal_handle})
 
     def canary(self) -> dict[str, Any]:
         """Exercise the full worker lifecycle once, then persist only a clean proof."""
@@ -647,6 +692,7 @@ class OrcaAdapter:
             status = self._call("worker-show", "--dispatch", _opaque_token(worker.get("dispatch_id"), "dispatch id"))
             if status.get("status") not in {"released", "completed", "complete", "exited"}:
                 raise AdapterError("Orca canary release was not settled", details={"stage": stage, "dispatch_id": worker.get("dispatch_id")})
+            self._validate_canary_release(status, worker)
             stage = "worktree-remove"
             remover = self._worktree_remover
             removal = remover(worktree) if remover is not None else __import__("git_adapter").GitAdapter(self.root).remove_worktree(
@@ -654,13 +700,18 @@ class OrcaAdapter:
             )
             if not isinstance(removal, Mapping) or removal.get("removed") is not True:
                 raise AdapterError("Orca canary checkout removal was not proven")
+            reported_path = removal.get("worktree_path") or removal.get("worktreePath")
+            if reported_path is None or Path(str(reported_path)).resolve() != Path(str(worktree["worktree_path"])).resolve():
+                raise AdapterError("Orca canary checkout removal is uncorrelated", details={"stage": stage, "worktree_path": worktree.get("worktree_path")})
             removed = True
             stage = "absence"
             self._canary_absence(Path(str(worktree["worktree_path"])))
             proof = {"source": "lifecycle-canary", "checked_at": time.time(), "cleanup": "clean"}
             receipt = {
                 "version": 1, "feature": self.feature, "repository": str(self.root), "adapter": "orca",
-                "runtime": dict(runtime), "proof": proof, "status": "compatible",
+                "runtime": dict(runtime),
+                "envelope": {"app_version": runtime.get("app_version"), "protocol_version": runtime.get("protocol_version")},
+                "proof": proof, "status": "compatible",
             }
             core.atomic_write_json(self._cache_path(), receipt)
             return receipt

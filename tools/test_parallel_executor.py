@@ -231,6 +231,21 @@ def test_incompatible_adapter_probe_serializes_before_worktree_effect() -> None:
         shutil.rmtree(root)
 
 
+def test_adapter_without_structured_probe_serializes_before_worktree_effect() -> None:
+    root = make_repo()
+    original_plan = parallel_execute.Coordinator._plan
+    try:
+        parallel_execute.Coordinator._plan = lambda self: lane_plan(resources=[])  # type: ignore[method-assign]
+        for adapter in (object(), type("Malformed", (), {"probe": lambda self: {"status": "compatible"}})()):
+            result = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda adapter=adapter: adapter).start()
+            assert result["fallback"] is True
+            assert result["reason"] in {"adapter:compatibility-probe-unavailable", "unknown:incompatible"}
+            assert not list(root.parent.glob(f".{root.name}-parallel-slices"))
+    finally:
+        parallel_execute.Coordinator._plan = original_plan  # type: ignore[method-assign]
+        shutil.rmtree(root)
+
+
 def test_preflight_cli_emits_one_structured_result_without_starting_scheduler() -> None:
     root = make_repo()
     try:
@@ -294,6 +309,9 @@ def test_disabled_preflight_remains_a_read_only_host_diagnostic() -> None:
 class RecordingAdapter:
     def __init__(self) -> None:
         self.effects: list[tuple[str, str]] = []
+
+    def probe(self) -> dict[str, object]:
+        return {"adapter": "fixture", "status": "compatible", "proof": {"cleanup": "clean"}}
 
     def worktree_effect(self, destination: Path, source_head: str) -> dict[str, str]:
         self.effects.append(("worktree", str(destination)))
@@ -1028,6 +1046,19 @@ def test_executor_accepts_current_v2_snapshot_and_rejects_obsolete_v1() -> None:
             assert str(exc) == "invalid workflow snapshot"
         else:
             raise AssertionError("obsolete workflow schema must be rejected")
+    finally:
+        shutil.rmtree(root)
+
+
+def test_feature_slug_rejects_traversal_before_workflow_or_cache_access() -> None:
+    root = make_repo()
+    try:
+        try:
+            parallel_execute.Coordinator(root, "../foreign")
+        except parallel_execute.PathBoundaryError as exc:
+            assert str(exc) == "invalid feature slug"
+        else:
+            raise AssertionError("feature traversal must be rejected before access")
     finally:
         shutil.rmtree(root)
 
@@ -2111,6 +2142,9 @@ def test_pending_acquire_worker_and_release_reconcile_without_repeating_effects(
 class WorkerOnlyAdapter:
     def __init__(self, seen: list[str]) -> None:
         self.seen = seen
+
+    def probe(self) -> dict[str, object]:
+        return {"adapter": "fixture", "status": "compatible", "proof": {"cleanup": "clean"}}
 
     def start_worker(self, lane: dict[str, object], receipt: dict[str, object], *, idempotency_key: str) -> dict[str, str]:
         self.seen.append(str(receipt["worktree_path"]))
