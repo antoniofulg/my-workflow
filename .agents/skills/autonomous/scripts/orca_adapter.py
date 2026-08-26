@@ -566,7 +566,15 @@ class OrcaAdapter:
         proof = value.get("proof")
         if not isinstance(proof, Mapping) or proof.get("cleanup") != "clean":
             return None
-        return dict(value)
+        cached = dict(value)
+        cached["proof"] = {**dict(proof), "source": "canary", "cached": True, "cleanup": "clean"}
+        cached["missing_capabilities"] = []
+        cached["reason"] = None
+        cached.setdefault("envelope", {
+            "app_version": identity.get("app_version"),
+            "protocol_version": identity.get("protocol_version"),
+        })
+        return cached
 
     def identity(self) -> dict[str, Any]:
         status = self._status_call()
@@ -582,7 +590,8 @@ class OrcaAdapter:
         result: dict[str, Any] = {
             "version": 1, "feature": self.feature, "adapter": "orca", "runtime": runtime,
             "envelope": {"app_version": runtime["app_version"], "protocol_version": runtime["protocol_version"]},
-            "proof": {"source": "lifecycle-canary", "cleanup": "not-run"},
+            "proof": {"source": "canary", "cached": False, "cleanup": "not-run"},
+            "missing_capabilities": [], "reason": None,
         }
         explicit_readiness = [
             value for value in self._status_values(status, {"ready", "reachable", "connected"})
@@ -597,7 +606,7 @@ class OrcaAdapter:
         if not version:
             return {**result, "status": "unsupported", "reason": "missing-app-version"}
         if CAPABILITY not in runtime["capabilities"]:
-            return {**result, "status": "unsupported", "reason": "missing-capability:" + CAPABILITY}
+            return {**result, "status": "unsupported", "reason": "missing-capability:" + CAPABILITY, "missing_capabilities": [CAPABILITY]}
         if version in KNOWN_INCOMPATIBLE_VERSIONS:
             return {**result, "status": "unsupported", "reason": "known-incompatible-version:" + version}
         cached = self._load_cached(runtime)
@@ -618,7 +627,12 @@ class OrcaAdapter:
         except AdapterError as exc:
             code = str(exc.details.get("code", ""))
             if code in {"not_found", "worktree_not_found", "selector_not_found"}:
-                return
+                if not path.exists() and not path.is_symlink():
+                    return
+                raise AdapterError(
+                    "Orca canary checkout remains on the local filesystem",
+                    details={"stage": "absence", "worktree_path": str(path)},
+                ) from exc
             raise AdapterError("Orca canary could not prove checkout absence", details={"stage": "absence", **dict(exc.details)}) from exc
         reported = response.get("worktree_path") or response.get("worktreePath")
         if reported is None or Path(str(reported)).resolve() != expected:
@@ -711,7 +725,7 @@ class OrcaAdapter:
                 "version": 1, "feature": self.feature, "repository": str(self.root), "adapter": "orca",
                 "runtime": dict(runtime),
                 "envelope": {"app_version": runtime.get("app_version"), "protocol_version": runtime.get("protocol_version")},
-                "proof": proof, "status": "compatible",
+                "proof": {**proof, "source": "canary", "cached": False}, "missing_capabilities": [], "reason": None, "status": "compatible",
             }
             core.atomic_write_json(self._cache_path(), receipt)
             return receipt

@@ -296,6 +296,10 @@ def test_probe_reuses_only_matching_repository_runtime_cache() -> None:
         result = worker.probe()
         assert result["status"] == "compatible"
         assert result["proof"]["cleanup"] == "clean"
+        assert result["proof"]["source"] == "canary"
+        assert result["proof"]["cached"] is True
+        assert result["missing_capabilities"] == []
+        assert result["reason"] is None
         changed = adapter(
             root,
             RecordingCLI([{"ready": True, "appVersion": "1.4.190", "capabilities": [orca_adapter.CAPABILITY]}]),
@@ -439,6 +443,10 @@ def test_canary_requires_clean_removal_before_writing_compatibility_cache() -> N
         result = candidate.canary()
         assert result["status"] == "compatible"
         assert result["proof"]["cleanup"] == "clean"
+        assert result["proof"]["source"] == "canary"
+        assert result["proof"]["cached"] is False
+        assert result["missing_capabilities"] == []
+        assert result["reason"] is None
         assert len(creator_calls) == 1
         assert worker_starts == ["worker-start"]
         assert worker_done_events == [{
@@ -446,6 +454,31 @@ def test_canary_requires_clean_removal_before_writing_compatibility_cache() -> N
             "task_id": "task-canary", "dispatch_id": "dispatch-canary",
         }]
         assert json.loads(candidate._cache_path().read_text(encoding="utf-8"))["status"] == "compatible"
+    finally:
+        shutil.rmtree(root)
+
+
+def test_not_found_absence_requires_the_exact_local_path_to_be_gone() -> None:
+    class NotFoundRunner:
+        def __call__(self, argv: list[str], **kwargs: object) -> object:
+            raise subprocess.CalledProcessError(
+                1, argv, output=json.dumps({"error": {"code": "selector_not_found"}})
+            )
+
+    root, _, _ = fixture()
+    try:
+        gone = root / "gone-worktree"
+        worker = adapter(root, NotFoundRunner())
+        worker._canary_absence(gone)
+        retained = root / "retained-worktree"
+        retained.mkdir()
+        try:
+            worker._canary_absence(retained)
+        except orca_adapter.AdapterError as exc:
+            assert exc.details["stage"] == "absence"
+            assert exc.details["worktree_path"] == str(retained)
+        else:
+            raise AssertionError("not_found must not hide a retained local checkout")
     finally:
         shutil.rmtree(root)
 
