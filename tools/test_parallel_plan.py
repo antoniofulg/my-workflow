@@ -34,7 +34,7 @@ def make_repo(tasks: str, mode: str = "safe", feature: str = "fixture") -> Path:
                 "feature": feature,
                 "git_head": head,
                 "parallelization": {"mode": mode},
-                "version": 1,
+                "version": 2,
             },
             indent=2,
             sort_keys=True,
@@ -306,13 +306,13 @@ def test_snapshot_identity_and_version_are_validated_before_mode_and_head() -> N
                 "feature": "other-feature",
                 "git_head": "head",
                 "parallelization": {"mode": "safe"},
-                "version": 1,
+                "version": 2,
             },
             {
                 "feature": "fixture",
                 "git_head": "head",
                 "parallelization": {"mode": "safe"},
-                "version": 2,
+                "version": 1,
             },
         ):
             path.write_text(json.dumps(snapshot), encoding="utf-8")
@@ -336,7 +336,7 @@ def test_malformed_snapshot_modes_exit_with_invalid_snapshot_error() -> None:
                 "feature": "fixture",
                 "git_head": "head",
                 "parallelization": {"mode": mode},
-                "version": 1,
+                "version": 2,
             }
             path.write_text(json.dumps(snapshot), encoding="utf-8")
             result = subprocess.run(

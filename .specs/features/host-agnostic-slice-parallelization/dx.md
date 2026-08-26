@@ -32,6 +32,10 @@ its CLI lacks the structured lifecycle and cleanup contract.
 enable safe/full execution. `candidate` requires explicit `--canary`. `unsupported` names one stable
 reason and produces no scheduler effect.
 
+The frozen `.specs/features/<feature>/workflow.json` consumed by the executor is schema version `2`.
+Version `1` snapshots are obsolete and are rejected; the planner output's own `version` field is a
+separate plan schema.
+
 ## Adapter selection
 
 - `auto` inside Maestri evaluates only Maestri.

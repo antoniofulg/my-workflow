@@ -9,6 +9,7 @@
 | UT-003 | ORC-01, ORC-02 | Orca read-only probe | Ready/invalid status or app version `1.4.188` | Exact compatibility result; known-bad version creates no effect. |
 | UT-004 | ORC-06, ORC-07 | Compatibility cache | Matching or changed identity | Matching PASS is reused; any changed field invalidates it. |
 | UT-005 | MAE-01–MAE-04 | Maestri capability probe | Missing env or documented current capabilities | Exact missing capabilities; no mutation and no text parsing. |
+| UT-006 | HST-01 | Workflow snapshot schema | Current v2 snapshot or obsolete v1 snapshot | v2 is accepted; v1 is rejected before planning or host effects. |
 
 ## Integration
 
@@ -39,6 +40,6 @@ after an Orca update is detected.
 
 | Test IDs | Owning task |
 | --- | --- |
-| UT-001, UT-002, IT-003, SEC-001 | T1 |
+| UT-001, UT-002, UT-006, IT-003, SEC-001 | T1 |
 | UT-003, UT-004, IT-001, IT-002, SEC-002, SEC-003, SEC-005 | T2 |
 | UT-005, IT-004, SEC-004 | T3 |

@@ -78,7 +78,7 @@ def make_repo(*, mode: str = "safe", feature: str = "fixture") -> Path:
                 "feature": feature,
                 "git_head": head,
                 "parallelization": {"mode": mode},
-                "version": 1,
+                "version": 2,
             },
             sort_keys=True,
         )
@@ -1009,6 +1009,25 @@ def test_disabled_cli_does_not_resolve_or_import_an_adapter() -> None:
         assert calls == []
     finally:
         parallel_execute._adapter_factory = original_factory  # type: ignore[assignment]
+        shutil.rmtree(root)
+
+
+def test_executor_accepts_current_v2_snapshot_and_rejects_obsolete_v1() -> None:
+    root = make_repo()
+    path = root / ".specs" / "features" / "fixture" / "workflow.json"
+    try:
+        coordinator = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: object())
+        assert coordinator._workflow()["git_head"]
+        snapshot = json.loads(path.read_text(encoding="utf-8"))
+        snapshot["version"] = 1
+        path.write_text(json.dumps(snapshot), encoding="utf-8")
+        try:
+            coordinator._workflow()
+        except parallel_execute.ExecutorError as exc:
+            assert str(exc) == "invalid workflow snapshot"
+        else:
+            raise AssertionError("obsolete workflow schema must be rejected")
+    finally:
         shutil.rmtree(root)
 
 

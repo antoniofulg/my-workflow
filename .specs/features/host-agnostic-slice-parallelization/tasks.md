@@ -71,6 +71,7 @@ T4
 
 - [ ] CLI accepts `preflight` and `auto|orca|maestri` with one JSON result.
 - [ ] Disabled `start`/`resume` imports or probes no adapter; explicit `preflight` remains diagnostic.
+- [x] Executor accepts only workflow snapshot schema v2 and rejects obsolete v1 before host effects.
 - [ ] Auto detects Maestri without falling through to Orca.
 - [ ] Start/resume require a compatible adapter result and preserve existing scheduler behavior.
 - [ ] `python3 tools/test_parallel_executor.py` passes with zero failures.
