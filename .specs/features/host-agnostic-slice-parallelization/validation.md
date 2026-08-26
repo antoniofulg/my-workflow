@@ -1,160 +1,121 @@
 # Host-Agnostic Slice Parallelization Validation
 
-**Verdict**: PENDING
+**Verdict**: PASS
 **Date**: 2026-08-26
 **Spec**: `.specs/features/host-agnostic-slice-parallelization/spec.md`
-**Diff range**: `7522de8..HEAD`
-**Remediation under review**: `3487c27`
+**Diff range**: `0b2531a..83561d9` (AST-03 remediation); full feature range `2ab4cec..83561d9` rechecked
 **Verifier**: independent Verifier (author != verifier)
-
-The prior 22-requirement PASS remains historical evidence. AST-01 through AST-07 and SEC-008 were
-added after that verdict and require fresh Slice D verification, grouped review, final QA, and a new
-feature verdict.
 
 ## Ranked Gaps
 
-None.
+None. The prior AST-03 survivor is killed by the canonical contract suite.
 
-Post-validation cleanup is scoped to test teardown. The owning suite removes the exact registered
-fixture worktree and the exact sentinel root after the preservation assertions. Production cleanup
-is unchanged, and both Git-registered external worktrees and the 131 pre-existing fixture sibling
-residues had delta zero across the owning suite and declared full gate.
+E2E-001 did not run in this technical phase. It remains the separate final-QA handoff; this report
+claims only technical contract coverage for AST-01 through AST-07 and SEC-008.
 
 ## Task Completion
 
 | Task | Recorded status | Verification result |
 | --- | --- | --- |
-| T1 | complete | PASS: HST-01 through HST-04 and SEC-001/SEC-002 have outcome evidence. |
-| T2 | complete | PASS: ORC-01 through ORC-07 and SEC-003/SEC-005 through SEC-007 have outcome evidence. |
-| T3 | complete | PASS: MAE-01 through MAE-04 and SEC-003 through SEC-005/SEC-007 have outcome evidence. |
-| T4 | complete | PASS: adoption contract and declared full gate are green. |
-| T5 | complete | IMPLEMENTED: coordinator-assisted Orca contract and traceability are recorded; independent verification and E2E-001 remain pending. |
-
-## Slice D / T5 implementation evidence
-
-The T5 contract is implemented in the policy, DX, and threat-model artifacts. The automatic Orca
-adapter remains unsupported; this evidence does not claim a live Orca pilot or a compatibility PASS.
-
-| Requirement | Implemented outcome | Evidence | Result |
-| --- | --- | --- | --- |
-| AST-01 | Explicit assisted authorization is separate from automatic compatibility and writes no PASS. | `tools/shared/tests/autonomous-parallelization.test.ts:115-117` - policy asserts explicit authorization, no compatibility PASS, and unsupported automatic execution. | IMPLEMENTED |
-| AST-02 | At most one worker starts per planner-ready slice and tasks stop at the first unmet dependency. | `tools/shared/tests/autonomous-parallelization.test.ts:119-120` - policy asserts one worker per ready slice and sequential execution to the first unmet dependency. | IMPLEMENTED |
-| AST-03 | Parked state records slice/task/dependency/HEAD and ends the turn without polling. | `tools/shared/tests/autonomous-parallelization.test.ts:122-123` - policy asserts the exact comment shape and no polling. | IMPLEMENTED |
-| AST-04 | Exact producer commit sync, affected-gate rerun, same-terminal follow-up, and stale-handle reacquisition are required. | `tools/shared/tests/autonomous-parallelization.test.ts:125-127` - policy asserts each lifecycle boundary. | IMPLEMENTED |
-| AST-05 | Dirty, ambiguous, conflicting, or failed state enters serial recovery without automatic conflict resolution. | `tools/shared/tests/autonomous-parallelization.test.ts:129-131` - policy asserts the failure set and recovery rule. | IMPLEMENTED |
-| AST-06 | Deterministic integration precedes cleanup of only clean integrated coordinator-owned resources, with residue proof. | `tools/shared/tests/autonomous-parallelization.test.ts:133-135` and `:154-155` - policy asserts ordering, ownership, clean state, and zero residue. | IMPLEMENTED |
-| AST-07 | Atomic task commits/gates, per-slice Verifier, grouped deep review, final QA, full gate, and unchanged TLC order remain required. | `tools/shared/tests/autonomous-parallelization.test.ts:137-140` - policy asserts every preserved readiness stage. | IMPLEMENTED |
-| SEC-008 | Missing ownership or residue proof prevents assisted cleanup and retains the exact resource for serial recovery. | `tools/shared/tests/autonomous-parallelization.test.ts:151-156` - policy and threat model assert fail-closed ownership cleanup. | IMPLEMENTED |
-
-**T5 scoped gate**: `npm_config_offline=true npm test -- --run tools/shared/tests/autonomous-parallelization.test.ts`
-passed with 4/4 tests and 0 failures. Full feature verification, independent Verifier, grouped
-deep review, and E2E-001 remain required before the feature can claim final PASS.
+| T1 | complete | PASS: HST-01 through HST-04 and SEC-001/SEC-002 rechecked. |
+| T2 | complete | PASS: ORC-01 through ORC-07 and SEC-003/SEC-005 through SEC-007 rechecked. |
+| T3 | complete | PASS: MAE-01 through MAE-04 and SEC-003 through SEC-005/SEC-007 rechecked. |
+| T4 | complete | PASS: canonical adoption contract remains green. |
+| T5 | complete | PASS: AST-01 through AST-07 and SEC-008 are discriminated at the contract layer; E2E-001 remains final QA. |
 
 ## Spec-Anchored Acceptance Criteria
 
-| Criterion | Spec-defined outcome | `file:line` + assertion | Result |
+| Requirement | Spec-defined outcome | `file:line` + assertion | Result |
 | --- | --- | --- | --- |
-| HST-01 | Disabled start/resume constructs no adapter or host/Git effect; preflight remains diagnostic; v2 is accepted and v1 rejected. | `tools/test_parallel_executor.py:200` - `result = ...start()`; `:204` - `assert constructed is False`; `:1002` - disabled CLI import/factory guard; `:1016` - v2/v1 schema test; `:285` through `:289` - exact disabled preflight diagnostic. | PASS |
-| HST-02 | Auto inside Maestri evaluates only Maestri and never falls through to Orca. | `tools/test_parallel_executor.py:1035` - guarded auto-selection test; its Orca import is forbidden and the result is a Maestri adapter. | PASS |
-| HST-03 | Unavailable/incompatible explicit adapter serializes with backend/reason before checkout or worker. | `tools/test_parallel_executor.py:224` through `:228` - exact fallback/reason, empty adapter effects, no worktree; `:1131` - unavailable auto adapter has the same effect-free fallback. | PASS |
-| HST-04 | Host selection preserves scheduler, checkpoint, Technical Verifier, review, gate, QA, and TLC contracts. | `tools/test_parallel_executor.py:1582` and `:1929` - same-slice order/cardinality; `:2174` - fresh external Verifier; `tools/shared/tests/autonomous-parallelization.test.ts:93` through `:102` - gate, Verifier, deep-review, QA, and TLC contract assertions. | PASS |
-| ORC-01 | Probe requires ready reachable runtime, non-empty app version, and `orchestration.contract.v1`. | `tools/test_orca_adapter.py:231` through `:242` - each missing readiness/version/capability case returns `unsupported` with its exact reason. | PASS |
-| ORC-02 | Known-bad `1.4.188` stops after read-only status inspection. | `tools/test_orca_adapter.py:219` through `:226` - exact unsupported reason and sole `orca status --json` call. Read-only installed preflight returned the same result. | PASS |
-| ORC-03 | Explicit canary creates exactly one disposable checkout and one worker reaching correlated `worker_done`. | `tools/test_orca_adapter.py:373` through `:375` records all effects; `:427` - `assert len(creator_calls) == 1`; `:428` - `assert worker_starts == ["worker-start"]`; `:429` through `:432` assert one event with matching task/dispatch IDs. | PASS |
-| ORC-04 | PASS occurs only after result read, acceptance, ack, release proof, checkout removal, and zero-residue proof. | `tools/test_orca_adapter.py:247` through `:264` kills every failed lifecycle/cleanup stage with no cache; `:424` through `:433` proves only the clean lifecycle writes PASS; `tools/test_qa_parallel_pilot.py:84` through `:89` proves the disposable pilot checkout before exact fixture teardown. | PASS |
-| ORC-05 | Failed canary stage records no PASS and reports failed stage plus retained owned IDs. | `tools/test_orca_adapter.py:247` through `:264` iterates start/completion/read/ack/release/removal/absence and asserts exact retained IDs; `tools/test_qa_parallel_pilot.py:228` through `:252` proves unowned sibling preservation during cleanup assertions. | PASS |
-| ORC-06 | Matching repository/version/capability/executable receipt is reused without another canary. | `tools/test_orca_adapter.py:340` through `:363` makes canary forbidden, then asserts compatible clean cached proof and only two status calls. | PASS |
-| ORC-07 | Any compatibility identity change invalidates PASS and requires explicit canary. | `tools/test_orca_adapter.py:269` through `:293` covers version; `:298` through `:335` covers repository, capabilities, executable path, size, and mtime and asserts `candidate`/`canary-required`. | PASS |
-| MAE-01 | Maestri requires terminal/socket/CLI and structured lifecycle/cleanup capabilities, but stays incompatible until host-owned execution exists. | `tools/test_maestri_adapter.py:33` through `:50` asserts exact missing capabilities; `:56` through `:70` asserts a complete-looking manifest remains unsupported with cleanup not run. | PASS |
-| MAE-02 | Missing capabilities return unsupported with no floor, agent, or Git-worktree effect. | `tools/test_maestri_adapter.py:17` through `:27` asserts exact unsupported/missing list and empty root; `:77` through `:113` proves executor fallback and no generic worktree. | PASS |
-| MAE-03 | Current Maestri stays serial even when all capability names are claimed. | `tools/test_maestri_adapter.py:56` through `:70` - complete manifest remains unsupported; `:77` through `:113` - exact `maestri:host-owned-execution-unimplemented` fallback. | PASS |
-| MAE-04 | Human-readable Maestri output is never accepted as ownership/completion/cleanup receipt. | `tools/test_maestri_adapter.py:119` through `:127` - human text is rejected as malformed with every capability missing. | PASS |
+| HST-01 | Disabled start/resume constructs no adapter or host effect; diagnostic preflight remains available; v2 accepted and v1 rejected. | `tools/test_parallel_executor.py:200-204` asserts serial fallback and `constructed is False`; `:1020-1028` asserts no adapter resolution; `:1034-1048` asserts v2 acceptance and exact v1 rejection. | PASS |
+| HST-02 | Auto inside Maestri evaluates Maestri only. | `tools/test_parallel_executor.py:1066-1087` makes Orca import raise and asserts the Maestri selection result. | PASS |
+| HST-03 | Incompatible adapter serializes with exact backend/reason before checkout or worker. | `tools/test_parallel_executor.py:224-228` asserts `fallback`, `fixture:known-incompatible-runtime`, empty effects, and no worktree. | PASS |
+| HST-04 | Existing scheduler, checkpoint, Verifier, review, gate, and QA contracts remain unchanged. | `tools/test_parallel_executor.py:1613-1651,1960-2004,2208-2290` assert sequential order and fresh Technical Verifier; `tools/shared/tests/autonomous-parallelization.test.ts:97-102` asserts task gates, Verifier, review, QA, full gate, and TLC. | PASS |
+| ORC-01 | Probe requires ready runtime, non-empty app version, and `orchestration.contract.v1`. | `tools/test_orca_adapter.py:237-253` asserts exact unsupported results for each missing field. | PASS |
+| ORC-02 | Orca `1.4.188` is unsupported with only a read-only status call. | `tools/test_orca_adapter.py:225-232` asserts `unsupported`, `known-incompatible-version:1.4.188`, and sole `orca status --json`; production guard is `.agents/skills/autonomous/scripts/orca_adapter.py:23,583-615`. | PASS |
+| ORC-03 | Explicit canary creates one checkout and one worker that reaches correlated `worker_done`. | `tools/test_orca_adapter.py:443-455` asserts one creator call, one worker start, and the exact task/dispatch-correlated event. | PASS |
+| ORC-04 | PASS follows read, accept, ack, release, removal, and zero-residue proof. | `tools/test_orca_adapter.py:383-456` asserts the clean lifecycle, cleanup proof, and compatible cache; `:258-275` rejects every failed stage without cache. | PASS |
+| ORC-05 | Any failed stage or unproven cleanup stores no PASS and reports stage plus retained IDs. | `tools/test_orca_adapter.py:258-275` asserts exact failed stage, retained ownership details, and absent cache. | PASS |
+| ORC-06 | Matching repository/runtime/executable receipt is reused without another canary. | `tools/test_orca_adapter.py:355-378` forbids canary execution and asserts compatible clean cached proof. | PASS |
+| ORC-07 | Any identity change invalidates PASS and requires explicit canary. | `tools/test_orca_adapter.py:282-350` changes version, repository, capabilities, path, size, and mtime and asserts `candidate` / `canary-required`. | PASS |
+| MAE-01 | Maestri requires all machine lifecycle capabilities and remains incompatible until host-owned execution exists. | `tools/test_maestri_adapter.py:33-50,56-71` asserts exact missing capabilities and that a complete-looking manifest remains unsupported. | PASS |
+| MAE-02 | Missing Maestri capabilities cause unsupported with no floor, agent, or Git effect. | `tools/test_maestri_adapter.py:17-27,77-113` asserts the exact missing list, serial fallback, and no worktree. | PASS |
+| MAE-03 | Complete capability names alone never authorize generic Git-worktree execution. | `tools/test_maestri_adapter.py:56-71,103-113` asserts `host-owned-execution-unimplemented`, forbids worktree creation, and asserts fallback. | PASS |
+| MAE-04 | Human-readable output is not accepted as a lifecycle receipt. | `tools/test_maestri_adapter.py:119-127` asserts malformed text remains unsupported with all capabilities missing. | PASS |
+| AST-01 | Assisted execution requires explicit authorization, writes no compatibility PASS, and leaves automatic execution unsupported. | `tools/shared/tests/autonomous-parallelization.test.ts:115-117` asserts all three policy outcomes. | PASS (contract only) |
+| AST-02 | Start at most one worker per planner-ready slice and run sequentially to the first unmet dependency. | `tools/shared/tests/autonomous-parallelization.test.ts:119-120` asserts one-worker and sequential-stop outcomes. | PASS (contract only) |
+| AST-03 | Park with a clean committed checkpoint; exact comment includes slice, completed-through task, next task, upstream slice/task, and HEAD; end without polling. | `tools/shared/tests/autonomous-parallelization.test.ts:122-125` matches the complete two-line payload and asserts no polling. | PASS (contract only) |
+| AST-04 | Sync exact producer commit, rerun affected gate, follow up same terminal, and reacquire a stale handle without replacement. | `tools/shared/tests/autonomous-parallelization.test.ts:127-129` asserts each outcome. | PASS (contract only) |
+| AST-05 | Dirty, missing, ambiguous, conflicting, or failed lane enters serial recovery without automatic resolution. | `tools/shared/tests/autonomous-parallelization.test.ts:131-133` asserts the failure set, recovery path, and no auto-resolution. | PASS (contract only) |
+| AST-06 | Deterministic integration precedes cleanup of only clean integrated coordinator-owned resources, followed by zero-residue proof. | `tools/shared/tests/autonomous-parallelization.test.ts:135-137,158-162` asserts order, ownership, clean/integrated state, residue proof, and fail-closed cleanup. | PASS (contract only) |
+| AST-07 | Preserve atomic task commits/gates, per-slice Verifier, frozen deep review, final QA, full gate, and TLC order. | `tools/shared/tests/autonomous-parallelization.test.ts:139-142` asserts every preserved readiness stage. | PASS (contract only) |
+| SEC-001 | Disabled mode performs no adapter probe or mutation. | `tools/test_parallel_executor.py:190-204,1020-1028` asserts adapter construction and resolution never occur. | PASS |
+| SEC-002 | Compatibility state is atomic, repository-scoped, and outside `.specs/`. | `tools/test_parallel_executor.py:121-148` asserts Git-common-state location and atomic previous-value preservation; `tools/test_orca_adapter.py:282-350` asserts repository/runtime/executable binding. | PASS |
+| SEC-003 | Host/Git commands use fixed argv, no shell, bounded timeout, and bounded paths. | `tools/test_parallel_executor.py:153-184` asserts literal argv, `shell is False`, timeout, escape rejection, and symlink rejection. | PASS |
+| SEC-004 | Host responses are structured and correlated to the request. | `tools/test_orca_adapter.py:201-220,1905-1918` asserts exact receipt identities and rejects a foreign structured source identity. | PASS |
+| SEC-005 | Credential-shaped fields are redacted before diagnostics or persistence. | `tools/test_orca_adapter.py:1769-1794,1803-1833` asserts nested-field and free-form diagnostic redaction. | PASS |
+| SEC-006 | Compatibility PASS requires settled worker and zero disposable checkout residue. | `tools/test_orca_adapter.py:258-275,443-456` asserts cleanup failures cannot cache PASS and only clean removal reaches compatible. | PASS |
+| SEC-007 | Cleanup never revokes a resource without exact ownership. | `tools/test_orca_adapter.py:1586-1605` asserts missing/foreign release identity blocks with no revocation effect. | PASS |
+| SEC-008 | Assisted cleanup targets only clean integrated coordinator-owned resources; missing proof stops deletion. | `tools/shared/tests/autonomous-parallelization.test.ts:158-162` asserts the exact policy and threat-model outcomes. | PASS (contract only) |
 
-## Security Requirements
-
-| Requirement | Evidence | Result |
-| --- | --- | --- |
-| SEC-001 | `tools/test_parallel_executor.py:190` through `:204`, `:1002`, and `:1561` prove disabled execution never constructs/selects an adapter or invokes planner/Git/runtime effects. | PASS |
-| SEC-002 | `tools/test_parallel_executor.py:121` through `:130` locates state in Git common state outside `.specs`; `:135` through `:148` proves atomic replacement; `tools/test_orca_adapter.py:269` through `:335` proves repository/runtime/executable scoping. | PASS |
-| SEC-003 | `tools/test_parallel_executor.py:153` through `:169` asserts fixed argv, `shell=False`, bounded timeout, and literal metacharacters; `:172` through `:184` rejects path escape and symlink sinks. | PASS |
-| SEC-004 | `tools/test_orca_adapter.py:195` through `:214` asserts structured correlated receipts; `:1857` rejects foreign structured source identity; `tools/test_maestri_adapter.py:56` through `:70` refuses capability claims as execution proof. | PASS |
-| SEC-005 | `tools/test_orca_adapter.py:1721` and `:1755` assert recursive credential redaction, including free-form structured failures. | PASS |
-| SEC-006 | `tools/test_orca_adapter.py:247` through `:264` proves cleanup failures cannot cache PASS; `:424` through `:433` proves only clean zero-residue cleanup reaches compatible receipt; `tools/test_qa_parallel_pilot.py:23` through `:54` confines test teardown to the derived fixture root and validated relative child. | PASS |
-| SEC-007 | `tools/test_orca_adapter.py:1824` and `:1841` reject ack/release without exact correlated ownership; no revocation occurs. | PASS |
-
-**Coverage status**: 22/22 requirements match precise spec outcomes with file:line assertions.
-
-## Edge Cases
-
-- Maestri socket/current or complete-looking manifest cannot cross to Orca or generic Git execution: PASS.
-- New Orca identity with old capability set remains candidate until explicit canary: PASS.
-- Release/removal/absence failure leaves runtime unsupported and stores no PASS: PASS.
-- Symlinked lane cleanup preserves the unowned sentinel through assertions, then removes only the
-  fixture-owned sentinel root during teardown: PASS (`tools/test_qa_parallel_pilot.py:420` through `:439`).
-- Foreign repository or executable cache is ignored: PASS.
-- Credential-shaped host fields are redacted: PASS.
-
-## Gate Check
-
-- **Declared full command**: `npm_config_offline=true npm run test:all`
-- **Result**: PASS, exit 0. Vitest: 110 passed, 0 failed, 0 skipped. Every Python lane completed with zero failures.
-- **Owning cleanup suite**: `python3 tools/test_qa_parallel_pilot.py` - 13 passed, 0 failed.
-- **External sibling accounting**: Git-registered external worktrees `4 -> 4`; fixture sibling
-  residues `131 -> 131` across the owning suite/full gate. Delta 0; no pre-existing residue removed.
-- **Feature Python suites**: Maestri 5 passed; Orca 66 passed; executor 51 passed; parallel plan 18 passed.
-- **Python test definitions before feature**: 196 top-level `def test_` definitions.
-- **Python test definitions after feature**: 214 top-level `def test_` definitions (+18).
-- **Structural gates**: `validate_spec.py` and `validate_tasks.py` retained from the unchanged feature tree; `git diff --check 7522de8..HEAD` passed.
-- **Read-only installed Orca preflight**: unsupported, version `1.4.188`, exact reason `known-incompatible-version:1.4.188`, cleanup `not-run`; no canary ran.
-- **Skipped tests**: none.
+**Coverage status**: 30/30 technical requirements match precise spec outcomes with file:line
+assertions. No spec-precision gaps. Contract-only results do not claim E2E-001 execution.
 
 ## Discrimination Sensor
 
-Scratch used only temporary file copies under `mktemp`; no Git worktree, stash, Orca canary, or
-Maestri mutation was used. Temporary copies were deleted after execution.
+Sensor used detached Git worktree `/Users/antoniofulg/Projects/my-workflow-verifier-sensor-83561d9`
+at `83561d9`, with the candidate checkout's existing dependencies linked read-only. The scratch was
+removed. Real-tree porcelain before and after remained byte-for-byte identical, including the
+pre-existing modified `review-fingerprints.json`, `spec.md`, and `validation.md` entries.
 
-| Mutation | Production location | Outcome |
+| Mutation | Production location | Result |
 | --- | --- | --- |
-| Duplicate the injected checkout-creator call before worker start. | `.agents/skills/autonomous/scripts/orca_adapter.py:624` | KILLED by `tools/test_orca_adapter.py:427`: `assert len(creator_calls) == 1`. |
-| Ignore repository/runtime/capability/executable identity mismatch when loading cached PASS. | `.agents/skills/autonomous/scripts/orca_adapter.py:548` | KILLED by `tools/test_orca_adapter.py:334`: expected `candidate`, received stale compatibility. |
-| Return `compatible` for a complete Maestri capability manifest despite absent host-owned execution. | `.agents/skills/autonomous/scripts/maestri_adapter.py:107` | KILLED by `tools/test_maestri_adapter.py:68`: expected `unsupported`. |
-| Omit the sentinel-root teardown call in a temporary copy of the owning test. | `tools/test_qa_parallel_pilot.py:439` | KILLED by the assigned external-sibling postcondition: copied test body exited 0, but fixture sibling delta became `+1` instead of `0`. The one sensor-created root was then removed exactly. |
+| Prior exact mutant: `blocked_on=<slice:task>` -> `blocked_on=<task>`. | `.agents/skills/autonomous/references/parallelization.md:117` | KILLED: IT-005 failed at `tools/shared/tests/autonomous-parallelization.test.ts:122-123`; focused result 1 failed, 3 passed. |
+| Corrupt final identity field: `head=<sha>` -> `head=<commit>`. | `.agents/skills/autonomous/references/parallelization.md:117` | KILLED: IT-005 failed at `tools/shared/tests/autonomous-parallelization.test.ts:122-123`; focused result 1 failed, 3 passed. |
+| Corrupt completed-through field: `completed_through=<task>` -> `completed=<task>`. | `.agents/skills/autonomous/references/parallelization.md:116` | KILLED: IT-005 failed at `tools/shared/tests/autonomous-parallelization.test.ts:122-123`; focused result 1 failed, 3 passed. |
 
-**Result**: prior feature sensor 3/3 killed; cleanup follow-up sensor 1/1 killed - PASS.
+**Sensor depth**: lightweight, full AST-03 handoff identity.
+**Result**: 3/3 killed - PASS.
 
-Real-tree porcelain before and after sensor was byte-for-byte identical:
+## Gate Check
 
-```text
-(clean)
-```
+- **Focused command**: `npm_config_offline=true npm test -- --run tools/shared/tests/autonomous-parallelization.test.ts`
+- **Focused result**: PASS, 4 passed, 0 failed, 0 skipped.
+- **Declared full command**: `npm_config_offline=true npm run test:all`
+- **Full result**: PASS, exit 0. Vitest: 112 passed, 0 failed, 0 skipped. All 13 Python test lanes exited 0 with zero failures; current Python suite contains 218 top-level `def test_` definitions.
+- **Structural validators**: `validate_spec.py` and `validate_tasks.py` each reported 0 errors and 0 warnings.
+- **Diff checks**: `git diff --check origin/main...HEAD` and `git diff --check` passed.
+- **Remediation boundary**: `git diff --name-only 0b2531a..83561d9` contains only `tools/shared/tests/autonomous-parallelization.test.ts`.
+- **Skipped tests**: none reported.
 
-Existing lessons, fingerprints, and all 131 pre-existing fixture sibling residues were preserved.
+No candidate canary ran. No live Orca worktree, worker, or terminal was created.
 
-## Code Quality
+## Edge Cases and Quality
 
-Cleanup remediation changes only `tools/test_qa_parallel_pilot.py`. The helper uses fixed-argv Git
-removal for the exact fixture-owned registered worktree, rejects absolute/parent-relative paths, and
-removes the fixture-derived sibling root only after preservation assertions. Production cleanup at
-`tools/qa_parallel_pilot.py:414` through `:490` is unchanged and retains its lifecycle authorization,
-ownership receipts, symlink rejection, residual reporting, and effect-before-tombstone checks.
-All in-scope tests map to an acceptance criterion, edge case, security requirement, or task done-when
-condition. Validation followed the installed `tlc-spec-driven` `validate.md` contract.
+- The complete parked payload is now one discriminating regex across its line break, so slice,
+  completed-through task, next task, exact upstream slice/task, and HEAD must remain conjunctive.
+- Stale terminal reacquisition and no replacement worker remain contract-covered at
+  `tools/shared/tests/autonomous-parallelization.test.ts:127-129`; live QA remains pending.
+- Dirty/unintegrated/foreign cleanup remains fail-closed at
+  `tools/shared/tests/autonomous-parallelization.test.ts:158-162`; live QA remains pending.
+- `docs/guidelines/TEST-CONTRACT.md` permits prose assertions when the artifact is the product
+  contract. IT-005 owns that layer, and the repaired assertion now checks the exact contracted value.
+- Remediation is surgical: one canonical assertion changed; no product contract, adapter, scheduler,
+  executor, QA scenario, or production code changed.
 
 ## Requirement Traceability Update
 
-`spec.md` records the prior 22 requirements as `Verified` and AST-01 through AST-07 plus SEC-008 as
-`Implemented` from the T5 scoped contract gate. Its traceability note retains the `3487c27` cleanup
-recheck for ORC-04, ORC-05, and SEC-006 without changing production requirements.
+`spec.md` now marks all 30 requirements `Verified`. E2E-001 remains a separate final-QA handoff and
+is not represented as executed here.
 
 ## Summary
 
-**Overall**: PENDING, T5 is implemented; independent verification, grouped review, final QA, and
-the E2E-001 external pilot remain before feature closure.
+**Overall**: PASS. No technical gaps.
 
-**Spec-anchored check**: 22/22 requirements matched precise outcomes; 0 spec-precision gaps.
+**Spec-anchored check**: 30/30 requirements matched; 0 spec-precision gaps.
 
-**Sensor**: 4/4 cumulative behavior mutations killed; cleanup follow-up 1/1.
+**Sensor**: 3/3 mutations killed, including prior fingerprint's exact survivor.
 
-**Gate**: declared full gate green, with 110 Vitest tests and all Python lanes passing.
+**Gate**: focused 4/4; full Vitest 112/112 plus all 13 Python lanes; validators and diff checks green.
 
-**Next step**: run the fresh T5 Verifier and final QA in the normal workflow.
+**Next step**: close prior technical fingerprint and proceed to final QA for E2E-001 in a fresh QA session.
