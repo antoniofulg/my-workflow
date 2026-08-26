@@ -20,6 +20,40 @@ sys.path.insert(0, str(ROOT / ".agents/skills/autonomous/scripts"))
 import parallel_execute
 
 
+def _cleanup_exact_fixture_artifacts(
+    fixture_root: Path,
+    *,
+    worktree_relative: str | None = None,
+    sibling_relative: str | None = None,
+) -> None:
+    """Remove only the fixture-owned child and its derived sibling root."""
+    sibling_root = qa_parallel_pilot._worktree_root(fixture_root)
+    if sibling_root.is_symlink() or sibling_root.parent != sibling_root.parent.resolve():
+        raise AssertionError("fixture sibling root escaped its derived parent")
+    relative = worktree_relative or sibling_relative
+    if relative is not None:
+        candidate_relative = Path(relative)
+        if candidate_relative.is_absolute() or ".." in candidate_relative.parts:
+            raise AssertionError("fixture cleanup path escaped sibling root")
+        candidate = sibling_root / candidate_relative
+        if not candidate.is_relative_to(sibling_root):
+            raise AssertionError("fixture cleanup path escaped sibling root")
+        if candidate.is_symlink():
+            candidate.unlink()
+        elif candidate.exists():
+            if worktree_relative is not None:
+                subprocess.run(
+                    ["git", "worktree", "remove", "--force", str(candidate)],
+                    cwd=ROOT,
+                    check=False,
+                    capture_output=True,
+                )
+            else:
+                shutil.rmtree(candidate)
+    if sibling_root.exists() and not sibling_root.is_symlink():
+        shutil.rmtree(sibling_root)
+
+
 def test_pilot_handoff_uses_disposable_safe_fixture_and_dry_run_two_lanes() -> None:
     handoff = HANDOFF.read_text(encoding="utf-8")
     assert "qa_parallel_pilot.py setup" in handoff
@@ -52,6 +86,7 @@ def test_pilot_handoff_uses_disposable_safe_fixture_and_dry_run_two_lanes() -> N
         assert (child / ".specs/features/parallel-pilot/tasks.md").read_text(encoding="utf-8").startswith("### T1: pilot A")
         assert subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=child, text=True).strip() == result["source_git_head"]
     finally:
+        _cleanup_exact_fixture_artifacts(fixture_root, worktree_relative=OWNED_WORKTREES[0])
         refused = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--root", fixture], text=True, capture_output=True, check=False)
         assert refused.returncode != 0 and json.loads(refused.stdout)["reason"] == "cleanup-authorization-missing"
         first_cleanup = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], text=True, capture_output=True, check=False)
@@ -401,6 +436,7 @@ def test_symlink_lane_sentinel_is_rejected_before_diagnostic_deletion() -> None:
     finally:
         if lane.is_symlink():
             lane.unlink()
+        _cleanup_exact_fixture_artifacts(fixture_root, sibling_relative="parallel-pilot/sentinel-target")
         if fixture_root.exists():
             subprocess.run([sys.executable, str(HARNESS), "cleanup", "--abort-incomplete", "--root", fixture], check=False)
         (fixture_root.parent / f".{fixture_root.name}.parallel-pilot-cleaned").unlink(missing_ok=True)
