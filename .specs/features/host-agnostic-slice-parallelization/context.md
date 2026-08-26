@@ -23,6 +23,10 @@ runtime proves the required lifecycle and cleanup capabilities.
 - Orca `1.4.188` is known incompatible with the required argv worker lifecycle.
 - A new installed version is only a candidate; an explicit lifecycle canary proves actual support.
 - A successful canary is cached locally by installed runtime identity and invalidated by an update.
+- Until that update, explicit human authorization permits coordinator-assisted execution through
+  direct Orca worktree and terminal commands. The automatic adapter remains unsupported.
+- The coordinator owns every worker and checkpoint. A parked worker ends its turn and resumes in the
+  same terminal only after the declared dependency is completed and verified.
 
 ### Maestri
 
@@ -34,6 +38,8 @@ runtime proves the required lifecycle and cleanup capabilities.
 
 - A canary must release its worker and remove its disposable checkout before recording PASS.
 - Missing cleanup proof blocks the adapter and reports the exact retained resource.
+- Assisted cleanup removes only clean coordinator-owned worktrees after their commits are integrated;
+  ambiguity retains the resource and returns the lane to serial recovery.
 
 ### Agent's Discretion
 

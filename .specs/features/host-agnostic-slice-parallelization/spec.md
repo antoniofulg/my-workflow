@@ -14,6 +14,7 @@ gate that preserves serial fallback and exposes both hosts honestly.
 - [ ] Prove an installed Orca runtime through version-aware lifecycle canary evidence.
 - [ ] Represent Maestri explicitly and reject unsafe automation without side effects.
 - [ ] Keep successful compatibility evidence local, bounded, restart-safe, and version-sensitive.
+- [ ] Permit explicitly authorized coordinator-assisted Orca execution without enabling an incompatible automatic adapter.
 
 ## Out of Scope
 
@@ -23,7 +24,7 @@ gate that preserves serial fallback and exposes both hosts honestly.
 | Parsing human-readable Maestri output | Text is not a stable lifecycle contract. |
 | Manual Git worktrees inside Maestri floors | Floors own isolation in Maestri. |
 | UI automation for Maestri floor deletion | It would couple the workflow to one desktop UI and remain non-deterministic. |
-| Bypassing the Orca lifecycle defect | The adapter must prove the installed runtime, not reproduce lifecycle ownership itself. |
+| Bypassing the Orca lifecycle defect inside the automatic adapter | The adapter must prove the installed runtime; assisted execution is a separate, explicitly authorized coordinator path. |
 | Parallel tasks inside one slice | TLC remains unchanged. |
 
 ## Assumptions & Open Questions
@@ -36,6 +37,7 @@ gate that preserves serial fallback and exposes both hosts honestly.
 | Canary cadence | Cache PASS by runtime identity and invalidate when identity changes | Avoid repeated workers and worktree pollution. | yes |
 | Maestri compatibility | Require structured lifecycle receipts and machine cleanup | Reliability and zero-residue are mandatory. | yes |
 | Unsupported host | Return serial fallback with a decisive reason and zero host effects | Parallelism is optional. | yes |
+| Assisted Orca fallback | Explicit human authorization; coordinator owns direct worktrees, terminals, checkpoints, follow-up, and cleanup | Captures useful overlap without claiming machine-verifiable orchestration. | yes |
 
 **Open questions:** none.
 
@@ -89,14 +91,33 @@ mistakes a visually available floor for a machine-verifiable lifecycle.
 **Independent Test:** Evaluate absent environment and documented current capabilities, including a
 complete-looking capability manifest, through a recording CLI without any mutating command.
 
+### P1: Coordinate assisted Orca slices while automation is unavailable
+
+**User Story:** As a workflow operator, I want the main agent to supervise directly launched Orca
+workers so that eligible slices overlap now without weakening any TLC or readiness stage.
+
+**Acceptance Criteria:**
+
+1. **AST-01:** IF the automatic Orca adapter is incompatible AND the human explicitly authorizes assisted execution THEN the coordinator MAY use Orca's direct worktree-and-agent command while the automatic executor remains serial and records no compatibility PASS.
+2. **AST-02:** WHEN a declared slice-start dependency reaches its required completed and verified state THEN the coordinator SHALL start at most one worker for that slice, and that worker SHALL execute only sequential tasks through the first unmet dependency.
+3. **AST-03:** WHEN the next task depends on an unavailable upstream task THEN the worker SHALL leave a clean committed checkpoint, report its slice, completed-through task, next task, exact dependency, and current HEAD in the Orca worktree comment, then end its turn without polling.
+4. **AST-04:** WHEN the declared upstream dependency completes THEN the coordinator SHALL synchronize the exact producer commit into the private dependent worktree, rerun the affected gate, and follow up the same worker terminal. A stale terminal handle SHALL be reacquired from that worktree instead of starting another worker.
+5. **AST-05:** IF the checkpoint is dirty, missing, conflicting, fails its affected gate, or cannot be reconciled unambiguously THEN the coordinator SHALL stop that lane and continue through serial recovery without automatic conflict resolution.
+6. **AST-06:** WHEN verified slice commits are integrated in deterministic slice order THEN the coordinator SHALL stop each owned worker and remove only its clean integrated worktree and branch, then prove zero owned worker/worktree residue.
+7. **AST-07:** Assisted overlap SHALL preserve one atomic commit and scoped gate per task, Technical Verifier per code-changing slice, frozen grouped deep-review cadence, final QA, and one full gate on the final tree.
+
+**Independent Test:** Run a disposable two-slice Orca pilot where slice B starts after an early slice
+A dependency, parks at a later dependency, resumes through the same terminal after exact checkpoint
+sync, and leaves zero owned worktree or terminal residue.
+
 ## Security Surfaces
 
 | ID | Surface | Control | Requirements |
 | --- | --- | --- | --- |
 | S1 | Executor CLI and local compatibility state | Strict schema, atomic local receipt, disabled short-circuit | SEC-001, SEC-002 |
-| S6 | Executable, Git, and filesystem sinks | Fixed argv, validated checkout path, no shell | SEC-003 |
+| S6 | Executable, Git, and filesystem sinks | Fixed argv, validated checkout path, no shell | SEC-003, SEC-008 |
 | S9 | Orca and Maestri runtimes | Correlated machine receipts; no text parsing | SEC-004, SEC-005 |
-| S11 | Workers, worktrees, floors, terminals | Cleanup proof before compatibility PASS | SEC-006, SEC-007 |
+| S11 | Workers, worktrees, floors, terminals | Cleanup proof before compatibility PASS; exact coordinator ownership for assisted cleanup | SEC-006–SEC-008 |
 
 ## Implicit Requirement Dimensions
 
@@ -110,7 +131,7 @@ complete-looking capability manifest, through a recording CLI without any mutati
 | Data lifecycle / expiry | Local receipts expire on runtime identity change and contain no transcript or secret. |
 | Observability | Preflight emits backend, version, capabilities, cache state, failed stage, and cleanup result. |
 | External-dependency failure | Missing CLI/socket/runtime/capability returns serial fallback. |
-| State-transition integrity | `unknown -> candidate -> compatible|unsupported`; only a clean canary reaches compatible. |
+| State-transition integrity | Automatic: `unknown -> candidate -> compatible|unsupported`; assisted: `ready -> running -> parked -> resumed -> integrated -> cleaned`, with ambiguity returning to serial. |
 
 ## Edge Cases
 
@@ -119,6 +140,8 @@ complete-looking capability manifest, through a recording CLI without any mutati
 - IF the canary worker completes but release or checkout removal fails THEN the runtime SHALL remain unsupported.
 - IF a cached receipt belongs to another repository or executable THEN it SHALL be ignored.
 - IF a host response contains credential-shaped fields THEN persisted and emitted diagnostics SHALL redact their values.
+- IF an assisted worker terminal handle becomes stale THEN the coordinator SHALL reacquire the sole handle from the owned worktree and SHALL NOT dual-send or launch a replacement worker.
+- IF an assisted worktree contains unintegrated or dirty changes THEN cleanup SHALL stop and report the exact retained path.
 
 ## Security Requirements
 
@@ -129,6 +152,7 @@ complete-looking capability manifest, through a recording CLI without any mutati
 5. **SEC-005:** Credential-shaped response fields are redacted before diagnostics or persistence.
 6. **SEC-006:** A compatibility PASS requires a settled worker and zero disposable checkout residue.
 7. **SEC-007:** The adapter never removes or dismisses a resource without an exact ownership receipt.
+8. **SEC-008:** Assisted cleanup targets only coordinator-owned worktrees whose commits are integrated and whose Git state is clean; missing ownership or residue proof stops deletion.
 
 ## Requirement Traceability
 
@@ -149,6 +173,13 @@ complete-looking capability manifest, through a recording CLI without any mutati
 | MAE-02 | Maestri capability probe | C | ✅ Verified |
 | MAE-03 | Maestri capability probe | C | ✅ Verified |
 | MAE-04 | Maestri capability probe | C | ✅ Verified |
+| AST-01 | Coordinator-assisted Orca contract | D | Planned |
+| AST-02 | Coordinator-assisted Orca contract | D | Planned |
+| AST-03 | Coordinator-assisted Orca contract | D | Planned |
+| AST-04 | Coordinator-assisted Orca contract | D | Planned |
+| AST-05 | Coordinator-assisted Orca contract | D | Planned |
+| AST-06 | Coordinator-assisted Orca contract | D | Planned |
+| AST-07 | Coordinator-assisted Orca contract | D | Planned |
 | SEC-001 | Boundary, probes, and cleanup | A–C | ✅ Verified |
 | SEC-002 | Boundary, probes, and cleanup | A–C | ✅ Verified |
 | SEC-003 | Boundary, probes, and cleanup | A–C | ✅ Verified |
@@ -156,8 +187,9 @@ complete-looking capability manifest, through a recording CLI without any mutati
 | SEC-005 | Boundary, probes, and cleanup | A–C | ✅ Verified |
 | SEC-006 | Boundary, probes, and cleanup | A–C | ✅ Verified |
 | SEC-007 | Boundary, probes, and cleanup | A–C | ✅ Verified |
+| SEC-008 | Assisted coordinator ownership and cleanup | D | Planned |
 
-**Coverage:** 22 total requirements, 22 mapped, 0 unmapped.
+**Coverage:** 30 total requirements, 30 mapped, 0 unmapped.
 
 **Post-validation cleanup recheck (`3487c27`):** ORC-04, ORC-05, and SEC-006 remain verified.
 Test-only teardown now removes its exact registered fixture worktree and sentinel root; the owning
@@ -170,3 +202,4 @@ suite preserves unowned paths through its assertions, and production cleanup rem
 - [ ] Current Maestri reports the exact missing machine capabilities with zero mutations.
 - [ ] Disabled mode and incompatible adapters create no workers, worktrees, floors, or agents.
 - [ ] Existing scheduler, Orca adapter, Git adapter, and full workflow gates remain green.
+- [ ] An explicitly authorized two-slice Orca pilot parks and resumes the same worker at a later dependency, then leaves zero owned residue.

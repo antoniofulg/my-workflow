@@ -19,12 +19,13 @@
 | IT-002 | ORC-05 | Orca canary failure | Start, completion, release, or removal fails | No PASS cache; failed stage and retained IDs reported. |
 | IT-003 | HST-01–HST-04 | Executor preflight CLI | `preflight` with auto/orca/maestri, including disabled mode | One JSON result; disabled start/resume remains fail-closed while diagnostic preflight can inspect the host. |
 | IT-004 | MAE-01–MAE-04 | Maestri current contract | Recording current CLI manifest | `unsupported`; zero floor/recruit/Git effects. |
+| IT-005 | AST-01–AST-07 | Assisted coordinator contract | Automatic Orca unsupported with explicit assisted authorization | Direct coordinator-owned worker lifecycle; no compatibility PASS; unchanged TLC/review/QA stages. |
 
 ## End-to-end
 
-No new permanent e2e journey. The existing parallel executor QA scenario owns real slice
-concurrency. This feature adds a read-only installed-Orca preflight and a future explicit canary run
-after an Orca update is detected.
+| ID | Requirement | Journey | Steps | Expected |
+| --- | --- | --- | --- | --- |
+| E2E-001 | AST-01–AST-07 | Assisted two-slice Orca pilot | Start B after an early A dependency, park B at a later A dependency, sync its exact producer commit, follow up the same terminal, integrate, and clean owned resources | Measured slice overlap, sequential tasks, one parked/resumed B worker, all required gates/stages, and zero owned residue. |
 
 ## Security
 
@@ -35,6 +36,7 @@ after an Orca update is detected.
 | SEC-003 | SEC-003 | Shell/path injection | Metacharacters or external checkout path | Fixed argv/path validation rejects before mutation. |
 | SEC-004 | SEC-004, SEC-005 | Unstructured/secret response | Human text or credential fields | Text rejected; diagnostics contain redaction markers only. |
 | SEC-005 | SEC-006, SEC-007 | False cleanup | Worker released but checkout retained, or foreign ID supplied | No PASS; foreign cleanup refused; retained ID reported. |
+| SEC-006 | SEC-008 | Assisted foreign or dirty cleanup | Missing coordinator ownership, unintegrated commit, or dirty worktree | No deletion; exact retained worktree reported and lane serialized. |
 
 ## Ownership
 
@@ -43,3 +45,4 @@ after an Orca update is detected.
 | UT-001, UT-002, UT-006, IT-003, SEC-001 | T1 |
 | UT-003, UT-004, IT-001, IT-002, SEC-002, SEC-003, SEC-005 | T2 |
 | UT-005, IT-004, SEC-004 | T3 |
+| IT-005, E2E-001, SEC-006 | T5 |

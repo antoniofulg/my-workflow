@@ -1,11 +1,15 @@
 # Host-Agnostic Slice Parallelization Validation
 
-**Verdict**: PASS
+**Verdict**: PENDING
 **Date**: 2026-08-26
 **Spec**: `.specs/features/host-agnostic-slice-parallelization/spec.md`
 **Diff range**: `7522de8..HEAD`
 **Remediation under review**: `3487c27`
 **Verifier**: independent Verifier (author != verifier)
+
+The prior 22-requirement PASS remains historical evidence. AST-01 through AST-07 and SEC-008 were
+added after that verdict and require fresh Slice D verification, grouped review, final QA, and a new
+feature verdict.
 
 ## Ranked Gaps
 

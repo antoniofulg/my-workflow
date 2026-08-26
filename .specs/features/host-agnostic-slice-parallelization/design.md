@@ -8,7 +8,8 @@
 Keep `parallel_execute.py` as the deterministic scheduler. Add a narrow compatibility boundary before
 adapter construction. Orca implements read-only identity inspection plus an explicit canary. Maestri
 implements read-only capability inspection and remains unavailable until its CLI can prove the full
-lifecycle and cleanup contract.
+lifecycle and cleanup contract. A separate coordinator-assisted Orca path uses direct host primitives
+under explicit human supervision without changing automatic adapter compatibility.
 
 ```mermaid
 flowchart LR
@@ -17,8 +18,10 @@ flowchart LR
     R --> M[Maestri capability probe]
     O -->|cached PASS| E[existing Orca execution adapter]
     O -->|candidate/unsupported| S[serial fallback]
+    S -->|explicit assisted authorization| A[coordinator-owned direct Orca workers]
     M -->|current CLI unsupported| S
     E --> P[existing scheduler, Verifier, review, QA]
+    A --> P
 ```
 
 Approaches considered:
@@ -28,6 +31,7 @@ Approaches considered:
 | Rewrite scheduler around host SDKs | Rejected | Existing core already owns DAG, state, sync, and fallback. |
 | Parse Maestri text and leave floor cleanup to UI | Rejected | It cannot prove ownership or zero residue. |
 | Adapter registry plus compatibility receipts | Selected | Smallest change that prevents false capability claims and keeps future hosts isolated. |
+| Rebuild Orca orchestration in the workflow | Rejected | Direct supervised handoff captures overlap without duplicating capabilities, receipts, or cleanup machinery. |
 
 ## Code Reuse Analysis
 
@@ -67,6 +71,22 @@ Approaches considered:
   completion events, agent dismissal, and floor deletion.
 - **Failure semantics:** return missing capability names before any mutating command.
 
+### Coordinator-assisted Orca fallback
+
+- **Purpose:** Overlap eligible slices while automatic Orca orchestration is known incompatible.
+- **Location:** `.agents/skills/autonomous/references/parallelization.md`; executed by the main agent
+  through Orca's direct worktree and terminal CLI.
+- **Ownership:** The coordinator launches one worker per slice, records checkpoints in the Orca
+  worktree comment, reacquires stale terminal handles from that worktree, and performs exact cleanup.
+- **Wait state:** `slice=<id>; state=parked; completed_through=<task>; next=<task>;
+  blocked_on=<slice:task>; head=<sha>`. This is a human/agent handoff hypothesis, always reconciled
+  against Git and `tasks.md`; no program accepts it as a machine lifecycle receipt.
+- **Synchronization:** Rebase or otherwise synchronize only the private dependent lane at declared
+  dependency checkpoints, consume the exact producer commit, and rerun the affected gate before
+  follow-up. Conflicts return to serial recovery.
+- **Compatibility:** This path never writes a compatibility receipt and never changes the automatic
+  executor's `unsupported` result.
+
 ## Data Models
 
 ```text
@@ -93,6 +113,9 @@ Only `status=compatible` with `proof.cleanup=clean` is persisted or consumed by 
 | Orca candidate lacks cached PASS | `candidate`. | Explicit canary required. |
 | Canary partial failure | Attempt only exact owned cleanup; retain IDs if unproven. | Adapter remains blocked. |
 | Maestri machine contract incomplete | List missing capabilities. | Adapter remains blocked. |
+| Assisted checkpoint dirty or ambiguous | Park the worker and retain its exact worktree. | Serial recovery; no deletion or follow-up. |
+| Assisted terminal handle stale | Re-list the owned worktree's terminals and select its sole worker handle. | Resume the same worker; never duplicate it. |
+| Assisted sync conflict or affected gate failure | Abort lane continuation. | Serial recovery; no automatic resolution. |
 
 ## Risks & Concerns
 
@@ -111,5 +134,7 @@ Only `status=compatible` with `proof.cleanup=clean` is persisted or consumed by 
 | Canary trigger | Explicit `preflight --canary` | Normal feature start must not create diagnostic effects. |
 | Cache | Repository-local, runtime-identity-bound PASS only | Avoid repeated pollution and stale enablement. |
 | Maestri current behavior | Explicit unsupported adapter | Reliability wins over nominal multi-host support. |
+| Current Orca assisted behavior | Explicitly authorized main-agent supervision | Capture overlap now without pretending structured orchestration works. |
 
-This extends active AD-012 without changing AD-011 task/review policy or AD-013 Orca worktree ownership.
+This extends active AD-012 through AD-015 without changing AD-011 task/review policy or AD-013
+automatic-executor worktree ownership.

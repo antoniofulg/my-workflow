@@ -2,14 +2,14 @@
 
 ## Handoff
 
-- **Feature**: `.specs/features/parallel-slice-executor`
-- **Phase / Task**: Complete / release v0.6.0
-- **Completed**: T1, T2, T2R1-T2R5, T3, T3R1, T3R2, TDR1, TDR2, T4, T4R1, T4R2, T5, T6, T7, T7R1-T7R5; grouped C-D round 1 and post-cap round 2 remediation; Slice A-C Technical Verifiers PASS; grouped deep-review A-B closed
+- **Feature**: `.specs/features/host-agnostic-slice-parallelization`
+- **Phase / Task**: Execute / T5 - publish coordinator-assisted Orca fallback
+- **Completed**: T1, T2, T3, T4; prior Technical Verifier, grouped deep-review, QA, and validation PASS
 - **In-progress** (file:line): none
-- **Next step**: Deliver v0.6.0 locally; remote publication remains separately authorized.
-- **Blockers**: External Orca/Codex lifecycle remains terminal `BLOCKED-VERIFY`; this is non-blocking for local release readiness, and no author-run Orca pilot is claimed.
+- **Next step**: Dispatch T5, then run a two-slice assisted Orca pilot and repeat affected review and QA stages.
+- **Blockers**: Automatic Orca orchestration remains incompatible on `1.4.188`; the explicitly authorized coordinator-assisted path does not enable the automatic adapter.
 - **Uncommitted files**: none.
-- **Branch**: `feat/parallel-slice-executor`
+- **Branch**: `feat/host-agnostic-slice-parallelization`
 
 ## Decisions
 
@@ -220,3 +220,21 @@
   versions of one blocker remain bounded and all other halt conditions still apply.
 - **Scope**: Technical Verifier fix/reverify loops, autonomous halt decisions, TLC verifier guidance,
   review workflow documentation, and their contract tests.
+
+### AD-015
+
+- **Decision**: When automatic host orchestration is incompatible, explicit human authorization may
+  enable coordinator-assisted inter-slice execution through the host's direct worktree and terminal
+  primitives. The coordinator owns worker launch, dependency checkpoints, same-terminal follow-up,
+  synchronization, integration, and cleanup; slice workers never spawn workers. This path never
+  marks the automatic adapter compatible.
+- **Reason**: Direct Orca worktree creation and prompt delivery work on `1.4.188`, so a supervising
+  coordinator can overlap eligible slices without weakening TLC task order, verification, review,
+  gates, QA, or fail-closed automatic execution.
+- **Trade-off**: The coordinator must supervise and reconstruct parked workers from Orca and Git
+  state. It lacks transactional `worker_done`, ack, and release receipts, so dirty, ambiguous,
+  conflicting, or unrecoverable state returns to serial execution.
+- **Scope**: Autonomous inter-slice coordination, Orca direct worktree/terminal handoffs, dependency
+  checkpoints, follow-up, integration, and exact owned-resource cleanup.
+- **Date**: 2026-08-26
+- **Status**: active

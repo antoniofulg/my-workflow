@@ -51,7 +51,7 @@ T3
 ### Slice D: Adoption contract
 
 ```text
-T4
+T4 -> T5
 ```
 
 ## Task Breakdown
@@ -142,6 +142,36 @@ T4
 **Tests:** IT-003, IT-004 in `tools/shared/tests/autonomous-parallelization.test.ts` and adoption suites
 **Gate:** Full. Commit `docs(workflow): publish host adapter contract`.
 
+### T5: Publish coordinator-assisted Orca execution
+
+**Status:** pending
+**Slice:** D
+**Resources:** none
+**Observable behaviour:** With explicit human authorization, the main agent can overlap eligible
+Orca slices, park a worker at its next unmet dependency, resume that same terminal after exact
+checkpoint sync, and clean only integrated owned resources while automatic orchestration stays
+unsupported.
+**Where:** `.agents/skills/autonomous/references/parallelization.md`, host-adapter threat/DX contracts,
+and the canonical autonomous contract test.
+**Depends on:** T4
+**Requirement:** AST-01–AST-07, SEC-008
+**Reuses:** Orca direct `worktree create --agent --prompt`, terminal wait/read/send/list/stop,
+worktree comments/removal, existing checkpoint sync, and serial fallback rules.
+**Tools:** Skills `ponytail`, `orca-cli`, `writing-for-agents`; current Orca CLI guide is authoritative.
+**Done when:**
+
+- [ ] Contract distinguishes assisted coordination from automatic adapter compatibility.
+- [ ] Coordinator starts at most one worker per ready slice and workers stop at the first unmet task dependency.
+- [ ] Parked checkpoints record exact task/dependency/HEAD state and end the worker turn without polling.
+- [ ] Dependency completion synchronizes the exact producer commit, reruns the affected gate, and follows up the same terminal.
+- [ ] Dirty, ambiguous, conflicting, or failed state serializes without automatic resolution or unsafe cleanup.
+- [ ] Cleanup stops workers and removes only clean integrated coordinator-owned worktrees, with zero owned residue proven.
+- [ ] TLC task order, Verifier, grouped deep-review, QA, and full-gate contracts remain unchanged.
+- [ ] `npm_config_offline=true npm test -- --run tools/shared/tests/autonomous-parallelization.test.ts` passes with zero failures.
+
+**Tests:** IT-005, SEC-006 in `tools/shared/tests/autonomous-parallelization.test.ts`; E2E-001 in final QA.
+**Gate:** Full. Commit `docs(workflow): enable coordinator-assisted Orca slices`.
+
 ## Phase Execution Map
 
 ```text
@@ -150,6 +180,7 @@ Slice B: T1 -> T2
 Slice C: T1 -> T3
 Slice D: T2 -> T4
          T3 -> T4
+         T4 -> T5
 ```
 
 ## Task Granularity Check
@@ -160,6 +191,7 @@ Slice D: T2 -> T4
 | T2 | One Orca compatibility capability | PASS |
 | T3 | One Maestri compatibility capability | PASS |
 | T4 | One canonical adoption contract | PASS |
+| T5 | One assisted coordinator contract | PASS |
 
 ## Diagram-Definition Cross-Check
 
@@ -169,6 +201,7 @@ Slice D: T2 -> T4
 | T2 | T1 | T1 -> T2 | PASS |
 | T3 | T1 | T1 -> T3 | PASS |
 | T4 | T2, T3 | T2 + T3 -> T4 | PASS |
+| T5 | T4 | T4 -> T5 | PASS |
 
 ## Test Co-location Validation
 
@@ -178,3 +211,4 @@ Slice D: T2 -> T4
 | T2 | Orca compatibility | integration double | UT/IT in Orca suite | PASS |
 | T3 | Maestri compatibility | integration double | UT/IT in Maestri suite | PASS |
 | T4 | Agent workflow contract | contract | shared/adoption suites | PASS |
+| T5 | Agent workflow contract | contract + QA pilot | shared contract test + E2E-001 | PASS |
