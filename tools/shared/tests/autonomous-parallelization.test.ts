@@ -102,4 +102,61 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(policy).toContain("TLC remains unchanged");
     expect(policy).toMatch(/uncertainty or failure\s+serializes safely/i);
   });
+
+  it("IT-005 covers the explicitly authorized coordinator-assisted Orca lifecycle", () => {
+    const policy = readRepositoryFile(
+      ".agents/skills/autonomous/references/parallelization.md",
+    );
+    const dx = readRepositoryFile(
+      ".specs/features/host-agnostic-slice-parallelization/dx.md",
+    );
+
+    // AST-01: assisted execution is separate from automatic compatibility.
+    expect(policy).toContain("explicitly authorized operator path");
+    expect(policy).toContain("does not write a compatibility PASS");
+    expect(policy).toMatch(/automatic execution remains\s+unsupported and serial/);
+    // AST-02: one worker per ready slice and sequential tasks to the first dependency.
+    expect(policy).toContain("Start at most one worker for each planner-ready slice");
+    expect(policy).toMatch(/sequential TLC tasks and stops at the\s+first unmet task dependency/);
+    // AST-03: exact parked checkpoint and no polling.
+    expect(policy).toContain("slice=<id>; state=parked; completed_through=<task>; next=<task>");
+    expect(policy).toContain("does not poll, spin, or spend model turns checking unchanged state");
+    // AST-04: exact producer sync, affected gate, and same-terminal follow-up.
+    expect(policy).toContain("Synchronize the exact producer commit");
+    expect(policy).toMatch(/rerun the\s+affected gate, then follow up the same worker terminal/);
+    expect(policy).toMatch(/reacquire its sole worker handle; never dual-send or launch a replacement/);
+    // AST-05: ambiguity and conflicts use serial recovery without resolution.
+    expect(policy).toContain("ambiguous ownership/dependency, sync conflict, or affected-gate");
+    expect(policy).toContain("existing serial recovery path");
+    expect(policy).toMatch(/does not\s+resolve conflicts automatically/);
+    // AST-06: deterministic integration and owned cleanup with residue proof.
+    expect(policy).toContain("integrated in deterministic slice order");
+    expect(policy).toContain("clean, integrated, coordinator-owned worktree and branch");
+    expect(policy).toMatch(/Prove zero owned\s+worker\/worktree residue/);
+    // AST-07: existing TLC and readiness stages stay intact.
+    expect(policy).toContain("one atomic commit and scoped gate per task");
+    expect(policy).toMatch(/one Technical Verifier per\s+code-changing slice/);
+    expect(policy).toContain("frozen grouped deep-review cadence, final QA, and one full gate");
+    expect(policy).toContain("no change to TLC task order");
+    // Route selection is part of the user-facing adoption contract.
+    expect(dx).toContain("worktree create --agent --prompt");
+    expect(dx).toContain("terminal create` with the exact frozen command");
+    expect(dx).toContain("terminal wait --for tui-idle");
+    expect(dx).toContain("terminal send");
+  });
+
+  it("SEC-006 enforces coordinator ownership before assisted cleanup", () => {
+    const policy = readRepositoryFile(
+      ".agents/skills/autonomous/references/parallelization.md",
+    );
+    const threatModel = readRepositoryFile(
+      ".specs/features/host-agnostic-slice-parallelization/threat-model.md",
+    );
+
+    expect(policy).toContain("only its clean, integrated, coordinator-owned worktree and branch");
+    expect(policy).toMatch(/missing ownership or residue proof stops\s+deletion/);
+    expect(threatModel).toContain("Assisted cleanup -> Git/Orca resource");
+    expect(threatModel).toContain("Ownership, integrated commit, clean state, and residue proof; SEC-008");
+    expect(threatModel).toMatch(/only clean, integrated,\s+coordinator-owned worktrees are removable/);
+  });
 });

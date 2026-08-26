@@ -45,6 +45,34 @@ separate plan schema.
   selects and probes the requested host so an operator can discover an Orca update.
 - `start` and `resume` accept only an identity-matching cached PASS; they never run a canary implicitly.
 
+## Coordinator-assisted Orca
+
+When automatic Orca is `unsupported`, an operator may explicitly authorize the main agent to
+coordinate direct Orca worktrees. This path is supervised through the existing Orca CLI and is not a
+new executor verb or compatibility result. It must preserve the frozen implementer route. Use
+`worktree create --agent --prompt` only when the host default already matches the frozen provider,
+model, and effort; otherwise use `worktree create`, `terminal create` with the exact frozen command,
+`terminal wait --for tui-idle`, and `terminal send`. A fallback shell is closed only after
+`terminal list` or `terminal show` proves it is unused.
+
+The coordinator starts at most one worker per ready slice. Tasks inside each slice stay sequential.
+At the first unmet dependency, the worker leaves a clean checkpoint and writes this worktree
+comment:
+
+```text
+slice=<id>; state=parked; completed_through=<task>; next=<task>;
+blocked_on=<slice:task>; head=<sha>
+```
+
+The worker ends its turn without polling. After the producer's required completion and verification,
+the coordinator reconciles the comment with `tasks.md` and Git, synchronizes the exact producer
+commit into the dependent worktree, reruns the affected gate, and follows up the same terminal. A
+stale handle is reacquired from that worktree; a dirty, ambiguous, conflicting, or failed lane
+returns to serial recovery without automatic conflict resolution. Cleanup removes only clean,
+integrated, coordinator-owned worktrees after deterministic integration and proves zero owned
+residue. Assisted execution never records a compatibility PASS, and the automatic adapter remains
+serial until its lifecycle canary passes.
+
 ## Local compatibility state
 
 PASS receipts live below Git common state, outside `.specs/`. Identity includes repository, adapter,

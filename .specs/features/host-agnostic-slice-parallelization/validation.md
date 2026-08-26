@@ -28,6 +28,27 @@ residues had delta zero across the owning suite and declared full gate.
 | T2 | complete | PASS: ORC-01 through ORC-07 and SEC-003/SEC-005 through SEC-007 have outcome evidence. |
 | T3 | complete | PASS: MAE-01 through MAE-04 and SEC-003 through SEC-005/SEC-007 have outcome evidence. |
 | T4 | complete | PASS: adoption contract and declared full gate are green. |
+| T5 | complete | IMPLEMENTED: coordinator-assisted Orca contract and traceability are recorded; independent verification and E2E-001 remain pending. |
+
+## Slice D / T5 implementation evidence
+
+The T5 contract is implemented in the policy, DX, and threat-model artifacts. The automatic Orca
+adapter remains unsupported; this evidence does not claim a live Orca pilot or a compatibility PASS.
+
+| Requirement | Implemented outcome | Evidence | Result |
+| --- | --- | --- | --- |
+| AST-01 | Explicit assisted authorization is separate from automatic compatibility and writes no PASS. | `tools/shared/tests/autonomous-parallelization.test.ts:115-117` - policy asserts explicit authorization, no compatibility PASS, and unsupported automatic execution. | IMPLEMENTED |
+| AST-02 | At most one worker starts per planner-ready slice and tasks stop at the first unmet dependency. | `tools/shared/tests/autonomous-parallelization.test.ts:119-120` - policy asserts one worker per ready slice and sequential execution to the first unmet dependency. | IMPLEMENTED |
+| AST-03 | Parked state records slice/task/dependency/HEAD and ends the turn without polling. | `tools/shared/tests/autonomous-parallelization.test.ts:122-123` - policy asserts the exact comment shape and no polling. | IMPLEMENTED |
+| AST-04 | Exact producer commit sync, affected-gate rerun, same-terminal follow-up, and stale-handle reacquisition are required. | `tools/shared/tests/autonomous-parallelization.test.ts:125-127` - policy asserts each lifecycle boundary. | IMPLEMENTED |
+| AST-05 | Dirty, ambiguous, conflicting, or failed state enters serial recovery without automatic conflict resolution. | `tools/shared/tests/autonomous-parallelization.test.ts:129-131` - policy asserts the failure set and recovery rule. | IMPLEMENTED |
+| AST-06 | Deterministic integration precedes cleanup of only clean integrated coordinator-owned resources, with residue proof. | `tools/shared/tests/autonomous-parallelization.test.ts:133-135` and `:154-155` - policy asserts ordering, ownership, clean state, and zero residue. | IMPLEMENTED |
+| AST-07 | Atomic task commits/gates, per-slice Verifier, grouped deep review, final QA, full gate, and unchanged TLC order remain required. | `tools/shared/tests/autonomous-parallelization.test.ts:137-140` - policy asserts every preserved readiness stage. | IMPLEMENTED |
+| SEC-008 | Missing ownership or residue proof prevents assisted cleanup and retains the exact resource for serial recovery. | `tools/shared/tests/autonomous-parallelization.test.ts:151-156` - policy and threat model assert fail-closed ownership cleanup. | IMPLEMENTED |
+
+**T5 scoped gate**: `npm_config_offline=true npm test -- --run tools/shared/tests/autonomous-parallelization.test.ts`
+passed with 4/4 tests and 0 failures. Full feature verification, independent Verifier, grouped
+deep review, and E2E-001 remain required before the feature can claim final PASS.
 
 ## Spec-Anchored Acceptance Criteria
 
@@ -121,12 +142,14 @@ condition. Validation followed the installed `tlc-spec-driven` `validate.md` con
 
 ## Requirement Traceability Update
 
-`spec.md` records all 22 requirements as `Verified`. Its traceability note now records the `3487c27`
-cleanup recheck for ORC-04, ORC-05, and SEC-006 without changing production requirements.
+`spec.md` records the prior 22 requirements as `Verified` and AST-01 through AST-07 plus SEC-008 as
+`Implemented` from the T5 scoped contract gate. Its traceability note retains the `3487c27` cleanup
+recheck for ORC-04, ORC-05, and SEC-006 without changing production requirements.
 
 ## Summary
 
-**Overall**: PASS, ready for feature closure.
+**Overall**: PENDING, T5 is implemented; independent verification, grouped review, final QA, and
+the E2E-001 external pilot remain before feature closure.
 
 **Spec-anchored check**: 22/22 requirements matched precise outcomes; 0 spec-precision gaps.
 
@@ -134,4 +157,4 @@ cleanup recheck for ORC-04, ORC-05, and SEC-006 without changing production requ
 
 **Gate**: declared full gate green, with 110 Vitest tests and all Python lanes passing.
 
-**Next step**: commit the verifier-owned validation/traceability artifacts in the normal workflow.
+**Next step**: run the fresh T5 Verifier and final QA in the normal workflow.

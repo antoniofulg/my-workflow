@@ -144,7 +144,7 @@ T4 -> T5
 
 ### T5: Publish coordinator-assisted Orca execution
 
-**Status:** pending
+**Status:** complete
 **Slice:** D
 **Resources:** none
 **Observable behaviour:** With explicit human authorization, the main agent can overlap eligible
@@ -160,14 +160,14 @@ worktree comments/removal, existing checkpoint sync, and serial fallback rules.
 **Tools:** Skills `ponytail`, `orca-cli`, `writing-for-agents`; current Orca CLI guide is authoritative.
 **Done when:**
 
-- [ ] Contract distinguishes assisted coordination from automatic adapter compatibility.
-- [ ] Coordinator starts at most one worker per ready slice and workers stop at the first unmet task dependency.
-- [ ] Parked checkpoints record exact task/dependency/HEAD state and end the worker turn without polling.
-- [ ] Dependency completion synchronizes the exact producer commit, reruns the affected gate, and follows up the same terminal.
-- [ ] Dirty, ambiguous, conflicting, or failed state serializes without automatic resolution or unsafe cleanup.
-- [ ] Cleanup stops workers and removes only clean integrated coordinator-owned worktrees, with zero owned residue proven.
-- [ ] TLC task order, Verifier, grouped deep-review, QA, and full-gate contracts remain unchanged.
-- [ ] `npm_config_offline=true npm test -- --run tools/shared/tests/autonomous-parallelization.test.ts` passes with zero failures.
+- [x] Contract distinguishes assisted coordination from automatic adapter compatibility.
+- [x] Coordinator starts at most one worker per ready slice and workers stop at the first unmet task dependency.
+- [x] Parked checkpoints record exact task/dependency/HEAD state and end the worker turn without polling.
+- [x] Dependency completion synchronizes the exact producer commit, reruns the affected gate, and follows up the same terminal.
+- [x] Dirty, ambiguous, conflicting, or failed state serializes without automatic resolution or unsafe cleanup.
+- [x] Cleanup stops workers and removes only clean integrated coordinator-owned worktrees, with zero owned residue proven.
+- [x] TLC task order, Verifier, grouped deep-review, QA, and full-gate contracts remain unchanged.
+- [x] `npm_config_offline=true npm test -- --run tools/shared/tests/autonomous-parallelization.test.ts` passes with zero failures.
 
 **Tests:** IT-005, SEC-006 in `tools/shared/tests/autonomous-parallelization.test.ts`; E2E-001 in final QA.
 **Gate:** Full. Commit `docs(workflow): enable coordinator-assisted Orca slices`.

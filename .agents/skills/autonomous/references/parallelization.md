@@ -74,6 +74,71 @@ The current Maestri CLI is expected to report `unsupported` with missing machine
 future complete structured manifest may become compatible; until then, floor creation and deletion
 remain the host UI's responsibility and are not silently automated.
 
+## Coordinator-assisted Orca fallback
+
+This is an explicitly authorized operator path for useful overlap while the automatic Orca adapter
+is unsupported. It is not an adapter result, does not write a compatibility PASS, and does not
+change `start` or `resume` semantics. The main agent is the coordinator and owns the slice
+worktree, worker terminal, checkpoint, dependency notification, integration, and cleanup.
+
+Before launch, reconcile the frozen workflow route. Use the agent-first command only when Orca's
+configured default terminal already matches the frozen implementer provider, model, and effort:
+
+```bash
+orca worktree create --name <slice> --agent <provider> --prompt "<slice task packet>" --json
+```
+
+When the default route does not match, create the worktree first and launch the exact frozen agent
+command in its sole worker terminal:
+
+```bash
+orca worktree create --name <slice> --no-parent --json
+orca terminal create --worktree id:<repo-id>::<worktree-path> \
+  --title <slice> \
+  --command 'codex --model <frozen-model> -c model_reasoning_effort="<frozen-effort>"' --json
+orca terminal wait --terminal <worker-handle> --for tui-idle --timeout-ms 60000 --json
+orca terminal send --terminal <worker-handle> --text "<slice task packet>" --enter --json
+```
+
+Use the complete worktree id from the create result and one worker handle from that worktree. If a
+bare worktree create opened a fallback shell, verify it is unused with `terminal list` or
+`terminal show` before closing it. Never create a second worker for the same slice.
+
+The coordinator follows this lifecycle:
+
+1. Start at most one worker for each planner-ready slice whose declared start dependency is
+   complete and verified. A worker executes only its slice's sequential TLC tasks and stops at the
+   first unmet task dependency.
+2. At that dependency, require a clean committed checkpoint and update the Orca worktree comment
+   with this exact handoff shape:
+
+   ```text
+   slice=<id>; state=parked; completed_through=<task>; next=<task>;
+   blocked_on=<slice:task>; head=<sha>
+   ```
+
+   The worker ends its turn at the parked checkpoint. The coordinator records the waiter and waits
+   for the normal upstream completion/verification event; it does not poll, spin, or spend model
+   turns checking unchanged state.
+3. When the declared producer completes and is verified, reconcile the comment, `tasks.md`, and
+   Git state. Synchronize the exact producer commit into the private dependent worktree, rerun the
+   affected gate, then follow up the same worker terminal. If its handle is stale, re-list that
+   worktree and reacquire its sole worker handle; never dual-send or launch a replacement.
+4. A dirty or missing checkpoint, ambiguous ownership/dependency, sync conflict, or affected-gate
+   failure stops that lane and enters the existing serial recovery path. The coordinator does not
+   resolve conflicts automatically. A changed checkpoint invalidates affected gate, Verifier, and
+   deep-review evidence until the gate is rerun on the new head.
+5. After verified slice commits are integrated in deterministic slice order, stop each owned worker
+   and remove only its clean, integrated, coordinator-owned worktree and branch. Prove zero owned
+   worker/worktree residue before closing the lane; missing ownership or residue proof stops
+   deletion and retains the exact path for serial recovery.
+
+Assisted overlap preserves one atomic commit and scoped gate per task, one Technical Verifier per
+code-changing slice, the frozen grouped deep-review cadence, final QA, and one full gate on the
+final tree. It introduces no parallelism inside a slice and no change to TLC task order. Until the
+automatic Orca lifecycle canary passes on the installed runtime, automatic execution remains
+unsupported and serial.
+
 ## Executor commands
 
 From the repository root, the public verbs are:
