@@ -48,13 +48,13 @@ feature never silently changes execution hosts or loses serial safety.
 
 **Acceptance Criteria:**
 
-1. **HST-01:** WHEN parallelization mode is `disabled` THEN the executor SHALL return serial fallback without probing or constructing any host adapter.
+1. **HST-01:** WHEN `start` or `resume` runs with parallelization mode `disabled` THEN the executor SHALL return serial fallback without probing or constructing any host adapter. An explicitly requested `preflight` remains a read-only diagnostic in this mode.
 2. **HST-02:** WHEN `--adapter auto` runs inside a Maestri terminal THEN the executor SHALL evaluate only Maestri and SHALL NOT fall through to Orca.
 3. **HST-03:** WHEN an explicit adapter is unavailable or incompatible THEN the executor SHALL return serial fallback with its backend and decisive reason before creating a checkout or worker.
 4. **HST-04:** WHEN a compatible adapter is selected THEN the executor SHALL preserve the existing slice scheduler, checkpoint, Technical Verifier, deep-review, gate, and QA contracts unchanged.
 
-**Independent Test:** Drive disabled, auto, explicit, compatible, and incompatible selections through
-recording adapters and assert exact effects and fallback reasons.
+**Independent Test:** Drive disabled `start`/`resume`, disabled `preflight`, auto, explicit, compatible,
+and incompatible selections through recording adapters and assert exact effects and fallback reasons.
 
 ### P1: Prove the installed Orca lifecycle
 

@@ -61,7 +61,7 @@ T4
 **Status:** complete
 **Slice:** A
 **Resources:** none
-**Observable behaviour:** `preflight` reports exact host compatibility, disabled remains effect-free, and incompatible start/resume serialize without cross-host fallback.
+**Observable behaviour:** `preflight` reports exact host compatibility even when disabled, disabled start/resume remain effect-free, and incompatible start/resume serialize without cross-host fallback.
 **Where:** `.agents/skills/autonomous/scripts/parallel_execute.py`
 **Depends on:** None
 **Requirement:** HST-01–HST-04, SEC-001, SEC-002
@@ -70,7 +70,7 @@ T4
 **Done when:**
 
 - [ ] CLI accepts `preflight` and `auto|orca|maestri` with one JSON result.
-- [ ] Disabled mode imports or probes no adapter.
+- [ ] Disabled `start`/`resume` imports or probes no adapter; explicit `preflight` remains diagnostic.
 - [ ] Auto detects Maestri without falling through to Orca.
 - [ ] Start/resume require a compatible adapter result and preserve existing scheduler behavior.
 - [ ] `python3 tools/test_parallel_executor.py` passes with zero failures.

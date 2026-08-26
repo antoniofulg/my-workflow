@@ -261,6 +261,35 @@ def test_preflight_cli_emits_one_structured_result_without_starting_scheduler() 
         shutil.rmtree(root)
 
 
+def test_disabled_preflight_remains_a_read_only_host_diagnostic() -> None:
+    root = make_repo(mode="disabled")
+    try:
+        class DiagnosticAdapter:
+            def probe(self) -> dict[str, object]:
+                return {
+                    "version": 1,
+                    "feature": "fixture",
+                    "adapter": "orca",
+                    "status": "unsupported",
+                    "reason": "known-incompatible-version:1.4.188",
+                    "proof": {"cleanup": "not-run"},
+                }
+
+        stdout = io.StringIO()
+        with redirect_stdout(stdout):
+            exit_code = parallel_execute.main(
+                ["preflight", "--root", str(root), "--feature", "fixture", "--adapter", "orca"],
+                adapter_factory=lambda: DiagnosticAdapter(),
+            )
+        result = json.loads(stdout.getvalue())
+        assert exit_code == 0
+        assert result["mode"] == "disabled"
+        assert result["status"] == "unsupported"
+        assert result["reason"] == "known-incompatible-version:1.4.188"
+    finally:
+        shutil.rmtree(root)
+
+
 class RecordingAdapter:
     def __init__(self) -> None:
         self.effects: list[tuple[str, str]] = []

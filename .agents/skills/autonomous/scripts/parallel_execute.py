@@ -577,16 +577,6 @@ class Coordinator:
         """Inspect one host adapter before any scheduler or checkout effect."""
         workflow = self._workflow()
         mode = workflow["parallelization"]["mode"]
-        if mode == "disabled":
-            return {
-                "version": 1,
-                "feature": self.feature,
-                "mode": mode,
-                "adapter": adapter,
-                "status": "disabled",
-                "reason": "disabled-mode",
-                "proof": {"cleanup": "not-run"},
-            }
         if self.adapter_factory is None:
             return {
                 "version": 1,
@@ -616,7 +606,7 @@ class Coordinator:
             if canary and result.get("status") == "candidate":
                 run_canary = getattr(instance, "canary", None)
                 if not callable(run_canary):
-                    return {**dict(result), "status": "unsupported", "reason": "canary-unavailable"}
+                    return {**dict(result), "mode": mode, "feature": self.feature, "adapter": adapter, "status": "unsupported", "reason": "canary-unavailable"}
                 try:
                     run_canary()
                 except Exception as exc:
@@ -624,9 +614,9 @@ class Coordinator:
                     failure = {"status": "unsupported", "reason": str(exc)}
                     if isinstance(details, Mapping):
                         failure["failure"] = dict(details)
-                    return {**dict(result), **failure}
+                    return {**dict(result), "mode": mode, "feature": self.feature, "adapter": adapter, **failure}
                 result = probe()
-            return dict(result)
+            return {**dict(result), "mode": mode, "feature": self.feature, "adapter": adapter}
         except Exception as exc:
             return {
                 "version": 1,
@@ -1661,7 +1651,10 @@ def main(
     args = _parser().parse_args(argv)
     try:
         selected_adapter_factory = adapter_factory
-        if selected_adapter_factory is None and args.command != "status" and not _workflow_is_disabled(args.root, args.feature):
+        if selected_adapter_factory is None and (
+            args.command == "preflight"
+            or (args.command not in {"status", "preflight"} and not _workflow_is_disabled(args.root, args.feature))
+        ):
             selected_adapter_factory = _adapter_factory(args.adapter, args.root, args.feature)
         coordinator = Coordinator(
             args.root,

@@ -37,7 +37,8 @@ reason and produces no scheduler effect.
 - `auto` inside Maestri evaluates only Maestri.
 - `auto` outside Maestri evaluates Orca when its executable exists.
 - `auto` never crosses from one detected host into another.
-- `disabled` mode returns before selection.
+- `start` and `resume` in `disabled` mode return before adapter selection. Explicit `preflight` still
+  selects and probes the requested host so an operator can discover an Orca update.
 - `start` and `resume` accept only an identity-matching cached PASS; they never run a canary implicitly.
 
 ## Local compatibility state
