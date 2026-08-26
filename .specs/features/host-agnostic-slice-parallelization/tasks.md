@@ -102,7 +102,7 @@ T4
 
 ### T3: Add the fail-closed Maestri capability adapter
 
-**Status:** pending
+**Status:** complete
 **Slice:** C
 **Resources:** none
 **Observable behaviour:** Current Maestri reports its missing machine lifecycle and cleanup capabilities without creating floors, agents, or Git worktrees.
