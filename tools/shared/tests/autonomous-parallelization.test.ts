@@ -119,7 +119,9 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(policy).toContain("Start at most one worker for each planner-ready slice");
     expect(policy).toMatch(/sequential TLC tasks and stops at the\s+first unmet task dependency/);
     // AST-03: exact parked checkpoint and no polling.
-    expect(policy).toContain("slice=<id>; state=parked; completed_through=<task>; next=<task>");
+    expect(policy).toMatch(
+      /slice=<id>; state=parked; completed_through=<task>; next=<task>;\s+blocked_on=<slice:task>; head=<sha>/,
+    );
     expect(policy).toContain("does not poll, spin, or spend model turns checking unchanged state");
     // AST-04: exact producer sync, affected gate, and same-terminal follow-up.
     expect(policy).toContain("Synchronize the exact producer commit");
