@@ -170,12 +170,16 @@ def peak_helper_script(path: Path, *, fail_first: bool = False, inverted: bool =
         "slots = int(barrier_args[0]) if barrier_args else 1\n"
         "initial_barrier = pathlib.Path(barrier_args[1]) if len(barrier_args) > 1 else state_path.parent / 'initial-wave'\n"
         "retry_barrier = pathlib.Path(barrier_args[2]) if len(barrier_args) > 2 else state_path.parent / 'retry-wave'\n"
-        "def rendezvous(path, parties):\n"
+        "def rendezvous(path, parties, participant=None, attempt=None, active=None):\n"
         "    path.parent.mkdir(parents=True, exist_ok=True)\n"
         "    with open(path, 'a+', encoding='utf-8') as stream:\n"
         "        fcntl.flock(stream, fcntl.LOCK_EX)\n"
         "        stream.seek(0); ready = int(stream.read() or '0') + 1\n"
         "        stream.seek(0); stream.truncate(); stream.write(str(ready)); stream.flush()\n"
+        "        if participant is not None:\n"
+        "            with open(str(path) + '.ledger', 'a', encoding='utf-8') as ledger:\n"
+        "                ledger.write(json.dumps({'participant': participant, 'attempt': attempt, 'active': active}) + '\\n')\n"
+        "                ledger.flush()\n"
         "        if ready >= parties: pathlib.Path(str(path) + '.go').touch()\n"
         "        fcntl.flock(stream, fcntl.LOCK_UN)\n"
         "    deadline = time.monotonic() + 5\n"
@@ -197,7 +201,7 @@ def peak_helper_script(path: Path, *, fail_first: bool = False, inverted: bool =
         "attempt_file.parent.mkdir(parents=True, exist_ok=True)\n"
         "attempt = int(attempt_file.read_text()) + 1 if attempt_file.exists() else 1\n"
         "attempt_file.write_text(str(attempt))\n"
-        "change(1)\n"
+        "current = change(1)\n"
         "if mode == 'normal': rendezvous(initial_barrier, slots)\n"
         "if mode == 'retry' and attempt == 1:\n"
         "    rendezvous(initial_barrier, slots)\n"
@@ -207,8 +211,13 @@ def peak_helper_script(path: Path, *, fail_first: bool = False, inverted: bool =
         "        while not pathlib.Path(str(retry_barrier) + '.ready').exists():\n"
         "            if time.monotonic() >= deadline: raise RuntimeError('retry wave readiness timeout')\n"
         "            time.sleep(0.01)\n"
-        "        rendezvous(retry_barrier, slots)\n"
-        "if mode == 'retry' and attempt >= 2: rendezvous(retry_barrier, slots)\n"
+        "        if int(label.rsplit('-', 1)[1]) <= slots:\n"
+        "            rendezvous(retry_barrier, slots, label, attempt, current)\n"
+        "        else:\n"
+        "            while not pathlib.Path(str(retry_barrier) + '.go').exists():\n"
+        "                if time.monotonic() >= deadline: raise RuntimeError('retry wave completion timeout')\n"
+        "                time.sleep(0.01)\n"
+        "if mode == 'retry' and attempt >= 2: rendezvous(retry_barrier, slots, label, attempt, current)\n"
         "with open(calls, 'a', encoding='utf-8') as stream: stream.write(f'{label}:{attempt}\\n')\n"
         "if not barrier_args:\n"
         "    delay = 0.20 if ((label == 'job-1') == (mode == 'inverted')) else 0.12\n"
@@ -357,6 +366,15 @@ class TokenMetricsTests(unittest.TestCase):
                 self.assertEqual(int(peak.read_text()), 3)
                 status = json.loads((out / "runs/jobs-status.json").read_text(encoding="utf-8"))
                 self.assertEqual([row["attempt"] for row in status["jobs"]], [2, 1, 1, 1, 1])
+                ledger = [json.loads(line) for line in (root / "retry-wave.ledger").read_text(encoding="utf-8").splitlines()]
+                self.assertEqual(len(ledger), 3)
+                self.assertEqual(
+                    {(entry["participant"], entry["attempt"]) for entry in ledger},
+                    {("job-1", 2), ("job-2", 1), ("job-3", 1)},
+                )
+                retry_entry = next(entry for entry in ledger if entry["participant"] == "job-1")
+                self.assertEqual(retry_entry["active"], 3)
+                self.assertTrue(all(entry["active"] > 0 for entry in ledger))
                 self.assertCountEqual(calls.read_text(encoding="utf-8").splitlines(), [
                     "job-1:1", "job-1:2", "job-2:1", "job-3:1", "job-4:1", "job-5:1",
                 ])
