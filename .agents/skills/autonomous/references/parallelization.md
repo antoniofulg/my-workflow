@@ -17,9 +17,17 @@ TLC remains unchanged, and tasks inside a slice remain sequential.
 
 4. Dispatch parallel lanes only when the frozen mode, plan, and executor capability all allow it.
 
-5. The `auto`/`orca` executor capability gate is proven only when the `orca` runtime is
-   discoverable and the adapter declares `orchestration.contract.v1`; otherwise return serial
-   recovery with zero worktree, worker, Git, or provider effects.
+5. The `auto`/`orca` executor capability gate is proven only when the Orca status is ready,
+   `orchestration.contract.v1` is present, the installed version is not known-bad, and an explicit
+   lifecycle canary has reached `worker_done`, read, ack, release, checkout removal, and zero
+   residue. A matching repository/runtime/executable PASS receipt may be reused; any identity change
+   invalidates it. Orca `1.4.188` is a known-bad read-only result. Without a clean PASS, return
+   serial recovery with zero worktree, worker, Git, or provider effects.
+6. The `auto` selector evaluates the current host only. A Maestri terminal evaluates Maestri and
+   never falls through to Orca. The Maestri adapter requires structured terminal, floor, agent,
+   completion, dismissal, and floor-deletion capabilities. The current CLI is unsupported and
+   remains serial; it never parses human output or creates a floor, agent, or Git worktree during
+   preflight.
 
 6. A lane with `Resources: none` bypasses the consumer provider; any declared resource names
    require the frozen executable and a prepared correlated lease before worker start.
@@ -28,6 +36,43 @@ TLC remains unchanged, and tasks inside a slice remain sequential.
 uses the existing serial path without creating a worker or worktree. Any uncertainty or failure
 serializes safely; a capability that cannot prove worktree, runtime, port, and persistence isolation
 is not capable for this contract.
+
+## Host compatibility and update verification
+
+Run the read-only gate before starting a feature:
+
+```bash
+python3 .agents/skills/autonomous/scripts/parallel_execute.py preflight \
+  --root . --feature <feature-slug> --adapter auto
+```
+
+To qualify an Orca update, run the explicit disposable canary only after the version is a candidate:
+
+```bash
+python3 .agents/skills/autonomous/scripts/parallel_execute.py preflight \
+  --root . --feature <feature-slug> --adapter orca --canary
+```
+
+The output is one JSON object. Orca is updated for this workflow only when the PR is merged, the
+installed executable reports the released version, and the canary returns `status=compatible` with
+`proof.cleanup=clean`. A version number or capability flag alone never enables parallel execution.
+The result is cached outside `.specs/`, scoped to this repository and executable identity, and is
+invalidated when any identity field changes. If the proof is absent or fails, use serial mode.
+
+Maestri can be selected explicitly for diagnostics:
+
+```bash
+python3 .agents/skills/autonomous/scripts/parallel_execute.py preflight \
+  --root . --feature <feature-slug> --adapter maestri
+```
+
+Adoption installs the tracked `.agents/skills/autonomous/scripts/maestri_adapter.py` alongside the
+executor and verifies its presence in the adoption contract test. This is a local adapter boundary,
+not permission to mutate a Maestri workspace.
+
+The current Maestri CLI is expected to report `unsupported` with missing machine capabilities. A
+future complete structured manifest may become compatible; until then, floor creation and deletion
+remain the host UI's responsibility and are not silently automated.
 
 ## Executor commands
 

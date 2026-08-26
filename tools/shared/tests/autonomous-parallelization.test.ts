@@ -16,6 +16,9 @@ describe("autonomous parallel slice dispatch contract", () => {
     const adapter = readRepositoryFile(
       ".agents/skills/autonomous/scripts/orca_adapter.py",
     );
+    const maestri = readRepositoryFile(
+      ".agents/skills/autonomous/scripts/maestri_adapter.py",
+    );
     const policy = readRepositoryFile(
       ".agents/skills/autonomous/references/parallelization.md",
     );
@@ -23,13 +26,20 @@ describe("autonomous parallel slice dispatch contract", () => {
       ".specs/features/parallel-slice-executor/qa-pilot.md",
     );
 
-    expect(executor).toContain('parser.add_argument("--adapter", choices=("auto", "orca")');
+    expect(executor).toContain('parser.add_argument("--adapter", choices=("auto", "orca", "maestri")');
+    expect(executor).toContain('parser.add_argument("command", choices=("start", "resume", "status", "preflight"))');
     expect(executor).toContain('parser.add_argument("--technical-verifier-receipt"');
     expect(executor).toContain('"unsupported-adapter"');
     expect(executor).toContain("resource_provider");
     expect(executor).toContain("gate_required");
     expect(adapter).toContain('CAPABILITY = "orchestration.contract.v1"');
+    expect(adapter).toContain("KNOWN_INCOMPATIBLE_VERSIONS");
+    expect(maestri).toContain("REQUIRED_CAPABILITIES");
+    expect(maestri).toContain("structured_completion_events");
     expect(policy).toContain("orchestration.contract.v1");
+    expect(policy).toContain("lifecycle canary");
+    expect(policy).toContain("proof.cleanup=clean");
+    expect(policy).toContain("maestri_adapter.py");
     expect(policy).toContain("check --run <run> --wait");
     expect(policy).toContain("ack");
     expect(policy).toContain("same terminal");

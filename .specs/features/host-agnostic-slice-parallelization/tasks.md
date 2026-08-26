@@ -123,7 +123,7 @@ T4
 
 ### T4: Publish the multi-host execution contract
 
-**Status:** pending
+**Status:** complete
 **Slice:** D
 **Resources:** none
 **Observable behaviour:** Adopted workflows explain adapter selection, Orca update verification, Maestri limitations, cleanup, and unchanged TLC stages from one canonical contract.
