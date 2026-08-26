@@ -49,11 +49,17 @@ separate plan schema.
 
 When automatic Orca is `unsupported`, an operator may explicitly authorize the main agent to
 coordinate direct Orca worktrees. This path is supervised through the existing Orca CLI and is not a
-new executor verb or compatibility result. It must preserve the frozen implementer route. Use
-`worktree create --agent --prompt` only when the host default already matches the frozen provider,
-model, and effort; otherwise use `worktree create`, `terminal create` with the exact frozen command,
-`terminal wait --for tui-idle`, and `terminal send`. A fallback shell is closed only after
-`terminal list` or `terminal show` proves it is unused.
+new executor verb or compatibility result. It must read the frozen
+`roles.implementer.provider/model/effort` and always launch an explicit command, never trust an
+unobservable default. The verified provider forms are `codex --model <model> -c
+'model_reasoning_effort="<effort>"'`, `claude --model <model> --effort <effort>`, and `cursor agent
+--model '<model>[effort=<effort>]'`; merge Cursor effort into an existing parameter block. Use the
+selected executable's `--help`/availability check, wait for `tui-idle`, then read the terminal to
+confirm effective model and effort before sending the task packet. An inexpressible, unavailable, or
+unobservable route stops setup without editing `tasks.md`. Always use the two-step
+`worktree create` plus `terminal create --command`, preserving startup policy. A fallback shell is
+closed only after `terminal list` or `terminal show` proves it is unused. Deliver the packet and
+later follow-ups with `terminal send` to that sole verified handle.
 
 The coordinator starts at most one worker per ready slice. Tasks inside each slice stay sequential.
 At the first unmet dependency, the worker leaves a clean checkpoint and writes this worktree
@@ -70,8 +76,13 @@ commit into the dependent worktree, reruns the affected gate, and follows up the
 stale handle is reacquired from that worktree; a dirty, ambiguous, conflicting, or failed lane
 returns to serial recovery without automatic conflict resolution. Cleanup removes only clean,
 integrated, coordinator-owned worktrees after deterministic integration and proves zero owned
-residue. Assisted execution never records a compatibility PASS, and the automatic adapter remains
-serial until its lifecycle canary passes.
+residue. Before cleanup, revalidate the exact create receipt (full worktree id, instance, path,
+branch, worker handle, and HEAD), Orca show/list identity, Git worktree/gitdir/path/no-symlink/HEAD/
+clean/no-operation-in-progress state, and slice-head ancestry of integration HEAD. Stop the exact
+worker, recheck, remove only by full id, and prove Orca/Git/path/terminal absence. Any mismatch or
+missing proof retains the path and serializes; cleanup never uses a name or branch selector.
+Assisted execution never records a compatibility PASS, and the automatic adapter remains serial
+until its lifecycle canary passes.
 
 ## Local compatibility state
 

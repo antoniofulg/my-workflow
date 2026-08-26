@@ -111,10 +111,19 @@ describe("autonomous parallel slice dispatch contract", () => {
       ".specs/features/host-agnostic-slice-parallelization/dx.md",
     );
 
-    // AST-01: assisted execution is separate from automatic compatibility.
+    // AST-01: assisted execution is separate from automatic compatibility and honors frozen route.
     expect(policy).toContain("explicitly authorized operator path");
     expect(policy).toContain("does not write a compatibility PASS");
     expect(policy).toMatch(/automatic execution remains\s+unsupported and serial/);
+    expect(policy).toContain("roles.implementer.provider");
+    expect(policy).toContain("roles.implementer.model");
+    expect(policy).toContain("roles.implementer.effort");
+    expect(policy).toContain("codex --model <model> -c 'model_reasoning_effort=\"<effort>\"'");
+    expect(policy).toContain("claude --model <model> --effort <effort>");
+    expect(policy).toContain("cursor agent --model '<model>[effort=<effort>]'");
+    expect(policy).toContain("terminal read");
+    expect(policy).toMatch(/effective model and\s+effort/);
+    expect(policy).toContain("do not edit `tasks.md`");
     // AST-02: one worker per ready slice and sequential tasks to the first dependency.
     expect(policy).toContain("Start at most one worker for each planner-ready slice");
     expect(policy).toMatch(/sequential TLC tasks and stops at the\s+first unmet task dependency/);
@@ -131,19 +140,46 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(policy).toContain("ambiguous ownership/dependency, sync conflict, or affected-gate");
     expect(policy).toContain("existing serial recovery path");
     expect(policy).toMatch(/does not\s+resolve conflicts automatically/);
-    // AST-06: deterministic integration and owned cleanup with residue proof.
+    // AST-06: deterministic integration and owned cleanup with receipt/revalidation/absence proof.
     expect(policy).toContain("integrated in deterministic slice order");
-    expect(policy).toContain("clean, integrated, coordinator-owned worktree and branch");
-    expect(policy).toMatch(/Prove zero owned\s+worker\/worktree residue/);
+    expect(policy).toContain("Record the exact create receipt");
+    expect(policy).toContain("complete worktree id, instance,\nabsolute path, branch, worker handle, and current HEAD");
+    expect(policy).toContain("revalidate the exact\n   create receipt before cleanup");
+    expect(policy).toContain("orca worktree show`/`list`");
+    expect(policy).toContain("no symlink");
+    expect(policy).toContain("no merge/rebase/cherry-pick/revert in progress");
+    expect(policy).toContain("git merge-base --is-ancestor <slice-head> <integration-head>");
+    expect(policy).toContain("Stop the exact worker,\n   recheck");
+    expect(policy).toContain("remove only by the full worktree id");
+    expect(policy).toContain("Prove\n   Orca, Git, path, and terminal absence");
+    expect(policy).toContain("never select cleanup by name or branch");
+    expect(policy).toContain("zero owned residue");
+
+    const receiptAt = policy.indexOf("Record the exact create receipt");
+    const revalidateAt = policy.indexOf("revalidate the exact\n   create receipt before cleanup");
+    const stopAt = policy.indexOf("Stop the exact worker,\n   recheck");
+    const removeAt = policy.indexOf("remove only by the full worktree id");
+    const absenceAt = policy.indexOf("Prove\n   Orca, Git, path, and terminal absence");
+    expect(receiptAt).toBeGreaterThan(-1);
+    expect(revalidateAt).toBeGreaterThan(receiptAt);
+    expect(stopAt).toBeGreaterThan(revalidateAt);
+    expect(removeAt).toBeGreaterThan(stopAt);
+    expect(absenceAt).toBeGreaterThan(removeAt);
     // AST-07: existing TLC and readiness stages stay intact.
     expect(policy).toContain("one atomic commit and scoped gate per task");
     expect(policy).toMatch(/one Technical Verifier per\s+code-changing slice/);
     expect(policy).toContain("frozen grouped deep-review cadence, final QA, and one full gate");
     expect(policy).toContain("no change to TLC task order");
     // Route selection is part of the user-facing adoption contract.
-    expect(dx).toContain("worktree create --agent --prompt");
-    expect(dx).toContain("terminal create` with the exact frozen command");
-    expect(dx).toContain("terminal wait --for tui-idle");
+    expect(dx).toContain("roles.implementer.provider/model/effort");
+    expect(dx).toContain("always launch an explicit command, never trust an");
+    expect(dx).toContain("codex --model <model>");
+    expect(dx).toContain("claude --model <model> --effort <effort>");
+    expect(dx).toContain("cursor agent");
+    expect(dx).toContain("--help`/availability check");
+    expect(dx).toContain("wait for `tui-idle`, then read the terminal");
+    expect(dx).toContain("Always use the two-step");
+    expect(dx).toContain("terminal create --command");
     expect(dx).toContain("terminal send");
   });
 
@@ -155,10 +191,11 @@ describe("autonomous parallel slice dispatch contract", () => {
       ".specs/features/host-agnostic-slice-parallelization/threat-model.md",
     );
 
-    expect(policy).toContain("only its clean, integrated, coordinator-owned worktree and branch");
-    expect(policy).toMatch(/missing ownership or residue proof stops\s+deletion/);
+    expect(policy).toContain("remove only by the full worktree id");
+    expect(policy).toContain("missing ownership");
+    expect(policy).toContain("stops deletion");
     expect(threatModel).toContain("Assisted cleanup -> Git/Orca resource");
-    expect(threatModel).toContain("Ownership, integrated commit, clean state, and residue proof; SEC-008");
+    expect(threatModel).toContain("Exact create receipt, Orca/Git identity revalidation, integrated ancestor, ordered stop/remove, and absence proof; SEC-008");
     expect(threatModel).toMatch(/only clean, integrated,\s+coordinator-owned worktrees are removable/);
   });
 });
