@@ -1,12 +1,67 @@
 # Parallel Deep Review Validation
 
-**Date**: 2026-08-25
+**Date**: 2026-08-26
 **Spec**: `.specs/features/parallel-deep-review/spec.md`
-**Diff range**: `da5571e..ffc7c21`
+**Diff range**: `ae1b7d0..cd1886f`
 **Verifier**: independent verifier (author != verifier)
 **Verdict**: PASS
 
 ---
+
+## Bug-Fix Revalidation: `BUG-20260826-deep-review-peak-bound-gate-flakes`
+
+### Spec-Anchored Outcomes
+
+| Criterion | Spec-defined outcome | `file:line` + assertion | Result |
+| --- | --- | --- | --- |
+| P1.5 bounded dispatch | Active reviewers never exceed `min(concurrency, pending)`; the independent test also requires real overlap at `3` and `6`. | `tools/test_deep_review_token_metrics.py:341` — `self.assertEqual(int(peak.read_text()), min(concurrency, count))`; `:343` asserts manifest-order labels. | PASS |
+| P2.1 retry slot | A retry remains in one worker slot while still-active siblings continue independently. | `tools/test_deep_review_token_metrics.py:366` — exact peak `3`; `:368` — attempts `[2,1,1,1,1]`; `:370-377` — exactly three retry-wave participants, exact `(participant, attempt)` set `{("job-1",2),("job-2",1),("job-3",1)}`, retry occupancy exactly `3`, and positive sibling occupancy; `:378-380` — complete call multiset. | PASS |
+
+The exact saturation assertions are preserved at
+`tools/test_deep_review_token_metrics.py:341` and
+`tools/test_deep_review_token_metrics.py:366`. Initial and retry waves use distinct paths and
+count-driven rendezvous at `tools/test_deep_review_token_metrics.py:171-188,205-220`. Five-second
+deadlines only fail a stalled fixture; they do not release either barrier, so this is not a
+time-only workaround. Production `.agents/skills/deep-review/scripts/run_jobs.py` is unchanged:
+blob `649ff2ed10900f759bc637c3f73ee0e1ee9ce447` at both endpoints.
+
+### Gate Evidence
+
+- Focused command: `python3 -m unittest -q tools.test_deep_review_token_metrics.TokenMetricsTests.test_drm02_peak_active_is_exact_bound_and_effective_min tools.test_deep_review_token_metrics.TokenMetricsTests.test_drm04_retries_do_not_expand_peak_worker_bound` repeated 20 times — 40 passed, 0 failed, 0 skipped.
+- Full command: `npm_config_offline=true npm run test:all` — Vitest 110/110 passed; every Python suite passed; 0 failures.
+- `python3 /Users/antoniofulg/Projects/my-workflow/.agents/skills/tlc-spec-driven/scripts/validate_spec.py .specs/features/parallel-deep-review/spec.md` — 0 errors, 0 warnings.
+- `python3 /Users/antoniofulg/Projects/my-workflow/.agents/skills/tlc-spec-driven/scripts/check_commit.py --message "$(git log -1 --pretty=%B)"` — OK.
+- `git diff --check ae1b7d0..HEAD` — exit 0.
+
+### Discrimination Sensor
+
+Scratch used isolated file copies under `/tmp`; the real checkout was never mutated. Copies were
+deleted after execution.
+
+| Mutation | Focused result |
+| --- | --- |
+| Bypass `rendezvous(initial_barrier, slots)` for the normal peak fixture | KILLED — exact peak assertion observed `2 != 6`. |
+| Fully bypass retry-wave readiness plus both retry-wave rendezvous calls while retaining the initial-wave barrier | KILLED — `test_drm04_retries_do_not_expand_peak_worker_bound` errored because `retry-wave.ledger` was absent. |
+
+**Sensor result**: 2/2 killed, 0 survived — PASS.
+
+### Isolation and Residue
+
+- Preserved checkout porcelain baseline: 11 entries before and after test/sensor work; SHA-256 `29294758b29701b6f812e89e866607da4f6bccf2d6e1ad427ca2332d7060a47a` before and after the gate.
+- Git worktrees: 6 before, 6 after; delta 0.
+- Project pilot residue directories: 131 before, 131 after; delta 0.
+- Temp pilot residue directories: 8 before, 8 after; delta 0.
+- Focused `.deep-review/peak-*` and `metrics-concurrency-*` residue: 0 before, 0 after; delta 0.
+
+### Ranked Gaps
+
+None. Commit `cd1886f` closes the surviving retry-wave mutant without changing production code or
+weakening either exact peak assertion.
+
+## Prior Feature Validation (2026-08-25, historical)
+
+The sections below preserve the original `da5571e..ffc7c21` feature-validation record. They do not
+supersede the current PASS verdict above.
 
 ## Task Completion
 
@@ -121,7 +176,7 @@ status reversal and valid boundaries `1` / `6` — are closed. **PASS**.
 | PDR-05 | PASS |
 | PDR-06 | PASS |
 
-## Summary
+## Prior Summary (2026-08-25)
 
 **Overall**: PASS — technically ready for the next workflow gate.
 

@@ -10,7 +10,7 @@ For consuming projects, those authorities are their executable manifests or CI j
 | Area | Interface | Entry point | Authority |
 | --- | --- | --- | --- |
 | `ADP` | Adoption and external-skill CLI plus generated filesystem | `scripts/adopt.py`; `scripts/install_security_skills.py` with a disposable target | [README adoption contract](../../README.md#adopt-the-workflow), [`scripts/adopt.py`](../../scripts/adopt.py), [`scripts/install_security_skills.py`](../../scripts/install_security_skills.py) |
-| `QAS` | Manual agent-file inspection, checkout-local CLI recipes, and Orca-backed workflow execution | `.agents/skills/qa-plan/`, `.agents/skills/qa-execute/`, `.agents/skills/autonomous/scripts/parallel_execute.py`, `.agents/skills/deep-review/references/publish-github.md`, provider Verifier packets | [Skills contract](../../README.md#skills), [parallel executor contract](../../.agents/skills/autonomous/references/parallelization.md), [Deep Review publication recipe](../../.agents/skills/deep-review/references/publish-github.md) |
+| `QAS` | Manual agent-file inspection, checkout-local CLI recipes, and host-gated workflow execution | `.agents/skills/qa-plan/`, `.agents/skills/qa-execute/`, `.agents/skills/autonomous/scripts/parallel_execute.py`, `.agents/skills/deep-review/references/publish-github.md`, provider Verifier packets | [Skills contract](../../README.md#skills), [parallel executor contract](../../.agents/skills/autonomous/references/parallelization.md), [Deep Review publication recipe](../../.agents/skills/deep-review/references/publish-github.md) |
 | `DOC` | Documentation | `README.md` | [`README.md`](../../README.md) |
 | `CFG` | Workflow configuration, generated state, and Git visibility | `.my-workflow.toml.example`; `.my-workflow.toml`; `templates/agents/`; `.agents/skills/workflow-config/scripts/workflow_config.py`; `.gitignore`; `.specs/` | [README configuration contract](../../README.md#adopt-the-workflow), [`workflow-config` skill](../../.agents/skills/workflow-config/SKILL.md), [artifact lifecycle](../guidelines/ARTIFACT-LIFECYCLE.md) |
 | `WFL` | Cross-provider workflow handoff | `docs/workflow/ai-memory.md`; `scripts/ai-memory.zsh`; Claude Code, Codex, and Cursor lifecycle hooks | [ai-memory handoff contract](../workflow/ai-memory.md), [`scripts/ai-memory.zsh`](../../scripts/ai-memory.zsh) |
@@ -21,9 +21,10 @@ No browser, API, or mobile surface exists in this repository.
 ## Runner and adapter
 
 - Existing runner or adapter: CLI/manual, using the public workflow resolver, adoption script,
-  parallel executor, and filesystem inspection. The parallel-slice journey uses the installed Orca
-  CLI only after its `orchestration.contract.v1` capability is proven; the disposable fixture and
-  lifecycle oracle are owned by
+  parallel executor, and filesystem inspection. Host compatibility is inspected through the public
+  `parallel_execute.py preflight` command. The parallel-slice journey uses the installed Orca CLI
+  only after readiness, `orchestration.contract.v1`, version compatibility, and an identity-matched
+  clean lifecycle-canary receipt are proven; the disposable fixture and lifecycle oracle are owned by
   [`tools/qa_parallel_pilot.py`](../../tools/qa_parallel_pilot.py). Deep Review publication recipes
   use a checkout-local fake `gh` that logs arguments;
   [`tools/test_deep_review_contract.py`](../../tools/test_deep_review_contract.py) owns that
@@ -42,7 +43,10 @@ No browser, API, or mobile surface exists in this repository.
   repository files named by each charter. For Deep Review publication, extract the public recipe
   and execute it with the checkout-local fake `gh` pattern owned by
   [`tools/test_deep_review_contract.py`](../../tools/test_deep_review_contract.py); never contact
-  GitHub during QA. For parallel execution, use the setup, dry-run, public executor
+  GitHub during QA. For host compatibility, invoke public `parallel_execute.py preflight` with the
+  packet-selected `auto`, `orca`, or `maestri` adapter and capture its single JSON result. Never add
+  `--canary` unless the QA packet separately authorizes a candidate Orca version and its disposable
+  worker/worktree lifecycle. For parallel execution, use the setup, dry-run, public executor
   `start`/`status`/`resume`, lifecycle-check, and cleanup sequence in
   [the E2E-001 handoff](../../.specs/features/parallel-slice-executor/qa-pilot.md); do not replace a
   serial fallback or incomplete lifecycle with a simulated success.
@@ -58,6 +62,8 @@ The workflow does not install a framework or invent commands when a runner is ab
 - Production-parity start authority: not applicable; no server or application process exists.
 - Health signal: resolution exits successfully with matching JSON stdout and feature snapshot;
   adoption exits successfully and its disposable target contains the expected workflow assets;
+  host preflight emits one structured result whose adapter, status, reason, missing capabilities,
+  runtime identity, and proof agree with the installed host;
   the parallel pilot dry-run validates exactly two resource-free lanes, and its lifecycle-check
   accepts only two correlated terminal read-before-ack-before-release receipts.
 - Environment and checkout isolation: each QA run uses a target directory owned by the active
@@ -81,7 +87,11 @@ The workflow does not install a framework or invent commands when a runner is ab
 
 - Raw evidence path: `docs/qa/evidence/` (disposable and ignored by this repository).
 - Durable reports and statuses: `docs/qa/`.
-- Known limitations or unreachable surfaces: Orca can prove two resource-free worktrees and worker
+- Known limitations or unreachable surfaces: installed Orca `1.4.188` is explicitly unsupported and
+  must not create a compatibility Run, Task, worker, or worktree. Current Maestri CLI capability
+  claims remain unsupported because host-owned structured execution and machine floor cleanup are
+  not implemented; preflight must not create a floor, recruit an agent, or invoke Git worktree
+  commands. A live Orca candidate canary is outside the 2026-08-26 QA cycle. Orca can prove two resource-free worktrees and worker
   lifecycles concurrently, but this repository has no product runtime, port allocator, database, or
   configured consumer resource provider. Resource-bearing lanes therefore must serialize here;
   each consuming product must separately adopt and QA its provider. No browser, API, mobile, auth,
@@ -103,14 +113,18 @@ Canonical terminal report: [`2026-08-25-parallel-slice-executor-final`](reports/
 
 | Area | Terminal state | Durable owner |
 | --- | --- | --- |
-| Configuration/planning | `pass` — frozen resolver, deterministic planner, and safe provider-free boundary | [`J-configure-feature-workflow`](journeys/J-configure-feature-workflow.md); [`CFG-freeze-feature-workflow`](scenarios/CFG-freeze-feature-workflow.md); [`CFG-plan-parallel-slice-dispatch`](scenarios/CFG-plan-parallel-slice-dispatch.md) |
-| Fallback | `pass` — disabled, unsupported, and missing-provider paths produce zero effects/residue | [`CFG-fallback-unproven-parallel-execution`](scenarios/CFG-fallback-unproven-parallel-execution.md); [`R18`](reports/2026-08-25-parallel-slice-executor-r18.md); [`R19`](reports/2026-08-25-parallel-slice-executor-r19.md) |
+| Configuration/planning | `pass` — schema v2 accepted, schema v1 rejected, and delivery stages preserved on 2026-08-26 | [`J-configure-feature-workflow`](journeys/J-configure-feature-workflow.md); [`CFG-freeze-feature-workflow`](scenarios/CFG-freeze-feature-workflow.md); [`CFG-plan-parallel-slice-dispatch`](scenarios/CFG-plan-parallel-slice-dispatch.md) |
+| Fallback | `pass` — disabled and incompatible host paths returned zero-effect serial results on 2026-08-26 | [`CFG-fallback-unproven-parallel-execution`](scenarios/CFG-fallback-unproven-parallel-execution.md); [`host compatibility report`](reports/2026-08-26-host-adapter-compatibility.md) |
+| Host compatibility | mixed — installed Orca `1.4.188` leg passed rejection but qualification remains `untested`; unavailable Maestri rejection passed; candidate canary deferred | [`QAS-qualify-orca-host-before-parallel-use`](scenarios/QAS-qualify-orca-host-before-parallel-use.md); [`QAS-reject-unverifiable-maestri-host`](scenarios/QAS-reject-unverifiable-maestri-host.md); [`host compatibility report`](reports/2026-08-26-host-adapter-compatibility.md) |
 | Convergence | `pass` — independent fingerprints; third failed remediation halts at 3 | [`QAS-bound-verifier-remediation-per-blocker`](scenarios/QAS-bound-verifier-remediation-per-blocker.md); [`R19`](reports/2026-08-25-parallel-slice-executor-r19.md) |
 | Real Orca/Codex worker lifecycle | `blocked-verify` — v0.6.0 fresh safe retest reproduced external stop boundary; not pass/fail/untested | [`J-execute-parallel-slices`](journeys/J-execute-parallel-slices.md); [`QAS-run-resource-free-parallel-orca-slices`](scenarios/QAS-run-resource-free-parallel-orca-slices.md); [`v0.6.0 safe retest`](reports/2026-08-25-parallel-slice-executor-v060-safe-retest.md) |
 | Completed-pilot cleanup | `blocked-verify` — fresh lifecycle never authorized; no automatic cleanup claim | [`QAS-clean-owned-parallel-slice-pilot`](scenarios/QAS-clean-owned-parallel-slice-pilot.md); [`BUG-20260824-parallel-pilot-cleanup-allows-incomplete-lifecycle`](bugs/BUG-20260824-parallel-pilot-cleanup-allows-incomplete-lifecycle.md) |
 
 Open bug boundaries: [`BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree`](bugs/BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree.md)
 and [`BUG-20260824-parallel-pilot-cleanup-allows-incomplete-lifecycle`](bugs/BUG-20260824-parallel-pilot-cleanup-allows-incomplete-lifecycle.md).
+The 2026-08-26 host-adapter charter passed every reachable current-host leg. Fresh fix-loop QA at
+`cd1886f` passed the bounded Deep Review canary and final full gate, closing
+[`BUG-20260826-deep-review-peak-bound-gate-flakes`](bugs/BUG-20260826-deep-review-peak-bound-gate-flakes.md).
 Product parsing/recovery/preflight root causes are technically fixed; live retests remain open and
 blocked by Orca/Codex behavior. R14 user-takeover residue, R15/R17 live-terminal residue, and older
 R8–R11 `identity_unproven` residue were later removed manually by the operator. That operator-forced

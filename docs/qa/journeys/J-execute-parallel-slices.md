@@ -2,23 +2,26 @@
 
 **Persona:** Workflow operator
 **Goal:** Advance eligible slices concurrently without weakening the sequential TLC workflow.
-**Entry point:** `.my-workflow.toml` → `parallel_execute.py start|status|resume`
+**Entry point:** `.my-workflow.toml` → `parallel_execute.py preflight|start|status|resume`
 
 ## Flow
 
 1. Resolve a feature with a supported parallelization mode and inspect the frozen provider choice.
-2. Preflight a disposable safe-mode fixture with exactly two ready `Resources: none` slices.
-3. Start through `--adapter auto`; require a proven Orca capability or an explicit zero-effect serial fallback.
-4. Observe distinct worktree, branch, dispatch, and terminal receipts for both active lanes.
-5. Resume through correlated events until both workers have terminal read-before-ack-before-release receipts.
-6. Run the lifecycle oracle, then clean only the attested fixture, workers, and worktrees.
-7. Inspect status and Git residue to confirm no owned checkout or worker remains.
+2. Run read-only host preflight. In Maestri, evaluate only Maestri; outside Maestri, evaluate the requested host without cross-fallback.
+3. Require a compatible identity-matched host proof before effects. Installed Orca `1.4.188`, current Maestri, and any unproven candidate return explicit zero-effect serial fallback.
+4. Only after compatibility, preflight a disposable safe-mode fixture with exactly two ready `Resources: none` slices.
+5. Observe distinct worktree, branch, dispatch, and terminal receipts for both active lanes.
+6. Resume through correlated events until both workers have terminal read-before-ack-before-release receipts.
+7. Run the lifecycle oracle, then clean only the attested fixture, workers, and worktrees.
+8. Inspect status and Git residue to confirm no owned checkout or worker remains.
 
 ## Promises
 
 - [`QAS-run-resource-free-parallel-orca-slices`](../scenarios/QAS-run-resource-free-parallel-orca-slices.md)
 - [`QAS-clean-owned-parallel-slice-pilot`](../scenarios/QAS-clean-owned-parallel-slice-pilot.md)
 - [`CFG-fallback-unproven-parallel-execution`](../scenarios/CFG-fallback-unproven-parallel-execution.md)
+- [`QAS-qualify-orca-host-before-parallel-use`](../scenarios/QAS-qualify-orca-host-before-parallel-use.md)
+- [`QAS-reject-unverifiable-maestri-host`](../scenarios/QAS-reject-unverifiable-maestri-host.md)
 - [`QAS-bound-verifier-remediation-per-blocker`](../scenarios/QAS-bound-verifier-remediation-per-blocker.md)
 
 ## Adjacent canary
@@ -29,6 +32,15 @@ disabled or unsupported execution produces a serial plan with zero worktree, wor
 resource effects while tasks and delivery stages remain unchanged.
 
 ## Terminal QA status
+
+Read-only QA on 2026-08-26 confirmed installed Orca `1.4.188` and unavailable Maestri remain
+unsupported with zero effects. `QAS-reject-unverifiable-maestri-host` is `pass`.
+`QAS-qualify-orca-host-before-parallel-use` remains `untested` overall because its installed-runtime
+leg passed but a candidate canary is deferred until a later packet supplies an updated runtime and
+explicit authorization.
+
+Fresh fix-loop QA at `cd1886f` re-passed both read-only host-rejection legs and the adjacent bounded
+Deep Review canary. Candidate Orca qualification remains `untested`; no candidate or canary ran.
 
 [`QAS-run-resource-free-parallel-orca-slices`](../scenarios/QAS-run-resource-free-parallel-orca-slices.md)
 and [`QAS-clean-owned-parallel-slice-pilot`](../scenarios/QAS-clean-owned-parallel-slice-pilot.md)
