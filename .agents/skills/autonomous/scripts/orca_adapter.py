@@ -628,7 +628,12 @@ class OrcaAdapter:
             worker = self.start_worker(lane, worktree, idempotency_key=key)
             stage = "worker-done"
             event = self.wait_events(worker, timeout=min(self.timeout, 30))
-            if event.get("event") != "worker_done" or event.get("status") != "accepted":
+            if (
+                event.get("event") != "worker_done"
+                or event.get("status") != "accepted"
+                or event.get("task_id") != worker.get("task_id")
+                or event.get("dispatch_id") != worker.get("dispatch_id")
+            ):
                 raise AdapterError("Orca canary worker did not complete", details={"event": dict(event)})
             stage = "worker-read"
             output = self.read_worker(worker)

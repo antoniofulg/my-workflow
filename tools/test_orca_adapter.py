@@ -160,6 +160,7 @@ class CanaryDouble(orca_adapter.OrcaAdapter):
             raise orca_adapter.AdapterError("worker completion failed")
         return {
             "event": "worker_done", "status": "accepted", "delivery_id": "delivery-canary",
+            "task_id": "task-canary", "dispatch_id": "dispatch-canary",
         }
 
     def read_worker(self, receipt: object) -> dict[str, object]:
@@ -369,6 +370,9 @@ def test_canary_requires_clean_removal_before_writing_compatibility_cache() -> N
     worktree = root / "canary-worktree"
     worktree.mkdir()
     receipt = {"worktree_id": "wt-canary", "worktree_path": str(worktree), "branch": "(detached)", "pre_head": HEAD}
+    creator_calls: list[tuple[Path, str]] = []
+    worker_starts: list[str] = []
+    worker_done_events: list[dict[str, object]] = []
     try:
         class Candidate(orca_adapter.OrcaAdapter):
             def probe(self) -> dict[str, object]:
@@ -382,10 +386,13 @@ def test_canary_requires_clean_removal_before_writing_compatibility_cache() -> N
                 return HEAD
 
             def start_worker(self, lane: object, worktree: object, *, idempotency_key: str) -> dict[str, object]:
+                worker_starts.append("worker-start")
                 return {**receipt, "feature": "fixture", "slice": "canary", "task": "lifecycle", "run_id": "run-canary", "task_id": "task-canary", "orchestration_task_id": "task-canary", "dispatch_id": "dispatch-canary", "terminal_handle": "terminal-canary", "idempotency_key": idempotency_key, "status": "running"}
 
             def wait_events(self, receipt: object, *, timeout: float = 30) -> dict[str, object]:
-                return {"event": "worker_done", "status": "accepted", "delivery_id": "delivery-canary"}
+                event = {"event": "worker_done", "status": "accepted", "delivery_id": "delivery-canary", "task_id": "task-canary", "dispatch_id": "dispatch-canary"}
+                worker_done_events.append(event)
+                return event
 
             def read_worker(self, receipt: object) -> dict[str, object]:
                 return {"dispatch_id": "dispatch-canary", "transcript": "<redacted>"}
@@ -405,14 +412,24 @@ def test_canary_requires_clean_removal_before_writing_compatibility_cache() -> N
                 return {"exists": False}
 
         cli = RecordingCLI([{"exists": False}])
+        def create_worktree(destination: Path, source: str) -> dict[str, str]:
+            creator_calls.append((destination, source))
+            return receipt
+
         candidate = Candidate(
             root, "fixture", runner=cli,
-            worktree_creator=lambda destination, source: receipt,
+            worktree_creator=create_worktree,
             worktree_remover=lambda value: {"removed": True},
         )
         result = candidate.canary()
         assert result["status"] == "compatible"
         assert result["proof"]["cleanup"] == "clean"
+        assert len(creator_calls) == 1
+        assert worker_starts == ["worker-start"]
+        assert worker_done_events == [{
+            "event": "worker_done", "status": "accepted", "delivery_id": "delivery-canary",
+            "task_id": "task-canary", "dispatch_id": "dispatch-canary",
+        }]
         assert json.loads(candidate._cache_path().read_text(encoding="utf-8"))["status"] == "compatible"
     finally:
         shutil.rmtree(root)
