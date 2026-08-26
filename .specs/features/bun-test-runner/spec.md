@@ -3,7 +3,7 @@
 ## Problem Statement
 
 The repository's structural TypeScript tests use Vitest even though Bun 1.4 provides the required
-test primitives natively. The current release notes also place the unpublished ai-memory removal
+test primitives natively. The current release notes also place the unpublished integration removal
 inside the already-published v0.6.0 section. The next local release train needs a Bun-native test
 gate and an honest v0.7.0 Unreleased changelog without publishing or changing the package version.
 
@@ -87,8 +87,8 @@ that published v0.6.0 history remains truthful while the next release continues 
 
 1. The v0.6.0 changelog section SHALL remain byte-for-byte equal to the published v0.6.0 tag. (BTR-09)
 2. The changelog SHALL contain a `0.7.0 - Unreleased` section that records the Bun 1.4 test-runner migration under `Changed`. (BTR-10)
-3. The `0.7.0 - Unreleased` section SHALL record ai-memory removal, host-owned continuation, durable repository context, and the external-state rule under `Removed`. (BTR-11)
-4. The v0.7.0 migration note SHALL link to the tagged v0.5.0 ai-memory lifecycle guide without inventing or executing cleanup commands. (BTR-12)
+3. The `0.7.0 - Unreleased` section SHALL record removal of the retired integration, host-owned continuation, durable repository context, and the external-state rule under `Removed`. (BTR-11)
+4. The v0.7.0 migration note SHALL link to the tagged v0.5.0 lifecycle guide for the retired integration without inventing or executing cleanup commands. (BTR-12)
 5. WHILE v0.7.0 remains Unreleased, package and lockfile version fields SHALL remain 0.6.0 and no tag or publication SHALL be created. (BTR-13)
 
 **Independent Test**: Compare the v0.6.0 section with the tag, inspect the v0.7.0 section, verify
@@ -121,9 +121,9 @@ the release scenario, and verify host/project sentinels and tracked lockfiles re
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| BTR-01 | Run structural contracts | Tasks | In Tasks |
+| BTR-01 | Run structural contracts | Tasks | Verified |
 | BTR-02 | Run structural contracts | Tasks | In Tasks |
-| BTR-03 | Run structural contracts | Tasks | In Tasks |
+| BTR-03 | Run structural contracts | Tasks | Verified |
 | BTR-04 | Run structural contracts | Tasks | In Tasks |
 | BTR-05 | Run structural contracts | Tasks | In Tasks |
 | BTR-06 | Run structural contracts | Tasks | In Tasks |
@@ -137,7 +137,7 @@ the release scenario, and verify host/project sentinels and tracked lockfiles re
 | BTR-14 | Keep QA current | Tasks | In Tasks |
 | BTR-15 | Keep QA current | Tasks | In Tasks |
 | BTR-16 | Keep QA current | Tasks | In Tasks |
-| BTR-17 | Edge cases | Tasks | In Tasks |
+| BTR-17 | Edge cases | Tasks | Verified |
 | BTR-18 | Edge cases | Tasks | In Tasks |
 | BTR-19 | Edge cases | Tasks | In Tasks |
 | BTR-20 | Edge cases | Tasks | In Tasks |

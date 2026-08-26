@@ -62,10 +62,10 @@ T3 -> T4 -> T5
 
 **Done when**:
 
-- [ ] `bunfig.toml` sets `test.root` to `./tools`.
-- [ ] Official Bun types compatible with local Bun 1.4.0 are installed through npm and configured.
-- [ ] `bun test` discovers exactly eight files and 115 tests, including zero ignored QA evidence copies.
-- [ ] `npm test` remains green during this transition commit.
+- [x] `bunfig.toml` sets `test.root` to `./tools`.
+- [x] Official Bun types compatible with local Bun 1.4.0 are installed through npm and configured.
+- [x] `bun test` discovers exactly eight files and 115 tests, including zero ignored QA evidence copies.
+- [x] `npm test` remains green during this transition commit.
 
 **Tests**: BTR-IT-001
 **Gate**: full
