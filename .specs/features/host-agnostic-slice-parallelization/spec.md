@@ -159,6 +159,10 @@ complete-looking capability manifest, through a recording CLI without any mutati
 
 **Coverage:** 22 total requirements, 22 mapped, 0 unmapped.
 
+**Post-validation cleanup recheck (`3487c27`):** ORC-04, ORC-05, and SEC-006 remain verified.
+Test-only teardown now removes its exact registered fixture worktree and sentinel root; the owning
+suite preserves unowned paths through its assertions, and production cleanup remains unchanged.
+
 ## Success Criteria
 
 - [ ] Current Orca `1.4.188` reports unsupported with zero mutations.
