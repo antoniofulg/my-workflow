@@ -110,6 +110,23 @@ describe("autonomous parallel slice dispatch contract", () => {
     const dx = readRepositoryFile(
       ".specs/features/host-agnostic-slice-parallelization/dx.md",
     );
+    const spec = readRepositoryFile(
+      ".specs/features/host-agnostic-slice-parallelization/spec.md",
+    );
+    const tasks = readRepositoryFile(
+      ".specs/features/host-agnostic-slice-parallelization/tasks.md",
+    );
+    const workflow = JSON.parse(
+      readRepositoryFile(
+        ".specs/features/host-agnostic-slice-parallelization/workflow.json",
+      ),
+    ) as { roles: { implementer: { provider: string; model: string; effort: string } } };
+    const implementer = workflow.roles.implementer;
+    const providerCommands: Record<string, string> = {
+      codex: "codex --model <model> -c 'model_reasoning_effort=\"<effort>\"'",
+      claude: "claude --model <model> --effort <effort>",
+      cursor: "cursor agent --model '<model>[effort=<effort>]'",
+    };
 
     // AST-01: assisted execution is separate from automatic compatibility and honors frozen route.
     expect(policy).toContain("explicitly authorized operator path");
@@ -117,6 +134,14 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(policy).toMatch(/automatic execution remains\s+unsupported and serial/);
     expect(policy).not.toContain("worktree create --agent");
     expect(dx).not.toContain("worktree create --agent");
+    expect(spec).not.toContain("worktree create --agent --prompt");
+    expect(tasks).not.toContain("worktree create --agent --prompt");
+    expect(spec).toContain("Contract verified; E2E pending");
+    expect(implementer.provider).toBeTruthy();
+    expect(implementer.model).toBeTruthy();
+    expect(implementer.effort).toBeTruthy();
+    expect(providerCommands[implementer.provider]).toBeDefined();
+    expect(policy).toContain(providerCommands[implementer.provider]);
     expect(policy).toContain("roles.implementer.provider");
     expect(policy).toContain("roles.implementer.model");
     expect(policy).toContain("roles.implementer.effort");
@@ -124,8 +149,12 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(policy).toContain("claude --model <model> --effort <effort>");
     expect(policy).toContain("cursor agent --model '<model>[effort=<effort>]'");
     expect(policy).toContain("terminal read");
-    expect(policy).toMatch(/effective model and\s+effort/);
-    expect(policy).toContain("do not edit `tasks.md`");
+    expect(policy).toContain("orca terminal read --terminal <worker-handle> --screen");
+    expect(policy).toContain("source=screen");
+    expect(policy).toMatch(/provider, model, and\s+effort all present and matching/);
+    expect(policy).toContain("screen-unavailable");
+    expect(policy).toContain("matching the frozen tuple");
+    expect(policy).toContain("Do not edit `tasks.md`");
     // AST-02: one worker per ready slice and sequential tasks to the first dependency.
     expect(policy).toContain("Start at most one worker for each planner-ready slice");
     expect(policy).toMatch(/sequential TLC tasks and stops at the\s+first unmet task dependency/);
@@ -144,29 +173,37 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(policy).toMatch(/does not\s+resolve conflicts automatically/);
     // AST-06: deterministic integration and owned cleanup with receipt/revalidation/absence proof.
     expect(policy).toContain("integrated in deterministic slice order");
-    expect(policy).toContain("Record the exact create receipt");
-    expect(policy).toContain("complete worktree id, instance,\nabsolute path, branch, worker handle, and current HEAD");
-    expect(policy).toContain("revalidate the exact\n   create receipt before cleanup");
+    expect(policy).toContain("Record an immutable ownership receipt");
+    expect(policy).toContain("repository, complete worktree id,\ninstance, absolute path, gitdir, branch, and `pre_head`");
+    expect(policy).toContain("mutable `current_head` and the\ncurrent sole worker handle separately");
+    expect(policy).toContain("immediately revalidate\n   the immutable ownership receipt before cleanup");
     expect(policy).toContain("orca worktree show`/`list`");
     expect(policy).toContain("no symlink");
-    expect(policy).toContain("no merge/rebase/cherry-pick/revert in progress");
+    expect(policy).toContain("no merge/rebase/cherry-pick/revert in\n   progress");
+    expect(policy).toContain("current_head` must be current");
+    expect(policy).toMatch(/recorded branch tip\s+must equal `current_head`/);
     expect(policy).toContain("git merge-base --is-ancestor <slice-head> <integration-head>");
-    expect(policy).toContain("Stop the exact worker,\n   recheck");
-    expect(policy).toContain("remove only by the full worktree id");
-    expect(policy).toContain("Prove\n   Orca, Git, path, and terminal absence");
-    expect(policy).toContain("never select cleanup by name or branch");
+    expect(policy).toContain("Do not require\n   `current_head` to equal `pre_head`");
+    expect(policy).toContain("Stop the exact current worker handle, recheck");
+    expect(policy).toContain("Remove only by the complete worktree id");
+    expect(policy).toContain("git branch --delete <branch>");
+    expect(policy).toContain("git show-ref --verify --quiet refs/heads/<branch>");
+    expect(policy).toContain("Prove Orca,\n   Git, path, branch ref, and terminal absence");
+    expect(policy).toMatch(/never select cleanup by name or\s+branch/);
     expect(policy).toContain("zero owned residue");
 
-    const receiptAt = policy.indexOf("Record the exact create receipt");
-    const revalidateAt = policy.indexOf("revalidate the exact\n   create receipt before cleanup");
-    const stopAt = policy.indexOf("Stop the exact worker,\n   recheck");
-    const removeAt = policy.indexOf("remove only by the full worktree id");
-    const absenceAt = policy.indexOf("Prove\n   Orca, Git, path, and terminal absence");
+    const receiptAt = policy.indexOf("Record an immutable ownership receipt");
+    const revalidateAt = policy.indexOf("immediately revalidate\n   the immutable ownership receipt before cleanup");
+    const stopAt = policy.indexOf("Stop the exact current worker handle, recheck");
+    const removeAt = policy.indexOf("Remove only by the complete worktree id");
+    const branchDeleteAt = policy.indexOf("git branch --delete <branch>");
+    const absenceAt = policy.indexOf("Prove Orca,\n   Git, path, branch ref, and terminal absence");
     expect(receiptAt).toBeGreaterThan(-1);
     expect(revalidateAt).toBeGreaterThan(receiptAt);
     expect(stopAt).toBeGreaterThan(revalidateAt);
     expect(removeAt).toBeGreaterThan(stopAt);
-    expect(absenceAt).toBeGreaterThan(removeAt);
+    expect(branchDeleteAt).toBeGreaterThan(removeAt);
+    expect(absenceAt).toBeGreaterThan(branchDeleteAt);
     // AST-07: existing TLC and readiness stages stay intact.
     expect(policy).toContain("one atomic commit and scoped gate per task");
     expect(policy).toMatch(/one Technical Verifier per\s+code-changing slice/);
@@ -179,7 +216,8 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(dx).toContain("claude --model <model> --effort <effort>");
     expect(dx).toContain("cursor agent");
     expect(dx).toContain("--help`/availability check");
-    expect(dx).toContain("wait for `tui-idle`, then read the terminal");
+    expect(dx).toContain("wait for `tui-idle`, then run");
+    expect(dx).toContain("terminal read --terminal <handle> --screen --json");
     expect(dx).toContain("Always use the two-step");
     expect(dx).toContain("terminal create --command");
     expect(dx).toContain("terminal send");
@@ -193,8 +231,8 @@ describe("autonomous parallel slice dispatch contract", () => {
       ".specs/features/host-agnostic-slice-parallelization/threat-model.md",
     );
 
-    expect(policy).toContain("remove only by the full worktree id");
-    expect(policy).toContain("missing ownership");
+    expect(policy).toContain("Remove only by the complete worktree id");
+    expect(policy).toMatch(/missing\s+ownership/);
     expect(policy).toContain("stops deletion");
     expect(threatModel).toContain("Assisted cleanup -> Git/Orca resource");
     expect(threatModel).toContain("Exact create receipt, Orca/Git identity revalidation, integrated ancestor, ordered stop/remove, and absence proof; SEC-008");

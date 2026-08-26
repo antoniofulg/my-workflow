@@ -93,10 +93,11 @@ cursor agent --model '<model>[effort=<effort>]'
 
 Merge the Cursor effort into an existing parameter block instead of adding a duplicate block. Use
 the selected executable's `--help` and availability check to confirm the command is expressible.
-After `terminal wait --for tui-idle`, use `orca terminal read` to confirm the effective model and
-effort before sending the task packet. If the exact frozen route cannot be expressed, is unavailable,
-or its effective model/effort cannot be observed, stop and clean only verified owned setup resources;
-do not edit `tasks.md`, start a task, or continue in parallel.
+After `terminal wait --for tui-idle`, use `orca terminal read --terminal <worker-handle> --screen
+--json` to prove the rendered TUI identity. Accept only `source=screen` with provider, model, and
+effort all present and matching the frozen tuple. `screen-unavailable`, an omitted provider, a
+mismatch, or ambiguity stops and serializes before the prompt or any task edit; clean only verified
+owned setup resources. Do not edit `tasks.md`, start a task, or continue in parallel.
 
 Always create the worktree first, then launch the verified explicit command in its sole worker
 terminal. This two-step form preserves Orca startup policy and avoids trusting a default terminal:
@@ -107,15 +108,16 @@ orca terminal create --worktree id:<repo-id>::<worktree-path> \
   --title <slice> \
   --command '<verified-frozen-agent-command>' --json
 orca terminal wait --terminal <worker-handle> --for tui-idle --timeout-ms 60000 --json
-orca terminal read --terminal <worker-handle> --json
+orca terminal read --terminal <worker-handle> --screen --json
 orca terminal send --terminal <worker-handle> --text "<slice task packet>" --enter --json
 ```
 
-Record the exact create receipt before sending the packet: the complete worktree id, instance,
-absolute path, branch, worker handle, and current HEAD. Use the complete worktree id from that
-receipt and one worker handle from that worktree. If a bare worktree create opened a fallback shell,
-verify it is unused with `terminal list` or `terminal show` before closing it. Never create a second
-worker for the same slice.
+Record an immutable ownership receipt before sending the packet: repository, complete worktree id,
+instance, absolute path, gitdir, branch, and `pre_head`. Record mutable `current_head` and the
+current sole worker handle separately; update them after commits, sync, and handle reacquisition.
+Use the complete worktree id from that receipt and one current worker handle from that worktree. If
+a bare worktree create opened a fallback shell, verify it is unused with `terminal list` or
+`terminal show` before closing it. Never create a second worker for the same slice.
 
 The coordinator follows this lifecycle:
 
@@ -141,15 +143,23 @@ The coordinator follows this lifecycle:
    failure stops that lane and enters the existing serial recovery path. The coordinator does not
    resolve conflicts automatically. A changed checkpoint invalidates affected gate, Verifier, and
    deep-review evidence until the gate is rerun on the new head.
-5. After verified slice commits are integrated in deterministic slice order, immediately revalidate the exact
-   create receipt before cleanup. `orca worktree show`/`list` must still match the full worktree id,
-   instance, absolute path, branch, and worker handle; Git must show the exact worktree/gitdir/path,
-   no symlink, the recorded HEAD, a clean state, and no merge/rebase/cherry-pick/revert in progress;
-   `git merge-base --is-ancestor <slice-head> <integration-head>` must pass. Stop the exact worker,
-   recheck those identities and the clean state, then remove only by the full worktree id. Prove
-   Orca, Git, path, and terminal absence and zero owned residue. Any mismatch, missing ownership,
-   dirty state, non-ancestor slice head, or unproven absence stops deletion and retains the exact
-   path for serial recovery; never select cleanup by name or branch.
+5. After verified slice commits are integrated in deterministic slice order, immediately revalidate
+   the immutable ownership receipt before cleanup. `orca worktree show`/`list` must still match the
+   repository, complete worktree id, instance, absolute path, gitdir, and branch. Git must show the
+   exact worktree/gitdir/path, no symlink, a clean state, and no merge/rebase/cherry-pick/revert in
+   progress. The mutable `current_head` must be current, the sole current worker handle must be
+   closed or exactly reacquired, the recorded branch tip must equal `current_head`, and
+   `git merge-base --is-ancestor <slice-head> <integration-head>` must pass. Do not require
+   `current_head` to equal `pre_head` or a reacquired handle to equal the initial handle.
+6. Stop the exact current worker handle, recheck the immutable receipt, current head, recorded branch
+   tip, clean state, and no operation in progress. Remove only by the complete worktree id. If the
+   exact recorded branch still exists, delete only that branch with safe non-force
+   `git branch --delete <branch>` after its tip equals `current_head` and is integrated, then prove
+   the ref is absent with `git show-ref --verify --quiet refs/heads/<branch>` failing. Prove Orca,
+   Git, path, branch ref, and terminal absence and zero owned residue. Any mismatch, missing
+   ownership, dirty state, non-ancestor slice head, failed branch deletion, or unproven absence
+   stops deletion and retains the exact path for serial recovery; never select cleanup by name or
+   branch.
 
 Assisted overlap preserves one atomic commit and scoped gate per task, one Technical Verifier per
 code-changing slice, the frozen grouped deep-review cadence, final QA, and one full gate on the
