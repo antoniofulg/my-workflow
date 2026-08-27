@@ -1,6 +1,6 @@
 # BUG-20260827-parallel-plan-rejects-workflow-v2
 
-- **Status:** open
+- **Status:** fixed — fresh retest passed
 - **Severity:** major
 - **Scenarios:** `CFG-plan-parallel-slice-dispatch`
 - **Expected:** A workflow snapshot created by the public `workflow_config.py` resolver is accepted
@@ -18,6 +18,18 @@
   `docs/qa/evidence/2026-08-27-merge-alone-slices/defect-reproduction.exit`;
   `docs/qa/evidence/2026-08-27-merge-alone-slices/defect-reproduction.stderr.log`;
   `docs/qa/evidence/2026-08-27-merge-alone-slices/defect-independent-read.log`
+
+## Fix and retest
+
+- **Fix commit:** `100f963`
+- **Retest:** pass at `933b5ed` on 2026-08-27. The adopted public resolver emitted workflow version
+  2; the adopted planner accepted it twice with deterministic output and exact validator membership
+  for `T1` through `T4`, Slice IDs `A` and `B`, and no remediation rows.
+- **Evidence:** `docs/qa/evidence/2026-08-27-merge-alone-slices/retest-933b5ed/planner-resolver.json`;
+  `docs/qa/evidence/2026-08-27-merge-alone-slices/retest-933b5ed/planner-output-initial.json`;
+  `docs/qa/evidence/2026-08-27-merge-alone-slices/retest-933b5ed/planner-output-reload.json`;
+  `docs/qa/evidence/2026-08-27-merge-alone-slices/retest-933b5ed/planner-independent-read.log`
+- **Report:** `docs/qa/reports/2026-08-27-merge-alone-slices.md`
 
 ## Reproduction
 

@@ -7,7 +7,7 @@ gate, updates this file, and creates one atomic Conventional Commit. The Impleme
 single batch; a fresh Verifier closes the feature.
 
 **Design**: `.specs/features/merge-alone-slices/design.md`
-**Status**: Technical Verification PASS — ready for QA retest
+**Status**: Done — Technical Verification and feature-closing QA PASS
 
 ## Vertical Slice Closure
 

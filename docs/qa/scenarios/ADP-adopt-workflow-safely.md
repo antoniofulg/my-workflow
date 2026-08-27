@@ -11,8 +11,8 @@ bug_ids: BUG-20260822-deep-review-learnings-untrackable; BUG-20260822-feature-sp
 fix_status: fixed
 retest_status: pass
 fix_commits: 0413862; a7397d2; 43e9910; a3fc718; 5b5474e; 816afd6; 1593299; 17fd3f5
-evidence: docs/qa/evidence/2026-08-25-release-0-6-0/session.md; docs/qa/evidence/2026-08-25-release-0-6-0/retest-adoption.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-contracts.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-package-summary.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-protected-history.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-reference-scan.json; docs/qa/evidence/2026-08-27-bun-test-runner/retest-session.md; docs/qa/evidence/2026-08-27-bun-test-runner/retest-adoption.json; docs/qa/evidence/2026-08-27-bun-test-runner/retest-adoption-gate.log; docs/qa/evidence/2026-08-27-bun-test-runner/retest-pack-summary.json; docs/qa/evidence/2026-08-27-bun-test-runner/retest-test-all.log; docs/qa/evidence/2026-08-27-bun-test-runner/retest-hsc09.log
-last_report: docs/qa/reports/2026-08-27-bun-test-runner.md
+evidence: docs/qa/evidence/2026-08-27-merge-alone-slices/retest-933b5ed/adopt-sentinels-before.sha256; docs/qa/evidence/2026-08-27-merge-alone-slices/retest-933b5ed/adopt-sentinels-after.sha256; docs/qa/evidence/2026-08-27-merge-alone-slices/retest-933b5ed/adoption-independent-read.log; docs/qa/evidence/2026-08-27-merge-alone-slices/retest-933b5ed/adopt-external-command.log; docs/qa/evidence/2026-08-27-merge-alone-slices/retest-933b5ed/cleanup.log
+last_report: docs/qa/reports/2026-08-27-merge-alone-slices.md
 overlaps:
 ---
 
@@ -84,3 +84,9 @@ The Bun 1.4 migration changes this public adoption boundary: structural tests, B
 and the preload guard remain source-pack-only, while adopted targets receive knowledge source
 modules and no `bun.lock`. This scenario is reset to `untested` for the 2026-08-27 Bun source-pack
 walk; historical evidence, bug links, and fixed-bug retest fields remain intact.
+
+Fresh merge-alone QA at `933b5ed` re-walked this canary because adopted public scripts changed.
+Two adoptions installed source-identical validators, task guidance, and parallel delivery guidance;
+consumer-owned config/profile/tool sentinels remained byte-identical, source-only Bun and external
+security trees stayed absent, and only the explicit installer command was printed. The disposable
+target was removed without host, network, remote, or operator-state mutation.

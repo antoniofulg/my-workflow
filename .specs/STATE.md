@@ -3,12 +3,12 @@
 ## Handoff
 
 - **Feature**: `.specs/features/merge-alone-slices`
-- **Phase / Task**: Technical Verification / R3 PASS
-- **Completed**: Fresh Technical Verification matched all 13 acceptance criteria and 19 test-contract rows at `5dee2e2`; full gate passed 383 checks, and all three isolated mutants were killed, including the cohort-count regression. The whole feature is ready for QA retest.
+- **Phase / Task**: QA Execute / feature close PASS
+- **Completed**: Fresh QA at `933b5ed` passed the resolver-v2-to-planner retest, both validator charters, and the adoption canary in disposable Git repositories; `BUG-20260827-parallel-plan-rejects-workflow-v2` is fixed and retested. Technical Verification remains PASS with 13/13 acceptance criteria and 19/19 test-contract rows.
 - **In-progress** (file:line): none.
-- **Next step**: Run fresh QA Execute retest for `CFG-plan-parallel-slice-dispatch`, then make the feature-closing QA decision.
-- **Blockers**: `CFG-plan-parallel-slice-dispatch` remains pending QA retest; no Technical Verification blockers remain.
-- **Uncommitted files**: none after the atomic Technical Verification commit.
+- **Next step**: Feature complete; await human-selected delivery. No remote action is authorized.
+- **Blockers**: none.
+- **Uncommitted files**: none after the atomic QA commit.
 - **Branch**: `fix/merge-alone-slices`
 
 ## Decisions
