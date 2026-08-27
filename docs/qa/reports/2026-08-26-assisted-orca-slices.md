@@ -1,5 +1,9 @@
 # Assisted Orca Slices QA — 2026-08-26
 
+> Historical pre-remediation record: the explicit `terminal create` attempts below were
+> out-of-contract. They remain as auditable evidence of the obsolete path and are not the current
+> assisted-worker contract or its remediation target.
+
 ## Session
 
 - **Charter:** [`CH-coordinate-assisted-orca-slices-2026-08-26`](../charters/CH-coordinate-assisted-orca-slices-2026-08-26.md)
@@ -7,19 +11,21 @@
 - **Persona:** Workflow operator
 - **Adapter:** CLI/manual through installed Orca direct worktree and terminal interfaces
 - **Environment:** Feature checkout `55fdbc6`; Orca `1.4.190`; ignored checkout-local Git fixture at base `16fdb64`
-- **Exact path:** `orca worktree create` → `orca terminal create` → rendered screen proof → direct terminal prompts/follow-up → Git integration → ownership-checked Orca cleanup
+- **Historical exact path:** `orca worktree create` → out-of-contract `orca terminal create` → rendered
+  screen proof (not reached) → direct terminal prompts/follow-up → Git integration →
+  ownership-checked Orca cleanup
 - **Frozen route:** `codex` / `gpt-5.6-luna` / `high`, from the feature `workflow.json`
 - **Evidence:** `docs/qa/evidence/2026-08-26-assisted-orca-slices/`
 - **Recorded pre-execution gate:** PASS at `d28cbf1`: Vitest `112/112` and all Python lanes passed.
 - **Final gate:** PASS at cycle close: `npm_config_offline=true npm run test:all` exited `0` with Vitest `112/112` and all package-discovered Python lanes passing; strict spec/tasks validators, state validator, and `git diff --check` also passed.
-- **Limitations:** No product server/browser/API/mobile surface exists. No automatic `preflight --canary` is authorized. The recorded `1.4.190` automatic-canary failure is inspected read-only and cannot become a compatibility PASS through this assisted walk.
+- **Limitations:** No product server/browser/API/mobile surface exists. No automatic `preflight --canary` is authorized, and this cycle contains no durable candidate-canary result. The installed version cannot become a compatibility PASS through this assisted walk.
 
 ## Scenario matrix
 
 | Scenario | Charter leg | Expected | Verdict | Independent confirmation | Evidence |
 | --- | --- | --- | --- | --- | --- |
-| `QAS-coordinate-assisted-orca-slices` | E2E-001 / AST-01–AST-07 / SEC-008 | Two slices overlap through one exact parked/resumed B worker, integrate deterministically, and leave zero owned residue | fail | Two direct terminal-create attempts failed before route proof or prompt; exact setup residue is zero | `session.md`; `BUG-20260826-assisted-orca-terminal-create-timeout` |
-| Adjacent `QAS-qualify-orca-host-before-parallel-use` | Recorded automatic-canary state, read-only | Automatic execution remains unsupported and no PASS receipt is written | pass for inspected boundary; scenario status unchanged | Read-only public preflight returned `candidate`, `canary-required`, `cached=false`, `cleanup=not-run`; no canary ran | `session.md` |
+| `QAS-coordinate-assisted-orca-slices` | E2E-001 / AST-01–AST-07 / SEC-008 | Two slices overlap through one exact parked/resumed B worker, integrate deterministically, and leave zero owned residue | not exercised by this historical attempt | The obsolete direct terminal-create attempts failed before route proof or prompt; exact setup residue is zero | [`session.md`](../evidence/2026-08-26-assisted-orca-slices/session.md); [`BUG-20260826-assisted-orca-terminal-create-timeout`](../bugs/BUG-20260826-assisted-orca-terminal-create-timeout.md) |
+| Adjacent `QAS-qualify-orca-host-before-parallel-use` | Recorded host-preflight state, read-only | No automatic compatibility result is inferred without a durable candidate canary | pass for inspected boundary; scenario status unchanged | Read-only public preflight returned `candidate`, `canary-required`, `cached=false`, `cleanup=not-run`; no candidate canary ran in this cycle | [`session.md`](../evidence/2026-08-26-assisted-orca-slices/session.md) |
 | Adjacent `QAS-clean-owned-parallel-slice-pilot` | Assisted ownership cleanup only | Exact assisted resources are removed without changing the automatic-cleanup scenario | pass for setup cleanup; scenario status unchanged | Full-id slice worktree removal plus independent Git/path/ref/terminal checks | `session.md` |
 
 ## Checkpoint and task ledger
@@ -42,7 +48,7 @@
 - A direct worktree was created through the required two-step path. Its complete Orca/Git ownership receipt matched and its path was not a symlink.
 - First `terminal create` attempt at `2026-08-26T21:58:51-0300` returned `Timed out waiting for terminal handle after creation`; exact-worktree terminal inspection showed only the original unused shell.
 - One clean retry at `2026-08-26T21:59:31-0300` returned the same error. Per session protocol and AST-01 fail-closed behavior, no prompt, task edit, polling, second worker, checkpoint, or integration followed.
-- Defect: [`BUG-20260826-assisted-orca-terminal-create-timeout`](../bugs/BUG-20260826-assisted-orca-terminal-create-timeout.md).
+- Historical observation: [`BUG-20260826-assisted-orca-terminal-create-timeout`](../bugs/BUG-20260826-assisted-orca-terminal-create-timeout.md).
 
 ## Cleanup and residue
 
@@ -55,7 +61,7 @@
 
 ## Debrief
 
-**Verdict: FAIL.** E2E-001 cannot enter A:T1 because installed Orca fails to return an explicit
-worker terminal handle. AST-01 correctly stops the lane before route proof and prompt delivery, but
-the public assisted journey is not usable. Fix `BUG-20260826-assisted-orca-terminal-create-timeout`,
-then use a fresh Verifier to resume from this charter and its adjacent canaries.
+**Verdict: NOT EXERCISED.** This historical pre-remediation attempt cannot enter A:T1 because the
+out-of-contract terminal-create path failed to return an explicit worker handle. It does not assess
+the current startup-shell promotion journey. Use a fresh Verifier to resume from this charter with
+the exact `startupTerminal.handle` contract; no candidate automatic-canary result is claimed here.

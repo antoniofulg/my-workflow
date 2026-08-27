@@ -51,12 +51,17 @@ When automatic Orca is `unsupported`, an operator may explicitly authorize the m
 coordinate direct Orca worktrees. This path is supervised through the existing Orca CLI and is not a
 new executor verb or compatibility result. It must read the frozen
 `roles.implementer.provider/model/effort` and always launch an explicit command, never trust an
-unobservable default. Create the worktree with explicit base/setup, record the exact
+unobservable default. The command examples below use `shq(value)` to mean actual POSIX-shell quoting
+(for example `shlex.quote`); do not concatenate literal quote characters around arbitrary values.
+Use a fixed-argv/no-shell wrapper where possible, and apply `shq` to every provider, model, effort,
+slice, base-branch, branch, ref, and handle value otherwise. Create the worktree with explicit
+base/setup, record the exact
 `startupTerminal.handle`, prove that it was newly created by the just-created worktree, uniquely
 owned by it, is one new unused shell, and has no agent/default-task activity, then shell-quote the
 frozen tuple values and send `exec <validated-command>` to that same handle. The verified provider
-forms are `codex --model '<model>' -c 'model_reasoning_effort="<effort>"'`, `claude --model '<model>' --effort '<effort>'`, and `cursor agent
---model '<model>[effort=<effort>]'`; merge Cursor effort into an existing parameter block. Use the
+forms are `codex --model <shq(model)> -c <shq(model_reasoning_effort=<effort>)>`,
+`claude --model <shq(model)> --effort <shq(effort)>`, and `cursor agent --model
+<shq(model[effort=effort])>`; merge Cursor effort into an existing parameter block. Use the
 selected executable's `--help`/availability check, wait for `tui-idle`, then run
 `orca terminal read --terminal <handle> --screen --json`. Continue only when `source=screen` renders
 the exact provider, model, and effort tuple. `screen-unavailable`, omitted provider, mismatch, or
@@ -86,11 +91,13 @@ residue. Before cleanup, immediately revalidate the immutable ownership receipt 
 worktree id, instance, path, gitdir, branch, and `pre_head`) separately from mutable `current_head`
 and the exact same startup/current worker handle. Require exact Orca/Git identity, no symlink,
 clean/no operation, current branch tip equal to `current_head`, and slice-head ancestry. Stop that
-exact handle, recheck, remove only by full id, then safely delete the exact recorded branch with
-non-force `git branch --delete <branch>` when its integrated tip equals `current_head`; prove ref
-absence with `git show-ref --verify --quiet refs/heads/<branch>` failing. Prove
-Orca/Git/path/branch/terminal absence. Any mismatch or missing proof retains the path and serializes;
-cleanup never uses a name or branch selector.
+exact handle, detach the worktree at `current_head` when necessary, and recheck. Before removing it,
+safely delete the exact recorded branch with non-force `git branch --delete <branch>` when its
+integrated tip equals `current_head`; prove ref absence with `git show-ref --verify --quiet
+refs/heads/<branch>` failing. Remove only by full id, then prove Orca/Git/path/branch/terminal absence.
+Any pre-removal mismatch or missing proof retains the exact path and serializes; if removal already
+succeeded, retain the receipt and identifiers without claiming that the removed path remains. Cleanup
+never uses a name or branch selector.
 Assisted execution never records a compatibility PASS, and the automatic adapter remains serial
 until its lifecycle canary passes.
 

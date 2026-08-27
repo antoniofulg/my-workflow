@@ -83,22 +83,26 @@ worktree, worker terminal, checkpoint, dependency notification, integration, and
 
 Before launch, read `roles.implementer.provider`, `roles.implementer.model`, and
 `roles.implementer.effort` from the frozen `workflow.json`. Never trust an unobservable Orca
-default to select the worker route. Build and verify an explicit command for the frozen route:
+default to select the worker route. Build and verify an explicit command for the frozen route only
+after proving the owned startup shell:
 
 ```bash
-codex --model '<model>' -c 'model_reasoning_effort="<effort>"'
-claude --model '<model>' --effort '<effort>'
-cursor agent --model '<model>[effort=<effort>]'
+codex --model <shq(model)> -c <shq(model_reasoning_effort=<effort>)>
+claude --model <shq(model)> --effort <shq(effort)>
+cursor agent --model <shq(model[effort=effort])>
 ```
 
-Merge the Cursor effort into an existing parameter block instead of adding a duplicate block. Use
-the selected executable's `--help` and availability check to confirm the command is expressible. Shell-
-quote every interpolated tuple value while building the fixed provider command. After `terminal wait
---for tui-idle`, use `orca terminal read --terminal <worker-handle> --screen --json` to prove the
-rendered TUI identity. Accept only `source=screen` with provider, model, and effort all present and
-matching the frozen tuple. `screen-unavailable`, an omitted provider, a mismatch, or ambiguity stops
-and serializes before the prompt or any task edit; clean only verified owned setup resources. Do not
-edit `tasks.md`, start a task, or continue in parallel.
+Here `shq(value)` means the output of an actual POSIX-shell quoting function (for example
+`shlex.quote`), not literal quote characters concatenated around an identifier. The command forms
+are argv shapes; use a fixed-argv/no-shell wrapper where possible, and otherwise apply `shq` to every
+interpolated provider, model, effort, slice, base-branch, branch, ref, and handle value. Merge the
+Cursor effort into an existing parameter block instead of adding a duplicate block. Use the selected
+executable's `--help` and availability check to confirm the command is expressible. After the command
+is sent, `terminal wait --for tui-idle` and `orca terminal read --terminal <worker-handle> --screen
+--json` prove the rendered TUI identity. Accept only `source=screen` with provider, model, and effort
+all present and matching the frozen tuple. `screen-unavailable`, an omitted provider, a mismatch, or
+ambiguity stops and serializes before the prompt or any task edit; clean only verified owned setup
+resources. Do not edit `tasks.md`, start a task, or continue in parallel.
 
 Create the worktree with an explicit base and setup policy. Record the immutable receipt and prove
 the startup shell before promoting it; never create a second terminal for the worker:
@@ -120,10 +124,10 @@ orca terminal show --terminal <startupTerminal.handle> --json
 Prove that the exact `startupTerminal.handle` was newly created by this worktree operation, is
 uniquely owned by this just-created worktree, is an unused shell, and has no agent/default-task
 activity. Use `terminal show`/`list` for this conjunction. Exactly one coordinator-owned startup
-handle must exist for this worktree. Ambiguity,
-multiple owned handles, or any existing activity serializes and cleans only
-verified owned setup resources. Shell-quote the frozen tuple values and build the fixed provider
-command only after that proof, then send `exec` to the exact handle:
+handle must exist for this worktree. Ambiguity, multiple owned handles, or any existing activity
+serializes and cleans only verified owned setup resources. Apply `shq` to every value that crosses a
+shell boundary and build the fixed provider command only after that proof, then send `exec` to the
+exact handle:
 
 ```bash
 orca terminal send --terminal <startupTerminal.handle> \
@@ -172,15 +176,18 @@ The coordinator follows this lifecycle:
    startup handle and closed only for cleanup, the recorded branch tip must equal `current_head`, and
    `git merge-base --is-ancestor <slice-head> <integration-head>` must pass. Do not require
    `current_head` to equal `pre_head`, but never substitute a different terminal handle.
-6. Stop the exact startup/current worker handle, recheck the immutable receipt, current head, recorded
-   branch tip, clean state, and no operation in progress. Remove only by the complete worktree id. If
-   the exact recorded branch still exists, delete only that branch with safe non-force
-   `git branch --delete <branch>` after its tip equals `current_head` and is integrated, then prove
-   the ref is absent with `git show-ref --verify --quiet refs/heads/<branch>` failing. Prove Orca,
-   Git, path, branch ref, and terminal absence and zero owned residue. Any mismatch, missing
-   ownership, dirty state, non-ancestor slice head, failed branch deletion, or unproven absence
-   stops deletion and retains the exact path for serial recovery; never select cleanup by name or
-   branch.
+6. Stop the exact startup/current worker handle, then recheck the immutable receipt, current head,
+   recorded branch tip, clean state, integration, and no operation in progress. If the worktree is
+   attached to the recorded branch, detach it at `current_head` and revalidate those same ownership
+   and integration facts. Before removing the worktree, delete only the exact recorded branch with
+   safe non-force `git branch --delete <branch>` after its tip equals `current_head` and is integrated,
+   then prove the ref is absent with `git show-ref --verify --quiet refs/heads/<branch>` failing.
+   Remove only by the complete worktree id after those proofs. Prove Orca, Git, path, branch ref,
+   and terminal absence and zero owned residue. Any pre-removal mismatch, missing ownership, dirty
+   state, non-ancestor slice head, failed branch deletion, or unproven ref absence retains the exact
+   path and serializes; if removal already succeeded, record the exact receipt and identifiers without
+   claiming that the removed path remains, then serialize residue cleanup. Never select cleanup by
+   name or branch.
 
 Assisted overlap preserves one atomic commit and scoped gate per task, one Technical Verifier per
 code-changing slice, the frozen grouped deep-review cadence, final QA, and one full gate on the

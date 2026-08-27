@@ -56,7 +56,7 @@ No browser, API, or mobile surface exists in this repository.
   serial fallback or incomplete lifecycle with a simulated success. For an explicitly authorized
   assisted pilot, follow the direct Orca sequence and exact ownership checks in the
   [parallelization contract](../../.agents/skills/autonomous/references/parallelization.md), using
-  the frozen role tuple from that feature's `workflow.json`; do not route it through the automatic
+  the frozen role tuple from the selected feature's frozen `workflow.json`; do not route it through the automatic
   executor or write a compatibility PASS.
 - Installed QA tooling discovered: Vitest is declared in [`package.json`](../../package.json) for
   structural checks; it is not a real-user runner. Python standard-library checks live in
@@ -99,10 +99,10 @@ The workflow does not install a framework or invent commands when a runner is ab
 - Raw evidence path: `docs/qa/evidence/` (disposable and ignored by this repository).
 - Durable reports and statuses: `docs/qa/`.
 - Known limitations or unreachable surfaces: installed Orca `1.4.188` is explicitly unsupported and
-  must not create a compatibility Run, Task, worker, or worktree. The packet-observed Orca `1.4.190`
-  candidate canary failed worker start at `dispatch_input` / `agent_prompt_stalled`; its live
-  residual was cleaned, its audit record remains `identity_unproven`, and automatic execution stays
-  unsupported. Current Maestri CLI capability
+  must not create a compatibility Run, Task, worker, or worktree. This QA cycle contains no durable
+  candidate-canary receipt for Orca `1.4.190` or another candidate runtime; its read-only preflight
+  remains `candidate` / `canary-required`, so no automatic compatibility result is inferred. Current
+  Maestri CLI capability
   claims remain unsupported because host-owned structured execution and machine floor cleanup are
   not implemented; preflight must not create a floor, recruit an agent, or invoke Git worktree
   commands. No new automatic Orca canary is authorized by the assisted-pilot charter. Orca can prove two resource-free worktrees and worker

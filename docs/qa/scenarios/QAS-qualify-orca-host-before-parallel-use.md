@@ -11,7 +11,7 @@ bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-26-host-adapter-compatibility/cli-results.json; docs/qa/evidence/2026-08-26-host-adapter-compatibility/residue-after-charter.json; docs/qa/evidence/2026-08-26-host-adapter-compatibility/session.md; docs/qa/evidence/2026-08-26-host-adapter-compatibility/retest-after-cd1886f/results.json; docs/qa/evidence/2026-08-26-host-adapter-compatibility/retest-after-cd1886f/session.md
+evidence: docs/qa/evidence/2026-08-26-host-adapter-compatibility/cli-results.json; docs/qa/evidence/2026-08-26-host-adapter-compatibility/residue-after-charter.json; docs/qa/evidence/2026-08-26-host-adapter-compatibility/session.md; docs/qa/evidence/2026-08-26-host-adapter-compatibility/retest-after-cd1886f/results.json; docs/qa/evidence/2026-08-26-host-adapter-compatibility/retest-after-cd1886f/session.md; docs/qa/evidence/2026-08-26-assisted-orca-slices/session.md
 last_report: docs/qa/reports/2026-08-26-host-adapter-compatibility.md
 overlaps: CFG-fallback-unproven-parallel-execution; QAS-run-resource-free-parallel-orca-slices; QAS-coordinate-assisted-orca-slices
 ---
@@ -30,8 +30,8 @@ authorized candidate `--canary`; no positive compatibility claim was made.
 Fresh fix-loop QA at `cd1886f` re-passed the installed-runtime rejection and zero-effect checks.
 Candidate qualification remains honestly `untested`; no candidate version existed and no canary ran.
 
-The current QA packet records a later explicit candidate canary against Orca `1.4.190`: worker
-start failed at `dispatch_input` / `agent_prompt_stalled`, the live residual was cleaned, and the
-audit record was retained as `identity_unproven`. That result is not a compatibility PASS, so
-automatic execution remains unsupported. The next assisted-pilot session inspects this result
-read-only and does not rerun `preflight --canary`.
+The current QA packet contains no durable candidate-canary receipt for Orca `1.4.190` or another
+candidate runtime. The assisted session's read-only preflight returned `candidate`,
+`canary-required`, `cached=false`, and `cleanup=not-run`; automatic execution therefore remains
+unsupported and no compatibility result is inferred. A future explicitly authorized candidate
+canary must record its own command, timestamp, expected/observed result, and cleanup evidence.

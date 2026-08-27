@@ -5,7 +5,7 @@
 - **Persona:** Workflow operator
 - **Journey:** [`J-execute-parallel-slices`](../journeys/J-execute-parallel-slices.md), assisted flow
 - **Tour:** Explicit authorization, parked dependency, same-terminal continuation, and exact cleanup
-- **Public entry point:** [assisted Orca policy](../../.agents/skills/autonomous/references/parallelization.md) with the feature's frozen [`workflow.json`](../../.specs/features/host-agnostic-slice-parallelization/workflow.json)
+- **Public entry point:** [assisted Orca policy](../../../.agents/skills/autonomous/references/parallelization.md) with the feature's frozen [`workflow.json`](../../../.specs/features/host-agnostic-slice-parallelization/workflow.json)
 - **Declared adapter:** CLI/manual through installed Orca direct worktree and terminal interfaces; frozen implementer route `codex` / `gpt-5.6-luna` / `high`
 - **Scenario:** `QAS-coordinate-assisted-orca-slices`
 - **Adjacent canaries:** `QAS-qualify-orca-host-before-parallel-use`; `CFG-fallback-unproven-parallel-execution`; `QAS-clean-owned-parallel-slice-pilot`
@@ -33,7 +33,7 @@ gate stages remain ordered; worktree, Git path, exact branch ref, and terminal a
 - Record explicit assisted authorization, source checkout HEAD, disposable root, frozen route, and
   before-state Orca/Git inventories. Do not send a prompt until the terminal screen proves
   `codex` / `gpt-5.6-luna` / `high` exactly.
-- Use one direct two-step Orca worktree plus explicit terminal per ready slice. Record immutable
+- Use one direct two-step Orca worktree plus its promoted startup shell per ready slice. Record immutable
   repository/worktree/instance/path/gitdir/branch/`pre_head` ownership separately from mutable
   `current_head` and worker handle state.
 - Use a disposable task graph where B starts only after verified `A:T1`, then reaches the exact
@@ -47,12 +47,13 @@ gate stages remain ordered; worktree, Git path, exact branch ref, and terminal a
   `112/112` and all Python lanes; that is baseline evidence, not the pilot's final-tree gate.
 - Before cleanup, prove the immutable receipt still matches Orca and Git, the worktree is clean with
   no Git operation in progress, branch tip equals `current_head`, and the slice commit is integrated.
-  Stop the exact current handle, remove only by full worktree id, safely delete only the exact owned
-  branch, and independently prove worktree/path/branch-ref/terminal absence and zero owned residue.
-- As a read-only adjacent canary, inspect the packet-observed Orca `1.4.190` automatic canary result:
-  worker start failed at `dispatch_input` / `agent_prompt_stalled`, live residual was cleaned, audit
-  remained `identity_unproven`, and automatic execution stayed unsupported. Do not rerun
-  `preflight --canary` and do not treat assisted success as automatic compatibility.
+  Stop the exact current handle, detach the worktree when necessary, safely delete the exact owned
+  branch and prove ref absence, then remove only by full worktree id and independently prove
+  worktree/path/branch-ref/terminal absence and zero owned residue.
+- As a read-only adjacent check, preserve the prior host-preflight evidence and do not infer a
+  candidate compatibility result: this charter authorizes no `preflight --canary`, and the current
+  packet contains no durable candidate-canary receipt. Do not treat assisted success as automatic
+  compatibility.
 - Preserve unrelated worktrees, terminals, branches, ignored evidence, and deep-review artifacts.
   Any dirty, missing, ambiguous, conflicting, mismatched, failed-gate, or unproven-cleanup state
   stops that lane and hands it to serial recovery without automatic resolution or broad deletion.
@@ -69,8 +70,9 @@ gate stages remain ordered; worktree, Git path, exact branch ref, and terminal a
   ownership revalidation, safe branch deletion, and worktree/path/ref/terminal absence.
 - `AST-07` — `QAS-coordinate-assisted-orca-slices`: atomic task commits, scoped gates, per-slice
   Technical Verification, frozen grouped review, final QA, and final full gate remain intact.
-- `ORC-01` through `ORC-07` — adjacent `QAS-qualify-orca-host-before-parallel-use`: inspect the
-  packet-observed `1.4.190` failed canary and unsupported automatic result read-only; no new canary.
+- `ORC-01` through `ORC-07` — adjacent `QAS-qualify-orca-host-before-parallel-use`: preserve the
+  prior read-only host-preflight evidence; no candidate canary is authorized or evidenced by this
+  charter.
 - `HST-01` through `HST-04`, `MAE-01` through `MAE-04`, and `SEC-001` through `SEC-007` — unchanged
   internal or previously mapped public promises; assisted E2E-001 does not alter their behavior.
 
@@ -85,7 +87,7 @@ fixture-owned affected gate. Save raw evidence below
 `docs/qa/reports/`, and update `QAS-coordinate-assisted-orca-slices` from `untested` only from the
 observed result.
 
-Limitations: no automatic `preflight --canary` is authorized; the observed `1.4.190` audit is
-read-only. Existing automatic lifecycle and completed-cleanup scenarios retain their current
-statuses unless their own public contracts are independently walked. Any product defect goes to an
-Implementer, ends this session, and requires a fresh Verifier after the fix.
+Limitations: no automatic `preflight --canary` is authorized and no candidate compatibility result is
+claimed by this charter. Existing automatic lifecycle and completed-cleanup scenarios retain their
+current statuses unless their own public contracts are independently walked. Any product defect goes
+to an Implementer, ends this session, and requires a fresh Verifier after the fix.

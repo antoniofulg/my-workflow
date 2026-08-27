@@ -20,8 +20,10 @@ explicitly authorized direct Orca path in `.agents/skills/autonomous/references/
 
 1. Require explicit human authorization while automatic Orca remains unsupported; inspect the
    frozen implementer route in the feature `workflow.json`.
-2. Create one direct Orca worktree and explicit terminal per ready slice, then accept the worker
-   only after `source=screen` proves the frozen provider/model/effort tuple.
+2. Create one direct Orca worktree per ready slice, record and inspect its exact
+   `startupTerminal.handle`, prove that it is new, uniquely owned, unused, and free of agent/default
+   task activity, then promote that same handle with the shell-quoted frozen command. Wait for
+   `tui-idle`, read `source=screen`, and accept the worker only when provider/model/effort match.
 3. After `A:T1` completes and verifies, start B once. Let B complete its sequential ready work and
    park at `B:T12 depends_on A:T7` with the exact clean checkpoint comment, then end without polling.
 4. After `A:T7` completes and verifies, synchronize its exact producer commit into B, rerun B's
@@ -60,12 +62,11 @@ explicit authorization.
 Fresh fix-loop QA at `cd1886f` re-passed both read-only host-rejection legs and the adjacent bounded
 Deep Review canary. Candidate Orca qualification remains `untested`; no candidate or canary ran.
 
-The packet-observed Orca `1.4.190` automatic canary later failed worker start at `dispatch_input` /
-`agent_prompt_stalled`. Its live residual was cleaned and its audit record retained
-`identity_unproven`; automatic execution therefore remains unsupported. This observation does not
-exercise the separate assisted flow. The 2026-08-26 assisted E2E-001 walk then failed before prompt
-delivery because two clean direct `terminal create` attempts timed out without returning an agent
-handle. Exact setup cleanup left zero slice residue. See the
+The current QA packet contains no durable candidate-canary evidence for a later Orca version, so no
+automatic compatibility result is inferred from an installed version. This observation does not
+exercise the separate assisted flow. The 2026-08-26 assisted E2E-001 walk is retained as a
+historical pre-remediation record: two clean out-of-contract `terminal create` attempts timed out
+without returning an agent handle. Exact setup cleanup left zero slice residue. See the
 [`assisted Orca report`](../reports/2026-08-26-assisted-orca-slices.md) and
 [`BUG-20260826-assisted-orca-terminal-create-timeout`](../bugs/BUG-20260826-assisted-orca-terminal-create-timeout.md).
 
