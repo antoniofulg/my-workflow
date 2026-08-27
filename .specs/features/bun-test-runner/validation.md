@@ -4,14 +4,14 @@
 
 **Date**: 2026-08-27
 **Spec**: `.specs/features/bun-test-runner/spec.md`
-**Diff range**: `047a806..17fd3f5` (QA defect fix delta: `836997e..17fd3f5`)
-**Verifier**: independent Technical Verifier (author != verifier)
-**Scope**: fresh technical verification of the Bun migration and HSC-09 fix; no product, test,
-QA, spec, task, Git, remote, release, publication, deploy, or operator-state writes. Only this
-validation report is updated.
+**Diff range**: `047a806..176c166` (QA closure range: `836997e..176c166`)
+**Verifier**: independent Final Verifier (author != verifier)
+**Scope**: fresh final verification of the Bun migration, HSC-09 fix, and QA retest; no product,
+test, QA, spec, task, Git, remote, release, publication, deploy, or operator-state writes. Only
+this validation report is updated.
 **Verdict**: PASS
-**Technical scope**: PASS; QA remains pending.
-**Delivery status**: BTR-15 / BTR-E2E-001 pending fresh QA retest.
+**Technical scope**: PASS; QA scope: PASS.
+**Delivery status**: BTR-15 / BTR-E2E-001 PASS after fresh 2026-08-27 QA retest.
 
 Runtime: Bun `1.4.0`; npm `10.9.8`; Node.js `v22.23.1`.
 
@@ -23,7 +23,7 @@ Runtime: Bun `1.4.0`; npm `10.9.8`; Node.js `v22.23.1`.
 | T2 | Done | `tasks.md:74-96`; all eight suites use `bun:test`; Bun/npm gates pass. |
 | T3 | Done | `tasks.md:98-120`; npm tree and pack checks pass with no Vitest graph. |
 | T4 | Done | `tasks.md:122-144`; tagged history and v0.7.0 assertions pass. |
-| T5 | Done for technical scope | `tasks.md:146-168`; adoption/docs checks pass; BTR-15 remains QA-pending. |
+| T5 | Done | `tasks.md:146-168`; adoption/docs checks pass; fresh QA report closes BTR-15 and BTR-E2E-001. |
 
 All five task definitions are complete (`tasks.md:63-168`). No task is partial or blocked.
 
@@ -45,20 +45,59 @@ All five task definitions are complete (`tasks.md:63-168`). No task is partial o
 | BTR-12 | Migration note links tagged v0.5.0 guide and invents no cleanup command. | `CHANGELOG.md:19-24`; URL assertions pass; no cleanup command executed. | PASS |
 | BTR-13 | Package/lock remain 0.6.0; no tag/publication is created while unreleased. | `package.json:2-3`, `package-lock.json:3,9`; pack is 0.6.0 and `git tag --points-at HEAD` is empty. | PASS |
 | BTR-14 | Current testing docs name Bun 1.4 and `tools` discovery root. | `README.md:262-267`, `docs/qa/README.md:48-56`, `dx.md:7-10`; assertions pass. | PASS |
-| BTR-15 | Invalidated release scenario is walked through CLI adapter before completion. | `docs/qa/scenarios/REL-report-current-workflow-release.md:9-15`; fresh QA Execute not run in this technical packet. | PENDING QA |
+| BTR-15 | Invalidated release scenario is walked through CLI adapter before completion. | `docs/qa/scenarios/REL-report-current-workflow-release.md:9-15`; fresh report matrix and retest evidence: `docs/qa/reports/2026-08-27-bun-test-runner.md:18-23,61-66`. | PASS |
 | BTR-16 | Adoption installs no Bun, edits no host settings, creates no Bun lockfile. | `scripts/adopt.py:43-73`, `scripts/test_adopt.py:187-214`; adoption exit 0 with double-run checks. | PASS |
 | BTR-17 | Ignored copied tests are not discovered. | `bunfig.toml:2`; isolated failing-copy probes remained undiscovered at 115/8. | PASS |
 | BTR-18 | Tracked Vitest import is rejected by migration contract. | `tools/shared/tests/qa-skills.test.ts:1-5`; tracked scan has 0 Vitest imports and native suite passes. | PASS |
 | BTR-19 | Changelog drift from v0.6.0 tag is rejected. | `tools/shared/tests/qa-skills.test.ts:1075-1095`; release contract passes and history mutant is covered. | PASS |
 | BTR-20 | npm pack excludes ignored QA evidence and Vitest artifacts. | `scripts/test_adopt.py:205-214`; parsed pack has `qaEvidence=[]`, `vitestArtifacts=[]`, `bunLocks=[]`. | PASS |
 
-**Spec-anchored status**: 19/20 local technical outcomes pass; BTR-15 is explicitly deferred to
-QA Execute. Zero spec-precision gaps. `spec.md:124-143` was not modified; BTR-15 remains `In Tasks`.
+**Spec-anchored status**: 20/20 acceptance criteria pass, including BTR-15 after the fresh QA
+Execute retest. Zero spec-precision gaps. `spec.md:124-143` records BTR-01 through BTR-20 as
+`Verified`.
+
+## Test-Contract Coverage
+
+All 11 contracts in `tests.md` pass: 10 integration contracts and BTR-E2E-001.
+
+| Contract | Evidence | Result |
+| --- | --- | --- |
+| BTR-IT-001 | `bunfig.toml:1-3`; Bun run reports 8 canonical files and excludes ignored copies. | PASS |
+| BTR-IT-002 | `package.json:10`; `npm run test:all` reports Bun 115/115 with 0 failures. | PASS |
+| BTR-IT-003 | Eight canonical suites import `bun:test`; tracked Vitest import scan is empty. | PASS |
+| BTR-IT-004 | Fresh full-name filter: 1 pass, 27 filtered, 0 fail. | PASS |
+| BTR-IT-005 | `npm ls --all` exits 0; no Vitest dependency is present. | PASS |
+| BTR-IT-006 | `npm run test:all` exits 0; Bun precedes 12 Python lanes and 246 numbered cases. | PASS |
+| BTR-IT-007 | `CT-003` release contract and independent v0.6.0 section comparison pass. | PASS |
+| BTR-IT-008 | `CT-003` release contract confirms v0.7.0 notes and 0.6.0 authorities. | PASS |
+| BTR-IT-009 | `python3 scripts/test_adopt.py` exits 0; double-run and host-neutral checks pass. | PASS |
+| BTR-IT-010 | `npm pack --dry-run --json` exits 0; forbidden package sets are empty. | PASS |
+| BTR-E2E-001 | Fresh QA report matrix: release and adoption rows are terminal `pass` after retest. | PASS |
+
+## Retired-Integration Reference Scan
+
+The canonical allowlist oracle is `tools/shared/tests/qa-skills.test.ts:147-223`, run as:
+
+```text
+bun test ./tools/shared/tests/qa-skills.test.ts -t "CT-001/CT-004 scans references with an explicit historical allowlist"
+```
+
+Result: exit 0; 1 pass, 27 filtered, 0 fail, 2 expect calls. The same explicit terms and path
+allowlist report 60 matches across 372 tracked files and 30 terms, with 0 unexpected matches:
+
+| Classification | Matches | Allowlisted paths |
+| --- | ---: | ---: |
+| immutable historical QA/release-certification evidence | 22 | 14 |
+| v0.6 removal-note artifact | 36 | 4 |
+| historical changelog | 2 | 1 |
+
+The test-owned allowlist and exact paths remain in `tools/shared/tests/qa-skills.test.ts:171-221`;
+no broad directory exclusion or new allowlist was introduced.
 
 ## HSC-09 Original Symptom and Path Checks
 
-The fixed test is `tools/shared/tests/qa-skills.test.ts:225-296`. Its original targeted command
-passes on the real tree with scenarios still in their recorded non-pass state:
+The fixed test is `tools/shared/tests/qa-skills.test.ts:225-296`. Its targeted command passes on
+the current tree with both scenarios in their recorded pass state:
 
 ```text
 bun test ./tools/shared/tests/qa-skills.test.ts -t "HSC-09 requires current report evidence for changed QA scenarios"
@@ -102,7 +141,7 @@ evidence, reports, specs, tasks, config, history, tags, remotes, or release file
 | Check | Command/result |
 | --- | --- |
 | Runtime | `bun --version` -> 1.4.0; `npm --version` -> 10.9.8; `node --version` -> v22.23.1. |
-| Structural Bun | `bun test` -> exit 0; 115 pass, 0 fail, 1107 expect calls, 8 files. |
+| Structural Bun | `bun test` -> exit 0; 115 pass, 0 fail, 1123 expect calls, 8 files. |
 | Structural npm | Included in Build chain -> exit 0; 115 pass, 0 fail, 8 files. |
 | Targeted HSC-09 | Current real state -> exit 0; 1 pass, 27 filtered, 0 fail. |
 | Targeted release/history/version | `bun test ... -t "CT-003 / BTR-IT-007 / BTR-IT-008 ..."` -> exit 0; 1 pass, 27 filtered, 0 fail. |
@@ -117,7 +156,7 @@ evidence, reports, specs, tasks, config, history, tags, remotes, or release file
 The full feature-range whitespace scan `git diff --check 047a806..HEAD` reports one pre-existing
 blank line at EOF in `docs/qa/bugs/BUG-20260827-scenario-pass-report-version-gate.md:27` (present
 at `836997e`). The fix delta scan `git diff --check 836997e..HEAD` is clean, and the Build gate's
-working-tree `git diff --check` passed. No change was made because this verifier owns only
+working-tree `git diff --check` passed. No code or test change was made; this verifier owns only
 `validation.md`.
 
 ## TypeScript Diagnostic Baseline
@@ -163,7 +202,7 @@ runtime assertions remain intact; HSC-09 now adds exact state-path assertions.
 | No scope creep or compatibility layer | PASS — no Vitest fallback, wrapper, dual-run mode, or Bun package-manager migration. |
 | Changed files task-required | PASS — fix delta contains only `tools/shared/tests/qa-skills.test.ts`. |
 | Existing patterns preserved | PASS — `last_report` schema, canonical evidence conventions, and npm ownership remain. |
-| Spec-anchored assertions | PASS for 19 technical ACs; BTR-15/E2E-001 explicitly handed to QA. |
+| Spec-anchored assertions | PASS for all 20 ACs and all 11 contracts, including BTR-15/E2E-001. |
 | Per-layer coverage | PASS for runtime, discovery, dependency, package, release, adoption, and HSC-09 state boundaries. |
 | Test integrity | PASS — baseline and current counts both 8/115; no test weakening/deletion. |
 | Documented guidelines | PASS — `docs/guidelines/TEST-CONTRACT.md`, `GATES.md`, `QA-SCENARIOS.md`, `QA-EXECUTION.md`, `REVIEW-ROUNDS.md`, and `VERIFICATION-EVIDENCE.md` followed. |
@@ -171,22 +210,21 @@ runtime assertions remain intact; HSC-09 now adds exact state-path assertions.
 ## QA Disposition
 
 This feature changes public test commands, package/tooling prerequisites, adoption behavior, and
-docs-as-interface. The release and adoption scenarios remain in their recorded `qa_status: fail`
-state with pending retest fields; this technical verifier did not alter QA state or the durable QA
-report. A fresh QA Plan/Execute session must retest `J-review-workflow-release` and its adjacent
-`J-adopt-workflow` canary through the declared CLI/manual adapter before BTR-15 / BTR-E2E-001 can
-close. Existing unrelated `blocked-verify` lifecycle scenarios remain unchanged.
+docs-as-interface. The fresh QA Execute report records both `J-review-workflow-release` and its
+adjacent `J-adopt-workflow` canary as terminal `pass` after retest through the declared CLI/manual
+adapter (`docs/qa/reports/2026-08-27-bun-test-runner.md:18-23,92-114`). BTR-15 and BTR-E2E-001 are
+closed. Existing unrelated `blocked-verify` lifecycle scenarios remain unchanged.
 
 ## Requirement Traceability
 
-`spec.md:124-143` remains unchanged: BTR-01–BTR-14 and BTR-16–BTR-20 are `Verified`; BTR-15 remains
-`In Tasks` pending the separate QA walk. No traceability file was modified.
+`spec.md:124-143` records BTR-01–BTR-20 as `Verified`; `tasks.md:146-168` records T5 as `Done`.
+No traceability file was modified by this final validation update.
 
 ## Summary
 
-**Overall technical verdict**: PASS
-**Spec-anchored check**: 19/20 local technical outcomes matched exact spec values; BTR-15/E2E-001
-pending QA; 0 spec-precision gaps.
+**Overall verdict**: PASS
+**Spec-anchored check**: 20/20 acceptance criteria and 11/11 test contracts matched exact spec
+values; 0 spec-precision gaps.
 **Gate**: Bun/npm 115/115 across 8/8 files; 246 numbered Python cases across 12 lanes plus AD
 index `ok`; 0 failures and 0 skips.
 **Sensor**: 1/1 mutation killed; 0 survived; real-tree porcelain restored to empty baseline.
@@ -194,5 +232,5 @@ index `ok`; 0 failures and 0 skips.
 stale, mismatched-date, report-row, uncited-evidence, and missing-report fixtures fail.
 **TypeScript**: 15 current diagnostics exactly equal 15 baseline diagnostics; zero migration/fix
 diagnostics.
-**Remaining delivery action**: Fresh QA Plan/Execute must close BTR-15 / BTR-E2E-001 and record
-dated pass evidence. No implementation fix task is indicated by this technical PASS.
+**QA closure**: BTR-15 / BTR-E2E-001 pass with dated evidence in the 2026-08-27 report and
+retest evidence directory. No implementation fix task remains.
