@@ -65,6 +65,7 @@ The links below preserve prior evidence while removing repeated interim narrativ
 | R19 | Provider-preflight subpath passed; real worker lifecycle intentionally not rerun | [`R19 report`](../reports/2026-08-25-parallel-slice-executor-r19.md); `docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/` |
 | v0.6.0 safe retest | External boundary reproduced: A/T1 `agent_prompt_stalled`, exact owned terminal remained live/writable, B/T2 absent; product exposed/fenced partial effect | [`v0.6.0 safe retest`](../reports/2026-08-25-parallel-slice-executor-v060-safe-retest.md); `docs/qa/evidence/2026-08-25-parallel-slice-executor-v060-safe-retest/` |
 | Assisted Retest 5 | Exact A follow-up returned `agent_prompt_stalled`, but the same handle silently executed A:T7/A:T8 and created two commits; B parked correctly; coordinator stopped before sync/follow-up | [`assisted report`](../reports/2026-08-27-assisted-orca-slices.md); `docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-5/` |
+| Assisted Retest 6 | Two fresh verifier sends returned `agent_prompt_stalled`; no resend/replacement occurred, and same-handle bounded reconciliation accepted exactly one complete expected PASS effect for each. Worker sends were normal. Later shared-task-file conflict invalidated the happy-path fixture. Broader automatic lifecycle bug remains open. | [`assisted report`](../reports/2026-08-27-assisted-orca-slices.md); `docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-6/` |
 
 ## Residue boundary
 

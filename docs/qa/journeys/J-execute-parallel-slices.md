@@ -120,3 +120,20 @@ silently executed A:T7/A:T8 and created two commits. This receipt/effect contrad
 producer sync and B continuation and deduplicates to the existing open external lifecycle bug. The
 scenario is `fail`. No retry occurred; exact cleanup plus a 60-second 85-sample audit returned to the
 two-worktree baseline with zero owned residue.
+
+Retest 6 on 2026-08-27 proved Luna-low two-slice overlap, parked dependency, exact producer
+ancestry, same-handle continuation, all six task commits/gates, and fresh per-slice Technical
+Verification. Two false-negative fresh-verifier send receipts were recovered without resend or
+replacement through complete same-handle machine proof. Deterministic A-then-B integration then
+conflicted in shared `pilot/tasks.md`; the contract correctly serialized before grouped review and
+final persona QA. Run is invalid/not applicable to happy-path E2E, files no new bug, and leaves the
+assisted scenario `untested` for conflict-free Retest 7. Exact cleanup returned to two-worktree
+baseline with zero owned residue after a 60-second audit.
+
+Retest 7 removed the shared-hunk fixture limitation and proved 35.345 seconds of Slice A/B overlap,
+exact B parking, conflict-free A:T7 sync, affected gate, and same-handle continuation. It then failed
+the selected Luna-low worker route's task-integrity boundary: B:T15 was committed after a failing
+gate and followed by an extra correction commit. Coordinator effect reconciliation rejected the
+commit count/subjects before Technical Verification. Cleanup-only A-then-B reconciliation was
+conflict-free and passed 10/10, but is not successful integration evidence. Exact cleanup returned
+to the two-worktree baseline with zero owned residue after a 60-second 65-sample audit.

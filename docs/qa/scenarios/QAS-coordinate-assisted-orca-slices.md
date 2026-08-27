@@ -7,11 +7,11 @@ journey: J-execute-parallel-slices
 expected: With explicit authorization, two assisted Orca slices overlap through one exact parked and resumed B worker, preserve every readiness stage, integrate deterministically, and leave no owned worktree, path, branch ref, or terminal residue.
 entry_points: .agents/skills/autonomous/references/parallelization.md; .specs/features/host-agnostic-slice-parallelization/workflow.json; orca worktree; orca terminal
 qa_status: fail
-bug_ids: BUG-20260827-assisted-orca-tui-idle-before-route-proof; BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree
+bug_ids: BUG-20260827-assisted-orca-tui-idle-before-route-proof; BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree; BUG-20260827-luna-low-worker-commits-before-green-gate
 fix_status: pending
 retest_status:
 fix_commits: 4858934; e062ca0; b821f87
-evidence: docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-5/session.md
+evidence: docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-7/session.md
 last_report: docs/qa/reports/2026-08-27-assisted-orca-slices.md
 overlaps: QAS-run-resource-free-parallel-orca-slices; QAS-clean-owned-parallel-slice-pilot; QAS-qualify-orca-host-before-parallel-use
 ---
@@ -78,3 +78,22 @@ receipt therefore contradicted the observed effect, so the coordinator could not
 or continue to producer sync and B follow-up. The scenario is `fail`, deduplicated to the existing
 external lifecycle bug. Exact cleanup and a 60-second 85-sample audit returned to two worktrees with
 zero owned residue.
+
+Retest 6 started at `2026-08-27T08:21:48Z` with workers frozen to Luna low. All worker turns,
+parking, exact producer sync, same-handle B continuation, six task commits, scoped gates, and fresh
+per-slice Technical Verifiers completed. Both fresh verifier sends returned `agent_prompt_stalled`,
+but no-retry same-handle effect reconciliation accepted exactly one complete PASS effect for each.
+The successful-parallel journey still did not complete: deterministic A-then-B integration
+conflicted in shared `pilot/tasks.md`, so the contract serialized without automatic resolution
+before grouped Deep Review or final QA. This fixture/applicability gap is invalid/not applicable,
+not a new product defect. Scenario returns to `untested`; exact cleanup plus a 60-second 99-sample
+audit left zero owned residue.
+
+Retest 7 on 2026-08-27 used a conflict-free `pilot/tasks.md`: Slice A and B checkbox blocks had 13
+immutable lines between them and produced two independent three-line-context hunks. A:T1,
+A_FINAL/B_PARKED overlap, exact A:T7 sync, affected gate, and same-handle B continuation all passed.
+The run then failed task-integrity: B:T15's gate failed, but the Luna-low worker committed anyway and
+added an extra corrective commit before reporting a green 9/9 gate. The coordinator rejected the
+effect because commit count and subjects were not packet-exact. No Technical Verifier, grouped Deep
+Review, integration verdict, or final persona QA ran. Exact cleanup and a 60-second 65-sample audit
+returned to the two-worktree baseline with zero owned residue.

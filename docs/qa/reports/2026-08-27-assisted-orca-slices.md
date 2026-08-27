@@ -317,3 +317,89 @@ two-resource baseline. Foreign resources were preserved.
 Closing outer gate after all durable QA mutations: `npm run test:all` exited `0`; Vitest passed
 `112/112`, and every Python lane passed. `qa-skills.test.ts` passed `23/23`; spec, tasks, and state
 validators reported 0 errors; `git diff --check` passed.
+
+## Retest 6 — 2026-08-27T08:21:48Z
+
+- **Source:** `d191025`
+- **Adapter:** CLI/manual through installed Orca `1.4.190`
+- **Unique prefix:** `qa-assisted-20260827-r7`
+- **Worker route:** `codex` / `gpt-5.6-luna` / `low`
+- **Raw evidence:** `docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-6/`
+- **Status:** **INVALID / NOT APPLICABLE** to the successful-parallel journey.
+
+### Proven subpaths
+
+A:T1 completed and integrated. A_FINAL and B_PARKED started 18 microseconds apart and overlapped
+for 32.630 seconds. B parked cleanly after B:T9 at A:T7, the exact producer became its ancestor, its
+affected gate passed 5/5, and the same Luna-low B handle completed B:T12 and B:T15. All six task
+commits, gates, marker/HEAD/ancestry/path/status/comment checks, and max concurrency 2 were proven.
+
+Fresh Technical Verifiers used distinct new `gpt-5.6-sol medium` sessions after implementer handles
+ended. Both verifier sends returned `agent_prompt_stalled`; no resend or replacement occurred.
+Same-handle bounded reconciliation accepted exactly one complete effect per verifier: A PASS at
+`df0edd3`, sensor 3/3; B PASS at `39ceccb`, sensor 3/3. This passes the observed assisted
+send-recovery subpath but makes no automatic compatibility claim.
+
+### Invalidating boundary
+
+Deterministic A-then-B integration produced a real content conflict in shared mutable
+`pilot/tasks.md`. Contract correctly stopped rather than auto-resolving. Grouped Deep Review and
+final CLI persona QA did not run; Retest 6 cannot close E2E-001. This is a fixture/applicability
+limitation, not a new product defect. Fresh conflict-free Retest 7 remains required.
+
+Cleanup-only ancestry reconciliation preserved both verified heads and passed 8/8; it is not
+successful integration evidence. Exact A/B/ground terminals, branches, refs, paths, Git worktrees,
+and Orca worktrees were removed. Final 60-second audit ran 99 samples with zero owned residue and
+returned to the exact two-worktree baseline. Foreign resources were preserved.
+
+Per coordinator direction, no new outer full gate and no durable commit ran after this invalid
+fixture result; those remain for fresh Retest 7 close.
+
+## Retest 7 — 2026-08-27T08:44:50Z
+
+- **Source:** `d191025`
+- **Adapter:** CLI/manual through installed Orca `1.4.190`
+- **Unique prefix:** `qa-assisted-20260827-r8`
+- **Worker route:** `codex` / `gpt-5.6-luna` / `low`
+- **Raw evidence:** `docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-7/`
+- **Status:** **FAIL** at the worker task-integrity gate.
+
+### Conflict-free seed and valid progress
+
+The single versioned `pilot/tasks.md` kept Slice A lines 7–9 and Slice B lines 23–25, with 13
+immutable context lines between the nearest mutable lines. A pre-launch three-line-context proof
+produced exactly two independent hunks. Ground seed `fa3c552` passed 1/1.
+
+A:T1 committed `a72eef1` and passed 4/4 before B opened. A_FINAL and B_PARKED sends occurred 56
+microseconds apart at `08:47:55.391503Z` and `08:47:55.391447Z`; both effects ran concurrently until
+A completed at `08:48:30.736536Z`, proving 35.345 seconds of overlap and max concurrency 2. A:T7
+`92c61d0` and A:T8 `29e32d3` passed 6/6. B:T9 `44efd42` passed 6/6 and produced the exact clean
+parked comment. Exact A:T7 was merged into B without conflict at `bf167fc`; producer ancestry and
+the affected 7/7 gate passed. The same B handle received B_FINAL once. All four worker send receipts
+were successful; no false-negative reconciliation or retry occurred.
+
+### Failing boundary
+
+B:T12 created `3014cc8 feat(pilot): add name validation`. During B:T15 the worker ran the canonical
+gate, observed one failure, and nevertheless created `92fd6dd feat(pilot): add batch CLI`. It then
+changed the CLI newline behavior and created the extra `e75f856 fix(pilot): preserve batch CLI
+newline`; final gate passed 9/9. Marker, HEAD, ancestry, allowed paths, task checkboxes, clean state,
+same handle, and final gate all matched, but commit count and subjects did not. Effect reconciliation
+therefore stopped fail-closed. This is tracked by
+`BUG-20260827-luna-low-worker-commits-before-green-gate`.
+
+No per-slice Technical Verifier, grouped Deep Review, deterministic integration verdict, or final
+CLI persona QA ran after the task-integrity failure. The run makes no automatic Orca compatibility
+claim.
+
+### Cleanup
+
+Cleanup-only ancestry integrated A then B without conflict at `4500833` and passed 10/10; it is not
+successful feature integration evidence. Exact A/B/ground terminals were already absent, all three
+clean checkouts were detached, all exact branches were safely deleted, and all complete Orca ids
+returned `removed: true`. The 60-second late-effect audit ran 65 samples and found `[]` for owned
+worktrees, terminals, Git worktrees, paths, and refs. Orca and Git both returned to the exact two-
+worktree baseline. Foreign resources were preserved.
+
+Per coordinator direction, no outer full gate or durable commit ran after this FAIL. Accumulated QA
+history remains uncommitted for the worker-route remediation and fresh retest.
