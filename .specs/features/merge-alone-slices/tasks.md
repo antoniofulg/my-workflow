@@ -172,10 +172,10 @@ and batch as separate units.
 **Gate**: Public contract
 **Commit**: `docs(workflow): publish merge-alone slice contract`
 
-### T5: Refresh Current QA and Release Records
+### T5: Refresh Current QA and Release Promises
 
 **What**: Update the existing workflow-configuration journey/scenarios and the v0.7.0 Unreleased
-changelog entry, reset affected current promises for QA, and close issue traceability.
+changelog entry, then reset affected current promises for independent QA.
 **Where**: `docs/qa/`
 **Slice:** A
 **Depends on**: T4
@@ -185,16 +185,17 @@ changelog entry, reset affected current promises for QA, and close issue traceab
 **Tools**:
 
 - MCP: NONE
-- Skills: `qa-plan`, `qa-execute`, `tlc-spec-driven`, `ponytail`
+- Skills: `tlc-spec-driven`, `ponytail`
 
 **Done when**:
 
 - [ ] Existing CFG/ADP scenario expectations describe derived count, closure validation, and frozen resume.
-- [ ] A dated QA plan and execution report validate the changed public interfaces.
+- [ ] Every changed current scenario is reset to `untested` with pending report fields.
 - [ ] The v0.7.0 Unreleased changelog records the fix without publishing a release.
 - [ ] Full gate passes with zero failures.
 
-**Tests**: none — QA documents and changelog are owned by the full gate and live scenario execution.
+**Tests**: none — QA documents and changelog are owned by the full gate; fresh `qa-plan` and
+`qa-execute` sessions run after implementation review.
 **Gate**: Full
 **Commit**: `docs(qa): record merge-alone slice validation`
 
