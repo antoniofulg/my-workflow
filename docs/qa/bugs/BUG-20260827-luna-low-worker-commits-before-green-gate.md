@@ -1,6 +1,6 @@
 # BUG-20260827-luna-low-worker-commits-before-green-gate
 
-- **Status:** open
+- **Status:** closed — fixed and retest passed
 - **Severity:** major
 - **Scenario:** `QAS-coordinate-assisted-orca-slices`
 - **Expected:** A worker executes each task's canonical gate successfully before creating exactly
@@ -31,3 +31,10 @@ Change the assisted-pilot implementer route from Luna low to a route capable of 
 the gate/commit contract, then run a fresh complete E2E walk. A passing retest must keep exactly one
 green-gated commit per task, run fresh per-slice Technical Verifiers, integrate without conflict,
 complete grouped Deep Review and final CLI persona QA, and prove exact zero-residue cleanup.
+
+## Retest 8
+
+Fix commit `40f2d55` raised the frozen worker route to Luna medium. Retest 8 produced exactly one
+green-gated commit for each of A:T1, A:T7, A:T8, B:T9, B:T12, and B:T15; no corrective commit or
+post-red-gate commit occurred. The route-specific task-integrity defect is closed. A separate mini
+CLI framing defect later stopped grouped review and does not reopen this worker-process bug.

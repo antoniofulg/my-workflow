@@ -403,3 +403,70 @@ worktree baseline. Foreign resources were preserved.
 
 Per coordinator direction, no outer full gate or durable commit ran after this FAIL. Accumulated QA
 history remains uncommitted for the worker-route remediation and fresh retest.
+
+## Retest 8 — 2026-08-27T09:06:16Z
+
+- **Source:** `40f2d55`
+- **Adapter:** CLI/manual through installed Orca `1.4.190`
+- **Unique prefix:** `qa-assisted-20260827-r9`
+- **Worker route:** `codex` / `gpt-5.6-luna` / `medium`
+- **Raw evidence:** `docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-8/`
+- **Status:** **FAIL** at grouped Deep Review.
+
+### Assisted flow and task integrity
+
+The conflict-free seed retained Slice A lines 7–9 and Slice B lines 23–25 with 13 immutable lines
+between them and two independent three-line-context hunks. Ground seed `16144e0` passed 1/1.
+
+A:T1 `323e350` passed 3/3 and integrated before B opened. A_FINAL and B_PARKED were sent 8
+microseconds apart at `09:09:03.702327Z` and `09:09:03.702335Z`; both ran until A completed at
+`09:10:04.396181Z`, proving 60.694 seconds of overlap and maximum concurrency 2. A:T7 `68c84d5`
+and A:T8 `c9670bc` passed 5/5. B:T9 `ee624da` passed 5/5 and recorded the exact parked comment.
+Exact A:T7 sync produced `e3eb0c0` without conflict; producer ancestry and affected gate 6/6 passed.
+The same B handle then produced B:T12 `46e6ea8` and B:T15 `9afbcfe`; final task gate passed 8/8.
+
+All four worker sends returned success. Each of the six tasks had exactly one expected Conventional
+Commit after a green gate, no extra commit, no amend, and only packet-allowed paths. This closes
+`BUG-20260827-luna-low-worker-commits-before-green-gate` through fix `40f2d55`.
+
+### Technical Verification and integration
+
+Fresh distinct Sol-medium Verifiers authored only `pilot/validation-a.md` and
+`pilot/validation-b.md`. Both sends returned `agent_prompt_stalled`; neither was resent or replaced.
+Same-handle effect reconciliation proved one complete PASS each: A `b3c0e05`, sensor 3/3; B
+`b1f8d55`, sensor 3/3. Deterministic A-then-B integration was conflict-free at `2051517`; intermediate
+gate passed 5/5 and integrated fixture gate passed 9/9.
+
+### Grouped Deep Review and terminal verdict
+
+Actual full grouped Deep Review used fresh native deep-reviewers over
+`16144e0..2051517`: two defect cohorts, two polish cohorts, and three sweeps. After one
+contracts-sweep schema retry, all jobs validated and both lanes covered 216/216 selected hunk lines.
+Verdict was `FIX_BEFORE_SHIP`: 0 Critical, 1 Major, 3 Minor, and 8 advisories. The sole Major found
+that `python -m pilot.batch` removes a terminal newline from valid newline-delimited stdin.
+
+Readiness stopped correctly. Final normal/batch/invalid/new-process/canary persona QA did not run.
+The new defect is `BUG-20260827-assisted-pilot-batch-cli-drops-final-newline`. This does not reopen
+the Luna-low worker-process bug and makes no automatic Orca compatibility claim.
+
+### Cleanup
+
+Verifier and review terminals were closed. A and B heads were ancestors of integrated ground;
+all three checkouts were clean with no Git operation in progress. Each was detached at its exact
+head, each exact branch was deleted non-force with ref absence proven, and each complete Orca id
+returned `removed: true`. The final 60-second audit ran 63 samples and found zero owned Orca/Git
+worktree, terminal, path, branch ref, or late effect. Orca returned to the exact two-worktree
+baseline; foreign resources were preserved.
+
+### Closing repository gates
+
+- `npm_config_offline=true npm run test:all`: **FAIL**, Vitest 111/112; IT-005 still expected
+  implementer effort `low` while the frozen route is `medium`. Python lanes did not start after the
+  Vitest failure.
+- `npm_config_offline=true npm test -- --run tools/shared/tests/qa-skills.test.ts`: PASS, 23/23.
+- Spec/tasks/state validators: PASS, 0 errors and 0 warnings.
+- `git diff --check`: PASS.
+
+The route/test mismatch is tracked separately as
+`BUG-20260827-medium-route-contract-test-still-expects-low`. Both open Major defects require an
+Implementer and a fresh QA Verifier; this session changed no product or contract-test code.

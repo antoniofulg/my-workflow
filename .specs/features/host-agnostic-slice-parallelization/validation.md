@@ -312,3 +312,21 @@ product/external-interface FAIL deduplicated to
 Deep Review, final persona QA, and normal deterministic integration were not reached. Exact cleanup
 removed A/B/ground and their branches, paths, and terminals; a 60-second 85-sample audit returned to
 the exact two-worktree baseline with zero owned residue.
+
+## QA Execute Retest 8 — FAIL at grouped review
+
+Luna-medium workers produced six green-gated atomic task commits with no corrective commit. The
+assisted flow proved 60.694 seconds of A/B overlap, exact B parking, exact A:T7 sync, affected gate,
+same-handle continuation, fresh Sol-medium Technical Verifiers, and conflict-free deterministic
+A-then-B integration at `2051517` with fixture gate 9/9.
+
+Grouped Deep Review covered 216/216 selected hunk lines in both lanes and returned
+`FIX_BEFORE_SHIP`: 0 Critical, 1 Major. The integrated mini CLI removes a terminal newline, so final
+persona QA did not run. Exact cleanup removed all three owned worktrees, branches, refs, paths, and
+terminals; the 60-second 63-sample audit found zero residue and restored the exact two-worktree
+baseline. Durable bug: `BUG-20260827-assisted-pilot-batch-cli-drops-final-newline`.
+
+The closing outer `npm_config_offline=true npm run test:all` gate also failed: Vitest reported
+111/112 passing because IT-005 still expected implementer effort `low` instead of the frozen
+`medium`. QA skills passed 23/23; spec, tasks, and state validators reported 0 errors; `git diff
+--check` passed. Durable bug: `BUG-20260827-medium-route-contract-test-still-expects-low`.

@@ -6,12 +6,12 @@ persona: Workflow operator
 journey: J-execute-parallel-slices
 expected: With explicit authorization, two assisted Orca slices overlap through one exact parked and resumed B worker, preserve every readiness stage, integrate deterministically, and leave no owned worktree, path, branch ref, or terminal residue.
 entry_points: .agents/skills/autonomous/references/parallelization.md; .specs/features/host-agnostic-slice-parallelization/workflow.json; orca worktree; orca terminal
-qa_status: untested
-bug_ids: BUG-20260827-assisted-orca-tui-idle-before-route-proof; BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree; BUG-20260827-luna-low-worker-commits-before-green-gate
+qa_status: fail
+bug_ids: BUG-20260827-assisted-orca-tui-idle-before-route-proof; BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree; BUG-20260827-luna-low-worker-commits-before-green-gate; BUG-20260827-assisted-pilot-batch-cli-drops-final-newline; BUG-20260827-medium-route-contract-test-still-expects-low
 fix_status: pending
 retest_status:
-fix_commits:
-evidence: docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-7/session.md
+fix_commits: 40f2d55
+evidence: docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-8/session.md; docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-8/deep-review-result.md
 last_report: docs/qa/reports/2026-08-27-assisted-orca-slices.md
 overlaps: QAS-run-resource-free-parallel-orca-slices; QAS-clean-owned-parallel-slice-pilot; QAS-qualify-orca-host-before-parallel-use
 ---
@@ -102,3 +102,14 @@ The next current-contract retest uses `codex` / `gpt-5.6-luna` / `medium` after 
 violated the gate-before-commit and one-atomic-commit-per-task contract. This scenario is reset to
 `untested` with `fix_status: pending` and no unobserved fix commit claimed; a fresh E2E walk must
 observe the medium route's task integrity before updating these fields.
+
+Retest 8 proved the Luna-medium route's task integrity, 60.694 seconds of A/B overlap, exact B
+parking, exact A:T7 sync, affected gate, same-handle continuation, fresh per-slice Technical
+Verifiers, and conflict-free deterministic A-then-B integration. Grouped Deep Review then returned
+`FIX_BEFORE_SHIP` with one open Major because the mini CLI removes a terminal newline. Final persona
+QA did not run. The scenario is `fail` on that new defect; exact cleanup and a 60-second 63-sample
+audit returned to the exact two-worktree baseline with zero owned residue.
+
+The closing outer full gate also failed IT-005 because the canonical test still asserts Luna low
+after fix `40f2d55` froze Luna medium. QA skills and structural validators remained green. This is a
+separate tracked defect and keeps the feature tree unready.

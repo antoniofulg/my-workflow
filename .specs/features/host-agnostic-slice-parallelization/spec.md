@@ -186,10 +186,10 @@ sync, and leaves zero owned worktree or terminal residue.
 | AST-01 | Coordinator-assisted Orca contract | D | ✅ Contract and two-worker route proof verified |
 | AST-02 | Coordinator-assisted Orca contract | D | ✅ Contract; early start/park verified |
 | AST-03 | Coordinator-assisted Orca contract | D | ✅ Contract; clean exact B checkpoint verified |
-| AST-04 | Coordinator-assisted Orca contract | D | ❌ Contract verified; E2E blocked before sync by false-negative A follow-up receipt |
+| AST-04 | Coordinator-assisted Orca contract | D | ✅ Contract; exact producer sync, affected gate, and same-handle continuation verified |
 | AST-05 | Coordinator-assisted Orca contract | D | ✅ Contract verified; E2E pending |
 | AST-06 | Coordinator-assisted Orca contract | D | ✅ Contract verified; E2E pending |
-| AST-07 | Coordinator-assisted Orca contract | D | ❌ Contract verified; E2E readiness chain not reached |
+| AST-07 | Coordinator-assisted Orca contract | D | ❌ Tasks, Verifiers, and integration passed; grouped review found one Major before final QA |
 | SEC-001 | Boundary, probes, and cleanup | A–C | ✅ Verified |
 | SEC-002 | Boundary, probes, and cleanup | A–C | ✅ Verified |
 | SEC-003 | Boundary, probes, and cleanup | A–C | ✅ Verified |
@@ -197,7 +197,7 @@ sync, and leaves zero owned worktree or terminal residue.
 | SEC-005 | Boundary, probes, and cleanup | A–C | ✅ Verified |
 | SEC-006 | Boundary, probes, and cleanup | A–C | ✅ Verified |
 | SEC-007 | Boundary, probes, and cleanup | A–C | ✅ Verified |
-| SEC-008 | Assisted coordinator ownership and cleanup | D | ✅ Contract verified; setup cleanup passed, full E2E pending |
+| SEC-008 | Assisted coordinator ownership and cleanup | D | ✅ Contract and full exact Retest 8 cleanup verified |
 
 **Coverage:** 30 total requirements, 30 mapped, 0 unmapped.
 

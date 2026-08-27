@@ -137,3 +137,10 @@ gate and followed by an extra correction commit. Coordinator effect reconciliati
 commit count/subjects before Technical Verification. Cleanup-only A-then-B reconciliation was
 conflict-free and passed 10/10, but is not successful integration evidence. Exact cleanup returned
 to the two-worktree baseline with zero owned residue after a 60-second 65-sample audit.
+
+Retest 8 used Luna medium and passed the route-specific task-integrity boundary: six tasks produced
+six green-gated atomic commits with no correction commit. It proved 60.694 seconds of overlap,
+parking, producer sync, same-handle continuation, fresh Technical Verifiers, and conflict-free
+A-then-B integration. Grouped Deep Review stopped readiness with one open Major in the disposable
+CLI's terminal-newline framing, so final persona QA did not run. Exact cleanup returned to the
+two-worktree baseline with zero owned residue after a 60-second 63-sample audit.
