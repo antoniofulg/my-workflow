@@ -34,3 +34,16 @@ This bug therefore stays **open** with no Resolution. The next fresh QA Verifier
 Codex capacity, and must hand the fix to the Slice B Implementer on its own handle as one atomic
 remediation commit, then re-run Deep Review on the new head. Evidence:
 `docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-9/session.md`.
+
+## Retest 10 — still open, not exercised
+
+Retest 10 could not reach this defect either. The all-Claude snapshot's rendered route proof passed
+on both slices and `A:T1` was delivered and honoured packet-exactly, but the `A_FINAL` and
+`B_PARKED` packets were both silently truncated in transport
+(`BUG-20260827-orca-terminal-send-truncates-claude-worker-packet`). No integrated fixture existed,
+so grouped Deep Review, the fix loop, and the newline framing contract were neither re-observed nor
+fixed.
+
+This bug stays **open** with no Resolution. It cannot be reached until packet delivery to the worker
+is provable; the transport defect blocks it. Evidence:
+`docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-10/session.md`.

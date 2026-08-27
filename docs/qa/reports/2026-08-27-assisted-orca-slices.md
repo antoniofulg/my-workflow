@@ -527,3 +527,112 @@ exact two-worktree baseline; foreign resources were preserved.
 
 `BUG-20260827-assisted-pilot-batch-cli-drops-final-newline` remains open and unretested. No
 automatic Orca compatibility claim is made and no `preflight --canary` ran.
+
+## Retest 10 — 2026-08-27T15:19:33Z
+
+- **Source:** `30e828b`
+- **Adapter:** CLI/manual through installed Orca direct worktree and terminal interfaces
+- **Unique prefix:** `qa-assisted-20260827-r11` (collision-checked against Orca and Git before the first create; both `0`)
+- **Worker route:** `claude` / `sonnet` / `low` (frozen `workflow.json`, all four roles moved off the exhausted Codex quota)
+- **Raw evidence:** `docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-10/`
+- **Status:** **FAIL** — new Critical transport defect, `BUG-20260827-orca-terminal-send-truncates-claude-worker-packet`.
+
+### Route proof rewritten for the Claude provider — PASS
+
+The retest-8/9 matcher targeted Codex TUI text and is wrong for this snapshot. Per the packet, the
+ground worktree was created first, its startup shell promoted with
+`exec claude --model sonnet --effort low`, and the rendering read empirically over 42 samples
+(`retest-10/route-discover.jsonl`) before any slice worktree existed.
+
+Claude Code renders all three required facts on the rendered `source=screen` frame —
+`Claude Code v2.1.247` and `Sonnet 5 with low effort · Claude Max`. **Effort is directly observable
+on this provider, so no proof was weakened.** The retest-10 matcher requires `Claude Code`,
+`Sonnet 5` and `with low effort` on two consecutive connected `source=screen` frames, with
+`with medium effort` and `with high effort` both absent. Slice A accepted at sample 4; Slice B
+accepted at sample 4. AST-01 is re-confirmed on a second provider.
+
+### Reachable setup
+
+`before_inventory` was snapshotted before each of the three single mutating creates. Ground was
+created once at `pre_head=30e828b`, seeded conflict-free at `a86a9dd`, and passed the fixture gate
+`Ran 1 test … OK`. `hunk-proof.json` reproduced retest 8's layout byte for byte: two independent
+hunks `@@ -4,9 +4,9 @@` and `@@ -20,8 +20,8 @@`, `unified_context=3`, 13 immutable context lines
+between Slice A lines 7–9 and Slice B lines 23–25, `status=PASS`.
+
+Slice A was created once at `pre_head=a86a9dd`; ownership `new`/`sole`/`unused` passed. The `A_T1`
+packet (1225 chars) was sent exactly once with `ok=true` and reconciled **complete and
+packet-exact**: head `61302ad`, one commit `feat(pilot): add basic name normalization`, changed
+paths inside the allowlist, `A:T1` complete, scoped gate green, clean tree, same handle, agreeing
+second frame. Only then was Slice B created at `pre_head=61302ad` and routed. Both workers ran
+concurrently.
+
+### Blocking boundary — the receipt reports a write the agent never receives
+
+`A_FINAL` (1354 chars) and `B_PARKED` (1677 chars) were each sent exactly once with `ok=true`. Both
+failed closed.
+
+`A_FINAL` reconciled a complete, unambiguous, **non-conforming** effect: `commit_count`,
+`commit_subjects` and `tasks` all false with zero commits and a marker head equal to `pre_head`,
+while `clean`, `gate`, `head`, `descends`, `paths`, `idle`, `second_frame`, `same_handle` and
+`comment` were all true. The rendered transcript starts mid-word at
+`n end your turn with exactly one final standalone marker line …` — the worker received only the
+packet's tail and answered that fragment alone.
+
+`B_PARKED` produced no effect across **297** samples to the 300 s deadline. Its worker stated the
+cause unprompted: *"This message got cut off / garbled — I only see a fragment ending
+mid-instruction … Can you resend the full message?"*
+
+Neither packet was resent, no replacement worker was launched, and no second terminal was opened for
+either slice.
+
+A bounded characterization probe on the **ground** shell (a coordinator-owned non-slice terminal, so
+no slice lane's one-send rule was touched) quantified it: a 2081-character payload of position
+markers returned `{"ok": true, "accepted": true, "bytesWritten": 2082}` while the agent received
+**36 of 2081 characters**. Loss is timing-dependent rather than a fixed cap — 39 chars and 1225
+chars arrived intact, 1354 and 1677 did not, 2081 lost 98.3 %. `orca terminal send --help` exposes
+no chunking, paste or stdin mode, so `--text` is the only expressible transport.
+
+This is Critical against the assisted contract: exactly one send per packet is mandated, retry after
+a success receipt is forbidden, and a replacement worker is forbidden — so a silent truncation that
+still reports success burns the lane irrecoverably.
+
+### Task-integrity watch on the sonnet/low route
+
+The one packet that was delivered intact was honoured exactly: green gate before the commit, one
+atomic commit, packet-exact subject, allowlisted paths, clean tree. No gate-before-commit or
+extra-commit violation was observed on this route. The two rejected turns were rejected for
+non-delivery, not for worker misbehaviour, so retest 7's low-effort failure mode is **not**
+reproduced and also **not** cleared — one delivered packet is not enough evidence either way.
+
+### Stages that did not run
+
+Slice B parking, the exact `A:T7` producer sync, the affected gate, same-handle continuation,
+per-slice Technical Verifiers, deterministic A-then-B integration, grouped Deep Review, the newline
+fix loop, final CLI persona QA, and the fixture full gate.
+
+### Timing
+
+- Overlap window: `2026-08-27T15:26:05.657381Z` → `2026-08-27T15:26:23.258715Z`
+- Overlap duration: **17.601 s**
+- Maximum concurrency: **2**
+
+### Cleanup
+
+Pre-cleanup revalidation passed **11/11** for all three owned worktrees. Terminals were stopped
+(`rc 0`, `connected: false`, ground `[]`), each checkout was detached at its exact `current_head`
+with the head unchanged, each exact branch was deleted with non-force `git branch --delete` at
+`rc 0`, `git show-ref --verify --quiet` failed for all three proving ref absence, and all three
+complete Orca ids returned `removed: true` with the path absent. The 60-second audit ran
+**93 samples** with `[]` for owned worktrees, terminals, Git worktrees, paths, and refs.
+`git worktree list` returned the exact two-worktree baseline. Foreign resources were preserved and
+nothing foreign was adopted or cleaned.
+
+### Closing repository gates
+
+- `npm_config_offline=true npm run test:all` on the final tree: **PASS**, exit `0`; Vitest
+  `112/112` across 8 files; all Python lanes `OK`.
+- Fixture full gate: **not run** — no integrated fixture ever existed.
+
+`BUG-20260827-assisted-pilot-batch-cli-drops-final-newline` remains open and unretested for the
+second consecutive cycle: the fixture it lives in only exists inside a completed pilot run. No
+automatic Orca compatibility claim is made and no `preflight --canary` ran.

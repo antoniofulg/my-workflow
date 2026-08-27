@@ -7,11 +7,11 @@ journey: J-execute-parallel-slices
 expected: With explicit authorization, two assisted Orca slices overlap through one exact parked and resumed B worker, preserve every readiness stage, integrate deterministically, and leave no owned worktree, path, branch ref, or terminal residue.
 entry_points: .agents/skills/autonomous/references/parallelization.md; .specs/features/host-agnostic-slice-parallelization/workflow.json; orca worktree; orca terminal
 qa_status: fail
-bug_ids: BUG-20260827-assisted-orca-tui-idle-before-route-proof; BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree; BUG-20260827-luna-low-worker-commits-before-green-gate; BUG-20260827-assisted-pilot-batch-cli-drops-final-newline; BUG-20260827-medium-route-contract-test-still-expects-low
+bug_ids: BUG-20260827-assisted-orca-tui-idle-before-route-proof; BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree; BUG-20260827-luna-low-worker-commits-before-green-gate; BUG-20260827-assisted-pilot-batch-cli-drops-final-newline; BUG-20260827-medium-route-contract-test-still-expects-low; BUG-20260827-orca-terminal-send-truncates-claude-worker-packet
 fix_status: pending
-retest_status:
+retest_status: fail
 fix_commits: 40f2d55; 395a691
-evidence: docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-8/session.md; docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-8/deep-review-result.md; docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-9/session.md
+evidence: docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-8/session.md; docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-8/deep-review-result.md; docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-10/session.md
 last_report: docs/qa/reports/2026-08-27-assisted-orca-slices.md
 overlaps: QAS-run-resource-free-parallel-orca-slices; QAS-clean-owned-parallel-slice-pilot; QAS-qualify-orca-host-before-parallel-use
 ---
@@ -138,3 +138,29 @@ route is refreshed in the feature snapshot with `--override implementer=claude`;
 `grouped.3` and its `[[1,2],[3,4]]` groups are unchanged. Retest 7 already failed task integrity
 with a low-effort worker, so the next walk must observe gate-before-commit and one-atomic-commit-per-task
 on this route before any field is updated.
+
+Retest 10 started at `2026-08-27T15:19:33Z` against `30e828b` with prefix `qa-assisted-20260827-r11`
+and the refreshed all-Claude snapshot, worker route `claude` / `sonnet` / `low`. The Codex-shaped
+route matcher was replaced: the ground worktree's startup shell was promoted first and its rendering
+read empirically before any slice existed. Claude Code renders provider, model and effort together
+(`Claude Code v2.1.247`, `Sonnet 5 with low effort · Claude Max`), so the two-consecutive-frame
+`source=screen` proof holds unweakened on this provider and both slices accepted it at sample 4.
+Ground seeded conflict-free at `a86a9dd` with the identical two-hunk, 13-immutable-line layout, and
+the single `A_T1` packet was delivered intact and honoured exactly: green gate before the commit,
+one atomic packet-exact commit at `61302ad`, allowlisted paths, clean tree. Slice B then started on
+that verified head and both workers ran concurrently for 17.601 seconds at concurrency 2.
+
+The walk then failed on a new Critical transport defect. `A_FINAL` and `B_PARKED` were each sent
+once with `ok=true`, and the Claude Code TUI received only a mangled tail fragment of each: `A_FINAL`
+reconciled a complete zero-work effect that was rejected on commit count, subjects and task status,
+and `B_PARKED` reached its 300 s deadline at `marker-count=0`. Neither was resent and no replacement
+worker or second terminal was created. A bounded characterization probe on the coordinator's
+non-slice ground shell measured the loss: `bytesWritten` 2082 with `ok=true`, 36 of 2081 characters
+received. Because the contract mandates one send with no retry and no replacement worker, a
+truncation that reports success burns the lane irrecoverably. The scenario is `fail` on
+[`BUG-20260827-orca-terminal-send-truncates-claude-worker-packet`](../bugs/BUG-20260827-orca-terminal-send-truncates-claude-worker-packet.md);
+the still-open newline Major was unreachable for the second consecutive cycle. Exact cleanup
+revalidated 11/11 on all three owned worktrees, deleted all three branches non-force with ref
+absence proven, removed all three complete Orca ids, and a 60-second 93-sample audit returned to the
+exact two-worktree baseline with zero owned residue. The closing outer full gate
+`npm_config_offline=true npm run test:all` exited `0` with Vitest `112/112`.
