@@ -171,10 +171,29 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(policy).toMatch(/an\s+unused shell/);
     expect(policy).toMatch(/no agent\/default-task\s+activity/);
     expect(policy).toMatch(/exactly one\s+coordinator-owned startup\s+handle/i);
+    expect(policy).toContain("snapshot the exact repository worktree and terminal inventory");
+    expect(normalizedPolicy).toContain("before_inventory");
+    expect(normalizedPolicy).toContain("after_inventory - before_inventory");
+    expect(policy).toContain("generate a unique logical slice name");
+    expect(policy).toContain("exactly one create");
+    expect(policy.match(/orca worktree create --name <slice>/g)?.length).toBe(1);
+    expect(normalizedPolicy).toContain("never retried blindly");
+    expect(normalizedPolicy).toContain("bounded `after_inventory - before_inventory` difference");
+    expect(normalizedPolicy).toContain("zero, multiple, or ambiguous candidates serialize");
+    expect(normalizedPolicy).toContain("complete immutable receipt and ownership proof");
     expect(policy).toContain("exec <validated-frozen-agent-command>");
     expect(policy).toContain("orca terminal read --terminal <startupTerminal.handle> --screen");
     expect(policy).toContain("source=screen");
-    expect(policy).toMatch(/provider, model, and\s+effort\s+all present and\s+matching/);
+    expect(normalizedPolicy).toMatch(/provider, model, and\s+effort\s+all present and\s+matching/);
+    expect(policy).toContain("bounded machine-only TUI materialization probe");
+    expect(policy).toContain("timeout_ms=60000");
+    expect(policy).toContain("interval_ms=250");
+    expect(policy).toContain("two consecutive screen reads");
+    expect(policy).toContain("handle must remain connected");
+    expect(policy).toContain("one screen or");
+    expect(policy).toContain("one pre-send `tui-idle` result is never sufficient");
+    expect(policy).toContain("This probe is not the dependency waiter");
+    expect(policy).toContain("performs no model turns");
     expect(policy).toContain("screen-unavailable");
     expect(policy).toContain("matching the frozen tuple");
     expect(policy).toMatch(/Do not\s+edit `tasks\.md`/);
@@ -188,17 +207,29 @@ describe("autonomous parallel slice dispatch contract", () => {
       "Apply `shq` to every value that crosses a shell boundary and build the fixed provider command only after that proof",
       "Construct `exec_payload` as the complete `exec <validated-frozen-agent-command>` string",
       "orca terminal send --terminal <startupTerminal.handle> \\ --text <shq(exec_payload)>",
+      "bounded machine-only route-materialization probe",
+      "orca terminal show --terminal <startupTerminal.handle> --json",
+      "orca terminal read --terminal <startupTerminal.handle> --screen",
       "orca terminal wait --terminal <startupTerminal.handle> --for tui-idle",
+      "orca terminal show --terminal <startupTerminal.handle> --json",
       "orca terminal read --terminal <startupTerminal.handle> --screen",
       "After the screen proof matches the frozen route, construct `task_payload` as the complete slice",
       "orca terminal send --terminal <startupTerminal.handle> --text <shq(task_payload)>",
     ];
-    lifecycleMarkers.splice(2, 0, "orca terminal show --terminal <startupTerminal.handle> --json");
-    const lifecyclePositions = lifecycleMarkers.map((marker) => normalizedPolicy.indexOf(marker));
+    let lifecyclePositions: number[] = [];
+    let previousLifecyclePosition = -1;
+    lifecyclePositions = lifecycleMarkers.map((marker, index) => {
+      const position = normalizedPolicy.indexOf(marker, index <= 6 ? 0 : previousLifecyclePosition + 1);
+      previousLifecyclePosition = position;
+      return position;
+    });
     expect(lifecyclePositions.every((position) => position >= 0)).toBe(true);
+    expect(lifecyclePositions[0]).toBeGreaterThan(normalizedPolicy.indexOf("exactly one create"));
     for (let index = 1; index < lifecyclePositions.length; index += 1) {
       expect(lifecyclePositions[index]).toBeGreaterThan(lifecyclePositions[index - 1]);
     }
+    expect(normalizedPolicy.indexOf("orca terminal wait --terminal <startupTerminal.handle> --for tui-idle"))
+      .toBeGreaterThan(normalizedPolicy.indexOf("orca terminal read --terminal <startupTerminal.handle> --screen"));
     // AST-02: one worker per ready slice and sequential tasks to the first dependency.
     expect(policy).toContain("Start at most one worker for each planner-ready slice");
     expect(policy).toMatch(/sequential TLC tasks and stops at the\s+first unmet task dependency/);
@@ -266,8 +297,14 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(dx).toContain("claude --model <shq(model)> --effort <shq(effort)>");
     expect(dx).toContain("cursor agent");
     expect(dx).toContain("--help`/availability check");
-    expect(dx).toContain("wait for `tui-idle`, then run");
+    expect(dx).toContain("send the complete `exec` payload once");
     expect(dx).toContain("terminal read --terminal <handle> --screen --json");
+    expect(dx).toContain("two consecutive screen reads");
+    expect(dx).toContain("timeout and small interval");
+    expect(dx).toContain("not the dependency waiter");
+    expect(dx).toContain("never retried blindly");
+    expect(dx).toContain("before/after inventory difference");
+    expect(dx).toContain("Zero, multiple, or ambiguous");
     expect(dx).toContain("Always use the two-step");
     expect(dx).toContain("startup-shell promotion");
     expect(dx).toContain("Never open a second");

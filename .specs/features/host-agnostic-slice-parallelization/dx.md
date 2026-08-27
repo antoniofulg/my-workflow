@@ -54,7 +54,12 @@ new executor verb or compatibility result. It must read the frozen
 unobservable default. The command examples below use `shq(value)` to mean actual POSIX-shell quoting
 (for example `shlex.quote`); do not concatenate literal quote characters around arbitrary values.
 Use a fixed-argv/no-shell wrapper where possible, and apply `shq` to every provider, model, effort,
-slice, base-branch, branch, ref, and handle value otherwise. Create the worktree with explicit
+slice, base-branch, branch, ref, and handle value otherwise. Snapshot the exact repository worktree
+and terminal inventory before the one mutating create, generate a unique logical name, and invoke
+exactly one create. The public Orca CLI has no idempotency key, so a missing receipt or timeout is
+never retried blindly; reconcile one bounded before/after inventory difference and adopt exactly one
+candidate only after complete immutable receipt and ownership proof. Zero, multiple, or ambiguous
+candidates serialize and exact-clean every provably owned late effect. Create the worktree with explicit
 base/setup, record the exact
 `startupTerminal.handle`, prove that it was newly created by the just-created worktree, uniquely
 owned by it, is one new unused shell, and has no agent/default-task activity, then shell-quote the
@@ -62,11 +67,16 @@ frozen tuple values and send `exec <validated-command>` to that same handle. The
 forms are `codex --model <shq(model)> -c <shq(model_reasoning_effort=<effort>)>`,
 `claude --model <shq(model)> --effort <shq(effort)>`, and `cursor agent --model
 <shq(model[effort=<effort>])>`; merge Cursor effort into an existing parameter block. Use the
-selected executable's `--help`/availability check, wait for `tui-idle`, then run
-`orca terminal read --terminal <handle> --screen --json`. Continue only when `source=screen` renders
-the exact provider, model, and effort tuple. `screen-unavailable`, omitted provider, mismatch, or
-ambiguity stops and serializes before the prompt or task edit. An inexpressible or unavailable route
-stops setup without editing `tasks.md`. Always use the two-step
+selected executable's `--help`/availability check, then send the complete `exec` payload once. Run a
+bounded machine-only route-materialization probe with an explicit overall timeout and small interval:
+each iteration uses exact-handle `orca terminal show --terminal <handle> --json` plus `orca terminal read --terminal <handle> --screen --json`, and the
+handle must remain connected. Continue only after two consecutive screen reads report `source=screen`
+with the exact provider, model, and effort tuple. After the first matching frame, `tui-idle` may be
+checked, but the next matching screen is still required. `screen-unavailable`, omitted provider,
+mismatch, disconnect, timeout, or ambiguity stops and serializes before the prompt or task edit. This
+bounded TUI materialization probe is not the dependency waiter: it performs no model turns and does
+not poll or spin on task state. An inexpressible or unavailable route stops setup without editing
+`tasks.md`. Always use the two-step
 `worktree create` plus startup-shell promotion, preserving startup policy. Never open a second
 terminal. Construct each complete `exec` or task-packet payload first, apply `shq(payload)` once to
 the complete value, and pass it as `--text <shq(payload)>`; never use literal outer double quotes.

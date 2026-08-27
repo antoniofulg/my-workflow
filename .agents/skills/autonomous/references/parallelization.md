@@ -98,14 +98,25 @@ are argv shapes; use a fixed-argv/no-shell wrapper where possible, and otherwise
 interpolated provider, model, effort, slice, base-branch, branch, ref, and handle value. Merge the
 Cursor effort into an existing parameter block instead of adding a duplicate block. Use the selected
 executable's `--help` and availability check to confirm the command is expressible. After the command
-is sent, `terminal wait --for tui-idle` and `orca terminal read --terminal <worker-handle> --screen
---json` prove the rendered TUI identity. Accept only `source=screen` with provider, model, and effort
-all present and matching the frozen tuple. `screen-unavailable`, an omitted provider, a mismatch, or
+is sent once, a bounded machine-only TUI materialization probe uses exact-handle
+`terminal show --json` and `terminal read --screen --json` with `timeout_ms=60000` and
+`interval_ms=250`. The handle must remain connected. Accept only `source=screen` with provider, model,
+and effort all present and matching the frozen tuple in two consecutive screen reads. After the first
+matching frame, `terminal wait --for tui-idle` may be checked, but acceptance still requires the next
+matching screen read. A timeout, mismatch, disconnect, `screen-unavailable`, omitted provider, or
 ambiguity stops and serializes before the prompt or any task edit; clean only verified owned setup
-resources. Do not edit `tasks.md`, start a task, or continue in parallel.
+resources. This probe is not the dependency waiter: it performs no model turns and does not poll or
+spin on task state. Do not edit `tasks.md`, start a task, or continue in parallel.
 
-Create the worktree with an explicit base and setup policy. Record the immutable receipt and prove
-the startup shell before promoting it; never create a second terminal for the worker:
+Before the one mutating create, snapshot the exact repository worktree and terminal inventory into
+`before_inventory` and generate a unique logical slice name. Invoke exactly one create with an explicit base and setup
+policy; the public Orca CLI has no idempotency key, so a missing receipt or timeout is never retried
+blindly. Reconcile that call with one bounded `after_inventory - before_inventory` difference using
+the logical name. Adopt exactly one candidate only after a complete immutable receipt and ownership proof can be
+reconstructed; zero, multiple, or ambiguous candidates serialize and exact-clean every provably
+owned late effect. Never invent a receipt or claim compatibility from an ambiguous result. Record the
+immutable receipt and prove the startup shell before promoting it; never create a second terminal for
+the worker:
 
 ```bash
 orca worktree create --name <slice> --base-branch <base-branch> --setup inherit --json
@@ -135,7 +146,12 @@ Construct `exec_payload` as the complete `exec <validated-frozen-agent-command>`
 ```bash
 orca terminal send --terminal <startupTerminal.handle> \
   --text <shq(exec_payload)> --enter --json
+# bounded machine-only route-materialization probe: show/read, explicit timeout + interval
+orca terminal show --terminal <startupTerminal.handle> --json
+orca terminal read --terminal <startupTerminal.handle> --screen --json
+# after the first matching frame, tui-idle may be checked; require the next matching screen too
 orca terminal wait --terminal <startupTerminal.handle> --for tui-idle --timeout-ms 60000 --json
+orca terminal show --terminal <startupTerminal.handle> --json
 orca terminal read --terminal <startupTerminal.handle> --screen --json
 ```
 
@@ -146,10 +162,12 @@ packet, then apply `shq(payload)` once to that complete payload before passing i
 orca terminal send --terminal <startupTerminal.handle> --text <shq(task_payload)> --enter --json
 ```
 
-Never wrap either payload in literal outer double quotes. Accept the screen only when it reports
-`source=screen` and the provider, model, and effort all match the frozen tuple. A failed conjunction
-serializes and cleans before `exec`; `screen-unavailable`, an omitted provider, a mismatch, or
-ambiguity serializes before the task packet or any task edit.
+Never wrap either payload in literal outer double quotes. The probe's final acceptance requires two
+consecutive matching `source=screen` frames while the exact handle remains connected; one screen or
+one pre-send `tui-idle` result is never sufficient. A failed conjunction serializes and cleans before
+the task packet or any task edit; `screen-unavailable`, an omitted provider, a mismatch, disconnect,
+timeout, or ambiguity also serializes. The probe is machine-only and bounded; dependency waiting
+remains event-driven and does not poll, spin, or spend model turns checking unchanged state.
 Record mutable `current_head` and `current_handle` separately; the same startup handle remains the
 worker handle and is updated only after a commit, sync, or exact-handle reacquisition. Never open a
 second terminal or create a second worker for the same slice.
