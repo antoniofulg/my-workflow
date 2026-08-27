@@ -174,7 +174,28 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(policy).toContain("actual POSIX-shell quoting");
     expect(policy).toContain("fixed-argv/no-shell wrapper");
     expect(normalizedPolicy).toContain("complete `exec <validated-frozen-agent-command>` string");
-    expect(normalizedPolicy).toContain("complete slice packet");
+    // AST-04: the slice packet body is delivered by coordinator-owned file, never inline.
+    expect(normalizedPolicy).toContain(
+      "write the complete slice packet, including its required `TURN_DONE <phase> head=<40-hex-sha>` marker, to a coordinator-owned `packet_file` outside every slice worktree",
+    );
+    expect(normalizedPolicy).toContain(
+      "so it can never dirty a worktree or appear in a changed-path allowlist",
+    );
+    expect(normalizedPolicy).toContain(
+      "Construct `task_payload` as the short fixed-shape pointer `read <packet_file> and execute it as your packet`",
+    );
+    expect(normalizedPolicy).toContain("The packet body never crosses `terminal send`");
+    expect(normalizedPolicy).toContain(
+      "`packet_file` crosses the shell boundary inside that pointer and is covered by that single `shq(payload)`; never quote it twice",
+    );
+    expect(normalizedPolicy).toContain("does not make the host transport reliable");
+    expect(normalizedPolicy).toContain(
+      "a truncated pointer cannot produce a valid marker, so truncation still fails closed instead of silently half-executing",
+    );
+    // The removed inline-payload path has no fallback and no length threshold.
+    expect(normalizedPolicy).not.toContain(
+      "construct `task_payload` as the complete slice packet",
+    );
     expect(normalizedPolicy).toContain("apply `shq(payload)` once to that complete payload");
     expect(normalizedPolicy).toContain("Never wrap either payload in literal outer double quotes");
     expect(policy).not.toContain('--text "exec <validated-frozen-agent-command>"');
@@ -242,7 +263,7 @@ describe("autonomous parallel slice dispatch contract", () => {
       "orca terminal send --terminal <startupTerminal.handle> \\ --text <shq(exec_payload)>",
       "Then run the bounded machine-only TUI materialization probe loop on that same handle",
       "each iteration performs the exact-handle `orca terminal show --terminal <startupTerminal.handle> --json` plus `orca terminal read --terminal <startupTerminal.handle> --screen --json`",
-      "After the route loop reaches two consecutive matching frames, construct `task_payload` as the",
+      "After the route loop reaches two consecutive matching frames, write the complete slice packet,",
       "orca terminal send --terminal <startupTerminal.handle> --text <shq(task_payload)>",
     ];
     let previousLifecyclePosition = -1;

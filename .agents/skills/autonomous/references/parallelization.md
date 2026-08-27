@@ -190,13 +190,22 @@ next matching screen is still required. A timeout, mismatch, disconnect, `screen
 omitted provider, or ambiguity serializes before any task payload or task edit. one screen or one pre-send `tui-idle` result is never sufficient. This probe is not the dependency waiter. This probe
 performs no model turns and does not poll or spin on task state; dependency waiting remains event-driven.
 
-After the route loop reaches two consecutive matching frames, construct `task_payload` as the
-complete slice packet, then apply `shq(payload)` once to that complete payload before passing it to
-`--text`:
+After the route loop reaches two consecutive matching frames, write the complete slice packet,
+including its required `TURN_DONE <phase> head=<40-hex-sha>` marker, to a coordinator-owned
+`packet_file` outside every slice worktree, so it can never dirty a worktree or appear in a
+changed-path allowlist. Construct `task_payload` as the short fixed-shape pointer
+`read <packet_file> and execute it as your packet`, then apply `shq(payload)` once to that complete
+payload before passing it to `--text`:
 
 ```bash
 orca terminal send --terminal <startupTerminal.handle> --text <shq(task_payload)> --enter --json
 ```
+
+`packet_file` crosses the shell boundary inside that pointer and is covered by that single
+`shq(payload)`; never quote it twice. The packet body never crosses `terminal send`. This does not
+make the host transport reliable; it reduces the mandated payload to a size at which the observed
+truncation did not occur. Every fail-closed rule above still applies, and a truncated pointer cannot
+produce a valid marker, so truncation still fails closed instead of silently half-executing.
 
 Never wrap either payload in literal outer double quotes. Record mutable `current_head` and
 `current_handle` separately; the same startup handle remains the worker handle and is updated only
