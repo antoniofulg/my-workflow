@@ -4,9 +4,9 @@ area: ADP
 title: Adopt the workflow without replacing consumer-owned state
 persona: Workflow adopter
 journey: J-adopt-workflow
-expected: A fresh target receives the workflow resolver, tracked example/templates, initialized local config, generated runtime packets, tools/ad-index.py, and a valid workflow tour; re-adoption preserves consumer-owned local state, creates no removed integration artifacts, and leaves host-boundary sentinels unchanged.
+expected: A fresh target receives the workflow resolver, tracked example/templates, initialized local config, generated runtime packets, tools/ad-index.py, and a valid workflow tour; source-pack-only Bun tests/configuration/preload and bun.lock remain absent; re-adoption preserves consumer-owned local state, creates no removed integration artifacts, and leaves host-boundary sentinels unchanged.
 entry_points: README.md#adopt-the-workflow; docs/guidelines/ARTIFACT-LIFECYCLE.md; scripts/adopt.py; .my-workflow.toml.example; .my-workflow.toml; templates/agents/
-qa_status: pass
+qa_status: untested
 bug_ids: BUG-20260822-deep-review-learnings-untrackable; BUG-20260822-feature-specs-ignored; BUG-20260822-feature-state-gate-conflicts; BUG-20260825-scenario-pass-report-field; BUG-20260825-adoption-omits-parallel-pilot
 fix_status: fixed
 retest_status: pass
@@ -79,3 +79,8 @@ Fresh QA after `816afd6` passed the affected adoption journey. The pilot install
 bytes, an intentionally stale managed copy was repaired, two re-adoptions preserved consumer-owned
 configuration byte-for-byte, and all 15 generated provider packets remained unchanged. The linked
 release/package canary also passed; see the current report.
+
+The Bun 1.4 migration changes this public adoption boundary: structural tests, Bun configuration,
+and the preload guard remain source-pack-only, while adopted targets receive knowledge source
+modules and no `bun.lock`. This scenario is reset to `untested` for the 2026-08-27 Bun source-pack
+walk; historical evidence, bug links, and fixed-bug retest fields remain intact.

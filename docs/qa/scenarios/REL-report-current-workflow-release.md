@@ -13,7 +13,7 @@ retest_status: pass
 fix_commits: 61f2e74; 816afd6; 1593299
 evidence: docs/qa/evidence/2026-08-25-release-0-6-0/session.md; docs/qa/evidence/2026-08-25-release-0-6-0/retest-package-summary.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-version-parity.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-protected-history.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-reference-scan.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-migration.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-locality.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-adoption.json
 last_report: docs/qa/reports/2026-08-25-release-0-6-0.md
-overlaps:
+overlaps: ADP-adopt-workflow-safely
 ---
 
 The current release walk covers the v0.7.0 Unreleased notes, Bun 1.4 structural test discovery
