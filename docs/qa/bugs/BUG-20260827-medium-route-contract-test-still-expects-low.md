@@ -1,6 +1,6 @@
 # BUG-20260827-medium-route-contract-test-still-expects-low
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** major
 - **Scenario:** `QAS-coordinate-assisted-orca-slices`
 - **Expected:** The canonical assisted-parallelization contract test agrees with the frozen Luna-medium worker route introduced by `40f2d55`, and the outer full gate is green.
@@ -19,3 +19,10 @@ still encodes Luna low. The feature tree is not ready regardless of the live pil
 Update the canonical contract assertions and any paired charter expectation to the frozen medium
 route, rerun the focused suite and outer full gate, then resume fresh QA after the separate mini CLI
 review defect is fixed. Never weaken or remove IT-005.
+
+## Resolution
+
+Changed the four `low` expectations in IT-005 (`tools/shared/tests/autonomous-parallelization.test.ts`
+lines 155, 157, 160, 163) to `medium` — no other lines touched, IT-005 still asserts the exact tuple.
+Focused suite: 4 passed, 0 failed. Outer full gate (`npm_config_offline=true npm run test:all`):
+112 passed, 0 failed. `git diff --check`: clean.
