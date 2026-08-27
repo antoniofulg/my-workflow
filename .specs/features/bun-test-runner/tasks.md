@@ -86,10 +86,10 @@ T3 -> T4 -> T5
 
 **Done when**:
 
-- [ ] All eight tracked suites import from `bun:test`; zero active `vitest` imports remain.
-- [ ] `npm test` invokes Bun and reports eight files, 115 passes, and zero failures.
-- [ ] `it.each`, suite/test timeouts, subprocesses, and `-t` filtering preserve contracted results.
-- [ ] Missing Bun has no wrapper or fallback path to Vitest.
+- [x] All eight tracked suites import from `bun:test`; zero active `vitest` imports remain.
+- [x] `npm test` invokes Bun and reports eight files, 115 passes, and zero failures.
+- [x] `it.each`, suite/test timeouts, subprocesses, and `-t` filtering preserve contracted results.
+- [x] Missing Bun has no wrapper or fallback path to Vitest.
 
 **Tests**: BTR-IT-002, BTR-IT-003, BTR-IT-004, BTR-IT-006
 **Gate**: build

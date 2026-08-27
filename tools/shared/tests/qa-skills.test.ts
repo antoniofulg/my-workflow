@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 const repositoryRoot = process.cwd();
 
@@ -1015,7 +1015,7 @@ describe("adoption and public setup", () => {
     const latestRelease = changelog.slice(releaseStart, nextRelease === -1 ? undefined : nextRelease);
 
     expect(manifest.version).toBe("0.6.0");
-    expect(manifest.scripts?.test).toBe("vitest run --dir tools");
+    expect(manifest.scripts?.test).toBe("bun test");
     expect(lockfile.version).toBe("0.6.0");
     expect(lockfile.packages?.[""]?.version).toBe("0.6.0");
     expect(latestHeading).toBe("0.6.0");
