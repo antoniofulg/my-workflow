@@ -16,6 +16,7 @@ import parallel_plan
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / ".agents/skills/tlc-spec-driven/scripts"))
 import validate_tasks  # noqa: E402
+import test_workflow_config as workflow_fixtures  # noqa: E402
 
 
 def make_repo(tasks: str, mode: str = "safe", feature: str = "fixture") -> Path:
@@ -36,7 +37,7 @@ def make_repo(tasks: str, mode: str = "safe", feature: str = "fixture") -> Path:
                 "feature": feature,
                 "git_head": head,
                 "parallelization": {"mode": mode},
-                "version": 1,
+                "version": 2,
             },
             indent=2,
             sort_keys=True,
@@ -66,6 +67,17 @@ def task(
         + (f"**Resources:** {resources}\n" if resources is not None else "")
         + "\n"
     )
+
+
+def make_resolver_repo(tasks: str, feature: str = "fixture") -> Path:
+    root = workflow_fixtures.make_root()
+    workflow_fixtures.write_config(root)
+    workflow_fixtures.write_packets(root)
+    workflow_fixtures.write_tasks(root, tasks, feature)
+    workflow_fixtures.workflow_config.sync_agents(root)
+    workflow_fixtures.git_root(root)
+    workflow_fixtures.workflow_config.resolve(root=root, feature=feature, native_provider="codex")
+    return root
 
 
 def first_task(plan: dict[str, object], task_id: str) -> dict[str, object]:
@@ -108,6 +120,36 @@ def test_closure_table_does_not_change_declared_slice_membership() -> None:
             for item in [*plan["lanes"], *plan["blocked"]]
         }
         assert planned_membership == contract["task_slices"]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_resolver_v2_snapshot_preserves_validator_membership() -> None:
+    closure = (
+        "## Vertical Slice Closure\n\n"
+        "| Slice | Observable outcome | Independent gate | Merge if later slices are cancelled? | Why |\n"
+        "| --- | --- | --- | --- | --- |\n"
+        "| A | First capability. | `gate-a` | yes | Independent value. |\n"
+        "| B | Second capability. | `gate-b` | yes | Independent value. |\n\n"
+        "## Task Breakdown\n\n"
+    )
+    tasks = closure + task("T1", "A") + task("T2", "A") + task("T3", "B") + task("T4", "B")
+    root = make_resolver_repo(tasks)
+    try:
+        snapshot = json.loads(
+            (root / ".specs/features/fixture/workflow.json").read_text(encoding="utf-8")
+        )
+        assert snapshot["version"] == 2
+        contract = validate_tasks.validated_slice_contract(
+            str(root / ".specs/features/fixture/tasks.md")
+        )
+        plan = parallel_plan.plan(root=root, feature="fixture")
+        planned_membership = {
+            item["task"]: item["slice"]
+            for item in [*plan["lanes"], *plan["blocked"]]
+        }
+        assert planned_membership == contract["task_slices"]
+        assert plan["source_git_head"] == snapshot["git_head"]
     finally:
         shutil.rmtree(root)
 
@@ -334,13 +376,13 @@ def test_snapshot_identity_and_version_are_validated_before_mode_and_head() -> N
                 "feature": "other-feature",
                 "git_head": "head",
                 "parallelization": {"mode": "safe"},
-                "version": 1,
+                "version": 2,
             },
             {
                 "feature": "fixture",
                 "git_head": "head",
                 "parallelization": {"mode": "safe"},
-                "version": 2,
+                "version": 1,
             },
         ):
             path.write_text(json.dumps(snapshot), encoding="utf-8")
@@ -364,7 +406,7 @@ def test_malformed_snapshot_modes_exit_with_invalid_snapshot_error() -> None:
                 "feature": "fixture",
                 "git_head": "head",
                 "parallelization": {"mode": mode},
-                "version": 1,
+                "version": 2,
             }
             path.write_text(json.dumps(snapshot), encoding="utf-8")
             result = subprocess.run(

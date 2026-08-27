@@ -8,6 +8,7 @@ TLC remains unchanged, and tasks inside a slice remain sequential.
 1. Resolve the feature workflow with `.agents/skills/workflow-config/SKILL.md`.
 2. Read the frozen `workflow.json` before planning. Never plan from current configuration while
    resuming a feature.
+   The active workflow snapshot is version 2; version 1 is rejected without migration.
 3. Run the read-only planner from the repository root:
 
    ```bash

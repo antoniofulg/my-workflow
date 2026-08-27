@@ -18,6 +18,7 @@
 | T5 | Done | `package.json:12`; full gate 380/380 passed. |
 | R1 | Done | `tools/test_workflow_config.py:230` and `tools/test_parallel_plan.py:89`; prior atomicity and membership gaps remain closed. |
 | R2 | Done | `tools/test_tlc_validators.py:143`; every invalid merge-alone value requires slice `A` and exact lowercase `yes`. |
+| QA1 | Implemented — pending independent verification | `tools/test_parallel_plan.py`, `tools/test_parallel_executor.py`, and `tools/test_qa_parallel_pilot.py`; v2 consumer coverage added without changing runtime/plan/result/lifecycle schema versions. |
 
 ## Spec-Anchored Acceptance Criteria
 
@@ -129,3 +130,10 @@ None.
 **Test contract**: 16/16 rows matched; 0 gaps.
 **Sensor**: 1/1 killed; 0 survived.
 **Gate**: 380/380 passed; 0 failed; 0 skipped.
+
+## QA1 Implementation Check
+
+QA1 hard-cuts the active parallel-consumer workflow snapshot to version 2 and rejects version 1
+without migration. Resolver-to-planner membership, executor acceptance/rejection, and pilot v2
+fixtures are covered by the implementation gates. This note records implementation evidence only;
+it is not a QA execution pass. MAS-12 and MAS-13 remain pending fresh independent verification.

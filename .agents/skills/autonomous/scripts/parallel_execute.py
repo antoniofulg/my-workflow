@@ -493,7 +493,7 @@ class Coordinator:
         path = self.root / ".specs" / "features" / self.feature / "workflow.json"
         try:
             snapshot = json.loads(path.read_text(encoding="utf-8"))
-            if not isinstance(snapshot, dict) or snapshot.get("version") != 1 or snapshot.get("feature") != self.feature:
+            if not isinstance(snapshot, dict) or snapshot.get("version") != 2 or snapshot.get("feature") != self.feature:
                 raise ValueError
             mode = snapshot["parallelization"]["mode"]
             head = snapshot["git_head"]

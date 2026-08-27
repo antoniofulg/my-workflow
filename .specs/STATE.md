@@ -3,11 +3,11 @@
 ## Handoff
 
 - **Feature**: `.specs/features/merge-alone-slices`
-- **Phase / Task**: Execute / QA1
-- **Completed**: QA Plan committed; QA Execute passed resolver/freeze legs, then recorded FAIL because the v2 resolver snapshot is rejected by the v1-only parallel planner. Closing gate passed 383/383.
+- **Phase / Task**: Execute / QA1 complete
+- **Completed**: QA Plan committed; QA Execute previously recorded the resolver/parallel-consumer mismatch. QA1 now hard-cuts planner, executor, and pilot consumers to workflow snapshot v2 with v1 rejection and resolver-membership coverage. Targeted and adoption gates are green; fresh independent verification and QA retest remain pending.
 - **In-progress** (file:line): none.
-- **Next step**: Implement the version-2 hard cut, run a fresh Technical Verifier, then retest the affected planner journey and adoption canary in a fresh QA Execute session.
-- **Blockers**: `CFG-plan-parallel-slice-dispatch` is failed until BUG-20260827-parallel-plan-rejects-workflow-v2 is fixed and retested.
+- **Next step**: Run the fresh independent verifier, then retest the affected planner journey and adoption canary in a fresh QA Execute session.
+- **Blockers**: none for implementation; `CFG-plan-parallel-slice-dispatch` remains pending QA retest.
 - **Uncommitted files**: none.
 - **Branch**: `fix/merge-alone-slices`
 

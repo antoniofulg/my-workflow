@@ -332,17 +332,17 @@ heading without its required colon, even when later valid tasks remain.
 
 Done when:
 
-- [ ] Planner and executor accept workflow snapshot version 2 and preserve existing identity checks.
-- [ ] Planner and executor reject workflow snapshot version 1 without compatibility parsing.
-- [ ] Real resolver output feeds the planner with unchanged task and slice membership.
-- [ ] The parallel QA pilot uses version 2 and completes its existing lifecycle.
-- [ ] Historical snapshots and unrelated plan/runtime/result schema versions remain unchanged.
-- [ ] Targeted, adoption, and full gates pass.
+- [x] Planner and executor accept workflow snapshot version 2 and preserve existing identity checks.
+- [x] Planner and executor reject workflow snapshot version 1 without compatibility parsing.
+- [x] Real resolver output feeds the planner with unchanged task and slice membership.
+- [x] The parallel QA pilot uses version 2 and completes its existing lifecycle.
+- [x] Historical snapshots and unrelated plan/runtime/result schema versions remain unchanged.
+- [x] Targeted, adoption, and full gates pass.
 
 - Tests: MAS-IT-010..012 in canonical planner, executor, and pilot suites.
 - Gate: Targeted parallel suites, workflow resolver, adoption, and full `npm run test:all`.
 - Commit: `fix(parallel): accept current workflow snapshot v2`
-- Status: in progress — QA exposed the resolver/consumer mismatch.
+- Status: complete — v2 consumers are implemented and local gates pass; MAS-12/13 remain pending fresh independent verification.
 
 ## Phase Execution Map
 

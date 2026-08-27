@@ -106,8 +106,8 @@ planner and executor; both accept it, while a version-1 fixture is rejected.
 | MAS-09 | P1: Template distinguishes planning units | DR1 | Verified |
 | MAS-10 | P1: Remediation does not inflate slices | DR2 | Verified |
 | MAS-11 | P1: Downstream planners share membership | DR2 | Verified |
-| MAS-12 | P1: Parallel consumers accept workflow snapshot v2 | QA1 | Pending |
-| MAS-13 | P1: Parallel consumers reject workflow snapshot v1 | QA1 | Pending |
+| MAS-12 | P1: Parallel consumers accept workflow snapshot v2 | QA1 | Implemented — pending fresh independent verification |
+| MAS-13 | P1: Parallel consumers reject workflow snapshot v1 | QA1 | Implemented — pending fresh independent verification |
 
 **Coverage:** 13 total, 13 mapped to tasks, 0 unmapped.
 

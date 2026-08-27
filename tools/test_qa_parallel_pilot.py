@@ -38,6 +38,10 @@ def test_pilot_handoff_uses_disposable_safe_fixture_and_dry_run_two_lanes() -> N
             check=False,
         )
         result = json.loads(dry_run.stdout)
+        snapshot = json.loads(
+            (fixture_root / ".specs/features/parallel-pilot/workflow.json").read_text(encoding="utf-8")
+        )
+        assert snapshot["version"] == 2
         assert result["mode"] == "safe"
         assert result["validated"] is True
         assert result["repository_head"] == result["source_git_head"]
@@ -171,6 +175,12 @@ def test_pilot_dry_run_rejects_frozen_head_mutation_and_unmarked_cleanup() -> No
         original_snapshot = dict(payload)
         ownership_path = fixture_root / ".parallel-slice-qa-ownership.json"
         ownership = json.loads(ownership_path.read_text(encoding="utf-8"))
+        payload["version"] = 1
+        payload["git_head"] = original_snapshot["git_head"]
+        workflow.write_text(json.dumps(payload), encoding="utf-8")
+        rejected_version = subprocess.run([sys.executable, str(HARNESS), "dry-run", "--root", fixture], text=True, capture_output=True, check=False)
+        assert rejected_version.returncode != 0
+        payload["version"] = 2
         payload["git_head"] = "0" * 40
         workflow.write_text(json.dumps(payload), encoding="utf-8")
         rejected = subprocess.run([sys.executable, str(HARNESS), "dry-run", "--root", fixture], text=True, capture_output=True, check=False)

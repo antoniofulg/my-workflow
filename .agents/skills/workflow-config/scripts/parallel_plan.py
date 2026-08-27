@@ -43,7 +43,7 @@ def _snapshot(root: Path, feature: str) -> dict[str, Any]:
         if (
             not isinstance(snapshot, dict)
             or type(snapshot.get("version")) is not int
-            or snapshot["version"] != 1
+            or snapshot["version"] != 2
             or snapshot.get("feature") != feature
         ):
             raise ValueError("invalid workflow snapshot")
