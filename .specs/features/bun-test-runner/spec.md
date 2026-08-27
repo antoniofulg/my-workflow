@@ -129,17 +129,17 @@ the release scenario, and verify host/project sentinels and tracked lockfiles re
 | BTR-06 | Run structural contracts | Tasks | Verified |
 | BTR-07 | Run structural contracts | Tasks | Verified |
 | BTR-08 | Run structural contracts | Tasks | Verified |
-| BTR-09 | Stage v0.7.0 notes | Tasks | In Tasks |
-| BTR-10 | Stage v0.7.0 notes | Tasks | In Tasks |
-| BTR-11 | Stage v0.7.0 notes | Tasks | In Tasks |
-| BTR-12 | Stage v0.7.0 notes | Tasks | In Tasks |
-| BTR-13 | Stage v0.7.0 notes | Tasks | In Tasks |
+| BTR-09 | Stage v0.7.0 notes | Tasks | Verified |
+| BTR-10 | Stage v0.7.0 notes | Tasks | Verified |
+| BTR-11 | Stage v0.7.0 notes | Tasks | Verified |
+| BTR-12 | Stage v0.7.0 notes | Tasks | Verified |
+| BTR-13 | Stage v0.7.0 notes | Tasks | Verified |
 | BTR-14 | Keep QA current | Tasks | In Tasks |
 | BTR-15 | Keep QA current | Tasks | In Tasks |
 | BTR-16 | Keep QA current | Tasks | In Tasks |
 | BTR-17 | Edge cases | Tasks | Verified |
 | BTR-18 | Edge cases | Tasks | Verified |
-| BTR-19 | Edge cases | Tasks | In Tasks |
+| BTR-19 | Edge cases | Tasks | Verified |
 | BTR-20 | Edge cases | Tasks | Verified |
 
 **Coverage:** 20 total, 20 mapped to tasks, 0 unmapped.

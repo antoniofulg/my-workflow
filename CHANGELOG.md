@@ -2,19 +2,12 @@
 
 All notable changes to this project are documented here.
 
-## [0.6.0] - 2026-08-25
-
-### Added
-
-- An opt-in parallel slice executor with `disabled`, `safe`, and `full` modes, deterministic worktree/worker follow-ups, checkpoint rebase/integration, and resource preflight.
+## [0.7.0] - Unreleased
 
 ### Changed
 
-- Slice execution now preserves TLC task order while coordinating provider-neutral worker lifecycle, checkpoint evidence, and serial fallback for unproven capabilities.
-
-### Fixed
-
-- Lifecycle cleanup, recovery, and blocker convergence fail closed on uncorrelated ownership or external receipts; the real Orca/Codex two-lane journey remains `BLOCKED-VERIFY` and is not reported as a completed pilot.
+- Structural TypeScript contracts now run on Bun 1.4 through the repository-local `tools` test
+  root; npm remains the package, lockfile, and publication owner.
 
 ### Removed
 
@@ -29,6 +22,20 @@ All notable changes to this project are documented here.
   [v0.5.0 tagged guide](https://github.com/antoniofulg/my-workflow/blob/v0.5.0/docs/workflow/ai-memory.md).
   This release does not execute or invent cleanup commands, and adoption never removes external
   operator state.
+
+## [0.6.0] - 2026-08-25
+
+### Added
+
+- An opt-in parallel slice executor with `disabled`, `safe`, and `full` modes, deterministic worktree/worker follow-ups, checkpoint rebase/integration, and resource preflight.
+
+### Changed
+
+- Slice execution now preserves TLC task order while coordinating provider-neutral worker lifecycle, checkpoint evidence, and serial fallback for unproven capabilities.
+
+### Fixed
+
+- Lifecycle cleanup, recovery, and blocker convergence fail closed on uncorrelated ownership or external receipts; the real Orca/Codex two-lane journey remains `BLOCKED-VERIFY` and is not reported as a completed pilot.
 
 ## [0.5.0] - 2026-08-25
 

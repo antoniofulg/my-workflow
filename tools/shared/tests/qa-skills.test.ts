@@ -997,7 +997,7 @@ describe("adoption and public setup", () => {
     expect(qaExecute).toContain("does not write product code, install a framework, invent a");
   });
 
-  it("CT-003 / IT-005 / AIM-11 reports release version 0.6.0 consistently", () => {
+  it("CT-003 / BTR-IT-007 / BTR-IT-008 reports release history and pending version consistently", () => {
     const manifest = JSON.parse(readRepositoryFile("package.json")) as {
       version?: string;
       scripts?: { test?: string };
@@ -1009,24 +1009,39 @@ describe("adoption and public setup", () => {
     const changelog = readRepositoryFile("CHANGELOG.md");
     const releaseScenario = readRepositoryFile("docs/qa/scenarios/REL-report-current-workflow-release.md");
     const integrationName = ["ai", "memory"].join("-");
-    const latestHeading = changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m)?.[1];
+    const publishedHeading = changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m)?.[1];
+    const unreleasedStart = changelog.indexOf("## [0.7.0] - Unreleased");
     const releaseStart = changelog.indexOf(`## [${manifest.version}]`);
     const nextRelease = changelog.indexOf("\n## [", releaseStart + 1);
     const latestRelease = changelog.slice(releaseStart, nextRelease === -1 ? undefined : nextRelease);
+    const pendingRelease = changelog.slice(unreleasedStart, releaseStart);
+    const publishedChangelog = execFileSync("git", ["show", "v0.6.0:CHANGELOG.md"], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    });
+    const section = (source: string, version: string): string => {
+      const start = source.indexOf(`## [${version}]`);
+      const next = source.indexOf("\n## [", start + 1);
+      return source.slice(start, next === -1 ? undefined : next);
+    };
 
     expect(manifest.version).toBe("0.6.0");
     expect(manifest.scripts?.test).toBe("bun test");
     expect(lockfile.version).toBe("0.6.0");
     expect(lockfile.packages?.[""]?.version).toBe("0.6.0");
-    expect(latestHeading).toBe("0.6.0");
-    expect(latestHeading).toBe(manifest.version);
+    expect(publishedHeading).toBe("0.7.0");
+    expect(unreleasedStart).toBeGreaterThanOrEqual(0);
+    expect(releaseStart).toBeGreaterThan(unreleasedStart);
+    expect(section(changelog, "0.6.0")).toBe(section(publishedChangelog, "0.6.0"));
     expect(releaseScenario).toContain("expected: Release 0.6.0 matches both package authorities");
-    expect(latestRelease).toContain(`Removed the optional ${integrationName} integration`);
-    expect(latestRelease).toContain("Session continuation is now a host responsibility");
-    expect(latestRelease).toContain("versioned repository artifacts and explicit prompts");
-    expect(latestRelease).toContain("adoption never removes external operator state");
-    expect(latestRelease).toContain("v0.5.0 tagged guide");
-    expect(latestRelease).toContain(`https://github.com/antoniofulg/my-workflow/blob/v0.5.0/docs/workflow/${integrationName}.md`);
+    expect(pendingRelease).toContain("Bun 1.4");
+    expect(pendingRelease).toContain(`Removed the optional ${integrationName} integration`);
+    expect(pendingRelease).toContain("Session continuation is now a host responsibility");
+    expect(pendingRelease).toContain("versioned repository artifacts and explicit prompts");
+    expect(pendingRelease).toContain("adoption never removes external operator state");
+    expect(pendingRelease).toContain("v0.5.0 tagged guide");
+    expect(pendingRelease).toContain(`https://github.com/antoniofulg/my-workflow/blob/v0.5.0/docs/workflow/${integrationName}.md`);
+    expect(latestRelease).not.toContain(`Removed the optional ${integrationName} integration`);
     expect(latestRelease).toContain("opt-in parallel slice executor");
     expect(latestRelease).toContain("resource preflight");
     expect(latestRelease).toContain("BLOCKED-VERIFY");

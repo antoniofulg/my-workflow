@@ -134,10 +134,10 @@ T3 -> T4 -> T5
 
 **Done when**:
 
-- [ ] The v0.6.0 section equals tag `v0.6.0` byte-for-byte.
-- [ ] `0.7.0 - Unreleased` has `Changed` Bun migration and `Removed` host-owned continuation notes.
-- [ ] The migration note links the v0.5.0 tagged guide and invents no cleanup command.
-- [ ] Package/lock versions remain 0.6.0 and no tag or release is created.
+- [x] The v0.6.0 section equals tag `v0.6.0` byte-for-byte.
+- [x] `0.7.0 - Unreleased` has `Changed` Bun migration and `Removed` host-owned continuation notes.
+- [x] The migration note links the v0.5.0 tagged guide and invents no cleanup command.
+- [x] Package/lock versions remain 0.6.0 and no tag or release is created.
 
 **Tests**: BTR-IT-007, BTR-IT-008
 **Gate**: build
