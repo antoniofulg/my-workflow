@@ -10,8 +10,8 @@ qa_status: fail
 bug_ids: BUG-20260827-assisted-orca-tui-idle-before-route-proof; BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree; BUG-20260827-luna-low-worker-commits-before-green-gate; BUG-20260827-assisted-pilot-batch-cli-drops-final-newline; BUG-20260827-medium-route-contract-test-still-expects-low
 fix_status: pending
 retest_status:
-fix_commits: 40f2d55
-evidence: docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-8/session.md; docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-8/deep-review-result.md
+fix_commits: 40f2d55; 395a691
+evidence: docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-8/session.md; docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-8/deep-review-result.md; docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-9/session.md
 last_report: docs/qa/reports/2026-08-27-assisted-orca-slices.md
 overlaps: QAS-run-resource-free-parallel-orca-slices; QAS-clean-owned-parallel-slice-pilot; QAS-qualify-orca-host-before-parallel-use
 ---
@@ -113,3 +113,19 @@ audit returned to the exact two-worktree baseline with zero owned residue.
 The closing outer full gate also failed IT-005 because the canonical test still asserts Luna low
 after fix `40f2d55` froze Luna medium. QA skills and structural validators remained green. This is a
 separate tracked defect and keeps the feature tree unready.
+
+Retest 9 started at `2026-08-27T14:48:33Z` against `83954ec` with prefix `qa-assisted-20260827-r10`.
+It is invalid/not exercised. Ground and Slice A were each created once, the conflict-free seed
+`d0b91ca` passed 1/1 with two independent hunks and 13 immutable context lines, A's ownership proof
+passed, and A's rendered `source=screen` route again proved `gpt-5.6-luna medium` while rejecting
+low and high. The single `A_T1` send then returned `ok=true` but the Codex agent reported an
+exhausted account quota resetting on Sep 1st, so the turn never started; 538 effect samples reached
+the 300-second deadline at zero marker, nothing was resent, and both checkouts stayed clean at the
+seed with zero commits. Slice B, overlap, producer sync, Technical Verification, integration, the
+resumed grouped Deep Review, the newline fix loop, and final persona QA did not run. This external
+capacity gap closes on its own and creates no bug, so the scenario keeps Retest 8's `fail` on the
+still-open newline Major. Exact cleanup revalidated 11/11, deleted both branches non-force with ref
+absence proven, removed both complete Orca ids, and a 60-second 91-sample audit returned to the
+exact two-worktree baseline with zero owned residue. The closing outer full gate
+`npm_config_offline=true npm run test:all` exited `0` with Vitest `112/112`, closing
+`BUG-20260827-medium-route-contract-test-still-expects-low` through `395a691`.

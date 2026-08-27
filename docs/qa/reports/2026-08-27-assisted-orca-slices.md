@@ -470,3 +470,60 @@ baseline; foreign resources were preserved.
 The route/test mismatch is tracked separately as
 `BUG-20260827-medium-route-contract-test-still-expects-low`. Both open Major defects require an
 Implementer and a fresh QA Verifier; this session changed no product or contract-test code.
+
+## Retest 9 — 2026-08-27T14:48:33Z
+
+- **Source:** `83954ec`
+- **Adapter:** CLI/manual through installed Orca `1.4.190`
+- **Unique prefix:** `qa-assisted-20260827-r10`
+- **Worker route:** `codex` / `gpt-5.6-luna` / `medium`
+- **Raw evidence:** `docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-9/`
+- **Status:** **invalid / not exercised** — external provider capacity exhausted at the first worker turn.
+
+### Reachable setup
+
+`before_inventory` recorded 2 repository worktrees and 8 terminals before the single mutating
+create. Ground was created once at `pre_head=83954ec`, seeded conflict-free at `d0b91ca`, and passed
+the fixture gate `1/1`. The pre-launch hunk proof produced two independent three-line-context hunks
+with 13 immutable lines between Slice A lines 7–9 and Slice B lines 23–25.
+
+Slice A was created once at `pre_head=d0b91ca` with sole startup handle
+`term_47676ffb-0511-4908-9640-7f0edd748dec`; its `new`/`sole`/`unused` ownership proof passed. The
+rendered route proof was ACCEPTED at sample 3 with two consecutive `source=screen` frames showing
+`OpenAI Codex` and `gpt-5.6-luna medium`, with `gpt-5.6-luna low` and `gpt-5.6-luna high` both
+absent. This re-confirms AST-01 on the current contract.
+
+### Blocking boundary
+
+The `A_T1` packet was sent exactly once and Orca returned `ok=true`, but the Codex agent rendered
+`You've hit your usage limit ... try again at Sep 1st, 2026 11:14 AM` instead of starting the turn.
+Effect reconciliation ran 538 samples to its 300 s deadline at `marker-count=0`. The packet was not
+resent, no replacement worker was launched, and no second terminal was opened. Independent
+inspection proved zero effect: both checkouts clean at `d0b91ca`, all six task checkboxes `pending`,
+zero commits.
+
+Slice B was never created, so no overlap window, producer sync, same-handle continuation, Technical
+Verifier, integration, grouped Deep Review, newline fix loop, final CLI persona QA, or fixture full
+gate ran. Maximum concurrency was 1.
+
+This is an external provider-capacity limitation, not a product or contract defect, and it creates
+no new bug. Because the account quota resets on its own, the scenario keeps Retest 8's terminal
+`fail` on the still-open newline Major rather than becoming `blocked-verify`.
+
+### Cleanup
+
+Pre-cleanup revalidation passed 11/11 for both owned worktrees. Terminals were stopped and listed
+empty, each checkout was detached at its exact `current_head` `d0b91ca`, each exact branch was
+deleted with non-force `git branch --delete`, `git show-ref --verify --quiet` returned `1` for both,
+and both complete Orca ids returned `removed: true`. The 60-second audit ran **91 samples** with
+`[]` for owned worktrees, terminals, Git worktrees, paths, and refs. Orca and Git returned to the
+exact two-worktree baseline; foreign resources were preserved.
+
+### Closing repository gates
+
+- `npm_config_offline=true npm run test:all`: **PASS**, exit `0`; Vitest `112/112` across 8 files;
+  all Python lanes `OK`. This closes `BUG-20260827-medium-route-contract-test-still-expects-low`
+  through fix `395a691`.
+
+`BUG-20260827-assisted-pilot-batch-cli-drops-final-newline` remains open and unretested. No
+automatic Orca compatibility claim is made and no `preflight --canary` ran.

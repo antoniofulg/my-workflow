@@ -26,3 +26,9 @@ Changed the four `low` expectations in IT-005 (`tools/shared/tests/autonomous-pa
 lines 155, 157, 160, 163) to `medium` — no other lines touched, IT-005 still asserts the exact tuple.
 Focused suite: 4 passed, 0 failed. Outer full gate (`npm_config_offline=true npm run test:all`):
 112 passed, 0 failed. `git diff --check`: clean.
+
+## Independent retest
+
+Retest 9 (fresh QA Verifier, 2026-08-27) reran `npm_config_offline=true npm run test:all` on
+`83954ec`: exit `0`, Vitest `112/112` across 8 files, all Python lanes `OK`. Confirmed fixed at
+`395a691`; not reopened.

@@ -3,11 +3,11 @@
 ## Handoff
 
 - **Feature**: `.specs/features/host-agnostic-slice-parallelization`
-- **Phase / Task**: QA Execute / awaiting Retest 9 after Retest 8 FAIL at grouped Deep Review
-- **Completed**: T1-T5; Technical Verifier PASS; Deep Review rounds 1-2; assisted Orca lifecycle hardened; QA Execute Retests 1-8; Retest 8 proved 60.694s A/B overlap, exact B parking, exact A:T7 sync, same-handle continuation, fresh Sol-medium Technical Verifiers, conflict-free A-then-B integration at `2051517` with fixture gate 9/9, and exact cleanup of all three owned worktrees (60-second 63-sample audit, zero residue); frozen medium route realigned in the canonical contract at `395a691`
+- **Phase / Task**: QA Execute / awaiting Retest 10 after Retest 9 stopped on external provider capacity
+- **Completed**: T1-T5; Technical Verifier PASS; Deep Review rounds 1-2; assisted Orca lifecycle hardened; QA Execute Retests 1-9; Retest 8 proved 60.694s A/B overlap, exact B parking, exact A:T7 sync, same-handle continuation, fresh Sol-medium Technical Verifiers, conflict-free A-then-B integration at `2051517` with fixture gate 9/9, and exact cleanup; Retest 9 re-proved the `before_inventory` snapshot, single-create discipline, conflict-free seed `d0b91ca` (gate 1/1, 2 hunks, 13 immutable context lines), A ownership proof, and the rendered `gpt-5.6-luna medium` route, then closed `BUG-20260827-medium-route-contract-test-still-expects-low` by running `npm_config_offline=true npm run test:all` green (exit 0, Vitest 112/112)
 - **In-progress** (file:line): none
-- **Next step**: Run QA Execute Retest 9 on live Orca. Fix `python -m pilot.batch` newline framing inside the fresh pilot fixture, then resume grouped Deep Review, final CLI persona QA, fixture full gate, and exact cleanup.
-- **Blockers**: `BUG-20260827-assisted-pilot-batch-cli-drops-final-newline` (open, major) is the sole open grouped Deep Review Major and stops final persona QA; its fixture is disposable and only exists inside a live pilot run, so it cannot be fixed outside Retest 9. Retest 9 needs a live Orca session and is human-scheduled.
+- **Next step**: Run QA Execute Retest 10 on live Orca once Codex capacity is restored (quota resets 2026-09-01). Re-walk the full assisted E2E, fix `python -m pilot.batch` newline framing inside the fresh pilot fixture through the Slice B Implementer on its own handle, then resume grouped Deep Review, final CLI persona QA, fixture full gate, and exact cleanup.
+- **Blockers**: `BUG-20260827-assisted-pilot-batch-cli-drops-final-newline` (open, major) is still the sole open grouped Deep Review Major and stops final persona QA; its fixture is disposable and only exists inside a live pilot run. Retest 9 never reached it because the Codex account hit its usage limit at the first worker turn; that quota resets on its own, so `QAS-coordinate-assisted-orca-slices` keeps Retest 8's `fail` rather than `blocked-verify`. Retest 10 needs a live Orca session plus restored provider capacity and is human-scheduled.
 - **Uncommitted files**: none.
 - **Branch**: `feat/host-agnostic-slice-parallelization`
 

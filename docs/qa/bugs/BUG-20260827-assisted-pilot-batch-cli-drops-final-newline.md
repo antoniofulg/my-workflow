@@ -21,3 +21,16 @@ Preserve a final newline when stdin has one and add a focused subprocess asserti
 must fix the disposable fixture behavior, then a fresh QA Verifier must resume grouped Deep Review,
 final CLI persona QA, fixture full gate, and exact cleanup. This bug makes no automatic Orca
 compatibility claim.
+
+## Retest 9 — still open, not exercised
+
+Retest 9 could not reach this defect. The disposable fixture only exists inside a live pilot run,
+and that run stopped at the first worker turn: the `A_T1` packet was sent once with `ok=true`, but
+the Codex agent reported an exhausted account quota resetting on Sep 1st, 2026, so no slice code was
+ever written. No integrated fixture existed for the resumed grouped Deep Review, so the newline
+framing contract was neither re-observed nor fixed.
+
+This bug therefore stays **open** with no Resolution. The next fresh QA Verifier needs restored
+Codex capacity, and must hand the fix to the Slice B Implementer on its own handle as one atomic
+remediation commit, then re-run Deep Review on the new head. Evidence:
+`docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-9/session.md`.
