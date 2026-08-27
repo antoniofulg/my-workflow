@@ -44,7 +44,8 @@ gate stages remain ordered; worktree, Git path, exact branch ref, and terminal a
   exact producer commit, run the affected gate declared by the fixture, and follow up the same B
   terminal; if its handle is stale, reacquire only the sole handle from B's owned worktree.
 - For every route, task, or follow-up packet, record the exact handle/turn phase, pre-head,
-  task/comment/gate state, and expected marker; send once. On an ambiguous receipt, inspect only the
+  task/comment/gate state, and expected marker; write the packet body to a coordinator-owned file
+  outside every slice worktree and send only its short fixed-shape pointer, once. On an ambiguous receipt, inspect only the
   same handle every 250 ms for at most 300000 ms and accept only one complete marker/HEAD/status/
   commit/gate/comment effect, otherwise serialize for exact recovery.
 - Record atomic task commits and scoped gates, one Technical Verifier per code-changing slice, the

@@ -26,9 +26,10 @@ and cannot establish automatic support without a separately authorized, durable 
 A pass requires rendered `source=screen` route proof before prompt delivery, one
 worker per ready slice, a clean exact parked comment, producer-commit sync, the affected gate,
 same-terminal follow-up, deterministic integration, preserved TLC readiness stages, and independent
-absence checks for every owned worktree, path, branch ref, and terminal. Every logical packet is sent
-once; an ambiguous receipt is reconciled only on the same handle through one bounded machine-only
-marker/state proof and never by retry or replacement.
+absence checks for every owned worktree, path, branch ref, and terminal. Every logical packet body is
+written to a coordinator-owned file outside every slice worktree and delivered as a short fixed-shape
+pointer through exactly one send; an ambiguous receipt is reconciled only on the same handle through
+one bounded machine-only marker/state proof and never by retry or replacement.
 
 The 2026-08-26 assisted walk is retained as historical pre-remediation evidence: both clean,
 out-of-contract attempts to create a separate frozen-route terminal timed out, so no rendered route
