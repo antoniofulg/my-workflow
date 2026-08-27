@@ -127,3 +127,51 @@ cleanup proved zero `qa-assisted-20260827` worktree, path, branch-ref, or termin
 
 Durable evidence: `docs/qa/reports/2026-08-27-assisted-orca-slices.md` and
 `docs/qa/bugs/BUG-20260827-assisted-orca-tui-idle-before-route-proof.md`.
+
+## Technical Re-verification — 2026-08-27 (`4858934`)
+
+**Scope:** `d0f18e2..4858934`; independent Verifier, author != verifier.
+
+**Technical contract verdict:** PASS. **Real Orca E2E:** pending a fresh QA Execute retest; this
+verdict does not claim that the prior QA failure is closed.
+
+### Remediation outcomes
+
+| Spec-anchored outcome | Independent assertion evidence | Result |
+| --- | --- | --- |
+| Exactly one create; no blind retry; bounded inventory reconciliation adopts only one unambiguous owned candidate. | `tools/shared/tests/autonomous-parallelization.test.ts:174-183` asserts inventory snapshot/difference, exact create count, no blind retry, ambiguity serialization, and complete ownership proof. | PASS |
+| Route probe uses exact handle with `timeout_ms=60000`, `interval_ms=250`, and no model turns. | `tools/shared/tests/autonomous-parallelization.test.ts:184-196` asserts exact-handle screen command, timeout, interval, connected handle, probe/dependency separation, and no model turns. | PASS |
+| `tui-idle` alone cannot authorize a prompt. | `tools/shared/tests/autonomous-parallelization.test.ts:194-231` rejects pre-send idle sufficiency and orders the first screen before idle, the second screen after idle, and task payload last. | PASS |
+| Frozen provider/model/effort appears in two consecutive connected `source=screen` frames before prompt/task edit. | `.agents/skills/autonomous/references/parallelization.md:102-108,158-170` defines exact tuple, two frames, connected handle, prompt ordering, and fail-closed behavior; `tools/shared/tests/autonomous-parallelization.test.ts:186-229` asserts values and lifecycle order. | PASS |
+| Dependency waiting remains event-driven, with no polling or model turns. | `.agents/skills/autonomous/references/parallelization.md:185-190,270-275`; `tools/shared/tests/autonomous-parallelization.test.ts:239-240` assert the completion-event waiter and no polling/model turns. | PASS |
+
+### Focused gate and structural checks
+
+- `npm_config_offline=true npm test -- --run tools/shared/tests/autonomous-parallelization.test.ts`:
+  1 file passed; 4 tests passed; 0 failed; 0 skipped.
+- `validate_spec.py`: 0 errors, 0 warnings.
+- `validate_tasks.py`: 0 errors, 0 warnings.
+- `git diff --check d0f18e2..4858934`: PASS.
+
+### Discrimination sensor
+
+Temporary file copies only; no Git/Orca worktree and no live Orca effect. Each mutant made IT-005
+fail with 1 failed and 3 passed tests:
+
+| Mutation | Result |
+| --- | --- |
+| Accept one screen instead of two consecutive screens. | KILLED |
+| Accept pre-send `tui-idle` alone. | KILLED |
+| Remove explicit `timeout_ms=60000`. | KILLED |
+| Permit model-turn polling in the materialization probe. | KILLED |
+| Permit blind create retry after missing receipt. | KILLED |
+| Permit ambiguous candidate adoption. | KILLED |
+| Permit two creates instead of exactly one. | KILLED |
+
+**Sensor result:** 7/7 killed; 0 survived. Real-tree `git status --porcelain=v1` was empty before
+sensor work and empty after scratch cleanup.
+
+### Ranked gaps
+
+No technical contract gaps. Fresh QA Execute remains required to prove E2E-001 on real Orca and
+close `BUG-20260827-assisted-orca-tui-idle-before-route-proof`.
