@@ -2,14 +2,14 @@
 
 ## Handoff
 
-- **Feature**: `.specs/features/parallel-slice-executor`
-- **Phase / Task**: Complete / release v0.6.0
-- **Completed**: T1, T2, T2R1-T2R5, T3, T3R1, T3R2, TDR1, TDR2, T4, T4R1, T4R2, T5, T6, T7, T7R1-T7R5; grouped C-D round 1 and post-cap round 2 remediation; Slice A-C Technical Verifiers PASS; grouped deep-review A-B closed
-- **In-progress** (file:line): none
-- **Next step**: Deliver v0.6.0 locally; remote publication remains separately authorized.
-- **Blockers**: External Orca/Codex lifecycle remains terminal `BLOCKED-VERIFY`; this is non-blocking for local release readiness, and no author-run Orca pilot is claimed.
+- **Feature**: `.specs/features/merge-alone-slices`
+- **Phase / Task**: Execute / T1
+- **Completed**: Specify, Design, Tasks, workflow resolution; one merge-alone slice A frozen.
+- **In-progress** (file:line): none.
+- **Next step**: Implement T1, validate the canonical closure contract, update `tasks.md`, and commit.
+- **Blockers**: none.
 - **Uncommitted files**: none.
-- **Branch**: `feat/parallel-slice-executor`
+- **Branch**: `fix/merge-alone-slices`
 
 ## Decisions
 
@@ -233,4 +233,19 @@
 - **Scope**: Cross-provider continuation guidance, reviewer packets, adoption, QA, and release
   contracts in this workflow pack.
 - **Date**: 2026-08-25
+- **Status**: active
+
+### AD-016
+
+- **Decision**: Vertical slice count is derived from validated task outcomes that remain worth
+  merging if all later slices are cancelled. Technical phases, cohorts, directories, runners, and
+  worker batches do not create slices without an independently mergeable outcome.
+- **Reason**: A manual count froze technical organization as delivery structure and multiplied
+  Verifier, gate, and review cost before Tasks proved the cut.
+- **Trade-off**: Every planned primary task must declare slice membership and every slice needs an
+  explicit closure row; old task documents require the new contract before refresh, while normal
+  resume keeps its frozen snapshot.
+- **Scope**: TLC task templates and validation, workflow configuration, parallel task planning,
+  feature snapshots, adoption, tests, and workflow documentation.
+- **Date**: 2026-08-27
 - **Status**: active

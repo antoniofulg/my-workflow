@@ -22,3 +22,4 @@ When recording an `AD-NNN`, run `python3 tools/ad-index.py` in the same commit.
 | `AD-013` | active | The provider-neutral coordinator derives and validates a deterministic sibling Git worktree destination, creates that checkout with fixed a… |
 | `AD-014` | active | Technical Verifier remediation is bounded per blocker fingerprint, defined by the requirement, root cause, and concrete failure path. |
 | `AD-015` | active | Cross-provider session continuation is owned by the host. |
+| `AD-016` | active | Vertical slice count is derived from validated task outcomes that remain worth merging if all later slices are cancelled. |
