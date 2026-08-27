@@ -53,3 +53,5 @@ Repeated review blockers use the immutable fingerprint and independent counter i
 [`REVIEW-ROUNDS.md`](../guidelines/REVIEW-ROUNDS.md); this guide does not duplicate that protocol.
 
 A filed issue skips the ceremony: `implement → scoped gate → one commit`.
+Credential-free declarative agent-tool configuration uses the local light path in
+[`GATES.md`](../guidelines/GATES.md).

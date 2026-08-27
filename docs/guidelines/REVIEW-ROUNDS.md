@@ -77,9 +77,8 @@ identity and buys the same independence.
    Verifier and Deep Reviewer receive fresh role packets. They do not inherit the Implementer's
    transcript or operator handoff. Their conclusions must come from the spec, diff, tests, and
    assigned evidence.
-8. **A documentation-only feature slice is not an exception.** What a second reader buys is a second reading,
-   and a document no tool parses can be as wrong as one that ten do — `docs/` is full of Markdown that
-   agents act on.
+8. **Documentation uses the normal review stages unless `GATES.md` classifies the entire diff as
+   credential-free declarative agent-tool configuration.**
 8. **A passing verdict on a failing tree is void.** Re-run the scoped gate after remediation; a green
    review over a red gate is not a review.
 9. **A new control for an unobserved failure is Major (YAGNI) unless the spec named it.** A

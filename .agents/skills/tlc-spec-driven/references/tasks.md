@@ -43,7 +43,7 @@ Read `.specs/features/[feature]/design.md` before creating tasks.
 
 ### 1.5. Generate the Test Coverage Matrix (ALWAYS)
 
-This step ALWAYS runs - there is no precondition. Decide which of two paths to take, then generate the three sections below.
+This step ALWAYS runs - there is no precondition. Decide which applicable path to take, then generate the three sections below.
 
 **Step 0 - Read project quality/testing guidelines (ALWAYS, before anything else).**
 
