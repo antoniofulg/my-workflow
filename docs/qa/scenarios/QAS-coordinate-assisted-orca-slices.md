@@ -9,7 +9,7 @@ entry_points: .agents/skills/autonomous/references/parallelization.md; .specs/fe
 qa_status: untested
 bug_ids: BUG-20260827-assisted-orca-tui-idle-before-route-proof; BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree; BUG-20260827-luna-low-worker-commits-before-green-gate; BUG-20260827-assisted-pilot-batch-cli-drops-final-newline; BUG-20260827-medium-route-contract-test-still-expects-low; BUG-20260827-orca-terminal-send-truncates-claude-worker-packet
 fix_status: pending
-retest_status: fail
+retest_status:
 fix_commits: 40f2d55; 395a691
 evidence: docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-8/session.md; docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-8/deep-review-result.md; docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-10/session.md
 last_report: docs/qa/reports/2026-08-27-assisted-orca-slices.md
@@ -31,9 +31,13 @@ written to a coordinator-owned file outside every slice worktree and delivered a
 pointer through exactly one send; an ambiguous receipt is reconciled only on the same handle through
 one bounded machine-only marker/state proof and never by retry or replacement.
 
-The pointer-delivery contract has never been walked: every retest through Retest 10 exercised the
-superseded inline-payload transport, so this scenario is reset to `untested` and Retest 11 must
-walk the pointer contract end to end.
+The pointer-delivery contract has not been walked against a current frozen route: every retest
+through Retest 10 exercised the superseded inline-payload transport, and Retest 11 was aborted by
+human direction before its evidence could close anything. This scenario stays `untested`.
+
+`retest_status` is empty rather than `fail`: `QA-SCENARIOS.md` makes that field meaningful only when
+`fix_status: fixed`, and `fix_status` is `pending`. The stale value was a recording error, not a
+verdict, and correcting it changes no result.
 
 The 2026-08-26 assisted walk is retained as historical pre-remediation evidence: both clean,
 out-of-contract attempts to create a separate frozen-route terminal timed out, so no rendered route
@@ -169,3 +173,48 @@ revalidated 11/11 on all three owned worktrees, deleted all three branches non-f
 absence proven, removed all three complete Orca ids, and a 60-second 93-sample audit returned to the
 exact two-worktree baseline with zero owned residue. The closing outer full gate
 `npm_config_offline=true npm run test:all` exited `0` with Vitest `112/112`.
+
+Retest 11 started at `2026-08-27T16:39:44Z` against `94ab954` with prefix `qa-assisted-20260827-r12`
+and the frozen worker route `claude` / `sonnet` / `low`. It is **invalid / not exercised** as
+scenario evidence: the human directed mid-run that the implementer effort be raised from `low` to
+`medium`, so `workflow.json` is being re-frozen and this walk's observations belong to a route that
+no longer exists. The run was aborted by direction, not by failure; it creates no bug, changes no
+bug record, and leaves this scenario `untested` for Retest 12 to walk on the new route.
+
+Two findings survive the route change and Retest 12 should not re-derive them.
+
+**Pointer packet delivery works, measured.** Before any slice worktree existed, on the ground
+worktree's promoted startup shell (a coordinator-owned non-slice terminal, so no slice lane's
+one-send rule was spent), a **2418-character** packet was written to a coordinator-owned file outside
+every slice worktree. That is larger than both packets Retest 10 lost to truncation (1354 and 1677)
+and comparable to its 2081-character characterization payload that lost 98.3 %. Only the
+**188-character** pointer crossed `orca terminal send`, which returned `ok: true`, `accepted: true`,
+`bytesWritten: 189`. The worker reported `Read 1 file` and replied
+`TRANSPORT_PROOF token=TRPF-e4c160800f5b3157 first=P000 last=P299` at sample 2 — the embedded random
+token plus the first and last positional filler markers, so the **complete** body arrived and the
+worker read `packet_file` from a path outside its own worktree without difficulty. Every later packet
+behaved the same: bodies of 1226, 1355, 1678 and 1635 characters, plus three review packets,
+delivered as 177-185 character pointers, each sent exactly once, each honoured. `A_FINAL` and
+`B_PARKED` are precisely the two packets Retest 10 lost, and both were packet-exact here. This does
+not fix the host: `orca terminal send --text` may still report a complete write the TUI does not
+receive, and this run only shows that no loss occurs at ~180 characters.
+
+**The Sonnet-low worker's task integrity was clean while observed.** All four task packets were
+honoured packet-exactly: six task commits with packet-exact subjects and counts, changed paths inside
+every allowlist, a green gate before every commit, a clean tree after every turn, and **zero
+corrective commits and zero amends**. Retest 7's low-effort violation did not recur in this run.
+That is one clean observation of the route the effort raise supersedes, not a durable verdict.
+
+Retest 11 also recorded a coordinator error, kept here so it is not repeated: slice A's first
+`orca worktree create` exceeded the harness's 15 s client timeout and the probe crashed inside its own
+SETTLE WINDOW; the command was then re-run to read its stderr, issuing the second create the contract
+forbids. Both landed, neither was ever routed or sent a packet, and both were cleaned exactly with
+ownership reconstructed from the first attempt's logged `before` inventory (10/10 checks each). The
+harness now survives a transient failure inside the settle window and tolerates concurrent read-only
+Orca inspections; `create`, `send`, `rm`, `set` and `stop` are never retried.
+
+Cleanup on abort was the full lifecycle with no shortcut: revalidation passed **13/13** on all three
+owned worktrees, all three branches were deleted non-force with ref absence proven, all three
+complete Orca ids were removed with their paths absent, and a 60-second **65-sample** audit found
+zero owned residue in every sample and at the deadline, returning the exact two-worktree baseline.
+Evidence: [`retest-11/session.md`](../evidence/2026-08-27-assisted-orca-slices/retest-11/session.md).

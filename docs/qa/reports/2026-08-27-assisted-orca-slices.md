@@ -636,3 +636,98 @@ nothing foreign was adopted or cleaned.
 `BUG-20260827-assisted-pilot-batch-cli-drops-final-newline` remains open and unretested for the
 second consecutive cycle: the fixture it lives in only exists inside a completed pilot run. No
 automatic Orca compatibility claim is made and no `preflight --canary` ran.
+
+## Retest 11 — aborted by human direction, 2026-08-27
+
+- **Source:** `94ab954`; prefix `qa-assisted-20260827-r12` (collision-checked to `0` before any create)
+- **Adapter:** CLI/manual through the installed Orca direct worktree and terminal interfaces
+- **Routes (frozen `workflow.json`, schema v2):** implementer `claude`/`sonnet`/`low`; verifier
+  `claude`/`sonnet`/`medium`; deep_reviewer `claude`/`sonnet`/`high`; cadence `grouped.3`
+- **Window:** `2026-08-27T16:39:44.389708Z` → `2026-08-27T17:38:33.882863Z`
+- **Evidence:** [`retest-11/session.md`](../evidence/2026-08-27-assisted-orca-slices/retest-11/session.md)
+
+### Disposition
+
+**Invalid / not exercised — no verdict.** Mid-run the human directed that the frozen implementer
+effort be raised from `sonnet`/`low` to `sonnet`/`medium`. `workflow.json` is being re-frozen and
+Retest 12 will walk the new route, so this walk's observations belong to a route that no longer
+exists and cannot close the scenario. The abort is a direction, not a failure. This run creates no
+bug, changes no bug record, and leaves `QAS-coordinate-assisted-orca-slices` at `qa_status:
+untested`. No compatibility PASS was written and no `preflight --canary` ran.
+
+The abort arrived after the walk and its full cleanup lifecycle had already completed, so no worker
+turn was in flight and nothing had to be torn down mid-turn.
+
+### Findings that survive the route change
+
+**Pointer packet delivery works, measured.** On the ground worktree's promoted startup shell — a
+coordinator-owned non-slice terminal, so no slice lane's one-send rule was spent — before any slice
+worktree existed:
+
+| Fact | Value |
+| --- | --- |
+| Packet body written to the coordinator-owned file, outside every slice worktree | **2418 chars** |
+| What crossed `orca terminal send` | the **188-char** pointer only |
+| Receipt | `ok: true`, `accepted: true`, `bytesWritten: 189` |
+| Worker action / reply | `Read 1 file` → `TRANSPORT_PROOF token=TRPF-e4c160800f5b3157 first=P000 last=P299` |
+| Samples to delivery | 2 |
+
+The embedded random token plus the first and last positional filler markers all returned, so the
+**complete** body reached the worker, read from a path outside its own worktree. The body exceeds
+both packets Retest 10 lost (1354, 1677) and is comparable to its 2081-char payload that lost 98.3 %.
+Every later packet matched: bodies of 1226, 1355, 1678 and 1635 chars plus three review packets, all
+delivered as 177-185 char pointers, one send each, all honoured packet-exactly — including `A_FINAL`
+and `B_PARKED`, the two packets Retest 10 lost. This does not fix the host; it shows no loss occurs
+at ~180 characters.
+
+**Sonnet-low task integrity was clean while observed.** All four task packets honoured
+packet-exactly: six task commits, packet-exact subjects and counts, changed paths inside every
+allowlist, a green gate before every commit, a clean tree after every turn, **zero corrective commits
+and zero amends**. Retest 7's low-effort violation did not recur. One clean observation of the route
+the effort raise supersedes — not a durable verdict, which is why it closes nothing.
+
+### What ran before the abort
+
+Rendered route proof on 6/6 terminals; conflict-free seed at `2bd1e76` with the byte-identical
+2-hunk / 13-immutable-line layout; 159.487 s A/B overlap at concurrency 2; exact B parking with the
+normative comment; exact `A:T7` sync `fb7217b` conflict-free with the affected gate 7/7; same-handle
+B continuation; fresh per-slice Technical Verifiers PASS on their own terminals; conflict-free
+deterministic A-then-B integration at `0e2fd5b` with the fixture gate `12/12`; grouped Deep Review
+`SHIP` (0 Critical, 0 Major, 1 Minor, 5 advisories, 265/265 hunk lines both lanes) read back from
+the generated artifacts; final CLI persona QA 10/10 edge probes.
+
+### Coordinator error, recorded so it is not repeated
+
+Slice A's first `orca worktree create` exceeded the harness's 15 s client timeout and the probe
+crashed inside its own SETTLE WINDOW; the command was then re-run to read its stderr, issuing the
+second create the contract forbids. Both landed. Neither was ever routed or sent a packet, and both
+were cleaned exactly with ownership reconstructed from the first attempt's logged `before` inventory
+(10/10 checks each). Slice A was then created once under the fresh name `…-r12-a3`. The harness now
+survives a transient failure inside the settle window and tolerates concurrent read-only Orca
+inspections; `create`, `send`, `rm`, `set` and `stop` are never retried. Harness fault, not a product
+defect.
+
+### Cleanup on abort — the full lifecycle, no shortcut
+
+Revalidation passed **13/13** for all three owned worktrees: Orca repo/id/instance/path/branch,
+gitdir, no symlink, clean, no operation in progress, branch tip equals `current_head`, recorded
+handles only, startup handle present, and `git merge-base --is-ancestor <slice-head> 0e2fd5b` for A
+and B. Terminals stopped at `rc 0`; each checkout detached at its exact `current_head` unchanged;
+each exact branch deleted with non-force `git branch --delete` at `rc 0`;
+`git show-ref --verify --quiet` failed for all three, proving ref absence; all three complete Orca
+ids removed with the path absent. Plus the two erroneous `-a` worktrees, cleaned the same way.
+
+60-second sampled audit: **65 samples**, zero residue in every sample and at the deadline —
+`{"worktrees": [], "terminals": [], "git": [], "refs": [], "paths": [], "pilot_residue": []}`,
+`repo_worktrees: 2`. Re-verified live after the abort: `git worktree list` → the exact two
+repository worktrees; `orca worktree list` → `2`; `git branch --list '*r12*'` → `0`;
+`ls -d ~/Projects/.parallel-slice-pilot-*` → no matches. Nothing foreign was adopted or cleaned.
+
+### Gates
+
+- Fixture full gate on the integrated tree `0e2fd5b`, clean:
+  `python3 -m unittest discover -s pilot/tests -p 'test_*.py'` → `Ran 12 tests … OK`, exit `0`.
+- Outer full gate on the abort commit's tree, clean working tree:
+  `npm_config_offline=true npm run test:all` → exit `0`; Vitest `Test Files 8 passed (8)`,
+  `Tests 112 passed (112)`; all Python lanes passed (`9`, `5`, `67`, `53`, `18`, `14`, `6`, `44`
+  passed with `0 failed`). Log: `/tmp/r12-abort-gate.log`.
