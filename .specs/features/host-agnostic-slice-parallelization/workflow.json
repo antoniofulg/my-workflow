@@ -13,7 +13,7 @@
     ]
   },
   "feature": "host-agnostic-slice-parallelization",
-  "git_head": "3c1a019e44f4b48731edd1020db338ebed93375b",
+  "git_head": "d191025de72729690e8c4c58cc3f0230bce7848c",
   "overrides": {},
   "parallelization": {
     "mode": "disabled",
@@ -35,7 +35,7 @@
     },
     "implementer": {
       "agent_file": ".codex/agents/implementer.toml",
-      "effort": "low",
+      "effort": "medium",
       "model": "gpt-5.6-luna",
       "provider": "codex"
     },

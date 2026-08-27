@@ -6,18 +6,18 @@ persona: Workflow operator
 journey: J-execute-parallel-slices
 expected: With explicit authorization, two assisted Orca slices overlap through one exact parked and resumed B worker, preserve every readiness stage, integrate deterministically, and leave no owned worktree, path, branch ref, or terminal residue.
 entry_points: .agents/skills/autonomous/references/parallelization.md; .specs/features/host-agnostic-slice-parallelization/workflow.json; orca worktree; orca terminal
-qa_status: fail
+qa_status: untested
 bug_ids: BUG-20260827-assisted-orca-tui-idle-before-route-proof; BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree; BUG-20260827-luna-low-worker-commits-before-green-gate
 fix_status: pending
 retest_status:
-fix_commits: 4858934; e062ca0; b821f87
+fix_commits:
 evidence: docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-7/session.md
 last_report: docs/qa/reports/2026-08-27-assisted-orca-slices.md
 overlaps: QAS-run-resource-free-parallel-orca-slices; QAS-clean-owned-parallel-slice-pilot; QAS-qualify-orca-host-before-parallel-use
 ---
 
 Covers E2E-001, AST-01 through AST-07, and the user-observable ownership and cleanup outcome of
-SEC-008. The canonical pilot uses the frozen implementer route `codex` / `gpt-5.6-luna` / `low`,
+SEC-008. The canonical pilot uses the frozen implementer route `codex` / `gpt-5.6-luna` / `medium`,
 starts B only after `A:T1` completes and verifies, and parks it at the exact later dependency
 `B:T12 depends_on A:T7`.
 
@@ -97,3 +97,8 @@ added an extra corrective commit before reporting a green 9/9 gate. The coordina
 effect because commit count and subjects were not packet-exact. No Technical Verifier, grouped Deep
 Review, integration verdict, or final persona QA ran. Exact cleanup and a 60-second 65-sample audit
 returned to the two-worktree baseline with zero owned residue.
+
+The next current-contract retest uses `codex` / `gpt-5.6-luna` / `medium` after the Luna-low worker
+violated the gate-before-commit and one-atomic-commit-per-task contract. This scenario is reset to
+`untested` with `fix_status: pending` and no unobserved fix commit claimed; a fresh E2E walk must
+observe the medium route's task integrity before updating these fields.
