@@ -292,7 +292,7 @@ is inert.
 
 ### T9: Install the assisted probe during adoption
 
-**Status:** pending
+**Status:** complete
 **Slice:** F
 **Resources:** none
 **Observable behaviour:** A real adoption into a disposable consumer installs the assisted probe at
@@ -306,10 +306,13 @@ is inert.
 **Tools:** Skills `ponytail`, `tlc-spec-driven`; stdlib only.
 **Done when:**
 
-- [ ] `COPY_PATHS` installs the probe adjacent to `tools/qa_parallel_pilot.py`.
-- [ ] Existing adoption suite proves the file lands in a disposable target.
-- [ ] The installed copy imports with fake Orca on `PATH` and records zero Orca calls.
-- [ ] `python3 scripts/test_adopt.py` passes with zero failures.
+- [x] `COPY_PATHS` installs the probe adjacent to `tools/qa_parallel_pilot.py`.
+- [x] Existing adoption suite proves the file lands in a disposable target.
+- [x] The installed copy imports with fake Orca on `PATH` and records zero Orca calls.
+- [x] `python3 scripts/test_adopt.py` passes with zero failures.
+
+**Result:** Adoption copies the probe beside the parallel pilot, replaces stale managed copies,
+preserves consumer configuration, and imports the installed module with zero Orca calls.
 
 **Tests:** IT-011 in `scripts/test_adopt.py`
 **Gate:** Quick. Commit `feat(adopt): install assisted coordinator probe`.

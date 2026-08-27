@@ -364,22 +364,44 @@ def test_adoption_installs_parallel_pilot_and_preserves_consumer_config() -> Non
     try:
         subprocess.run(["git", "init", "-q", str(tmp)], check=True)
         source = ROOT / "tools/qa_parallel_pilot.py"
+        probe_source = ROOT / "tools/orca_assisted_probe.py"
         run(tmp)
         adopted = tmp / "tools/qa_parallel_pilot.py"
+        adopted_probe = tmp / "tools/orca_assisted_probe.py"
         assert adopted.is_file()
         assert adopted.read_bytes() == source.read_bytes()
+        assert adopted_probe.is_file()
+        assert adopted_probe.read_bytes() == probe_source.read_bytes()
+
+        calls = tmp / "orca-calls"
+        fake_orca = tmp / "orca"
+        fake_orca.write_text("#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$CALLS\"\n", encoding="utf-8")
+        fake_orca.chmod(0o755)
+        import_result = subprocess.run(
+            [sys.executable, "-c", f"import runpy; runpy.run_path({str(adopted_probe)!r})"],
+            env={**os.environ, "ORCA": str(fake_orca), "CALLS": str(calls)},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert import_result.returncode == 0, import_result.stderr
+        assert not calls.exists()
 
         adopted.write_bytes(b"stale managed copy\n")
+        adopted_probe.write_bytes(b"stale managed probe\n")
         config = tmp / ".my-workflow.toml"
         config.write_bytes(config.read_bytes() + b"# consumer-owned\n")
         config_before = config.read_bytes()
         run(tmp)
         assert adopted.read_bytes() == source.read_bytes()
+        assert adopted_probe.read_bytes() == probe_source.read_bytes()
         assert config.read_bytes() == config_before
 
         pilot_before = adopted.read_bytes()
+        probe_before = adopted_probe.read_bytes()
         run(tmp)
         assert adopted.read_bytes() == pilot_before == source.read_bytes()
+        assert adopted_probe.read_bytes() == probe_before == probe_source.read_bytes()
     finally:
         shutil.rmtree(tmp)
 

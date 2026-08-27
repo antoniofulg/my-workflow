@@ -48,6 +48,7 @@ COPY_PATHS = [
     "knowledge/wiki",
     "tools/knowledge",
     "tools/qa_parallel_pilot.py",
+    "tools/orca_assisted_probe.py",
     "tools/shared/src/frontmatter.ts",
     "tools/shared/tests/frontmatter.test.ts",
     ".agents/skills/tlc-spec-driven",
