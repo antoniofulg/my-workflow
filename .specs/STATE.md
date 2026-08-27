@@ -3,10 +3,10 @@
 ## Handoff
 
 - **Feature**: `.specs/features/merge-alone-slices`
-- **Phase / Task**: Technical Verifier remediation / R2
-- **Completed**: T1-T5 and R1 committed; re-verification reached 10/11 ACs and 16/16 contracts with all gates and the sensor green.
+- **Phase / Task**: Technical Verifier remediation / R2 complete
+- **Completed**: T1-T5, R1, and R2 committed; R2 pins slice `A` plus the exact lowercase-`yes` diagnostic for every invalid merge-alone decision. The validator gate passes with 16/16 tests. Re-verification had reached 10/11 ACs and 16/16 contracts before this final evidence correction.
 - **In-progress** (file:line): none.
-- **Next step**: Pin slice identity in the exact-yes rejection assertion, run the validator gate, commit R2, and dispatch a fresh Technical Verifier.
+- **Next step**: Dispatch a fresh Technical Verifier against the R2 commit.
 - **Blockers**: none.
 - **Uncommitted files**: none.
 - **Branch**: `fix/merge-alone-slices`

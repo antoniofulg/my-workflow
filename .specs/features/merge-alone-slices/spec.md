@@ -92,7 +92,7 @@ preserves two independently mergeable slices.
 | --- | --- | --- | --- |
 | MAS-01 | P1: Praxis regression derives one slice | Tasks | Verified |
 | MAS-02 | P1: Independent outcomes derive two slices | Tasks | Verified |
-| MAS-03 | P1: Closure fields validate | R1 | Verified |
+| MAS-03 | P1: Closure fields validate | R2 | Verified |
 | MAS-04 | P1: Task membership validates | R1 | Verified |
 | MAS-05 | P1: Optional count asserts derived value | R1 | Verified |
 | MAS-06 | P1: Missing tasks defaults to one slice | Tasks | Verified |

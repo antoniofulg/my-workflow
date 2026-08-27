@@ -140,7 +140,7 @@ class TLCValidatorTests(unittest.TestCase):
         for value in ("no", "", "Yes", "true"):
             replacement = f"| A | The complete migration is usable. | `python3 -m unittest` | {value} | It is the requested deliverable. |"
             path = self._temporary_tasks(source.replace(row, replacement))
-            with self.assertRaisesRegex(ValueError, "exact lowercase yes"):
+            with self.assertRaisesRegex(ValueError, "slice 'A'.*exact lowercase yes"):
                 validate_tasks.validated_slice_contract(str(path))
 
     def test_rejects_inconsistent_primary_task_membership(self) -> None:

@@ -256,13 +256,13 @@ lowercase `yes` contract.
 
 **Done when**:
 
-- [ ] `no`, empty, `Yes`, and `true` each assert slice `A` plus exact lowercase `yes`.
-- [ ] Validator gate passes with no weakened, removed, or skipped tests.
+- [x] `no`, empty, `Yes`, and `true` each assert slice `A` plus exact lowercase `yes`.
+- [x] Validator gate passes with no weakened, removed, or skipped tests.
 
 - Tests: Strengthen MAS-UT-004.
 - Gate: Validator
 - Commit: `test(tlc): pin merge-alone error identity`
-- Status: pending — second failed remediation for fingerprint `1f53e6...`.
+- Status: complete — `python3 tools/test_tlc_validators.py` passed with 16 tests and no skips.
 
 ## Phase Execution Map
 
@@ -282,7 +282,7 @@ T1 → T2 → T3 → T4 → T5 → R1 → R2
 | T4 | One published planning contract | Pass |
 | T5 | One current QA/release record set | Pass |
 | R1 | One Technical Verifier remediation batch | Pass |
-| R2 | One exact error-identity assertion | Pending |
+| R2 | One exact error-identity assertion | Pass |
 
 ## Diagram-Definition Cross-Check
 
@@ -306,4 +306,4 @@ T1 → T2 → T3 → T4 → T5 → R1 → R2
 | T4 | Agent/public contract | structural + adoption | MAS-IT-009 | Pass |
 | T5 | QA/changelog records | none | none; full/QA gates | Pass |
 | R1 | Existing validator/resolver/planner contracts | unit + integration | Strengthened MAS assertions | Pass |
-| R2 | TLC validator error contract | unit | Strengthened MAS-UT-004 | Pending |
+| R2 | TLC validator error contract | unit | Strengthened MAS-UT-004 | Pass |
