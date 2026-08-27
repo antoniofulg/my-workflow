@@ -152,15 +152,15 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(spec).toMatch(/\| AST-01 \|[\s\S]*?Contract verified; E2E pending/);
     expect(implementer.provider).toBe("claude");
     expect(implementer.model).toBe("sonnet");
-    expect(implementer.effort).toBe("low");
+    expect(implementer.effort).toBe("medium");
     expect(charter).toContain(
-      "frozen implementer route `claude` / `sonnet` / `low`",
+      "frozen implementer route `claude` / `sonnet` / `medium`",
     );
     expect(charter).toContain(
-      "`claude` / `sonnet` / `low` exactly",
+      "`claude` / `sonnet` / `medium` exactly",
     );
     expect(scenario).toContain(
-      "frozen implementer route `claude` / `sonnet` / `low`",
+      "frozen implementer route `claude` / `sonnet` / `medium`",
     );
     expect(providerCommandPatterns[implementer.provider]).toBeDefined();
     expect(policy).toMatch(providerCommandPatterns[implementer.provider]);

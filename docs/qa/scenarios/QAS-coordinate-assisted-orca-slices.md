@@ -17,7 +17,7 @@ overlaps: QAS-run-resource-free-parallel-orca-slices; QAS-clean-owned-parallel-s
 ---
 
 Covers E2E-001, AST-01 through AST-07, and the user-observable ownership and cleanup outcome of
-SEC-008. The canonical pilot uses the frozen implementer route `claude` / `sonnet` / `low`,
+SEC-008. The canonical pilot uses the frozen implementer route `claude` / `sonnet` / `medium`,
 starts B only after `A:T1` completes and verifies, and parks it at the exact later dependency
 `B:T12 depends_on A:T7`.
 
@@ -218,3 +218,9 @@ owned worktrees, all three branches were deleted non-force with ref absence prov
 complete Orca ids were removed with their paths absent, and a 60-second **65-sample** audit found
 zero owned residue in every sample and at the deadline, returning the exact two-worktree baseline.
 Evidence: [`retest-11/session.md`](../evidence/2026-08-27-assisted-orca-slices/retest-11/session.md).
+
+Retest 12 raises the frozen implementer effort to `claude` / `sonnet` / `medium` by human direction.
+Retest 11 observed the superseded `low` route honour every task packet exactly — six task commits,
+packet-exact subjects and counts, a green gate before every commit, and zero corrective commits — so
+the raise is a precaution, not a response to an observed violation. That single observation came from
+a run recorded `invalid / not exercised` and is not a durable verdict for either effort.

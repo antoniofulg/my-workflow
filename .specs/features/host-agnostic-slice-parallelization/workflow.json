@@ -13,7 +13,7 @@
     ]
   },
   "feature": "host-agnostic-slice-parallelization",
-  "git_head": "18f7f3cf1a4818abe70d56ce71e2f8a4391d2a69",
+  "git_head": "4ba8a0fc48acf31f308632ff9fc7c6be933c54ed",
   "overrides": {},
   "parallelization": {
     "mode": "disabled",
@@ -35,7 +35,7 @@
     },
     "implementer": {
       "agent_file": ".claude/agents/implementer.md",
-      "effort": "low",
+      "effort": "medium",
       "model": "sonnet",
       "provider": "claude"
     },
