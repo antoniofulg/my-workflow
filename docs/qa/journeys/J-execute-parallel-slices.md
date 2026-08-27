@@ -84,3 +84,39 @@ manually by the operator; that is not automatic cleanup evidence. A fresh v0.6.0
 reproduced `agent_prompt_stalled` with its exact A/T1 terminal still live/writable and B/T2 absent.
 The new fixture remains preserved, so no cleanup or zero-residue claim is made. See the
 [v0.6.0 safe retest](../reports/2026-08-25-parallel-slice-executor-v060-safe-retest.md).
+
+Retest 1 on 2026-08-27 is invalid/not exercised as scenario evidence. Both assisted startup handles
+rendered two consecutive exact route frames, A/B task overlap began, and B parked with the required
+comment. The coordinator then queued B's follow-up before proving the parked turn had ended. That
+operator sequencing error is not a product defect or a pass. Exact cleanup returned the repository
+to its two-worktree baseline with zero matching late effect after a 60-second audit. A fresh retest
+remains required.
+
+Retest 2 on 2026-08-27 is invalid/not exercised because its QA helper imposed a 60-second worker-turn
+deadline. A's route rendered correctly and A:T1 later emitted its valid marker after a reported
+1m14s, but the attempt had already stopped. No B lane or overlap started. This is not a product
+defect; cleanup returned to the exact two-worktree baseline and a 60-second late audit found zero
+owned residue. Fresh Retest 3 must preserve the causal barrier with a realistic bounded event wait.
+
+Retest 3 on 2026-08-27 is invalid/not exercised because the cursor adapter did not decode the
+rendered TUI value before applying its standalone marker predicate. A:T1 completed cleanly at
+`78aab41` with gate 3/3 and the exact marker visible on the ready worker screen, but the 300-second
+helper reported no event and the coordinator correctly stopped before B. This is a QA adapter
+mismatch, not a product defect or worker-timeout result. Exact cleanup and a 60-second audit left
+zero owned residue; a fresh Retest 4 remains required.
+
+Retest 4 on 2026-08-27 is invalid/not exercised because the cursor helper assumed
+`result.terminal.text`. Orca `1.4.190` instead returned the causal stream as a structured
+`result.terminal.tail` array with no `text` key. A:T1 completed cleanly at `155b4fe`, gate 3/3, and
+the exact marker exists in that post-cursor array, but the 300-second helper decoded empty values and
+stopped before B. This is a QA adapter mismatch, not a product defect. Exact cleanup and a
+60-second 78-sample audit left zero owned residue; a future retest must traverse all structured
+string/array values in the response.
+
+Retest 5 on 2026-08-27 produced the terminal assisted-flow verdict. Corrected route proof passed for
+both workers; A:T1 integrated; B:T9 parked with the exact clean dependency comment. During intended
+overlap, A_FINAL's same-handle `terminal send` returned `agent_prompt_stalled`, yet that handle
+silently executed A:T7/A:T8 and created two commits. This receipt/effect contradiction prevents safe
+producer sync and B continuation and deduplicates to the existing open external lifecycle bug. The
+scenario is `fail`. No retry occurred; exact cleanup plus a 60-second 85-sample audit returned to the
+two-worktree baseline with zero owned residue.

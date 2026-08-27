@@ -175,3 +175,55 @@ sensor work and empty after scratch cleanup.
 
 No technical contract gaps. Fresh QA Execute remains required to prove E2E-001 on real Orca and
 close `BUG-20260827-assisted-orca-tui-idle-before-route-proof`.
+
+## QA Execute Retest 1 — Invalid / Not Exercised
+
+Retest 1 on 2026-08-27 produced no scenario verdict. Both startup handles reached two consecutive
+connected `source=screen` frames with Codex / `gpt-5.6-luna` / `high`, but the coordinator queued
+B's follow-up while the prior parked turn still rendered `Working`. This violates the required
+end-turn-before-follow-up boundary and cannot close E2E-001 or the route bug. No new product bug was
+filed. Exact cleanup removed A, B, and ground; a 60-second late-effect audit ended with zero matching
+Orca worktree, terminal, path, branch ref, or Git worktree residue. Fresh QA Execute remains required.
+
+## QA Execute Retest 2 — Invalid / Not Exercised
+
+Retest 2 on 2026-08-27 proved A's two consecutive rendered route frames and completed A:T1 at clean
+commit `d931de7` with gate 3/3. Its machine-only helper stopped at a 60-second QA-harness deadline;
+the valid `TURN_DONE A_T1` marker arrived later at the worker's reported 1m14s boundary. No B slice,
+overlap, checkpoint, sync, Verifier, grouped review, or final QA ran. This is not a product defect or
+an E2E verdict. Exact cleanup plus a 60-second late audit returned to the two-worktree baseline with
+zero owned residue. Fresh QA Execute remains required.
+
+## QA Execute Retest 3 — Invalid / Not Exercised
+
+Retest 3 on 2026-08-27 used the corrected 300-second turn window. A's exact route rendered twice,
+and A:T1 completed cleanly at `78aab41` with gate 3/3. The cursor adapter retained the unique marker
+only as escaped/nested rendered TUI data, so its standalone-line predicate timed out even though an
+immediate exact-handle screen showed the marker and ready worker. This QA adapter mismatch is not a
+product defect or worker-timeout result. No B lane or follow-up ran. Exact cleanup plus a 60-second
+audit returned to the two-worktree baseline with zero owned residue. Fresh QA Execute remains
+required.
+
+## QA Execute Retest 4 — Invalid / Not Exercised
+
+Retest 4 on 2026-08-27 proved A's two rendered route frames and completed A:T1 cleanly at `155b4fe`
+with gate 3/3. The causal cursor response omitted `result.terminal.text` and returned the stream as
+a structured `result.terminal.tail` array. The helper read only the missing field and expired its
+300-second deadline despite the exact marker in that post-cursor array. This QA adapter mismatch is
+not a product defect or E2E verdict. No B lane or follow-up ran. Exact cleanup plus a 60-second
+78-sample audit returned to the two-worktree baseline with zero owned residue. Fresh QA Execute
+remains required.
+
+## QA Execute Retest 5 — FAIL
+
+Retest 5 on 2026-08-27 passed corrected startup-route proof for A and B, completed and integrated
+A:T1 at `94e6056`, and parked B:T9 cleanly at `87ab805` with the exact dependency comment plus full
+rendered-screen barrier. A_FINAL's exact same-handle send then returned `agent_prompt_stalled`, while
+that handle silently executed A:T7/A:T8 and created commits `976dbc5` and `4e07291`. Because the
+machine receipt contradicted the observed terminal/Git effects, exact A:T7 sync and B continuation
+could not proceed safely. The coordinator did not retry or create a replacement. The result is a
+product/external-interface FAIL deduplicated to
+`BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree`; Technical Verifiers, grouped
+Deep Review, final persona QA, and normal deterministic integration were not reached. Exact cleanup
+removed A/B/ground and their branches, paths, and terminals; a 60-second 85-sample audit returned to
+the exact two-worktree baseline with zero owned residue.
