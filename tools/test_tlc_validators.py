@@ -72,6 +72,7 @@ class TLCValidatorTests(unittest.TestCase):
             ("### T1: Discovery", "## T1: Discovery", "T1: primary task heading must be exactly"),
             ("### T1: Discovery", "#### T1: Discovery", "T1: primary task heading must be exactly"),
             ("### T1: Discovery", "### t1: Discovery", "T1: primary task heading must be exactly"),
+            ("### T1: Discovery", "### T1", "T1: primary task heading must be exactly"),
             ("**Slice:** A", "Slice: A", "T1: Slice field must use exactly"),
         )
         for original, replacement, expected in cases:

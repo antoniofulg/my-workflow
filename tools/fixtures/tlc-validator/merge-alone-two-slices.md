@@ -63,6 +63,7 @@ T1 -> T2 -> T3 -> T4
 
 ### T2R1: Review remediation for capability A
 
+**Slice:** A
 **Depends on:** None
 **Where:** `review/t2r1.md`
 **Tests:** unit
@@ -70,6 +71,7 @@ T1 -> T2 -> T3 -> T4
 
 ### TDR1: Deep review remediation
 
+**Slice:** B
 **Depends on:** None
 **Where:** `review.md`
 **Tests:** unit

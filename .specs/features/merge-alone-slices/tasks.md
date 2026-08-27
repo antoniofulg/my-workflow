@@ -7,7 +7,7 @@ gate, updates this file, and creates one atomic Conventional Commit. The Impleme
 single batch; a fresh Verifier closes the feature.
 
 **Design**: `.specs/features/merge-alone-slices/design.md`
-**Status**: In Progress — awaiting final Deep Review
+**Status**: In Progress — awaiting final QA
 
 ## Vertical Slice Closure
 
@@ -292,12 +292,36 @@ template example while preserving nested phase outlines.
 - Commit: `fix(workflow): align canonical slice task syntax`
 - Status: complete — targeted and full gates passed; ready for final Deep Review.
 
+### DR2: Reject Malformed and Leaking Task Headings
+
+**What**: Reset primary parsing context at canonical remediation headings and reject a primary-looking
+heading without its required colon, even when later valid tasks remain.
+
+- Where: `.agents/skills/tlc-spec-driven/scripts/validate_tasks.py`; canonical TLC validator fixture/test
+- Slice: A
+- Depends on: DR1
+- Reuses: Existing remediation fixture and canonical Task Breakdown syntax checks.
+- Requirements: MAS-03, MAS-10, MAS-11
+
+**Done when**:
+
+- [x] Canonical `T2R1` and `TDR1` remediation headings reset primary context, and their fields remain
+  outside primary membership/count.
+- [x] A `### T1` heading without a colon produces an explicit syntax error despite later valid tasks.
+- [x] Targeted validator/planner/resolver and full gates pass with no weakened, removed, or skipped
+  tests.
+
+- Tests: Extend the canonical remediation fixture and TLC validator syntax assertions.
+- Gate: Targeted validator/planner/resolver suites plus full `npm run test:all`
+- Commit: `fix(tlc): reject malformed and leaking task headings`
+- Status: complete — targeted and full gates passed; ready for final QA.
+
 ## Phase Execution Map
 
 ```text
 Phase 1 → Phase 2 → Phase 3
 
-T1 → T2 → T3 → T4 → T5 → R1 → R2 → DR1
+T1 → T2 → T3 → T4 → T5 → R1 → R2 → DR1 → DR2
 ```
 
 ## Task Granularity Check
@@ -312,6 +336,7 @@ T1 → T2 → T3 → T4 → T5 → R1 → R2 → DR1
 | R1 | One Technical Verifier remediation batch | Pass |
 | R2 | One exact error-identity assertion | Pass |
 | DR1 | One canonical task-syntax contract | Pass |
+| DR2 | One remediation/heading-boundary contract | Pass |
 
 ## Diagram-Definition Cross-Check
 
@@ -325,6 +350,7 @@ T1 → T2 → T3 → T4 → T5 → R1 → R2 → DR1
 | R1 | T5 | T5 → R1 | Pass |
 | R2 | R1 | R1 → R2 | Pass |
 | DR1 | R2 | R2 → DR1 | Pass |
+| DR2 | DR1 | DR1 → DR2 | Pass |
 
 ## Test Co-location Validation
 
@@ -338,3 +364,4 @@ T1 → T2 → T3 → T4 → T5 → R1 → R2 → DR1
 | R1 | Existing validator/resolver/planner contracts | unit + integration | Strengthened MAS assertions | Pass |
 | R2 | TLC validator error contract | unit | Strengthened MAS-UT-004 | Pass |
 | DR1 | Validator/template/planner contract | unit + structural | Strengthened MAS-03/MAS-09/MAS-11 | Pass |
+| DR2 | Validator heading-boundary contract | unit | Strengthened MAS-03/MAS-10/MAS-11 | Pass |

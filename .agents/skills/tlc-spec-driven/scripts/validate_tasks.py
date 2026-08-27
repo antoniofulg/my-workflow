@@ -39,7 +39,7 @@ import sys
 REQUIRED_SECTIONS = ["Test Coverage Matrix", "Gate Check Commands", "Execution Plan", "Task Breakdown"]
 TASK_RE = re.compile(r"^###\s+(T\d+)\s*:")
 NESTED_TASK_RE = re.compile(r"^####\s+(T\d+)\s*:")
-TASK_HEADING_RE = re.compile(r"^#{2,6}\s+([Tt]\d+)\s*:")
+TASK_HEADING_RE = re.compile(r"^#{2,6}\s+([Tt]\d+)(?:\s*:.*|\s+.*)?$")
 EDGE_RE = re.compile(r"\bT\d+\b")
 FILE_HINT_RE = re.compile(r"[\w./-]+\.\w{1,6}\b")
 SLICE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
@@ -95,7 +95,8 @@ def parse_tasks(lines):
     tasks = {}
     current = None
     for ln in lines:
-        m = TASK_RE.match(ln.strip())
+        stripped = ln.strip()
+        m = TASK_RE.match(stripped)
         if m:
             current = m.group(1).upper()
             tasks[current] = {
@@ -107,9 +108,11 @@ def parse_tasks(lines):
                 "invalid_slice_fields": [],
             }
             continue
+        if re.match(r"^###\s+", stripped):
+            current = None
+            continue
         if current is None:
             continue
-        stripped = ln.strip()
         dm = re.match(r"^\*{0,2}Depends on\*{0,2}\s*:\s*(.*)$", stripped, re.IGNORECASE)
         if dm:
             body = dm.group(1)

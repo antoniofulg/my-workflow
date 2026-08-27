@@ -3,10 +3,10 @@
 ## Handoff
 
 - **Feature**: `.specs/features/merge-alone-slices`
-- **Phase / Task**: Deep Review remediation / DR1 complete
-- **Completed**: T1-T5, R1, and R2 committed; final Technical Verifier PASS with 11/11 ACs, 16/16 contracts, full gate 380/380, and sensor 1/1 killed. DR1 aligns validator primary-task syntax with the planner, rejects empty normalized gates, preserves nested phase outlines, and covers template Slice fields.
+- **Phase / Task**: Final QA handoff / DR2 complete
+- **Completed**: T1-T5, R1, and R2 committed; final Technical Verifier PASS with 11/11 ACs, 16/16 contracts, full gate 380/380, and sensor 1/1 killed. DR1 aligned validator primary-task syntax with the planner; DR2 isolates remediation fields and rejects missing-colon primary headings without changing QA or validation evidence.
 - **In-progress** (file:line): none.
-- **Next step**: Run the single resolved deep-review group against DR1, remediate any blocking findings within the cap, then run final QA Plan and QA Execute.
+- **Next step**: Run final QA Plan and QA Execute; no further Deep Review round is planned.
 - **Blockers**: none.
 - **Uncommitted files**: none.
 - **Branch**: `fix/merge-alone-slices`
