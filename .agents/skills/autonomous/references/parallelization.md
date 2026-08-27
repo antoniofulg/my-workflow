@@ -86,25 +86,46 @@ Before launch, read `roles.implementer.provider`, `roles.implementer.model`, and
 default to select the worker route. Build and verify an explicit command for the frozen route:
 
 ```bash
-codex --model <model> -c 'model_reasoning_effort="<effort>"'
-claude --model <model> --effort <effort>
+codex --model '<model>' -c 'model_reasoning_effort="<effort>"'
+claude --model '<model>' --effort '<effort>'
 cursor agent --model '<model>[effort=<effort>]'
 ```
 
 Merge the Cursor effort into an existing parameter block instead of adding a duplicate block. Use
-the selected executable's `--help` and availability check to confirm the command is expressible.
-After `terminal wait --for tui-idle`, use `orca terminal read --terminal <worker-handle> --screen
---json` to prove the rendered TUI identity. Accept only `source=screen` with provider, model, and
-effort all present and matching the frozen tuple. `screen-unavailable`, an omitted provider, a
-mismatch, or ambiguity stops and serializes before the prompt or any task edit; clean only verified
-owned setup resources. Do not edit `tasks.md`, start a task, or continue in parallel.
+the selected executable's `--help` and availability check to confirm the command is expressible. Shell-
+quote every interpolated tuple value while building the fixed provider command. After `terminal wait
+--for tui-idle`, use `orca terminal read --terminal <worker-handle> --screen --json` to prove the
+rendered TUI identity. Accept only `source=screen` with provider, model, and effort all present and
+matching the frozen tuple. `screen-unavailable`, an omitted provider, a mismatch, or ambiguity stops
+and serializes before the prompt or any task edit; clean only verified owned setup resources. Do not
+edit `tasks.md`, start a task, or continue in parallel.
 
-Create the worktree with an explicit base and setup policy. Promote the startup shell returned by
-that create operation; never create a second terminal for the worker:
+Create the worktree with an explicit base and setup policy. Record the immutable receipt and prove
+the startup shell before promoting it; never create a second terminal for the worker:
 
 ```bash
 orca worktree create --name <slice> --base-branch <base-branch> --setup inherit --json
+```
+
+Record an immutable ownership receipt immediately from the create result: repository, complete
+worktree id, instance, absolute path, gitdir, branch, `pre_head`, and the exact
+`startupTerminal.handle`.
+
+Before any terminal send, inspect that exact handle:
+
+```bash
 orca terminal show --terminal <startupTerminal.handle> --json
+```
+
+Prove that the exact `startupTerminal.handle` was newly created by this worktree operation, is
+uniquely owned by this just-created worktree, is an unused shell, and has no agent/default-task
+activity. Use `terminal show`/`list` for this conjunction. Exactly one coordinator-owned startup
+handle must exist for this worktree. Ambiguity,
+multiple owned handles, or any existing activity serializes and cleans only
+verified owned setup resources. Shell-quote the frozen tuple values and build the fixed provider
+command only after that proof, then send `exec` to the exact handle:
+
+```bash
 orca terminal send --terminal <startupTerminal.handle> \
   --text "exec <validated-frozen-agent-command>" --enter --json
 orca terminal wait --terminal <startupTerminal.handle> --for tui-idle --timeout-ms 60000 --json
@@ -112,14 +133,12 @@ orca terminal read --terminal <startupTerminal.handle> --screen --json
 orca terminal send --terminal <startupTerminal.handle> --text "<slice task packet>" --enter --json
 ```
 
-Record an immutable ownership receipt immediately from the create result: repository, complete
-worktree id, instance, absolute path, gitdir, branch, `pre_head`, and the exact
-`startupTerminal.handle`. Prove with `terminal show`/`list` that this handle is a new unused shell:
-it has no agent or default task activity, and exactly one coordinator-owned startup handle exists.
-Ambiguity, multiple owned handles, or any existing activity serializes and cleans only verified
-owned setup resources. Record mutable `current_head` and `current_handle` separately; the same
-startup handle remains the worker handle and is updated only after a commit, sync, or exact-handle
-reacquisition. Never open a second terminal or create a second worker for the same slice.
+Accept the screen only when it reports `source=screen` and the provider, model, and effort all match
+the frozen tuple. A failed conjunction serializes and cleans before `exec`; `screen-unavailable`, an
+omitted provider, a mismatch, or ambiguity serializes before the task packet or any task edit.
+Record mutable `current_head` and `current_handle` separately; the same startup handle remains the
+worker handle and is updated only after a commit, sync, or exact-handle reacquisition. Never open a
+second terminal or create a second worker for the same slice.
 
 The coordinator follows this lifecycle:
 

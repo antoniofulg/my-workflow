@@ -122,10 +122,10 @@ describe("autonomous parallel slice dispatch contract", () => {
       ),
     ) as { roles: { implementer: { provider: string; model: string; effort: string } } };
     const implementer = workflow.roles.implementer;
-    const providerCommands: Record<string, string> = {
-      codex: "codex --model <model> -c 'model_reasoning_effort=\"<effort>\"'",
-      claude: "claude --model <model> --effort <effort>",
-      cursor: "cursor agent --model '<model>[effort=<effort>]'",
+    const providerCommandPatterns: Record<string, RegExp> = {
+      codex: /codex --model '<model>' -c 'model_reasoning_effort="<effort>"'/,
+      claude: /claude --model '<model>' --effort '<effort>'/,
+      cursor: /cursor agent --model '<model>\[effort=<effort>\]'/,
     };
 
     // AST-01: assisted execution is separate from automatic compatibility and honors frozen route.
@@ -133,33 +133,55 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(policy).toContain("does not write a compatibility PASS");
     expect(policy).toMatch(/automatic execution remains\s+unsupported and serial/);
     for (const contract of [policy, dx, spec, tasks]) {
-      expect(contract).not.toContain("worktree create --agent --prompt");
+      expect(contract).not.toContain("worktree create --agent");
       expect(contract).not.toContain("terminal create --command");
     }
     expect(spec).toContain("Contract verified; E2E pending");
     expect(implementer.provider).toBeTruthy();
     expect(implementer.model).toBeTruthy();
     expect(implementer.effort).toBeTruthy();
-    expect(providerCommands[implementer.provider]).toBeDefined();
-    expect(policy).toContain(providerCommands[implementer.provider]);
+    expect(providerCommandPatterns[implementer.provider]).toBeDefined();
+    expect(policy).toMatch(providerCommandPatterns[implementer.provider]);
+    for (const pattern of Object.values(providerCommandPatterns)) {
+      expect(policy).toMatch(pattern);
+    }
     expect(policy).toContain("roles.implementer.provider");
     expect(policy).toContain("roles.implementer.model");
     expect(policy).toContain("roles.implementer.effort");
-    expect(policy).toContain("codex --model <model> -c 'model_reasoning_effort=\"<effort>\"'");
-    expect(policy).toContain("claude --model <model> --effort <effort>");
+    expect(policy).toContain("codex --model '<model>' -c 'model_reasoning_effort=\"<effort>\"'");
+    expect(policy).toContain("claude --model '<model>' --effort '<effort>'");
     expect(policy).toContain("cursor agent --model '<model>[effort=<effort>]'");
     expect(policy).toContain("terminal read");
     expect(policy).toContain("startupTerminal.handle");
-    expect(policy).toContain("new unused shell");
-    expect(policy).toContain("no agent or default task activity");
-    expect(policy).toContain("exactly one coordinator-owned startup handle");
+    expect(policy).toMatch(/an\s+unused shell/);
+    expect(policy).toMatch(/no agent\/default-task\s+activity/);
+    expect(policy).toMatch(/exactly one\s+coordinator-owned startup\s+handle/i);
     expect(policy).toContain("exec <validated-frozen-agent-command>");
     expect(policy).toContain("orca terminal read --terminal <startupTerminal.handle> --screen");
     expect(policy).toContain("source=screen");
-    expect(policy).toMatch(/provider, model, and\s+effort all present and matching/);
+    expect(policy).toMatch(/provider, model, and\s+effort all present and\s+matching/);
     expect(policy).toContain("screen-unavailable");
     expect(policy).toContain("matching the frozen tuple");
-    expect(policy).toContain("Do not edit `tasks.md`");
+    expect(policy).toMatch(/Do not\s+edit `tasks\.md`/);
+    const normalizedPolicy = policy.replace(/\s+/g, " ");
+    expect(normalizedPolicy).toMatch(
+      /Prove that the exact `startupTerminal\.handle` was newly created by this worktree operation, is uniquely owned by this just-created worktree, is an unused shell, and has no agent\/default-task activity\./,
+    );
+    const lifecycleMarkers = [
+      "Record an immutable ownership receipt immediately from the create result",
+      "Before any terminal send, inspect that exact handle",
+      "Prove that the exact `startupTerminal.handle`",
+      "Shell-quote the frozen tuple values and build the fixed provider command only after that proof",
+      'orca terminal send --terminal <startupTerminal.handle> \\ --text "exec <validated-frozen-agent-command>"',
+      "orca terminal wait --terminal <startupTerminal.handle> --for tui-idle",
+      "orca terminal read --terminal <startupTerminal.handle> --screen",
+      'orca terminal send --terminal <startupTerminal.handle> --text "<slice task packet>"',
+    ];
+    const lifecyclePositions = lifecycleMarkers.map((marker) => normalizedPolicy.indexOf(marker));
+    expect(lifecyclePositions.every((position) => position >= 0)).toBe(true);
+    for (let index = 1; index < lifecyclePositions.length; index += 1) {
+      expect(lifecyclePositions[index]).toBeGreaterThan(lifecyclePositions[index - 1]);
+    }
     // AST-02: one worker per ready slice and sequential tasks to the first dependency.
     expect(policy).toContain("Start at most one worker for each planner-ready slice");
     expect(policy).toMatch(/sequential TLC tasks and stops at the\s+first unmet task dependency/);
@@ -188,7 +210,7 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(policy).toContain("no symlink");
     expect(policy).toContain("no merge/rebase/cherry-pick/revert in\n   progress");
     expect(policy).toContain("current_head` must be current");
-    expect(policy).toMatch(/the same\s+startup handle remains the worker handle/);
+    expect(policy).toMatch(/the same\s+startup handle remains the\s+worker handle/);
     expect(policy).toMatch(/recorded branch tip\s+must equal `current_head`/);
     expect(policy).toContain("git merge-base --is-ancestor <slice-head> <integration-head>");
     expect(policy).toContain("Do not require\n   `current_head` to equal `pre_head`");
@@ -220,8 +242,8 @@ describe("autonomous parallel slice dispatch contract", () => {
     // Route selection is part of the user-facing adoption contract.
     expect(dx).toContain("roles.implementer.provider/model/effort");
     expect(dx).toContain("always launch an explicit command, never trust an");
-    expect(dx).toContain("codex --model <model>");
-    expect(dx).toContain("claude --model <model> --effort <effort>");
+    expect(dx).toContain("codex --model '<model>'");
+    expect(dx).toContain("claude --model '<model>' --effort '<effort>'");
     expect(dx).toContain("cursor agent");
     expect(dx).toContain("--help`/availability check");
     expect(dx).toContain("wait for `tui-idle`, then run");

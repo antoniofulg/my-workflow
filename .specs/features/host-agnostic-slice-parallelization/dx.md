@@ -52,9 +52,10 @@ coordinate direct Orca worktrees. This path is supervised through the existing O
 new executor verb or compatibility result. It must read the frozen
 `roles.implementer.provider/model/effort` and always launch an explicit command, never trust an
 unobservable default. Create the worktree with explicit base/setup, record the exact
-`startupTerminal.handle`, prove that it is one new unused shell with no agent/default task activity,
-then send `exec <validated-command>` to that same handle. The verified provider forms are `codex --model <model> -c
-'model_reasoning_effort="<effort>"'`, `claude --model <model> --effort <effort>`, and `cursor agent
+`startupTerminal.handle`, prove that it was newly created by the just-created worktree, uniquely
+owned by it, is one new unused shell, and has no agent/default-task activity, then shell-quote the
+frozen tuple values and send `exec <validated-command>` to that same handle. The verified provider
+forms are `codex --model '<model>' -c 'model_reasoning_effort="<effort>"'`, `claude --model '<model>' --effort '<effort>'`, and `cursor agent
 --model '<model>[effort=<effort>]'`; merge Cursor effort into an existing parameter block. Use the
 selected executable's `--help`/availability check, wait for `tui-idle`, then run
 `orca terminal read --terminal <handle> --screen --json`. Continue only when `source=screen` renders
@@ -63,7 +64,8 @@ ambiguity stops and serializes before the prompt or task edit. An inexpressible 
 stops setup without editing `tasks.md`. Always use the two-step
 `worktree create` plus startup-shell promotion, preserving startup policy. Never open a second
 terminal. Deliver the packet and later follow-ups with
-`terminal send` to that same exact verified handle. Any handle ambiguity serializes.
+`terminal send` to that same exact verified handle. Any failed ownership/new/unused/activity
+conjunction or handle ambiguity serializes before `exec` and prompt delivery.
 
 The coordinator starts at most one worker per ready slice. Tasks inside each slice stay sequential.
 At the first unmet dependency, the worker leaves a clean checkpoint and writes this worktree
