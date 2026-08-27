@@ -6,12 +6,12 @@ persona: Workflow adopter
 journey: J-adopt-workflow
 expected: A fresh target receives the workflow resolver, tracked example/templates, initialized local config, generated runtime packets, tools/ad-index.py, and a valid workflow tour; source-pack-only Bun tests/configuration/preload and bun.lock remain absent; re-adoption preserves consumer-owned local state, creates no removed integration artifacts, and leaves host-boundary sentinels unchanged.
 entry_points: README.md#adopt-the-workflow; docs/guidelines/ARTIFACT-LIFECYCLE.md; scripts/adopt.py; .my-workflow.toml.example; .my-workflow.toml; templates/agents/
-qa_status: fail
+qa_status: pass
 bug_ids: BUG-20260822-deep-review-learnings-untrackable; BUG-20260822-feature-specs-ignored; BUG-20260822-feature-state-gate-conflicts; BUG-20260825-scenario-pass-report-field; BUG-20260825-adoption-omits-parallel-pilot; BUG-20260827-scenario-pass-report-version-gate
-fix_status: pending
-retest_status: pending
-fix_commits: 0413862; a7397d2; 43e9910; a3fc718; 5b5474e; 816afd6; 1593299
-evidence: docs/qa/evidence/2026-08-25-release-0-6-0/session.md; docs/qa/evidence/2026-08-25-release-0-6-0/retest-adoption.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-contracts.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-package-summary.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-protected-history.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-reference-scan.json; docs/qa/evidence/2026-08-27-bun-test-runner/session.md; docs/qa/evidence/2026-08-27-bun-test-runner/adoption.json; docs/qa/evidence/2026-08-27-bun-test-runner/pack-summary.json; docs/qa/evidence/2026-08-27-bun-test-runner/hsc09-failure.log
+fix_status: fixed
+retest_status: pass
+fix_commits: 0413862; a7397d2; 43e9910; a3fc718; 5b5474e; 816afd6; 1593299; 17fd3f5
+evidence: docs/qa/evidence/2026-08-25-release-0-6-0/session.md; docs/qa/evidence/2026-08-25-release-0-6-0/retest-adoption.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-contracts.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-package-summary.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-protected-history.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-reference-scan.json; docs/qa/evidence/2026-08-27-bun-test-runner/retest-session.md; docs/qa/evidence/2026-08-27-bun-test-runner/retest-adoption.json; docs/qa/evidence/2026-08-27-bun-test-runner/retest-adoption-gate.log; docs/qa/evidence/2026-08-27-bun-test-runner/retest-pack-summary.json; docs/qa/evidence/2026-08-27-bun-test-runner/retest-test-all.log; docs/qa/evidence/2026-08-27-bun-test-runner/retest-hsc09.log
 last_report: docs/qa/reports/2026-08-27-bun-test-runner.md
 overlaps:
 ---

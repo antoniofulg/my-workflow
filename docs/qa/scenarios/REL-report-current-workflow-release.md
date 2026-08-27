@@ -6,12 +6,12 @@ persona: Repository reader
 journey: J-review-workflow-release
 expected: Unreleased v0.7.0 notes identify Bun 1.4 structural tests rooted at tools, package and lock metadata remain 0.6.0, adoption does not install Bun or mutate host settings, and no bun.lock is created.
 entry_points: CHANGELOG.md; package.json; package-lock.json; README.md; docs/workflow/README.md
-qa_status: fail
+qa_status: pass
 bug_ids: BUG-20260824-release-overstates-lifecycle-qa; BUG-20260825-scenario-pass-report-field; BUG-20260825-adoption-omits-parallel-pilot; BUG-20260827-scenario-pass-report-version-gate
-fix_status: pending
-retest_status: pending
-fix_commits: 61f2e74; 816afd6; 1593299
-evidence: docs/qa/evidence/2026-08-25-release-0-6-0/session.md; docs/qa/evidence/2026-08-25-release-0-6-0/retest-package-summary.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-version-parity.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-protected-history.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-reference-scan.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-migration.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-locality.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-adoption.json; docs/qa/evidence/2026-08-27-bun-test-runner/session.md; docs/qa/evidence/2026-08-27-bun-test-runner/gates.md; docs/qa/evidence/2026-08-27-bun-test-runner/version-guard.md; docs/qa/evidence/2026-08-27-bun-test-runner/release.json; docs/qa/evidence/2026-08-27-bun-test-runner/npm-ls.md; docs/qa/evidence/2026-08-27-bun-test-runner/pack-summary.json; docs/qa/evidence/2026-08-27-bun-test-runner/adoption.json; docs/qa/evidence/2026-08-27-bun-test-runner/hsc09-failure.log
+fix_status: fixed
+retest_status: pass
+fix_commits: 61f2e74; 816afd6; 1593299; 17fd3f5
+evidence: docs/qa/evidence/2026-08-25-release-0-6-0/session.md; docs/qa/evidence/2026-08-25-release-0-6-0/retest-package-summary.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-version-parity.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-protected-history.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-reference-scan.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-migration.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-locality.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-adoption.json; docs/qa/evidence/2026-08-27-bun-test-runner/retest-session.md; docs/qa/evidence/2026-08-27-bun-test-runner/retest-bun-test.log; docs/qa/evidence/2026-08-27-bun-test-runner/retest-npm-test.log; docs/qa/evidence/2026-08-27-bun-test-runner/retest-release-filter.log; docs/qa/evidence/2026-08-27-bun-test-runner/retest-version-guard.md; docs/qa/evidence/2026-08-27-bun-test-runner/retest-source-boundary.md; docs/qa/evidence/2026-08-27-bun-test-runner/retest-pack-summary.json; docs/qa/evidence/2026-08-27-bun-test-runner/retest-release.json; docs/qa/evidence/2026-08-27-bun-test-runner/retest-ignored-discovery.log; docs/qa/evidence/2026-08-27-bun-test-runner/retest-adoption.json; docs/qa/evidence/2026-08-27-bun-test-runner/retest-adoption-gate.log; docs/qa/evidence/2026-08-27-bun-test-runner/retest-test-all.log; docs/qa/evidence/2026-08-27-bun-test-runner/retest-hsc09.log
 last_report: docs/qa/reports/2026-08-27-bun-test-runner.md
 overlaps: ADP-adopt-workflow-safely
 ---
