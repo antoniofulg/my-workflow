@@ -3,10 +3,10 @@
 ## Handoff
 
 - **Feature**: `.specs/features/merge-alone-slices`
-- **Phase / Task**: Technical Verifier remediation / R2 complete
-- **Completed**: T1-T5, R1, and R2 committed; R2 pins slice `A` plus the exact lowercase-`yes` diagnostic for every invalid merge-alone decision. The validator gate passes with 16/16 tests. Re-verification had reached 10/11 ACs and 16/16 contracts before this final evidence correction.
+- **Phase / Task**: Deep Review / group 1 of 1
+- **Completed**: T1-T5, R1, and R2 committed; final Technical Verifier PASS with 11/11 ACs, 16/16 contracts, full gate 380/380, and sensor 1/1 killed.
 - **In-progress** (file:line): none.
-- **Next step**: Dispatch a fresh Technical Verifier against the R2 commit.
+- **Next step**: Run the single resolved deep-review group, remediate blocking findings within the cap, then run final QA Plan and QA Execute.
 - **Blockers**: none.
 - **Uncommitted files**: none.
 - **Branch**: `fix/merge-alone-slices`
