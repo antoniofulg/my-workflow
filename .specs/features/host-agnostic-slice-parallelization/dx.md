@@ -89,7 +89,8 @@ Deliver the packet and later follow-ups with `terminal send` to that same exact 
 conjunction or handle ambiguity serializes before `exec` and prompt delivery.
 
 Before every logical packet, record the exact handle, unique turn ID/phase, `pre_head`, current task
-statuses, worktree comment, affected-gate state, and expected marker
+statuses, worktree comment, affected-gate state, exact expected task IDs, expected task-commit
+count, allowed changed paths including the task-status path, and expected marker
 `TURN_DONE <phase> head=<40-hex-sha>` with exactly one SHA. Issue exactly one send; never retry a
 success, error, missing receipt, or `agent_prompt_stalled`, and never launch a replacement worker.
 Success follows the normal 300-second worker-turn barrier. An error, missing receipt, or
@@ -98,11 +99,16 @@ startup/current handle; a different handle is rejected; every
 `interval_ms=250` for at most `timeout_ms=300000`, with no model turns. Accept the effect only when
 exactly one expected turn is proven end-to-end: the same handle is connected; one exact phase marker
 has one 40-hex SHA; two fresh non-Working `source=screen` frames plus `tui-idle` agree; Git HEAD
-equals the marker; required task statuses, atomic commits, and gates match; and a parked B comment
-matches exactly. Record receipt/effect divergence and continue without resending. Deadline, partial,
-dirty, conflicting/multiple marker, wrong-handle, foreign, failed-gate, or ambiguous state retains
-exact recovery and serializes; a commit alone is never success. This is not dependency polling or a
-watchdog: dependency waiting remains event-driven and uses no model turns.
+equals the marker; required task statuses, atomic commits, and gates match; the marker HEAD is a
+descendant of exact `pre_head` by `git merge-base --is-ancestor <pre_head> <marker-head>`; commits
+since `pre_head` equal the expected task-commit count and identities; and changed paths are within
+the packet allowlist including the task-status path. Reset, foreign/unrelated or extra commits,
+out-of-scope paths, or status mismatch are ambiguous and fail closed. Only phase `B_PARKED` requires
+the exact parked-B comment; route, A, and other nonparked packets do not. Record receipt/effect
+divergence and continue without resending. Deadline, partial, dirty, conflicting/multiple marker,
+wrong-handle, foreign, failed-gate, or ambiguous state retains exact recovery and serializes; a
+commit alone is never success. This is not dependency polling or a watchdog: dependency waiting
+remains event-driven and uses no model turns.
 
 The coordinator starts at most one worker per ready slice. Tasks inside each slice stay sequential.
 At the first unmet dependency, the worker leaves a clean checkpoint and writes this worktree

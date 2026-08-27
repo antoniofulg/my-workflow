@@ -355,12 +355,31 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(normalizedPacketContract).toContain("same handle remains connected");
     expect(normalizedPacketContract).toContain("same exact startup/current handle");
     expect(normalizedPacketContract).toContain("different handle");
+    expect(normalizedPacketContract).toContain("exact expected task IDs");
+    expect(normalizedPacketContract).toContain("expected task-commit count");
+    expect(normalizedPacketContract).toContain("allowed changed paths including the task-status path");
     expect(normalizedPacketContract).toContain("exactly one expected turn is proven end-to-end");
     expect(normalizedPacketContract).toContain("inspect it every `interval_ms=250` for at most `timeout_ms=300000`");
     expect(normalizedPacketContract).toContain("with no model turns");
     expect(normalizedPacketContract).toContain("Git HEAD equals that marker");
     expect(normalizedPacketContract).toContain("required task statuses, atomic commits");
     expect(normalizedPacketContract).toContain("gates match");
+    expect(normalizedPacketContract).toContain(
+      "the marker HEAD is a descendant of the exact `pre_head` proven with `git merge-base --is-ancestor <pre_head> <marker-head>`",
+    );
+    expect(normalizedPacketContract).toContain(
+      "commits in `<pre_head>..<marker-head>` equal the expected task-commit count and identities",
+    );
+    expect(normalizedPacketContract).toContain(
+      "changed paths are a subset of the packet allowlist, including its task-status path",
+    );
+    expect(normalizedPacketContract).toContain("A reset, foreign or unrelated commit, extra commit, out-of-scope path, or status mismatch is ambiguous and fails closed");
+    expect(normalizedPacketContract).toContain(
+      "Only a turn whose phase is exactly `B_PARKED` requires the exact parked-B checkpoint comment",
+    );
+    expect(normalizedPacketContract).toContain(
+      "route, A, and other nonparked turns do not",
+    );
     expect(normalizedPacketContract).toContain("continue without resending");
     expect(normalizedPacketContract).toContain("No effect by the deadline");
     expect(normalizedPacketContract).toContain("partial state");

@@ -106,7 +106,8 @@ continue in parallel.
 
 Before every logical packet—including route promotion, the initial task packet, and each
 follow-up—record the exact handle, a unique turn ID/phase, `pre_head`, the current task statuses,
-worktree comment and affected-gate state, and the expected marker form
+worktree comment and affected-gate state, the exact expected task IDs, expected task-commit count,
+and allowed changed paths including the task-status path, and the expected marker form
 `TURN_DONE <phase> head=<40-hex-sha>` (exactly one SHA). Issue exactly one send for that packet;
 never retry after a success, error, missing receipt, or `agent_prompt_stalled`, and never launch a
 replacement worker.
@@ -118,8 +119,13 @@ inspect it every `interval_ms=250` for at most `timeout_ms=300000`, with no mode
 effect only when exactly one expected turn is proven end-to-end: the same handle remains connected;
 the exact unique phase marker has one 40-hex SHA; two fresh non-Working `source=screen` frames and
 a `tui-idle` reading agree; Git HEAD equals that marker; required task statuses, atomic commits,
-and gates match; and, for a parked B turn, the exact checkpoint comment matches. Record the
-receipt/effect divergence and continue without resending.
+and gates match; the marker HEAD is a descendant of the exact `pre_head` proven with
+`git merge-base --is-ancestor <pre_head> <marker-head>`; commits in
+`<pre_head>..<marker-head>` equal the expected task-commit count and identities; and changed paths
+are a subset of the packet allowlist, including its task-status path. A reset, foreign or unrelated
+commit, extra commit, out-of-scope path, or status mismatch is ambiguous and fails closed. Only a
+turn whose phase is exactly `B_PARKED` requires the exact parked-B checkpoint comment; route, A, and
+other nonparked turns do not. Record the receipt/effect divergence and continue without resending.
 
 No effect by the deadline, partial state, conflicting or multiple marker SHAs, dirty state, gate
 failure, wrong handle, or ambiguity serializes the lane and retains it for exact recovery. Never
