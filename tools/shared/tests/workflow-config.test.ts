@@ -39,6 +39,29 @@ describe("workflow configuration skill", () => {
     expect(skill).not.toContain("deep-review after every slice");
   });
 
+  it("publishes the merge-alone slice planning contract", () => {
+    const template = readRepositoryFile(".agents/skills/tlc-spec-driven/references/tasks.md");
+    const skill = readRepositoryFile(skillPath);
+    const readme = readRepositoryFile("README.md");
+    const normalizedTemplate = template.replace(/\s+/g, " ");
+    const normalizedSkill = skill.replace(/\s+/g, " ");
+    const normalizedReadme = readme.replace(/\s+/g, " ");
+
+    expect(template).toContain("## Vertical Slice Closure");
+    expect(template).toContain("**Slice:** <slice-id>");
+    expect(normalizedTemplate).toContain("merge-alone observable outcome");
+    expect(normalizedTemplate).toContain("A phase or cohort describes technical ordering");
+    expect(normalizedTemplate).toContain("a batch describes worker capacity");
+    expect(normalizedSkill).toContain("validates the vertical-slice closure contract and derives the count");
+    expect(normalizedSkill).toContain("optional assertion");
+    expect(normalizedSkill).toContain("it never owns the count");
+    expect(normalizedReadme).toContain("validates its vertical-slice closure table and derives");
+    expect(normalizedReadme).toContain("`--slices` is an optional assertion");
+    expect(normalizedReadme).not.toContain("--feature register-user-native --slices 4");
+    expect(normalizedReadme).not.toContain("--feature register-user-profile --slices 4");
+    expect(normalizedReadme).not.toContain("--feature register-user-override --slices 4");
+  });
+
   it("identifies a complete agent definition for every supported role and provider", () => {
     for (const provider of providers) {
       for (const role of roles) {

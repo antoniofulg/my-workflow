@@ -169,15 +169,17 @@ and batch as separate units.
 
 **Done when**:
 
-- [ ] Template requires the closure table and one `Slice` field per primary task.
-- [ ] Template defines slice, phase/cohort, and batch without overlapping ownership.
-- [ ] Workflow-config docs run after validated Tasks and show optional assertion only.
-- [ ] README examples derive count without `--slices` ownership.
-- [ ] Structural/adoption gates pass with at least 116 Bun tests and `scripts/test_adopt.py` exit 0.
+- [x] Template requires the closure table and one `Slice` field per primary task.
+- [x] Template defines slice, phase/cohort, and batch without overlapping ownership.
+- [x] Workflow-config docs run after validated Tasks and show optional assertion only.
+- [x] README examples derive count without `--slices` ownership.
+- [x] Structural/adoption gates pass with at least 116 Bun tests and `scripts/test_adopt.py` exit 0.
 
 **Tests**: MAS-IT-009
 **Gate**: Public contract
 **Commit**: `docs(workflow): publish merge-alone slice contract`
+
+**Status**: complete — `npm test` passed with 116 tests and `python3 scripts/test_adopt.py` exited 0.
 
 ### T5: Refresh Current QA and Release Promises
 
