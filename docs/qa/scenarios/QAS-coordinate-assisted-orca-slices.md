@@ -17,7 +17,7 @@ overlaps: QAS-run-resource-free-parallel-orca-slices; QAS-clean-owned-parallel-s
 ---
 
 Covers E2E-001, AST-01 through AST-07, and the user-observable ownership and cleanup outcome of
-SEC-008. The canonical pilot uses the frozen implementer route `codex` / `gpt-5.6-luna` / `medium`,
+SEC-008. The canonical pilot uses the frozen implementer route `claude` / `sonnet` / `low`,
 starts B only after `A:T1` completes and verifies, and parks it at the exact later dependency
 `B:T12 depends_on A:T7`.
 
@@ -129,3 +129,12 @@ absence proven, removed both complete Orca ids, and a 60-second 91-sample audit 
 exact two-worktree baseline with zero owned residue. The closing outer full gate
 `npm_config_offline=true npm run test:all` exited `0` with Vitest `112/112`, closing
 `BUG-20260827-medium-route-contract-test-still-expects-low` through `395a691`.
+
+The next current-contract retest uses `claude` / `sonnet` / `low` after the Codex account exhausted
+its weekly plan limit during Retest 9. The human explicitly scoped the move to the implementer role;
+`verifier` and `deep_reviewer` stay on Codex, so a retest run before that quota restores is expected
+to halt at Technical Verification or grouped Deep Review rather than at the first worker turn. The
+route is refreshed in the feature snapshot with `--override implementer=claude`; cadence
+`grouped.3` and its `[[1,2],[3,4]]` groups are unchanged. Retest 7 already failed task integrity
+with a low-effort worker, so the next walk must observe gate-before-commit and one-atomic-commit-per-task
+on this route before any field is updated.

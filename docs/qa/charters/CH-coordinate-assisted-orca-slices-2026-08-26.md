@@ -6,7 +6,7 @@
 - **Journey:** [`J-execute-parallel-slices`](../journeys/J-execute-parallel-slices.md), assisted flow
 - **Tour:** Explicit authorization, parked dependency, same-terminal continuation, and exact cleanup
 - **Public entry point:** [assisted Orca policy](../../../.agents/skills/autonomous/references/parallelization.md) with the feature's frozen [`workflow.json`](../../../.specs/features/host-agnostic-slice-parallelization/workflow.json)
-- **Declared adapter:** CLI/manual through installed Orca direct worktree and terminal interfaces; frozen implementer route `codex` / `gpt-5.6-luna` / `medium`
+- **Declared adapter:** CLI/manual through installed Orca direct worktree and terminal interfaces; frozen implementer route `claude` / `sonnet` / `low`
 - **Scenario:** `QAS-coordinate-assisted-orca-slices`
 - **Adjacent canaries:** `QAS-qualify-orca-host-before-parallel-use`; `CFG-fallback-unproven-parallel-execution`; `QAS-clean-owned-parallel-slice-pilot`
 
@@ -34,7 +34,7 @@ gate stages remain ordered; worktree, Git path, exact branch ref, and terminal a
 
 - Record explicit assisted authorization, source checkout HEAD, disposable root, frozen route, and
   before-state Orca/Git inventories. Do not send a prompt until the terminal screen proves
-  `codex` / `gpt-5.6-luna` / `medium` exactly.
+  `claude` / `sonnet` / `low` exactly.
 - Use one direct two-step Orca worktree plus its promoted startup shell per ready slice. Record immutable
   repository/worktree/instance/path/gitdir/branch/`pre_head` ownership separately from mutable
   `current_head` and worker handle state.

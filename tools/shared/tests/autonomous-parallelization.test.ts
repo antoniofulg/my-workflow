@@ -150,17 +150,17 @@ describe("autonomous parallel slice dispatch contract", () => {
       expect(contract, name).not.toContain("terminal create --command");
     }
     expect(spec).toMatch(/\| AST-01 \|[\s\S]*?Contract verified; E2E pending/);
-    expect(implementer.provider).toBe("codex");
-    expect(implementer.model).toBe("gpt-5.6-luna");
-    expect(implementer.effort).toBe("medium");
+    expect(implementer.provider).toBe("claude");
+    expect(implementer.model).toBe("sonnet");
+    expect(implementer.effort).toBe("low");
     expect(charter).toContain(
-      "frozen implementer route `codex` / `gpt-5.6-luna` / `medium`",
+      "frozen implementer route `claude` / `sonnet` / `low`",
     );
     expect(charter).toContain(
-      "`codex` / `gpt-5.6-luna` / `medium` exactly",
+      "`claude` / `sonnet` / `low` exactly",
     );
     expect(scenario).toContain(
-      "frozen implementer route `codex` / `gpt-5.6-luna` / `medium`",
+      "frozen implementer route `claude` / `sonnet` / `low`",
     );
     expect(providerCommandPatterns[implementer.provider]).toBeDefined();
     expect(policy).toMatch(providerCommandPatterns[implementer.provider]);

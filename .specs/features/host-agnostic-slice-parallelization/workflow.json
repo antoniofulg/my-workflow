@@ -13,8 +13,10 @@
     ]
   },
   "feature": "host-agnostic-slice-parallelization",
-  "git_head": "d191025de72729690e8c4c58cc3f0230bce7848c",
-  "overrides": {},
+  "git_head": "198eeb50c254bc0d63fe29c32fe330961de2d9e3",
+  "overrides": {
+    "implementer": "claude"
+  },
   "parallelization": {
     "mode": "disabled",
     "resource_provider": null
@@ -34,10 +36,10 @@
       "provider": "codex"
     },
     "implementer": {
-      "agent_file": ".codex/agents/implementer.toml",
-      "effort": "medium",
-      "model": "gpt-5.6-luna",
-      "provider": "codex"
+      "agent_file": ".claude/agents/implementer.md",
+      "effort": "low",
+      "model": "sonnet",
+      "provider": "claude"
     },
     "verifier": {
       "agent_file": ".codex/agents/verifier.toml",
