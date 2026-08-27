@@ -258,6 +258,15 @@ packet templates live under `templates/agents/{cursor,claude,codex}/`; generated
 explorer and verifier runtimes live under the ignored `.cursor/agents/`, `.claude/agents/` and
 `.codex/agents/` directories.
 
+## Structural test gate
+
+The structural TypeScript contracts run on Bun 1.4.x. The repository-local `bunfig.toml` limits
+discovery to `./tools`; `npm test` and `bun test` run the same canonical suite, while
+`npm run test:all` adds the registered Python checks. npm remains the package, lockfile, and
+publication owner, including `npm pack --dry-run --json`.
+
+Adoption requires Python 3 and does not install Bun, edit host settings, or create a Bun lockfile.
+
 ## Knowledge checker
 
 ```bash

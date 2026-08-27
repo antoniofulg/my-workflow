@@ -1033,7 +1033,7 @@ describe("adoption and public setup", () => {
     expect(unreleasedStart).toBeGreaterThanOrEqual(0);
     expect(releaseStart).toBeGreaterThan(unreleasedStart);
     expect(section(changelog, "0.6.0")).toBe(section(publishedChangelog, "0.6.0"));
-    expect(releaseScenario).toContain("expected: Release 0.6.0 matches both package authorities");
+    expect(releaseScenario).toContain("expected: Unreleased v0.7.0 notes identify Bun 1.4 structural tests rooted at tools");
     expect(pendingRelease).toContain("Bun 1.4");
     expect(pendingRelease).toContain(`Removed the optional ${integrationName} integration`);
     expect(pendingRelease).toContain("Session continuation is now a host responsibility");
@@ -1045,6 +1045,38 @@ describe("adoption and public setup", () => {
     expect(latestRelease).toContain("opt-in parallel slice executor");
     expect(latestRelease).toContain("resource preflight");
     expect(latestRelease).toContain("BLOCKED-VERIFY");
+  });
+
+  it("BTR-IT-003 keeps active runner contracts on Bun", () => {
+    const retiredRunner = ["vit", "est"].join("");
+    const currentContracts = [
+      "README.md",
+      "docs/workflow/README.md",
+      "docs/workflow/decisions.md",
+      "docs/workflow/guidelines.md",
+      "docs/workflow/loop.md",
+      "docs/workflow/pack.md",
+      "docs/workflow/purpose.md",
+      "docs/workflow/reviews.md",
+      "docs/qa/README.md",
+      "docs/qa/journeys/J-adopt-workflow.md",
+      "docs/qa/journeys/J-configure-feature-workflow.md",
+      "docs/qa/journeys/J-enable-external-security-skills.md",
+      "docs/qa/journeys/J-execute-parallel-slices.md",
+      "docs/qa/journeys/J-review-workflow-release.md",
+      "docs/qa/journeys/J-run-deep-review.md",
+      "docs/qa/scenarios/REL-report-current-workflow-release.md",
+      "package.json",
+      "package-lock.json",
+      "tsconfig.json",
+      "bunfig.toml",
+    ];
+    const matches = currentContracts.flatMap((relativePath) => {
+      const source = readRepositoryFile(relativePath);
+      return source.toLowerCase().includes(retiredRunner) ? [relativePath] : [];
+    });
+
+    expect(matches, `retired runner wording in active contracts: ${matches.join(", ")}`).toEqual([]);
   });
 
   it("CT-004 preserves v0.5.0 historical evidence and the v0.4.0 changelog section", () => {

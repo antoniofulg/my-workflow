@@ -4,9 +4,9 @@ area: REL
 title: Report the current workflow release consistently
 persona: Repository reader
 journey: J-review-workflow-release
-expected: Release 0.6.0 matches both package authorities and shipped public contracts, while the full test command scopes discovery to canonical tests under tools.
+expected: Unreleased v0.7.0 notes identify Bun 1.4 structural tests rooted at tools, package and lock metadata remain 0.6.0, and adoption does not install Bun or mutate host settings.
 entry_points: CHANGELOG.md; package.json; package-lock.json; README.md; docs/workflow/README.md
-qa_status: pass
+qa_status: untested
 bug_ids: BUG-20260824-release-overstates-lifecycle-qa; BUG-20260825-scenario-pass-report-field; BUG-20260825-adoption-omits-parallel-pilot
 fix_status: fixed
 retest_status: pass
@@ -16,22 +16,21 @@ last_report: docs/qa/reports/2026-08-25-release-0-6-0.md
 overlaps:
 ---
 
-QA retest on 2026-08-25 after fix `1593299` passed the v0.6.0 release walk. The reloaded package
-manifest, package and lockfile authorities, current release scenario, migration note, protected
-history, and exact reference classifications agree. The private local branch is not tagged or
-published by this walk; the separate existing v0.6.0 ref on origin/main is recorded as external
-coordination state.
+The current release walk covers the v0.7.0 Unreleased notes, Bun 1.4 structural test discovery
+under `tools`, unchanged 0.6.0 package authorities, npm package membership, and the host-neutral
+adoption boundary. It must verify these public contracts through the declared CLI adapter before
+the feature closes; this scenario is intentionally `untested` until that fresh walk completes.
 
-Version owner for public release consistency. For release `0.6.0`, the reader compares the
-newest changelog heading with both package authorities and checks its claims against the shipped
-public contracts. The release walk reuses the adoption verdict as a canary instead of repeating its
-feature-level probes.
+Version owner for public release consistency. While v0.7.0 is Unreleased, the reader compares the
+pending changelog notes with both 0.6.0 package authorities and checks their claims against the
+shipped public contracts. The release walk reuses the adoption verdict as a canary instead of
+repeating its feature-level probes.
 
-Release `0.6.0` changes this promise and resets it to `untested`. The next independent QA Execute
-session must verify identity, package membership, adoption, the full test command, and every
-parallel-executor release-note claim. The real Orca/Codex two-lane lifecycle and completed-pilot
-cleanup remain `blocked-verify`; release QA may confirm that boundary but cannot convert it to a
-pass or claim a completed pilot.
+The v0.7.0 runner and documentation changes reset this promise to `untested`. The next independent
+QA Execute session must verify identity, package membership, adoption, the Bun and full test
+commands, and every parallel-executor release-note claim. The real Orca/Codex two-lane lifecycle
+and completed-pilot cleanup remain `blocked-verify`; release QA may confirm that boundary but cannot
+convert it to a pass or claim a completed pilot.
 
 QA on 2026-08-25 failed release `0.6.0` during fresh adoption: the package contains the public
 parallel-pilot helper, but `scripts/adopt.py` does not install it. The release walk stopped at the

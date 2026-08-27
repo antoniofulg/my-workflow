@@ -158,10 +158,10 @@ T3 -> T4 -> T5
 
 **Done when**:
 
-- [ ] Current docs name Bun 1.4, `tools` discovery, npm packaging, and the no-install adoption boundary.
-- [ ] Current contract tests reject Vitest wording outside immutable historical evidence.
-- [ ] The affected release scenario is reset to `untested` for the closing QA session.
-- [ ] Adoption and Build gates pass before QA dispatch.
+- [x] Current docs name Bun 1.4, `tools` discovery, npm packaging, and the no-install adoption boundary.
+- [x] Current contract tests reject Vitest wording outside immutable historical evidence.
+- [x] The affected release scenario is reset to `untested` for the closing QA session.
+- [x] Adoption and Build gates pass before QA dispatch.
 
 **Tests**: BTR-IT-009, BTR-E2E-001
 **Gate**: build

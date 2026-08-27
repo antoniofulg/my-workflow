@@ -45,11 +45,13 @@ No browser, API, or mobile surface exists in this repository.
   `start`/`status`/`resume`, lifecycle-check, and cleanup sequence in
   [the E2E-001 handoff](../../.specs/features/parallel-slice-executor/qa-pilot.md); do not replace a
   serial fallback or incomplete lifecycle with a simulated success.
-- Installed QA tooling discovered: Vitest is declared in [`package.json`](../../package.json) for
-  structural checks; it is not a real-user runner. Python standard-library checks live in
-  [`scripts/test_adopt.py`](../../scripts/test_adopt.py).
+- Installed QA tooling discovered: Bun 1.4.x is the structural test runtime, with
+  [`bunfig.toml`](../../bunfig.toml) limiting discovery to `./tools` and
+  [`package.json`](../../package.json) delegating `npm test` to Bun. npm remains the package and
+  lockfile owner; Python standard-library checks live in [`scripts/test_adopt.py`](../../scripts/test_adopt.py).
 
-The workflow does not install a framework or invent commands when a runner is absent.
+The workflow does not install a framework or invent commands when a runner is absent; it does not
+install Bun, edit host settings, or create a Bun lockfile.
 
 ## Build, start, and health
 
