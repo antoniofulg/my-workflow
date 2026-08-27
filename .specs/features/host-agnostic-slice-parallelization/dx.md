@@ -93,7 +93,8 @@ statuses, worktree comment, affected-gate state, and expected marker
 `TURN_DONE <phase> head=<40-hex-sha>` with exactly one SHA. Issue exactly one send; never retry a
 success, error, missing receipt, or `agent_prompt_stalled`, and never launch a replacement worker.
 Success follows the normal 300-second worker-turn barrier. An error, missing receipt, or
-`agent_prompt_stalled` enters bounded machine-only effect reconciliation on that same handle every
+`agent_prompt_stalled` enters bounded machine-only effect reconciliation on that same exact
+startup/current handle; a different handle is rejected; every
 `interval_ms=250` for at most `timeout_ms=300000`, with no model turns. Accept the effect only when
 exactly one expected turn is proven end-to-end: the same handle is connected; one exact phase marker
 has one 40-hex SHA; two fresh non-Working `source=screen` frames plus `tui-idle` agree; Git HEAD

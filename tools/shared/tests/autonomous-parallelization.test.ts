@@ -116,6 +116,12 @@ describe("autonomous parallel slice dispatch contract", () => {
     const tasks = readRepositoryFile(
       ".specs/features/host-agnostic-slice-parallelization/tasks.md",
     );
+    const charter = readRepositoryFile(
+      "docs/qa/charters/CH-coordinate-assisted-orca-slices-2026-08-26.md",
+    );
+    const scenario = readRepositoryFile(
+      "docs/qa/scenarios/QAS-coordinate-assisted-orca-slices.md",
+    );
     const workflow = JSON.parse(
       readRepositoryFile(
         ".specs/features/host-agnostic-slice-parallelization/workflow.json",
@@ -144,9 +150,18 @@ describe("autonomous parallel slice dispatch contract", () => {
       expect(contract, name).not.toContain("terminal create --command");
     }
     expect(spec).toMatch(/\| AST-01 \|[\s\S]*?Contract verified; E2E pending/);
-    expect(implementer.provider).toBeTruthy();
-    expect(implementer.model).toBeTruthy();
-    expect(implementer.effort).toBeTruthy();
+    expect(implementer.provider).toBe("codex");
+    expect(implementer.model).toBe("gpt-5.6-luna");
+    expect(implementer.effort).toBe("low");
+    expect(charter).toContain(
+      "frozen implementer route `codex` / `gpt-5.6-luna` / `low`",
+    );
+    expect(charter).toContain(
+      "`codex` / `gpt-5.6-luna` / `low` exactly",
+    );
+    expect(scenario).toContain(
+      "frozen implementer route `codex` / `gpt-5.6-luna` / `low`",
+    );
     expect(providerCommandPatterns[implementer.provider]).toBeDefined();
     expect(policy).toMatch(providerCommandPatterns[implementer.provider]);
     for (const pattern of Object.values(providerCommandPatterns)) {
@@ -308,7 +323,7 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(normalizedPolicy).toContain("never retry after a success, error, missing receipt, or `agent_prompt_stalled`");
     expect(normalizedPolicy).toContain("never launch a replacement worker");
     expect(normalizedPolicy).toContain("normal 300-second worker-turn barrier");
-    expect(normalizedPolicy).toContain("bounded machine-only effect reconciliation on the same exact handle");
+    expect(normalizedPolicy).toContain("bounded machine-only effect reconciliation on the same exact startup/current handle");
     expect(normalizedPolicy).toContain("`interval_ms=250`");
     expect(normalizedPolicy).toContain("`timeout_ms=300000`");
     expect(normalizedPolicy).toContain("no model turns");
@@ -332,23 +347,44 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(reconciliationAt).toBeGreaterThan(packetContractAt);
     expect(serialRecoveryAt).toBeGreaterThan(reconciliationAt);
 
-    const normalizedPacketContract = policy.slice(packetContractAt, serialRecoveryAt);
+    const packetContractEndAt = policy.indexOf("Before the one mutating create");
+    const normalizedPacketContract = policy.slice(packetContractAt, packetContractEndAt).replace(/\s+/g, " ");
+    expect(packetContractEndAt).toBeGreaterThan(serialRecoveryAt);
     expect(normalizedPacketContract).toContain("Issue exactly one send for that packet");
     expect(normalizedPacketContract).toContain("never retry after a success, error, missing receipt");
-    expect(normalizedPacketContract).toContain("same exact handle");
+    expect(normalizedPacketContract).toContain("same handle remains connected");
+    expect(normalizedPacketContract).toContain("same exact startup/current handle");
+    expect(normalizedPacketContract).toContain("different handle");
     expect(normalizedPacketContract).toContain("exactly one expected turn is proven end-to-end");
+    expect(normalizedPacketContract).toContain("inspect it every `interval_ms=250` for at most `timeout_ms=300000`");
+    expect(normalizedPacketContract).toContain("with no model turns");
     expect(normalizedPacketContract).toContain("Git HEAD equals that marker");
     expect(normalizedPacketContract).toContain("required task statuses, atomic commits");
     expect(normalizedPacketContract).toContain("gates match");
     expect(normalizedPacketContract).toContain("continue without resending");
+    expect(normalizedPacketContract).toContain("No effect by the deadline");
+    expect(normalizedPacketContract).toContain("partial state");
+    expect(normalizedPacketContract).toContain("conflicting or multiple marker SHAs");
+    expect(normalizedPacketContract).toContain("dirty state");
+    expect(normalizedPacketContract).toContain("gate failure");
+    expect(normalizedPacketContract).toContain("wrong handle");
+    expect(normalizedPacketContract).toContain("ambiguity serializes the lane");
+    expect(normalizedPacketContract).toContain("retains it for exact recovery");
+    expect(normalizedPacketContract).toContain("Never clean or adopt a foreign effect");
+    expect(normalizedPacketContract).toContain("never report success from a commit alone");
+    expect(normalizedPacketContract).toContain("not a dependency waiter or watchdog");
+    expect(normalizedPacketContract).toContain("dependency waiting remains event-driven");
     expect(normalizedPacketContract).not.toContain("retry the send");
     expect(normalizedPacketContract).not.toContain("accept the commit");
+    expect(normalizedPacketContract).toContain(
+      "dependency waiting remains event-driven and spends no model turns polling unchanged state",
+    );
 
     const normalizedDxContract = dx.replace(/\s+/g, " ");
     expect(normalizedDxContract).toContain("Before every logical packet");
     expect(normalizedDxContract).toContain("`TURN_DONE <phase> head=<40-hex-sha>`");
     expect(normalizedDxContract).toContain("never retry a success, error, missing receipt, or `agent_prompt_stalled`");
-    expect(normalizedDxContract).toContain("same handle every `interval_ms=250` for at most `timeout_ms=300000`");
+    expect(normalizedDxContract).toContain("same exact startup/current handle; a different handle is rejected; every `interval_ms=250` for at most `timeout_ms=300000`");
     expect(normalizedDxContract).toContain("exactly one expected turn is proven end-to-end");
     expect(normalizedDxContract).toContain("two fresh non-Working `source=screen` frames plus `tui-idle`");
     expect(normalizedDxContract).toContain("a commit alone is never success");

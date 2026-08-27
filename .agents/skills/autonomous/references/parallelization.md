@@ -112,7 +112,8 @@ never retry after a success, error, missing receipt, or `agent_prompt_stalled`, 
 replacement worker.
 
 A successful send follows the normal 300-second worker-turn barrier. An error, missing receipt, or
-`agent_prompt_stalled` enters bounded machine-only effect reconciliation on the same exact handle:
+`agent_prompt_stalled` enters bounded machine-only effect reconciliation on the same exact
+startup/current handle; a different handle is rejected:
 inspect it every `interval_ms=250` for at most `timeout_ms=300000`, with no model turns. Accept an
 effect only when exactly one expected turn is proven end-to-end: the same handle remains connected;
 the exact unique phase marker has one 40-hex SHA; two fresh non-Working `source=screen` frames and
