@@ -7,7 +7,7 @@ gate, updates this file, and creates one atomic Conventional Commit. The Impleme
 single batch; a fresh Verifier closes the feature.
 
 **Design**: `.specs/features/merge-alone-slices/design.md`
-**Status**: In Progress
+**Status**: Done
 
 ## Vertical Slice Closure
 
@@ -198,15 +198,18 @@ changelog entry, then reset affected current promises for independent QA.
 
 **Done when**:
 
-- [ ] Existing CFG/ADP scenario expectations describe derived count, closure validation, and frozen resume.
-- [ ] Every changed current scenario is reset to `untested` with pending report fields.
-- [ ] The v0.7.0 Unreleased changelog records the fix without publishing a release.
-- [ ] Full gate passes with zero failures.
+- [x] Existing CFG/ADP scenario expectations describe derived count, closure validation, and frozen resume.
+- [x] Every changed current scenario is reset to `untested` with pending report fields.
+- [x] The v0.7.0 Unreleased changelog records the fix without publishing a release.
+- [x] Full gate passes with zero failures.
 
 **Tests**: none — QA documents and changelog are owned by the full gate; fresh `qa-plan` and
 `qa-execute` sessions run after implementation review.
 **Gate**: Full
 **Commit**: `docs(qa): record merge-alone slice validation`
+
+**Status**: complete — current CFG/ADP promises are fresh and `npm run test:all` passed with zero
+failures.
 
 ## Phase Execution Map
 

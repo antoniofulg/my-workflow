@@ -8,6 +8,8 @@ All notable changes to this project are documented here.
 
 - Structural TypeScript contracts now run on Bun 1.4 through the repository-local `tools` test
   root; npm remains the package, lockfile, and publication owner.
+- Workflow resolution now derives its slice count from validated merge-alone task outcomes; the
+  optional `--slices` value is an assertion, and normal resume keeps the frozen snapshot.
 
 ### Removed
 

@@ -4,15 +4,15 @@ area: CFG
 title: Freeze and safely resume a feature workflow
 persona: Workflow adopter
 journey: J-configure-feature-workflow
-expected: Resolution and resume report the live remediation stall bound without persisting it, while model/effort routes, cadence, selected parallelization mode, and safe optional resource provider remain frozen until an explicit refresh; packet drift still requires explicit synchronization and refresh.
+expected: Resolution derives slice count from validated task outcomes, while resume reports live remediation without re-reading Tasks and keeps model/effort routes, cadence, selected parallelization mode, and safe optional resource provider frozen until explicit refresh.
 entry_points: .my-workflow.toml.example; .my-workflow.toml; .claude/agents/; .codex/agents/; .cursor/agents/; .agents/skills/workflow-config/scripts/workflow_config.py; .specs/features/<slug>/workflow.json; .agents/skills/workflow-config/SKILL.md
-qa_status: pass
+qa_status: untested
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-24-parallel-slice-dispatch/session.md; docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/setup.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/resource-plan.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/resource-status.json; docs/qa/evidence/2026-08-25-remediation-stall-bound/summary.json; docs/qa/evidence/2026-08-25-remediation-stall-bound/session.log
-last_report: docs/qa/reports/2026-08-25-remediation-stall-bound.md
+evidence:
+last_report:
 overlaps:
 ---
 
@@ -32,3 +32,7 @@ The 2026-08-24 evidence remains historical. The live-output and snapshot-boundar
 reported live `6`, and independent JSON/hash reads confirmed byte-identical frozen route, model,
 effort, cadence, and snapshot with no persisted remediation key. The earlier final report remains
 in `docs/qa/reports/2026-08-25-parallel-slice-executor-final.md`; the latest report is recorded above.
+
+The merge-alone slice contract changes this current promise. A fresh QA walk must prove malformed
+Tasks fail before snapshot replacement, refresh re-derives current slices, and normal resume keeps
+the frozen snapshot unchanged.

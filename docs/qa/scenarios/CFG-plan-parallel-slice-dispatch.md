@@ -4,15 +4,15 @@ area: CFG
 title: Plan parallel slices without weakening delivery
 persona: Workflow adopter
 journey: J-configure-feature-workflow
-expected: The read-only planner reports deterministic ready, blocked, checkpoint, or serial-fallback work while the installed orchestration contract keeps slice tasks sequential and preserves every delivery gate.
+expected: The read-only planner reports deterministic ready, blocked, checkpoint, or serial-fallback work from primary task Slice membership while the installed orchestration contract keeps slice tasks sequential and preserves every delivery gate.
 entry_points: .agents/skills/workflow-config/scripts/parallel_plan.py; .agents/skills/autonomous/references/parallelization.md
-qa_status: pass
+qa_status: untested
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-24-parallel-slice-dispatch/session.md; docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/resource-plan.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/resource-start.json
-last_report: docs/qa/reports/2026-08-25-parallel-slice-executor-final.md
+evidence:
+last_report:
 overlaps: CFG-freeze-feature-workflow
 ---
 
@@ -29,3 +29,7 @@ output and preservation of sequential delivery gates. R19's public resource plan
 two-ready-lane projection and confirms missing-provider serialization is decided by execution
 preflight, not by planner mutation. The real worker lifecycle remains separately
 `blocked-verify`.
+
+The merge-alone closure table is now validated upstream of this planner. A fresh QA walk must
+confirm the planner preserves primary-task Slice membership without treating closure rows as extra
+tasks or slices.

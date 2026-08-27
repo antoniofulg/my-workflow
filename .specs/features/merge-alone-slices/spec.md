@@ -8,10 +8,10 @@ review cadence, and adds verification cost even when only the final combined sta
 
 ## Goals
 
-- [ ] Derive slice count from validated merge-alone outcomes in `tasks.md`.
-- [ ] Keep initial resolution, refresh, resume, templates, and parallel planning consistent with one
+- [x] Derive slice count from validated merge-alone outcomes in `tasks.md`.
+- [x] Keep initial resolution, refresh, resume, templates, and parallel planning consistent with one
       declared slice contract.
-- [ ] Preserve one-slice resolution when Tasks is correctly skipped.
+- [x] Preserve one-slice resolution when Tasks is correctly skipped.
 
 ## Out of Scope
 
@@ -106,8 +106,8 @@ preserves two independently mergeable slices.
 
 ## Success Criteria
 
-- [ ] The Praxis/Bun five-task migration resolves to one slice.
-- [ ] Two independently mergeable capabilities resolve to two slices.
-- [ ] Invalid closure contracts and count mismatches fail before snapshot replacement.
-- [ ] Resume and no-Tasks behaviour preserve their declared semantics.
-- [ ] All repository gates pass without adding dependencies or compatibility parsers.
+- [x] The Praxis/Bun five-task migration resolves to one slice.
+- [x] Two independently mergeable capabilities resolve to two slices.
+- [x] Invalid closure contracts and count mismatches fail before snapshot replacement.
+- [x] Resume and no-Tasks behaviour preserve their declared semantics.
+- [x] All repository gates pass without adding dependencies or compatibility parsers.
