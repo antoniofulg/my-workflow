@@ -239,7 +239,7 @@ describe("host-owned session continuation removal contract", () => {
         expect(evidence, `${relativePath} pass requires evidence`).toMatch(freshEvidence);
         expect(report, `${relativePath} pass requires a v0.6 report`).toMatch(freshEvidence);
       } else {
-        expect(["untested", "fail", "blocked-verify", "blocked-decision", "skipped"]).toContain(status);
+        expect(["untested", "fail", "blocked-verify", "blocked-decision", "skipped"]).toContain(status!);
       }
     }
   });
@@ -1015,6 +1015,12 @@ describe("adoption and public setup", () => {
     const nextRelease = changelog.indexOf("\n## [", releaseStart + 1);
     const latestRelease = changelog.slice(releaseStart, nextRelease === -1 ? undefined : nextRelease);
     const pendingRelease = changelog.slice(unreleasedStart, releaseStart);
+    const changedStart = pendingRelease.indexOf("### Changed");
+    const removedStart = pendingRelease.indexOf("### Removed", changedStart + 1);
+    const migrationStart = pendingRelease.indexOf("### Migration", removedStart + 1);
+    const pendingChanged = pendingRelease.slice(changedStart, removedStart);
+    const pendingRemoved = pendingRelease.slice(removedStart, migrationStart);
+    const pendingMigration = pendingRelease.slice(migrationStart);
     const publishedChangelog = execFileSync("git", ["show", "v0.6.0:CHANGELOG.md"], {
       cwd: repositoryRoot,
       encoding: "utf8",
@@ -1032,19 +1038,28 @@ describe("adoption and public setup", () => {
     expect(publishedHeading).toBe("0.7.0");
     expect(unreleasedStart).toBeGreaterThanOrEqual(0);
     expect(releaseStart).toBeGreaterThan(unreleasedStart);
+    expect(changedStart).toBeGreaterThanOrEqual(0);
+    expect(removedStart).toBeGreaterThan(changedStart);
+    expect(migrationStart).toBeGreaterThan(removedStart);
     expect(section(changelog, "0.6.0")).toBe(section(publishedChangelog, "0.6.0"));
     expect(releaseScenario).toContain("expected: Unreleased v0.7.0 notes identify Bun 1.4 structural tests rooted at tools");
-    expect(pendingRelease).toContain("Bun 1.4");
-    expect(pendingRelease).toContain(`Removed the optional ${integrationName} integration`);
-    expect(pendingRelease).toContain("Session continuation is now a host responsibility");
-    expect(pendingRelease).toContain("versioned repository artifacts and explicit prompts");
-    expect(pendingRelease).toContain("adoption never removes external operator state");
-    expect(pendingRelease).toContain("v0.5.0 tagged guide");
-    expect(pendingRelease).toContain(`https://github.com/antoniofulg/my-workflow/blob/v0.5.0/docs/workflow/${integrationName}.md`);
+    expect(releaseScenario).toContain("and no bun.lock is created");
+    expect(pendingChanged).toContain("Bun 1.4");
+    expect(pendingRemoved).toContain(`Removed the optional ${integrationName} integration`);
+    expect(pendingRemoved).toContain("Session continuation is now a host responsibility");
+    expect(pendingRemoved).toContain("versioned repository artifacts and explicit prompts");
+    expect(pendingRemoved).toContain("adoption never removes external operator state");
+    expect(pendingMigration).toContain("v0.5.0 tagged guide");
+    expect(pendingMigration).toContain(`https://github.com/antoniofulg/my-workflow/blob/v0.5.0/docs/workflow/${integrationName}.md`);
     expect(latestRelease).not.toContain(`Removed the optional ${integrationName} integration`);
     expect(latestRelease).toContain("opt-in parallel slice executor");
     expect(latestRelease).toContain("resource preflight");
     expect(latestRelease).toContain("BLOCKED-VERIFY");
+    const bunConfig = readRepositoryFile("bunfig.toml");
+    const bunVersionGuard = readRepositoryFile("tools/shared/src/bun-version.ts");
+    expect(bunConfig).toContain('preload = ["./tools/shared/src/bun-version.ts"]');
+    expect(bunVersionGuard).toContain('Bun.semver.satisfies(Bun.version, "1.4.x")');
+    expect(bunVersionGuard).toContain("throw new Error");
     const retiredRunner = ["vit", "est"].join("");
     const currentContracts = [
       "README.md",

@@ -4,7 +4,7 @@ area: REL
 title: Report the current workflow release consistently
 persona: Repository reader
 journey: J-review-workflow-release
-expected: Unreleased v0.7.0 notes identify Bun 1.4 structural tests rooted at tools, package and lock metadata remain 0.6.0, and adoption does not install Bun or mutate host settings.
+expected: Unreleased v0.7.0 notes identify Bun 1.4 structural tests rooted at tools, package and lock metadata remain 0.6.0, adoption does not install Bun or mutate host settings, and no bun.lock is created.
 entry_points: CHANGELOG.md; package.json; package-lock.json; README.md; docs/workflow/README.md
 qa_status: untested
 bug_ids: BUG-20260824-release-overstates-lifecycle-qa; BUG-20260825-scenario-pass-report-field; BUG-20260825-adoption-omits-parallel-pilot
@@ -17,8 +17,8 @@ overlaps:
 ---
 
 The current release walk covers the v0.7.0 Unreleased notes, Bun 1.4 structural test discovery
-under `tools`, unchanged 0.6.0 package authorities, npm package membership, and the host-neutral
-adoption boundary. It must verify these public contracts through the declared CLI adapter before
+under `tools`, unchanged 0.6.0 package authorities, npm package membership, the absence of
+`bun.lock`, and the host-neutral adoption boundary. It must verify these public contracts through the declared CLI adapter before
 the feature closes; this scenario is intentionally `untested` until that fresh walk completes.
 
 Version owner for public release consistency. While v0.7.0 is Unreleased, the reader compares the

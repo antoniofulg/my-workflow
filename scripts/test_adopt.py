@@ -286,6 +286,8 @@ def test_host_owned_session_continuation_absence_and_idempotence() -> None:
                 f"docs/workflow/{integration_name}.md",
                 f"docs/qa/scenarios/WFL-{integration_name}-handoff.md",
                 f".specs/features/{integration_name}-handoff",
+                "bun.lock",
+                "bunfig.toml",
             )
             for relative_path in forbidden_paths:
                 assert not (project / relative_path).exists(), relative_path

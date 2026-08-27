@@ -48,6 +48,13 @@ The user confirmed the chosen approach and required official Bun 1.4 documentati
 - **Dependencies**: Bun 1.4.x.
 - **Reuses**: Existing `tools` suite boundary.
 
+### Bun version preflight
+
+- **Purpose**: Reject unsupported Bun versions before any structural test is collected.
+- **Location**: `tools/shared/src/bun-version.ts`, loaded by `bunfig.toml`.
+- **Interface**: Bun's native preload hook checks `Bun.version` with `Bun.semver.satisfies(..., "1.4.x")` and throws on mismatch.
+- **Dependencies**: Bun 1.4.x; no fallback runner.
+
 ### Native structural suites
 
 - **Purpose**: Execute existing behavioural contracts without Vitest.
@@ -76,7 +83,7 @@ The user confirmed the chosen approach and required official Bun 1.4 documentati
 
 | Error Scenario | Handling | User Impact |
 | --- | --- | --- |
-| Bun missing or outside supported 1.4 line | Let `npm test` fail non-zero with the native command error. | Clear prerequisite failure; no fallback hides the mismatch. |
+| Bun missing or outside supported 1.4 line | The native preload guard rejects the runtime before test collection and exits non-zero. | Clear prerequisite failure; no fallback hides the mismatch. |
 | Ignored evidence contains test copies | `test.root` prevents traversal outside `tools`. | Stable canonical count and no historical evidence execution. |
 | Bun API differs from Vitest | Change only the incompatible call site and retain its exact assertion outcome. | No contract weakening or skipped test. |
 | npm lock becomes inconsistent | Regenerate through npm and require `npm ls --all` exit zero. | Packaging remains reproducible. |

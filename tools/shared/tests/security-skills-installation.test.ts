@@ -14,7 +14,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter as pathDelimiter, dirname, join } from "node:path";
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, setDefaultTimeout } from "bun:test";
 
 const repositoryRoot = process.cwd();
 const securitySkills = {
@@ -37,6 +37,8 @@ const securitySkills = {
     computedHash: "a0fc25587c016178c9cf6238ac8702695fa761694965192472487f92093db571",
   },
 } as const;
+
+setDefaultTimeout(30_000);
 
 function runInstaller(target: string, args: string[] = [], env: NodeJS.ProcessEnv = {}) {
   const pack = writePack(
@@ -228,7 +230,7 @@ function hardlinkFixtureHash(content: string): string {
     .digest("hex");
 }
 
-describe("external security skill installation", { timeout: 30_000 }, () => {
+describe("external security skill installation", () => {
   it("keeps external provenance documented without vendoring security trees", () => {
     const readme = readFileSync(join(repositoryRoot, "README.md"), "utf8");
     expect(readme).toContain("external security skills");
@@ -566,11 +568,11 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
       expect(result.status).toBe(1);
       expect(readFileSync(publicationMarker, "utf8")).toBe("seen");
       for (const name of Object.keys(securitySkills)) {
-        expect(readFileSync(join(target, ".agents/skills", name, "SKILL.md"))).toEqual(
-          before[`skill:${name}`],
+        expect(before[`skill:${name}`]!).toEqual(
+          readFileSync(join(target, ".agents/skills", name, "SKILL.md")),
         );
-        expect(readlinkSync(join(target, ".claude/skills", name))).toBe(
-          before[`link:${name}`],
+        expect(before[`link:${name}`]!).toBe(
+          readlinkSync(join(target, ".claude/skills", name)),
         );
       }
       expect(readFileSync(join(target, "skills-lock.json"), "utf8")).toBe(before.lock);

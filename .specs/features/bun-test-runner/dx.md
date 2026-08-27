@@ -6,6 +6,7 @@
 
 - **Runtime:** Bun 1.4.x.
 - **Discovery:** repository-local `bunfig.toml` limits discovery to `tools`.
+- **Preflight:** the native preload guard rejects any Bun version outside `1.4.x` before collection.
 - **Success:** eight files and 115 tests pass with exit code 0 at migration time.
 - **Failure:** missing/incompatible Bun or any failed test exits non-zero; no fallback runner executes.
 
@@ -13,6 +14,7 @@
 
 - **Runtime:** Bun 1.4.x.
 - **Discovery:** identical canonical `tools` root.
+- **Preflight:** the native preload guard rejects any Bun version outside `1.4.x` before collection.
 - **Filtering:** `-t` / `--test-name-pattern` filters the full nested test name.
 - **Success and failure:** identical to `npm test`.
 
@@ -32,12 +34,14 @@
 | Key | Type | Default | Effect |
 | --- | --- | --- | --- |
 | `test.root` in `bunfig.toml` | path | `./tools` | Restricts Bun test discovery to canonical tracked structural tests. |
+| `test.preload` in `bunfig.toml` | path list | `./tools/shared/src/bun-version.ts` | Rejects unsupported Bun versions before test collection. |
 
 ## Prerequisites
 
-- Bun 1.4.x is supplied by the developer or CI environment.
+- Bun 1.4.x must already be supplied by the developer or CI environment for the source-pack gate.
 - npm remains available for dependency installation, packing, and publication.
-- Adoption does not install either tool or edit host configuration.
+- Adoption does not install either tool, edit host configuration, or replace an adopted consumer's
+  own runner/configuration.
 
 ## Removals
 

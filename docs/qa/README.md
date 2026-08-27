@@ -45,13 +45,15 @@ No browser, API, or mobile surface exists in this repository.
   `start`/`status`/`resume`, lifecycle-check, and cleanup sequence in
   [the E2E-001 handoff](../../.specs/features/parallel-slice-executor/qa-pilot.md); do not replace a
   serial fallback or incomplete lifecycle with a simulated success.
-- Installed QA tooling discovered: Bun 1.4.x is the structural test runtime, with
-  [`bunfig.toml`](../../bunfig.toml) limiting discovery to `./tools` and
+- Installed QA tooling discovered: Bun 1.4.x is required for this source pack's structural test
+  runtime, with [`bunfig.toml`](../../bunfig.toml) limiting discovery to `./tools` and
   [`package.json`](../../package.json) delegating `npm test` to Bun. npm remains the package and
-  lockfile owner; Python standard-library checks live in [`scripts/test_adopt.py`](../../scripts/test_adopt.py).
+  lockfile owner; adopted consumers retain their own runner and config. Python standard-library
+  checks live in [`scripts/test_adopt.py`](../../scripts/test_adopt.py).
 
 The workflow does not install a framework or invent commands when a runner is absent; it does not
-install Bun, edit host settings, or create a Bun lockfile.
+install Bun, edit host settings, or create a Bun lockfile. Bun 1.4.x must already be available for
+the source-pack gate.
 
 ## Build, start, and health
 

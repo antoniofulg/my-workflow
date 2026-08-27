@@ -2,10 +2,12 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, relative, sep } from "node:path";
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, setDefaultTimeout } from "bun:test";
 
 const repositoryRoot = process.cwd();
 const skillDirectory = join(repositoryRoot, ".agents", "skills", "deep-review");
+
+setDefaultTimeout(30_000);
 
 function readJson(path: string): unknown {
   return JSON.parse(readFileSync(path, "utf8"));
@@ -41,7 +43,7 @@ function hashSkillTree(directory: string): string {
   return hash.digest("hex");
 }
 
-describe("deep-review installation", { timeout: 30_000 }, () => {
+describe("deep-review installation", () => {
   it("keeps the skill, lock metadata, release version, and project discovery aligned", () => {
     expect(existsSync(join(skillDirectory, "SKILL.md"))).toBe(true);
 
@@ -57,7 +59,7 @@ describe("deep-review installation", { timeout: 30_000 }, () => {
       skillPath: "skills/mine/deep-review/SKILL.md",
       computedHash: "d14552d1e263be76e903a34b232cd0336d9ea279d91cdc3c89ccfaed10a055c4",
     });
-    expect(hashSkillTree(skillDirectory)).toBe(lockEntry?.computedHash);
+    expect(hashSkillTree(skillDirectory)).toBe(lockEntry!.computedHash!);
 
     const packageManifest = readJson(join(repositoryRoot, "package.json")) as {
       version?: string;
