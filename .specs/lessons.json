@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 21,
+  "next_id": 26,
   "lessons": [
     {
       "id": "L-001",
@@ -364,6 +364,96 @@
       ],
       "created": "2026-08-24T18:42:24Z",
       "last_seen": "2026-08-24T18:42:24Z"
+    },
+    {
+      "id": "L-021",
+      "key": "ac_gap::failure path tests assert the offending record identity not only the error category",
+      "text": "Failure-path tests assert the offending record identity, not only the error category",
+      "signal": "ac_gap",
+      "scope": "workflow-validation",
+      "status": "candidate",
+      "features": [
+        "merge-alone-slices"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "MAS-03/MAS-04 (workflow-validation)"
+      ],
+      "created": "2026-08-27T09:08:50Z",
+      "last_seen": "2026-08-27T09:08:50Z"
+    },
+    {
+      "id": "L-022",
+      "key": "ac_gap::failure atomicity tests assert pre existing artifact bytes remain unchanged",
+      "text": "Failure atomicity tests assert pre-existing artifact bytes remain unchanged",
+      "signal": "ac_gap",
+      "scope": "workflow-resolution",
+      "status": "candidate",
+      "features": [
+        "merge-alone-slices"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "MAS-05/MAS-07 (workflow-resolution)"
+      ],
+      "created": "2026-08-27T09:08:50Z",
+      "last_seen": "2026-08-27T09:08:50Z"
+    },
+    {
+      "id": "L-023",
+      "key": "ac_gap::fixtures exercise every identifier shape named by the acceptance criterion",
+      "text": "Fixtures exercise every identifier shape named by the acceptance criterion",
+      "signal": "ac_gap",
+      "scope": "workflow-validation",
+      "status": "candidate",
+      "features": [
+        "merge-alone-slices"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "MAS-10 (workflow-validation)"
+      ],
+      "created": "2026-08-27T09:08:50Z",
+      "last_seen": "2026-08-27T09:08:50Z"
+    },
+    {
+      "id": "L-024",
+      "key": "ac_gap::cross component contract tests compare producer output directly with consumer output",
+      "text": "Cross-component contract tests compare producer output directly with consumer output",
+      "signal": "ac_gap",
+      "scope": "workflow-planning",
+      "status": "candidate",
+      "features": [
+        "merge-alone-slices"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "MAS-11 (workflow-planning)"
+      ],
+      "created": "2026-08-27T09:08:50Z",
+      "last_seen": "2026-08-27T09:08:50Z"
+    },
+    {
+      "id": "L-025",
+      "key": "ac_gap::boundary values named by the specification receive explicit regression assertions",
+      "text": "Boundary values named by the specification receive explicit regression assertions",
+      "signal": "ac_gap",
+      "scope": "workflow-resolution",
+      "status": "candidate",
+      "features": [
+        "merge-alone-slices"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "MAS-05 edge (workflow-resolution)"
+      ],
+      "created": "2026-08-27T09:08:50Z",
+      "last_seen": "2026-08-27T09:08:50Z"
     }
   ]
 }

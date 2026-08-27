@@ -7,7 +7,7 @@ gate, updates this file, and creates one atomic Conventional Commit. The Impleme
 single batch; a fresh Verifier closes the feature.
 
 **Design**: `.specs/features/merge-alone-slices/design.md`
-**Status**: Done
+**Status**: In Progress — Technical Verifier remediation
 
 ## Vertical Slice Closure
 
@@ -211,12 +211,44 @@ changelog entry, then reset affected current promises for independent QA.
 **Status**: complete — current CFG/ADP promises are fresh and `npm run test:all` passed with zero
 failures.
 
+### R1: Close Technical Verifier Evidence Gaps
+
+**What**: Strengthen existing regression fixtures and assertions for error identity, refresh
+failure atomicity, every named remediation/boundary shape, and direct validator-to-planner
+membership equality.
+
+- Where: `tools/test_tlc_validators.py`
+- Slice: A
+- Depends on: T5
+- Reuses: Existing MAS fixtures, resolver snapshot helpers, and parallel-plan parser.
+- Requirements: MAS-03, MAS-04, MAS-05, MAS-07, MAS-10, MAS-11
+
+**Tools**:
+
+- MCP: NONE
+- Skills: `tlc-spec-driven`, `ponytail`
+
+**Done when**:
+
+- [ ] Closure/membership failures assert offending task or slice identity.
+- [ ] Mismatched and malformed refresh preserve an existing snapshot byte-for-byte.
+- [ ] Both `T2R1` and `TDR1` remain outside primary slice membership/count.
+- [ ] Parallel-plan membership is compared directly with validator output from the same document.
+- [ ] Zero and negative optional count assertions fail explicitly.
+- [ ] Targeted suites and full gate pass with no weakened, removed, or skipped tests.
+
+- Tests: Strengthen MAS-UT-003, MAS-UT-005, MAS-UT-006, MAS-UT-007, MAS-IT-003, MAS-IT-008,
+  and the MAS-05 boundary edge case.
+- Gate: Full
+- Commit: `test(workflow): strengthen merge-alone contract coverage`
+- Status: pending — Technical Verifier round 1 gaps.
+
 ## Phase Execution Map
 
 ```text
 Phase 1 → Phase 2 → Phase 3
 
-T1 → T2 → T3 → T4 → T5
+T1 → T2 → T3 → T4 → T5 → R1
 ```
 
 ## Task Granularity Check
@@ -228,6 +260,7 @@ T1 → T2 → T3 → T4 → T5
 | T3 | One resume/refresh lifecycle policy | Pass |
 | T4 | One published planning contract | Pass |
 | T5 | One current QA/release record set | Pass |
+| R1 | One Technical Verifier remediation batch | Pending |
 
 ## Diagram-Definition Cross-Check
 
@@ -238,6 +271,7 @@ T1 → T2 → T3 → T4 → T5
 | T3 | T2 | T2 → T3 | Pass |
 | T4 | T3 | T3 → T4 | Pass |
 | T5 | T4 | T4 → T5 | Pass |
+| R1 | T5 | T5 → R1 | Pass |
 
 ## Test Co-location Validation
 
@@ -248,3 +282,4 @@ T1 → T2 → T3 → T4 → T5
 | T3 | Workflow resolver lifecycle | integration | MAS-IT-006..007 | Pass |
 | T4 | Agent/public contract | structural + adoption | MAS-IT-009 | Pass |
 | T5 | QA/changelog records | none | none; full/QA gates | Pass |
+| R1 | Existing validator/resolver/planner contracts | unit + integration | Strengthened MAS assertions | Pending |

@@ -3,10 +3,10 @@
 ## Handoff
 
 - **Feature**: `.specs/features/merge-alone-slices`
-- **Phase / Task**: Execute / T1
-- **Completed**: Specify, Design, Tasks, workflow resolution; one merge-alone slice A frozen.
+- **Phase / Task**: Technical Verifier remediation / T1R1
+- **Completed**: T1-T5 committed; targeted and full gates green; Technical Verifier round 1 recorded FAIL with 6/11 ACs and 10/16 contracts fully evidenced.
 - **In-progress** (file:line): none.
-- **Next step**: Implement T1, validate the canonical closure contract, update `tasks.md`, and commit.
+- **Next step**: Strengthen the incomplete contract assertions in T1R1, run targeted/full gates, commit, and dispatch a fresh Technical Verifier.
 - **Blockers**: none.
 - **Uncommitted files**: none.
 - **Branch**: `fix/merge-alone-slices`

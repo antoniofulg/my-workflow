@@ -134,6 +134,36 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: validation.md:Slice-C-R1-waiting-follow-up (workflow-executor)
 - last seen: 2026-08-24T18:42:24Z
 
+### L-021 - Failure-path tests assert the offending record identity, not only the error category
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `workflow-validation` · harmful: 0
+- features: merge-alone-slices
+- evidence: MAS-03/MAS-04 (workflow-validation)
+- last seen: 2026-08-27T09:08:50Z
+
+### L-022 - Failure atomicity tests assert pre-existing artifact bytes remain unchanged
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `workflow-resolution` · harmful: 0
+- features: merge-alone-slices
+- evidence: MAS-05/MAS-07 (workflow-resolution)
+- last seen: 2026-08-27T09:08:50Z
+
+### L-023 - Fixtures exercise every identifier shape named by the acceptance criterion
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `workflow-validation` · harmful: 0
+- features: merge-alone-slices
+- evidence: MAS-10 (workflow-validation)
+- last seen: 2026-08-27T09:08:50Z
+
+### L-024 - Cross-component contract tests compare producer output directly with consumer output
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `workflow-planning` · harmful: 0
+- features: merge-alone-slices
+- evidence: MAS-11 (workflow-planning)
+- last seen: 2026-08-27T09:08:50Z
+
+### L-025 - Boundary values named by the specification receive explicit regression assertions
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `workflow-resolution` · harmful: 0
+- features: merge-alone-slices
+- evidence: MAS-05 edge (workflow-resolution)
+- last seen: 2026-08-27T09:08:50Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.
