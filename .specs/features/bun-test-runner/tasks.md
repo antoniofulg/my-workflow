@@ -6,7 +6,7 @@ Implement these tasks with the `tlc-spec-driven` skill: activate it by name and 
 flow and Critical Rules. If the skill cannot be activated, stop and report the blocker.
 
 **Design**: `.specs/features/bun-test-runner/design.md`
-**Status**: Approved
+**Status**: Done
 
 ## Test Coverage Matrix
 
@@ -145,7 +145,7 @@ T3 -> T4 -> T5
 
 ### T5: Publish the current Bun QA contract
 
-**What**: Update current testing/release documentation and invalidate the affected release scenario for a fresh CLI QA walk.
+**What**: Update current testing/release documentation, invalidate the affected scenarios, and close them after a fresh CLI QA walk.
 **Where**: `docs/qa/`
 **Depends on**: T4
 **Reuses**: `J-review-workflow-release`, `REL-report-current-workflow-release`, and existing QA profile.
@@ -160,7 +160,7 @@ T3 -> T4 -> T5
 
 - [x] Current docs name Bun 1.4, `tools` discovery, npm packaging, and the no-install adoption boundary.
 - [x] Current contract tests reject Vitest wording outside immutable historical evidence.
-- [x] The affected release scenario is reset to `untested` for the closing QA session.
+- [x] The affected release and adoption scenarios were reset to `untested`, walked through the declared CLI adapter, and recorded `pass` with current evidence.
 - [x] Adoption and Build gates pass before QA dispatch.
 
 **Tests**: BTR-IT-009, BTR-E2E-001

@@ -9,10 +9,10 @@ gate and an honest v0.7.0 Unreleased changelog without publishing or changing th
 
 ## Goals
 
-- [ ] Run the canonical structural TypeScript suite with Bun 1.4 and no Vitest dependency.
-- [ ] Preserve npm and `package-lock.json` for packaging while Bun owns only TypeScript tests.
-- [ ] Keep ignored QA evidence outside canonical test discovery.
-- [ ] Restore the published v0.6.0 changelog and stage both pending changes under v0.7.0 Unreleased.
+- [x] Run the canonical structural TypeScript suite with Bun 1.4 and no Vitest dependency.
+- [x] Preserve npm and `package-lock.json` for packaging while Bun owns only TypeScript tests.
+- [x] Keep ignored QA evidence outside canonical test discovery.
+- [x] Restore the published v0.6.0 changelog and stage both pending changes under v0.7.0 Unreleased.
 
 ## Out of Scope
 
@@ -135,7 +135,7 @@ the release scenario, and verify host/project sentinels and tracked lockfiles re
 | BTR-12 | Stage v0.7.0 notes | Tasks | Verified |
 | BTR-13 | Stage v0.7.0 notes | Tasks | Verified |
 | BTR-14 | Keep QA current | Tasks | Verified |
-| BTR-15 | Keep QA current | Tasks | In Tasks |
+| BTR-15 | Keep QA current | Tasks | Verified |
 | BTR-16 | Keep QA current | Tasks | Verified |
 | BTR-17 | Edge cases | Tasks | Verified |
 | BTR-18 | Edge cases | Tasks | Verified |
@@ -146,8 +146,8 @@ the release scenario, and verify host/project sentinels and tracked lockfiles re
 
 ## Success Criteria
 
-- [ ] Bun 1.4 executes exactly the canonical pre-migration TypeScript suite with zero failures.
-- [ ] Vitest and its orphaned lockfile graph are absent.
-- [ ] npm packaging and every Python suite remain green.
-- [ ] Published v0.6.0 changelog history is unchanged and v0.7.0 is explicitly Unreleased.
-- [ ] QA and independent verification pass without remote or operator-state mutation.
+- [x] Bun 1.4 executes exactly the canonical pre-migration TypeScript suite with zero failures.
+- [x] Vitest and its orphaned lockfile graph are absent.
+- [x] npm packaging and every Python suite remain green.
+- [x] Published v0.6.0 changelog history is unchanged and v0.7.0 is explicitly Unreleased.
+- [x] QA and independent verification pass without remote or operator-state mutation.
