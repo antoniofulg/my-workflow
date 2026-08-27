@@ -3,10 +3,10 @@
 ## Handoff
 
 - **Feature**: `.specs/features/merge-alone-slices`
-- **Phase / Task**: Technical Verifier remediation / T1R1
-- **Completed**: T1-T5 committed; targeted and full gates green; Technical Verifier round 1 recorded FAIL with 6/11 ACs and 10/16 contracts fully evidenced.
+- **Phase / Task**: Technical Verifier remediation / R1 complete
+- **Completed**: T1-T5 committed; R1 strengthened validator identity, refresh atomicity, remediation exclusion, planner alignment, and count-boundary evidence. Scoped and full gates are green. Technical Verifier round 1 remains recorded FAIL with 6/11 ACs and 10/16 contracts fully evidenced before this remediation.
 - **In-progress** (file:line): none.
-- **Next step**: Strengthen the incomplete contract assertions in T1R1, run targeted/full gates, commit, and dispatch a fresh Technical Verifier.
+- **Next step**: Dispatch a fresh Technical Verifier against the R1 commit.
 - **Blockers**: none.
 - **Uncommitted files**: none.
 - **Branch**: `fix/merge-alone-slices`

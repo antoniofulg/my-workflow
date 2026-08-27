@@ -61,6 +61,13 @@ T1 -> T2 -> T3 -> T4
 **Tests:** unit
 **Gate:** quick
 
+### T2R1: Review remediation for capability A
+
+**Depends on:** None
+**Where:** `review/t2r1.md`
+**Tests:** unit
+**Gate:** quick
+
 ### TDR1: Deep review remediation
 
 **Depends on:** None

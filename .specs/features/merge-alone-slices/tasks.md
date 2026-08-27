@@ -7,7 +7,7 @@ gate, updates this file, and creates one atomic Conventional Commit. The Impleme
 single batch; a fresh Verifier closes the feature.
 
 **Design**: `.specs/features/merge-alone-slices/design.md`
-**Status**: In Progress — Technical Verifier remediation
+**Status**: In Progress — awaiting fresh Technical Verifier
 
 ## Vertical Slice Closure
 
@@ -230,18 +230,18 @@ membership equality.
 
 **Done when**:
 
-- [ ] Closure/membership failures assert offending task or slice identity.
-- [ ] Mismatched and malformed refresh preserve an existing snapshot byte-for-byte.
-- [ ] Both `T2R1` and `TDR1` remain outside primary slice membership/count.
-- [ ] Parallel-plan membership is compared directly with validator output from the same document.
-- [ ] Zero and negative optional count assertions fail explicitly.
-- [ ] Targeted suites and full gate pass with no weakened, removed, or skipped tests.
+- [x] Closure/membership failures assert offending task or slice identity.
+- [x] Mismatched and malformed refresh preserve an existing snapshot byte-for-byte.
+- [x] Both `T2R1` and `TDR1` remain outside primary slice membership/count.
+- [x] Parallel-plan membership is compared directly with validator output from the same document.
+- [x] Zero and negative optional count assertions fail explicitly.
+- [x] Targeted suites and full gate pass with no weakened, removed, or skipped tests.
 
 - Tests: Strengthen MAS-UT-003, MAS-UT-005, MAS-UT-006, MAS-UT-007, MAS-IT-003, MAS-IT-008,
   and the MAS-05 boundary edge case.
 - Gate: Full
 - Commit: `test(workflow): strengthen merge-alone contract coverage`
-- Status: pending — Technical Verifier round 1 gaps.
+- Status: complete — validator 16, resolver 54, planner 19, and full `npm run test:all` gates passed.
 
 ## Phase Execution Map
 
@@ -260,7 +260,7 @@ T1 → T2 → T3 → T4 → T5 → R1
 | T3 | One resume/refresh lifecycle policy | Pass |
 | T4 | One published planning contract | Pass |
 | T5 | One current QA/release record set | Pass |
-| R1 | One Technical Verifier remediation batch | Pending |
+| R1 | One Technical Verifier remediation batch | Pass |
 
 ## Diagram-Definition Cross-Check
 
@@ -282,4 +282,4 @@ T1 → T2 → T3 → T4 → T5 → R1
 | T3 | Workflow resolver lifecycle | integration | MAS-IT-006..007 | Pass |
 | T4 | Agent/public contract | structural + adoption | MAS-IT-009 | Pass |
 | T5 | QA/changelog records | none | none; full/QA gates | Pass |
-| R1 | Existing validator/resolver/planner contracts | unit + integration | Strengthened MAS assertions | Pending |
+| R1 | Existing validator/resolver/planner contracts | unit + integration | Strengthened MAS assertions | Pass |

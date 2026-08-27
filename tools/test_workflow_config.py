@@ -206,6 +206,80 @@ def test_slice_assertion_mismatch_fails_before_snapshot_write() -> None:
         shutil.rmtree(root)
 
 
+def test_non_positive_slice_assertions_fail_before_snapshot_write() -> None:
+    for supplied in (0, -1):
+        root = make_repo()
+        try:
+            write_tasks(root, task_contract(task_row("T1", "A")))
+            try:
+                workflow_config.resolve(
+                    root=root,
+                    feature="fixture",
+                    slice_count=supplied,
+                    native_provider="codex",
+                )
+            except workflow_config.ConfigError as exc:
+                assert "slice count must be at least 1" in str(exc)
+            else:
+                raise AssertionError(f"expected non-positive slice assertion rejection: {supplied}")
+            assert not (root / ".specs/features/fixture/workflow.json").exists()
+        finally:
+            shutil.rmtree(root)
+
+
+def test_refresh_slice_assertion_mismatch_preserves_snapshot_bytes() -> None:
+    root = make_repo()
+    try:
+        write_tasks(root, task_contract(task_row("T1", "A")))
+        workflow_config.resolve(root=root, feature="fixture", native_provider="codex")
+        snapshot_path = root / ".specs/features/fixture/workflow.json"
+        before = snapshot_path.read_bytes()
+        write_tasks(
+            root,
+            task_contract(task_row("T1", "A") + task_row("T2", "B"), feature_count=2),
+        )
+        try:
+            workflow_config.resolve(
+                root=root,
+                feature="fixture",
+                slice_count=1,
+                native_provider="codex",
+                refresh=True,
+            )
+        except workflow_config.ConfigError as exc:
+            assert "does not match derived slice count 2" in str(exc)
+        else:
+            raise AssertionError("expected refresh slice assertion mismatch")
+        assert snapshot_path.read_bytes() == before
+    finally:
+        shutil.rmtree(root)
+
+
+def test_malformed_refresh_preserves_snapshot_bytes() -> None:
+    root = make_repo()
+    try:
+        write_tasks(root, task_contract(task_row("T1", "A")))
+        workflow_config.resolve(root=root, feature="fixture", native_provider="codex")
+        snapshot_path = root / ".specs/features/fixture/workflow.json"
+        before = snapshot_path.read_bytes()
+        write_tasks(root, task_row("T1", "A"))
+        try:
+            workflow_config.resolve(
+                root=root,
+                feature="fixture",
+                native_provider="codex",
+                refresh=True,
+            )
+        except workflow_config.ConfigError as exc:
+            assert "tasks closure validation failed" in str(exc)
+            assert "Vertical Slice Closure" in str(exc)
+        else:
+            raise AssertionError("expected malformed refresh failure")
+        assert snapshot_path.read_bytes() == before
+    finally:
+        shutil.rmtree(root)
+
+
 def test_missing_tasks_defaults_to_one_slice_without_manual_count() -> None:
     root = make_repo()
     try:

@@ -105,7 +105,11 @@ class TLCValidatorTests(unittest.TestCase):
         self.assertEqual(validate_tasks.check(str(path))[0], [])
 
     def test_validates_independent_slices_without_counting_remediation(self) -> None:
-        contract = validate_tasks.validated_slice_contract(str(FIXTURES / "merge-alone-two-slices.md"))
+        path = FIXTURES / "merge-alone-two-slices.md"
+        source = path.read_text(encoding="utf-8")
+        self.assertIn("### T2R1:", source)
+        self.assertIn("### TDR1:", source)
+        contract = validate_tasks.validated_slice_contract(str(path))
         self.assertEqual(contract["slice_ids"], ["A", "B"])
         self.assertEqual(contract["task_slices"], {"T1": "A", "T2": "A", "T3": "B", "T4": "B"})
 
@@ -113,9 +117,18 @@ class TLCValidatorTests(unittest.TestCase):
         source = (FIXTURES / "merge-alone-one-slice.md").read_text(encoding="utf-8")
         row = "| A | The complete migration is usable. | `python3 -m unittest` | yes | It is the requested deliverable. |"
         for replacement, expected in (
-            ("| A |  | `python3 -m unittest` | yes | It is the requested deliverable. |", "observable outcome"),
-            ("| A | The complete migration is usable. |  | yes | It is the requested deliverable. |", "independent gate"),
-            ("| A | The complete migration is usable. | `python3 -m unittest` | yes |  |", "reason"),
+            (
+                "| A |  | `python3 -m unittest` | yes | It is the requested deliverable. |",
+                "slice 'A' has an empty observable outcome",
+            ),
+            (
+                "| A | The complete migration is usable. |  | yes | It is the requested deliverable. |",
+                "slice 'A' has an empty independent gate",
+            ),
+            (
+                "| A | The complete migration is usable. | `python3 -m unittest` | yes |  |",
+                "slice 'A' has an empty reason",
+            ),
         ):
             path = self._temporary_tasks(source.replace(row, replacement))
             with self.assertRaisesRegex(ValueError, expected):
@@ -134,9 +147,21 @@ class TLCValidatorTests(unittest.TestCase):
         source = (FIXTURES / "merge-alone-one-slice.md").read_text(encoding="utf-8")
         task_prefix = "**Slice:** A\n**Depends on:** None\n**Where:** `src/discovery.py`"
         cases = (
-            (source.replace(task_prefix, "**Where:** `src/discovery.py`"), "T1"),
-            (source.replace(task_prefix, "**Slice:** A\n**Slice:** B\n**Where:** `src/discovery.py`"), "exactly one Slice"),
-            (source.replace(task_prefix, "**Slice:** Z\n**Where:** `src/discovery.py`"), "without a closure row"),
+            (
+                source.replace(task_prefix, "**Where:** `src/discovery.py`"),
+                "T1: exactly one non-empty Slice field is required",
+            ),
+            (
+                source.replace(
+                    task_prefix,
+                    "**Slice:** A\n**Slice:** B\n**Where:** `src/discovery.py`",
+                ),
+                "T1: exactly one Slice field is required",
+            ),
+            (
+                source.replace(task_prefix, "**Slice:** Z\n**Where:** `src/discovery.py`"),
+                "Z: primary tasks use a slice without a closure row",
+            ),
         )
         for content, expected in cases:
             path = self._temporary_tasks(content)
@@ -150,7 +175,7 @@ class TLCValidatorTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "repeats slice 'A'"):
             validate_tasks.validated_slice_contract(str(duplicate))
         orphan = self._temporary_tasks(source.replace(row, "| B | The complete migration is usable. | `python3 -m unittest` | yes | It is the requested deliverable. |"))
-        with self.assertRaisesRegex(ValueError, "closure row has no primary task"):
+        with self.assertRaisesRegex(ValueError, "B: closure row has no primary task"):
             validate_tasks.validated_slice_contract(str(orphan))
 
     def test_slice_contract_json_is_deterministic_and_ordered(self) -> None:

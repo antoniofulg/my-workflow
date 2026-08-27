@@ -14,6 +14,8 @@ import parallel_plan
 
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / ".agents/skills/tlc-spec-driven/scripts"))
+import validate_tasks  # noqa: E402
 
 
 def make_repo(tasks: str, mode: str = "safe", feature: str = "fixture") -> Path:
@@ -92,11 +94,20 @@ def test_closure_table_does_not_change_declared_slice_membership() -> None:
         "| A | First capability. | `gate-a` | yes | Independent value. |\n"
         "| B | Second capability. | `gate-b` | yes | Independent value. |\n\n"
     )
-    root = make_repo(closure + task("T1", "A") + task("T2", "A") + task("T3", "B"))
+    tasks = closure + "## Task Breakdown\n\n" + task("T1", "A") + task("T2", "A") + task("T3", "B") + task("T4", "B")
+    root = make_repo(tasks)
     try:
+        contract = validate_tasks.validated_slice_contract(
+            str(root / ".specs/features/fixture/tasks.md")
+        )
         plan = parallel_plan.plan(root=root, feature="fixture")
         assert [item["slice"] for item in plan["lanes"]] == ["A", "B"]
         assert [item["task"] for item in plan["lanes"]] == ["T1", "T3"]
+        planned_membership = {
+            item["task"]: item["slice"]
+            for item in [*plan["lanes"], *plan["blocked"]]
+        }
+        assert planned_membership == contract["task_slices"]
     finally:
         shutil.rmtree(root)
 
