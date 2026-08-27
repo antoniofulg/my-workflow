@@ -1045,9 +1045,6 @@ describe("adoption and public setup", () => {
     expect(latestRelease).toContain("opt-in parallel slice executor");
     expect(latestRelease).toContain("resource preflight");
     expect(latestRelease).toContain("BLOCKED-VERIFY");
-  });
-
-  it("BTR-IT-003 keeps active runner contracts on Bun", () => {
     const retiredRunner = ["vit", "est"].join("");
     const currentContracts = [
       "README.md",
