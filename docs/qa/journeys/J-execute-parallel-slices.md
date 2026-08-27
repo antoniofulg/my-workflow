@@ -63,7 +63,11 @@ Deep Review canary. Candidate Orca qualification remains `untested`; no candidat
 The packet-observed Orca `1.4.190` automatic canary later failed worker start at `dispatch_input` /
 `agent_prompt_stalled`. Its live residual was cleaned and its audit record retained
 `identity_unproven`; automatic execution therefore remains unsupported. This observation does not
-exercise the separate assisted flow, whose scenario remains `untested` until E2E-001 is walked.
+exercise the separate assisted flow. The 2026-08-26 assisted E2E-001 walk then failed before prompt
+delivery because two clean direct `terminal create` attempts timed out without returning an agent
+handle. Exact setup cleanup left zero slice residue. See the
+[`assisted Orca report`](../reports/2026-08-26-assisted-orca-slices.md) and
+[`BUG-20260826-assisted-orca-terminal-create-timeout`](../bugs/BUG-20260826-assisted-orca-terminal-create-timeout.md).
 
 [`QAS-run-resource-free-parallel-orca-slices`](../scenarios/QAS-run-resource-free-parallel-orca-slices.md)
 and [`QAS-clean-owned-parallel-slice-pilot`](../scenarios/QAS-clean-owned-parallel-slice-pilot.md)
