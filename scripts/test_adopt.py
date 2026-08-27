@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+import json
 import os
 import re
 import shutil
@@ -183,6 +184,34 @@ def test_fresh_and_refuse() -> None:
         original_config = config.read_bytes()
         run(tmp)
         assert config.read_bytes() == original_config
+        assert (tmp / "tools/knowledge/src/check.ts").is_file()
+        assert not (tmp / "tools/knowledge/tests").exists()
+        assert not (tmp / "tools/shared/tests").exists()
+        assert not (tmp / "tools/shared/src/bun-version.ts").exists()
+        assert not (tmp / "bunfig.toml").exists()
+        assert not (tmp / "bun.lock").exists()
+        source_pack_paths = (
+            "tools/knowledge/tests/check.test.ts",
+            "tools/shared/tests/frontmatter.test.ts",
+        )
+        for relative_path in source_pack_paths:
+            assert subprocess.run(
+                ["git", "ls-files", "--error-unmatch", "--", relative_path],
+                cwd=ROOT,
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            ).returncode == 0
+        package_manifest = json.loads(
+            subprocess.check_output(
+                ["npm", "pack", "--dry-run", "--json"],
+                cwd=ROOT,
+                text=True,
+            )
+        )
+        packaged = {entry["path"] for entry in package_manifest[0]["files"]}
+        for relative_path in source_pack_paths:
+            assert relative_path in packaged, relative_path
         agents = (tmp / "AGENTS.md").read_text(encoding="utf-8")
         assert STENCIL in agents
         claude = tmp / "CLAUDE.md"

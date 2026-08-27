@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "bun:test";
+import { assertSupportedBunVersion } from "../src/bun-version.js";
 
 const repositoryRoot = process.cwd();
 
@@ -1058,8 +1059,13 @@ describe("adoption and public setup", () => {
     const bunConfig = readRepositoryFile("bunfig.toml");
     const bunVersionGuard = readRepositoryFile("tools/shared/src/bun-version.ts");
     expect(bunConfig).toContain('preload = ["./tools/shared/src/bun-version.ts"]');
-    expect(bunVersionGuard).toContain('Bun.semver.satisfies(Bun.version, "1.4.x")');
+    expect(bunVersionGuard).toContain('Bun.semver.satisfies(version, "1.4.x")');
+    expect(bunVersionGuard).toContain("assertSupportedBunVersion(Bun.version)");
     expect(bunVersionGuard).toContain("throw new Error");
+    expect(() => assertSupportedBunVersion("1.4.0")).not.toThrow();
+    expect(() => assertSupportedBunVersion("1.5.0")).toThrow(
+      "Bun 1.4.x is required for the structural test gate; found 1.5.0",
+    );
     const retiredRunner = ["vit", "est"].join("");
     const currentContracts = [
       "README.md",
