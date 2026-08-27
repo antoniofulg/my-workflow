@@ -58,9 +58,11 @@ slice, base-branch, branch, ref, and handle value otherwise. Snapshot the exact 
 and terminal inventory before the one mutating create, generate a unique logical name, and invoke
 exactly one create. The public Orca CLI has no idempotency key, so a missing receipt or timeout is
 never retried blindly; re-list exact worktree and terminal inventories every 250 ms for at most
-60000 ms, compute the cumulative before/after inventory difference, and perform a final audit before adopting
-exactly one candidate only after complete immutable receipt and ownership proof. Zero, multiple, or ambiguous
-candidates serialize and exact-clean every provably owned late effect. Create the worktree with explicit
+60000 ms, compute the cumulative observed set `current - before_inventory` (the before/after inventory difference), and filter candidates by the exact repository and generated unique logical slice name.
+Nonmatching entries are foreign and are never adopted or cleaned. Perform a final audit at the deadline
+before adopting exactly one matching candidate only after complete immutable receipt and ownership proof.
+Zero, multiple, or ambiguous matching candidates serialize and exact-clean only matching provably owned
+late effects. Create the worktree with explicit
 base/setup, record the exact
 `startupTerminal.handle`, prove that it was newly created by the just-created worktree, uniquely
 owned by it, is one new unused shell, and has no agent/default-task activity, then shell-quote the

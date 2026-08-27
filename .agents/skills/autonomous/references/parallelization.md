@@ -115,10 +115,13 @@ orca worktree create --name <slice> --base-branch <base-branch> --setup inherit 
 If the create result is missing or times out, it is never retried blindly: never retry or issue a second create. Enter a machine-
 only SETTLE WINDOW for at most `timeout_ms=60000`, re-listing the exact repository worktree and
 terminal inventories every `interval_ms=250` and computing the cumulative `current - before_inventory`
-difference (the `after_inventory - before_inventory` difference over the window). Adopt exactly one
+difference, i.e. computing the cumulative observed set `current - before_inventory` (the
+`after_inventory - before_inventory` difference over the window).
+Filter that cumulative set by the exact repository and generated unique logical slice name; entries
+that do not match both are foreign and are never adopted or cleaned. Adopt exactly one matching
 candidate only after a complete immutable receipt and ownership proof
-can be reconstructed from the receipt and the same inventory identities. zero, multiple, or ambiguous
-candidates serialize; exact-clean each candidate when provably owned, then serialize. At the deadline, perform one
+can be reconstructed from the receipt and the same inventory identities. Zero, multiple, or ambiguous
+candidates serialize; exact-clean only matching candidates when provably owned, then serialize. At the deadline, perform one
 final inventory/audit after the last re-list; only a proven zero-candidate result may serialize as zero
 effect. Never invent a receipt or claim compatibility from an ambiguous result.
 
