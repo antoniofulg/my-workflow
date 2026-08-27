@@ -238,3 +238,24 @@
   checkpoints, follow-up, integration, and exact owned-resource cleanup.
 - **Date**: 2026-08-26
 - **Status**: active
+
+### AD-016
+
+- **Decision**: The assisted coordinator writes each complete slice packet to a coordinator-owned
+  file outside every slice worktree and sends only a short fixed-shape pointer to that file through
+  the host's one mandated `terminal send`. The inline-packet transport is removed, not retained as a
+  fallback or length-threshold alternative. `exec_payload` and the pre-packet recording obligations
+  are unchanged.
+- **Reason**: `BUG-20260827-orca-terminal-send-truncates-claude-worker-packet` proves
+  `orca terminal send --text` reports a complete write while the receiving TUI gets a mangled
+  fragment. Loss is timing-dependent, `--text` is the only expressible transport, and the one-send
+  and no-replacement-worker rules make the loss unrecoverable. A pointer keeps the mandated payload
+  at a size the observed loss did not reach.
+- **Trade-off**: This does not make the host transport reliable; it only shrinks the mandated
+  payload. The coordinator owns packet-file lifecycle outside every worktree, and the worker must
+  read a file before acting. A truncated pointer cannot produce a valid marker, so truncation still
+  fails closed rather than half-executing.
+- **Scope**: Assisted Orca packet delivery, the `parallelization.md` contract, AST-04, IT-005, and
+  the assisted QA charter and scenario.
+- **Date**: 2026-08-27
+- **Status**: active
