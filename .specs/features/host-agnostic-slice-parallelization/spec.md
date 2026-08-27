@@ -6,7 +6,8 @@ The repository already has a provider-neutral slice scheduler and an Orca execut
 adapter selection treats Orca capability presence as sufficient. The installed Orca can advertise
 that capability while still reproducing a worker lifecycle defect, and Maestri cannot yet provide
 machine-verifiable lifecycle and cleanup receipts. The workflow needs an explicit compatibility
-gate that preserves serial fallback and exposes both hosts honestly.
+gate that exposes both hosts honestly while making the proven coordinator-assisted path the normal
+execution policy whenever the task DAG exposes safe independent slices.
 
 ## Goals
 
@@ -14,7 +15,8 @@ gate that preserves serial fallback and exposes both hosts honestly.
 - [ ] Prove an installed Orca runtime through version-aware lifecycle canary evidence.
 - [ ] Represent Maestri explicitly and reject unsafe automation without side effects.
 - [ ] Keep successful compatibility evidence local, bounded, restart-safe, and version-sensitive.
-- [ ] Permit explicitly authorized coordinator-assisted Orca execution without enabling an incompatible automatic adapter.
+- [ ] Default to coordinator-assisted Orca execution when the task DAG exposes safe independent slices.
+- [ ] Install the proven assisted coordinator tooling into every adopted project.
 
 ## Out of Scope
 
@@ -24,7 +26,8 @@ gate that preserves serial fallback and exposes both hosts honestly.
 | Parsing human-readable Maestri output | Text is not a stable lifecycle contract. |
 | Manual Git worktrees inside Maestri floors | Floors own isolation in Maestri. |
 | UI automation for Maestri floor deletion | It would couple the workflow to one desktop UI and remain non-deterministic. |
-| Bypassing the Orca lifecycle defect inside the automatic adapter | The adapter must prove the installed runtime; assisted execution is a separate, explicitly authorized coordinator path. |
+| Bypassing the Orca lifecycle defect inside the automatic adapter | The adapter must prove the installed runtime; assisted execution is a separate coordinator-owned path. |
+| Remediating Orca's truncating terminal transport | The Orca team owns that fix; this workflow keeps pointer-only delivery until upstream support is proven. |
 | Parallel tasks inside one slice | TLC remains unchanged. |
 
 ## Assumptions & Open Questions
@@ -36,8 +39,10 @@ gate that preserves serial fallback and exposes both hosts honestly.
 | Orca compatibility | Known-bad versions stop before mutation; candidate versions require explicit canary PASS | Version or capability alone does not prove the bug is fixed. | yes |
 | Canary cadence | Cache PASS by runtime identity and invalidate when identity changes | Avoid repeated workers and worktree pollution. | yes |
 | Maestri compatibility | Require structured lifecycle receipts and machine cleanup | Reliability and zero-residue are mandatory. | yes |
-| Unsupported host | Return serial fallback with a decisive reason and zero host effects | Parallelism is optional. | yes |
-| Assisted Orca fallback | Explicit human authorization; coordinator owns direct worktrees, terminals, checkpoints, follow-up, and cleanup | Captures useful overlap without claiming machine-verifiable orchestration. | yes |
+| Unsupported host | Return serial fallback with a decisive reason and zero host effects | Safety overrides the default overlap policy. | yes |
+| Default execution mode | `assisted`; `disabled` is the explicit sequential override and `safe`/`full` retain automatic-adapter semantics | Makes proven overlap normal without misrepresenting Orca compatibility. | yes |
+| Assisted Orca ownership | Main coordinator owns direct worktrees, terminals, pointer packets, checkpoints, follow-up, integration, and cleanup | Slice workers must not create or coordinate sibling workers. | yes |
+| Orca packet transport | Pointer-only, with no inline-body or retry fallback | The upstream transport bug is timing-dependent and receipts cannot prove complete delivery. | yes |
 
 **Open questions:** none.
 
@@ -54,6 +59,8 @@ feature never silently changes execution hosts or loses serial safety.
 2. **HST-02:** WHEN `--adapter auto` runs inside a Maestri terminal THEN the executor SHALL evaluate only Maestri and SHALL NOT fall through to Orca.
 3. **HST-03:** WHEN an explicit adapter is unavailable or incompatible THEN the executor SHALL return serial fallback with its backend and decisive reason before creating a checkout or worker.
 4. **HST-04:** WHEN a compatible adapter is selected THEN the executor SHALL preserve the existing slice scheduler, checkpoint, Technical Verifier, deep-review, gate, and QA contracts unchanged.
+5. **HST-05:** WHEN workflow configuration is resolved without an explicit parallelization mode THEN the resolver SHALL freeze mode `assisted`; it SHALL also accept explicit `disabled`, `safe`, and `full` without changing the existing automatic-adapter meaning of `safe` or `full`.
+6. **HST-06:** WHEN mode `assisted` is planned THEN the planner SHALL use `full` dependency-readiness and checkpoint-sync semantics while the executor SHALL NOT construct or invoke an automatic host adapter for that mode.
 
 **Independent Test:** Drive disabled `start`/`resume`, disabled `preflight`, auto, explicit, compatible,
 and incompatible selections through recording adapters and assert exact effects and fallback reasons.
@@ -98,13 +105,18 @@ workers so that eligible slices overlap now without weakening any TLC or readine
 
 **Acceptance Criteria:**
 
-1. **AST-01:** IF the automatic Orca adapter is incompatible AND the human explicitly authorizes assisted execution THEN the coordinator MAY use Orca's direct worktree plus startup-shell promotion and explicit frozen provider/model/effort command after proving one new, uniquely owned, unused startup handle with no agent/default-task activity; it SHALL send the command once and use a bounded machine-only exact-handle probe (`interval_ms=250`, `timeout_ms=60000`) to verify two consecutive connected `source=screen` reads matching that frozen route before sending the task prompt, while the automatic executor remains serial and records no compatibility PASS. This TUI materialization probe is not the event-driven dependency waiter and performs no model turns or task-state polling.
+1. **AST-01:** WHILE frozen mode is `assisted` and the planner exposes at least two safe ready slices, the coordinator SHALL use Orca's direct worktree plus startup-shell promotion and explicit frozen provider/model/effort command after proving one new, uniquely owned, unused startup handle with no agent/default-task activity; it SHALL send the command once and use a bounded machine-only exact-handle probe (`interval_ms=250`, `timeout_ms=60000`) to verify two consecutive connected `source=screen` reads matching that frozen route before sending the task pointer, while the automatic adapter remains uninvolved and records no compatibility PASS. This TUI materialization probe is not the event-driven dependency waiter and performs no model turns or task-state polling.
 2. **AST-02:** WHEN a declared slice-start dependency reaches its required completed and verified state THEN the coordinator SHALL start at most one worker for that slice, and that worker SHALL execute only sequential tasks through the first unmet dependency.
 3. **AST-03:** WHEN the next task depends on an unavailable upstream task THEN the worker SHALL leave a clean committed checkpoint, report its slice, completed-through task, next task, exact dependency, and current HEAD in the Orca worktree comment, then end its turn without polling.
 4. **AST-04:** WHEN the declared upstream dependency completes THEN the coordinator SHALL synchronize the exact producer commit into the private dependent worktree, rerun the affected gate, and follow up the same startup worker handle. A stale handle SHALL be refreshed only as that exact handle from the owned worktree; a different terminal SHALL serialize instead of starting another worker. Before every logical packet the coordinator SHALL record the exact handle, unique turn ID/phase, pre-head, task/comment/gate state, exact expected task IDs, expected task-commit count, allowed changed paths including the task-status path, and expected `TURN_DONE <phase> head=<40-hex-sha>` marker, write the complete packet body including that marker to a coordinator-owned packet file outside every slice worktree, issue exactly one send carrying only a short fixed-shape pointer to that file, and never retry or replace the worker after any receipt outcome. A success SHALL use the normal 300-second worker-turn barrier; an error, missing receipt, or `agent_prompt_stalled` SHALL enter only same-handle machine-only effect reconciliation at 250 ms intervals for at most 300000 ms, accepting exactly one complete effect only when the connected handle, unique marker SHA, two fresh non-Working source=screen frames plus tui-idle, Git HEAD, required statuses, atomic commits, gates, exact pre-head ancestry, expected commit count/identities, and packet-declared changed-path allowlist all agree. Only phase `B_PARKED` SHALL require the exact parked-B comment; route, A, and other nonparked phases SHALL not require that comment. Reset, foreign/unrelated/extra commits, out-of-scope paths, or status mismatch SHALL serialize the lane.
 5. **AST-05:** IF the checkpoint is dirty, missing, conflicting, fails its affected gate, or cannot be reconciled unambiguously THEN the coordinator SHALL stop that lane and continue through serial recovery without automatic conflict resolution.
 6. **AST-06:** WHEN verified slice commits are integrated in deterministic slice order THEN the coordinator SHALL stop the exact startup worker handle, revalidate ownership and integration, detach the worktree if needed, safely delete only its exact owned branch and prove ref absence before removing the clean integrated worktree, then prove zero owned worktree, branch-ref, and terminal residue.
 7. **AST-07:** Assisted overlap SHALL preserve one atomic commit and scoped gate per task, Technical Verifier per code-changing slice, frozen grouped deep-review cadence, final QA, and one full gate on the final tree.
+8. **AST-08:** IF the operator explicitly selects `disabled`, the plan exposes fewer than two ready slices, write or resource isolation conflicts, required Orca capabilities are unavailable, or any ownership or reconciliation proof is ambiguous THEN the coordinator SHALL use sequential execution and SHALL NOT start an uncertified assisted lane.
+9. **AST-09:** WHILE assisted slices run, the main agent SHALL own worktree and terminal creation, pointer packet delivery, dependency parking, producer verification, exact commit synchronization, affected-gate rerun, same-handle continuation, deterministic integration, and cleanup; a slice worker SHALL NOT create, coordinate, or clean another slice worker.
+10. **AST-10:** WHEN any assisted Orca mutation (`worktree create`, packet `terminal send`, worktree comment `set`, terminal `stop`, or worktree `rm`) is issued THEN the coordinator SHALL issue that logical mutation exactly once and SHALL use only bounded read-only inspection to reconcile a transient, missing, or error receipt.
+11. **AST-11:** WHEN the coordinator delivers a route, task, or follow-up packet THEN it SHALL write the complete packet to a coordinator-owned file outside every slice worktree and send only the fixed-shape pointer; it SHALL never send the packet body or fall back based on body length or receipt outcome.
+12. **AST-12:** WHEN the workflow is adopted into a consuming project THEN adoption SHALL install one self-contained, import-safe assisted probe with no import from `docs/qa/evidence/`; importing that module SHALL perform zero Orca calls.
 
 **Independent Test:** Run a disposable two-slice Orca pilot where slice B starts after an early slice
 A dependency, parks at a later dependency, resumes through the same terminal after exact checkpoint
@@ -117,7 +129,7 @@ sync, and leaves zero owned worktree or terminal residue.
 | S1 | Executor CLI and local compatibility state | Strict schema, atomic local receipt, disabled short-circuit | SEC-001, SEC-002 |
 | S6 | Executable, Git, and filesystem sinks | Fixed argv, validated checkout path, no shell | SEC-003, SEC-008 |
 | S9 | Orca and Maestri runtimes | Correlated machine receipts; no text parsing | SEC-004, SEC-005 |
-| S11 | Workers, worktrees, floors, terminals | Cleanup proof before compatibility PASS; exact coordinator ownership for assisted cleanup | SEC-006–SEC-008 |
+| S11 | Workers, worktrees, floors, terminals | Cleanup proof before compatibility PASS; exact coordinator ownership and no-retry mutations for assisted cleanup | SEC-006–SEC-009 |
 
 ## Implicit Requirement Dimensions
 
@@ -125,9 +137,9 @@ sync, and leaves zero owned worktree or terminal residue.
 | --- | --- |
 | Input validation & bounds | Adapter names, versions, paths, capabilities, IDs, timeouts, and receipts are validated. |
 | Failure / partial-failure states | Every incomplete canary or cleanup result remains incompatible and names retained ownership. |
-| Idempotency / retry | PASS receipts are identity-bound; repeated checks are read-only until identity changes. |
+| Idempotency / retry | PASS receipts are identity-bound; assisted mutations run once and ambiguous receipts reconcile through bounded read-only inspection. |
 | Auth boundaries & rate limits | Adapters inherit local operator authority and grant no new remote authority. |
-| Concurrency / ordering | Existing scheduler and sequential task order remain authoritative. |
+| Concurrency / ordering | Assisted is the default between safe ready slices; tasks within each slice remain sequential. |
 | Data lifecycle / expiry | Local receipts expire on runtime identity change and contain no transcript or secret. |
 | Observability | Preflight emits backend, version, capabilities, cache state, failed stage, and cleanup result. |
 | External-dependency failure | Missing CLI/socket/runtime/capability returns serial fallback. |
@@ -142,6 +154,7 @@ sync, and leaves zero owned worktree or terminal residue.
 - IF a host response contains credential-shaped fields THEN persisted and emitted diagnostics SHALL redact their values.
 - IF an assisted worker terminal handle becomes stale THEN the coordinator SHALL reacquire the sole handle from the owned worktree and SHALL NOT dual-send or launch a replacement worker.
 - IF an assisted worktree contains unintegrated or dirty changes THEN cleanup SHALL stop and report the exact retained path.
+- IF assisted planning exposes fewer than two safe ready slices, a write/resource conflict, missing isolation, or an uncertifiable host mechanic THEN execution SHALL remain sequential without creating an uncertified lane (AST-08).
 - IF the rendered terminal screen is unavailable, omits the provider, mismatches the frozen provider/model/effort tuple, or is ambiguous THEN assisted execution SHALL serialize before prompt or task edits (AST-01).
 - IF the route appears in fewer than two consecutive connected `source=screen` reads, the bounded materialization timeout expires, or the exact handle disconnects THEN assisted execution SHALL serialize before prompt or task edits (AST-01).
 - IF a route probe uses a pre-send `tui-idle` result, static screen reads instead of a repeated loop, an unbounded interval, a model turn, or dependency polling THEN it SHALL be rejected as insufficient route proof (AST-01, AST-03).
@@ -163,6 +176,7 @@ sync, and leaves zero owned worktree or terminal residue.
 6. **SEC-006:** A compatibility PASS requires a settled worker and zero disposable checkout residue.
 7. **SEC-007:** The adapter never removes or dismisses a resource without an exact ownership receipt.
 8. **SEC-008:** Assisted cleanup targets only coordinator-owned worktrees whose commits are integrated and whose Git state is clean; missing ownership or residue proof stops deletion.
+9. **SEC-009:** Assisted mutating Orca calls are never retried; missing or transient receipts are reconciled only through bounded read-only inspection of the same owned resource.
 
 ## Requirement Traceability
 
@@ -172,6 +186,8 @@ sync, and leaves zero owned worktree or terminal residue.
 | HST-02 | Adapter registry and executor boundary | A | ✅ Verified |
 | HST-03 | Adapter registry and executor boundary | A | ✅ Verified |
 | HST-04 | Adapter registry and executor boundary | A | ✅ Verified |
+| HST-05 | Workflow configuration and snapshot parser | E | In Tasks |
+| HST-06 | Assisted planner/executor boundary | E | In Tasks |
 | ORC-01 | Orca compatibility probe and canary | B | ✅ Verified |
 | ORC-02 | Orca compatibility probe and canary | B | ✅ Verified |
 | ORC-03 | Orca compatibility probe and canary | B | ✅ Verified |
@@ -183,13 +199,18 @@ sync, and leaves zero owned worktree or terminal residue.
 | MAE-02 | Maestri capability probe | C | ✅ Verified |
 | MAE-03 | Maestri capability probe | C | ✅ Verified |
 | MAE-04 | Maestri capability probe | C | ✅ Verified |
-| AST-01 | Coordinator-assisted Orca contract | D | ✅ Contract and two-worker route proof verified |
+| AST-01 | Coordinator-assisted Orca contract | E | In Tasks; prior explicit-authority route proof remains historical evidence |
 | AST-02 | Coordinator-assisted Orca contract | D | ✅ Contract; early start/park verified |
 | AST-03 | Coordinator-assisted Orca contract | D | ✅ Contract; clean exact B checkpoint verified |
 | AST-04 | Coordinator-assisted Orca contract | D | ✅ Contract; exact producer sync, affected gate, and same-handle continuation verified |
-| AST-05 | Coordinator-assisted Orca contract | D | ✅ Contract verified; E2E pending |
-| AST-06 | Coordinator-assisted Orca contract | D | ✅ Contract verified; E2E pending |
-| AST-07 | Coordinator-assisted Orca contract | D | ❌ Tasks, Verifiers, and integration passed; grouped review found one Major before final QA |
+| AST-05 | Coordinator-assisted Orca contract | D | ✅ Retest 12 verified fail-closed lane handling |
+| AST-06 | Coordinator-assisted Orca contract | D | ✅ Retest 12 verified exact cleanup and zero residue |
+| AST-07 | Coordinator-assisted Orca contract | D | ✅ Retest 12 verified gates, Verifiers, grouped review, final QA, and full gate |
+| AST-08 | Assisted default and serial fail-closed policy | E | In Tasks |
+| AST-09 | Main-agent ownership contract | G | In Tasks |
+| AST-10 | Shipped assisted probe | F | In Tasks |
+| AST-11 | Shipped assisted probe | F | In Tasks |
+| AST-12 | Adoption contract | F | In Tasks |
 | SEC-001 | Boundary, probes, and cleanup | A–C | ✅ Verified |
 | SEC-002 | Boundary, probes, and cleanup | A–C | ✅ Verified |
 | SEC-003 | Boundary, probes, and cleanup | A–C | ✅ Verified |
@@ -198,8 +219,9 @@ sync, and leaves zero owned worktree or terminal residue.
 | SEC-006 | Boundary, probes, and cleanup | A–C | ✅ Verified |
 | SEC-007 | Boundary, probes, and cleanup | A–C | ✅ Verified |
 | SEC-008 | Assisted coordinator ownership and cleanup | D | ✅ Contract and full exact Retest 8 cleanup verified |
+| SEC-009 | Assisted mutation reconciliation | F | In Tasks |
 
-**Coverage:** 30 total requirements, 30 mapped, 0 unmapped.
+**Coverage:** 38 total requirements, 38 mapped, 0 unmapped.
 
 **Post-validation cleanup recheck (`3487c27`):** ORC-04, ORC-05, and SEC-006 remain verified.
 Test-only teardown now removes its exact registered fixture worktree and sentinel root; the owning
@@ -212,4 +234,6 @@ suite preserves unowned paths through its assertions, and production cleanup rem
 - [ ] Current Maestri reports the exact missing machine capabilities with zero mutations.
 - [ ] Disabled mode and incompatible adapters create no workers, worktrees, floors, or agents.
 - [ ] Existing scheduler, Orca adapter, Git adapter, and full workflow gates remain green.
-- [ ] An explicitly authorized two-slice Orca pilot parks and resumes the same worker at a later dependency, then leaves zero owned residue.
+- [ ] Resolving a workflow without an explicit mode freezes `assisted`; explicit `disabled` remains effect-free and sequential.
+- [ ] Independent safe slices use coordinator-assisted execution by default, while no-ready, isolation, resource, ownership, or reconciliation failures serialize.
+- [ ] The adopted pointer-only probe is self-contained, import-safe, retries no mutation, preserves foreign resources, and can park and resume the same worker handle.

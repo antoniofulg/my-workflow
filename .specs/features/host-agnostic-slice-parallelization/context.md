@@ -7,8 +7,8 @@
 ## Feature Boundary
 
 Keep the existing deterministic slice scheduler and make its execution-host boundary explicit.
-Orca and Maestri are selected through adapters, but neither may run parallel work until its installed
-runtime proves the required lifecycle and cleanup capabilities.
+Automatic Orca and Maestri adapters remain capability-gated. Coordinator-assisted Orca becomes the
+default whenever the task DAG exposes safe independent slices.
 
 ## Implementation Decisions
 
@@ -16,17 +16,22 @@ runtime proves the required lifecycle and cleanup capabilities.
 
 - TLC tasks remain sequential inside each slice.
 - Technical Verifier, grouped deep-review, gates, and final QA remain unchanged.
-- Any unknown host state or incomplete cleanup capability falls back to serial execution.
+- `assisted` is the default mode. `disabled` is the operator's explicit sequential override.
+- `safe` and `full` keep their existing automatic-adapter meaning.
+- Fewer than two ready slices, write/resource conflicts, unavailable isolation, or any uncertifiable
+  assisted mechanic falls back to serial execution.
 
 ### Orca
 
 - Orca `1.4.188` is known incompatible with the required argv worker lifecycle.
 - A new installed version is only a candidate; an explicit lifecycle canary proves actual support.
 - A successful canary is cached locally by installed runtime identity and invalidated by an update.
-- Until that update, explicit human authorization permits coordinator-assisted execution through
-  direct Orca worktree and terminal commands. The automatic adapter remains unsupported.
+- Until that update, the main agent coordinates eligible slices through direct Orca worktree and
+  terminal commands by default. The automatic adapter remains unsupported.
 - The coordinator owns every worker and checkpoint. A parked worker ends its turn and resumes in the
   same terminal only after the declared dependency is completed and verified.
+- Complete packets live in coordinator-owned files outside slice worktrees. Only short fixed-shape
+  pointers cross `terminal send`; mutation failures reconcile through read-only inspection, never retry.
 
 ### Maestri
 
@@ -43,12 +48,14 @@ runtime proves the required lifecycle and cleanup capabilities.
 
 ### Agent's Discretion
 
-- Local receipt filename and compact JSON field names.
+- Parameter names and compact JSON field names for the shipped assisted probe.
 - Exact bounded canary timeout and reusable canary objective text.
 
 ## Specific References
 
 - Orca PR `stablyai/orca#16548` is the candidate upstream fix.
+- `BUG-20260827-orca-terminal-send-truncates-claude-worker-packet` remains owned by Orca; this
+  workflow does not remediate it.
 - The Maestri SAFE pilot proved concurrent floors but failed its operational contract after a manual
   sensor worktree and unavoidable UI-only floor cleanup.
 

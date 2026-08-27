@@ -16,7 +16,7 @@
   "git_head": "4ba8a0fc48acf31f308632ff9fc7c6be933c54ed",
   "overrides": {},
   "parallelization": {
-    "mode": "disabled",
+    "mode": "assisted",
     "resource_provider": null
   },
   "profile": null,

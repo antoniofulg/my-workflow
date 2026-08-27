@@ -36,6 +36,18 @@ The frozen `.specs/features/<feature>/workflow.json` consumed by the executor is
 Version `1` snapshots are obsolete and are rejected; the planner output's own `version` field is a
 separate plan schema.
 
+## Parallelization modes
+
+| Mode | Default | Effect |
+| --- | --- | --- |
+| `assisted` | yes | Plan with `full` DAG/sync semantics; return coordinator-owned assisted work before automatic adapter construction. |
+| `disabled` | no | Explicit sequential override; `start`/`resume` perform no planner, adapter, Git, or host effect. |
+| `safe` | no | Existing verified-producer automatic-adapter semantics. |
+| `full` | no | Existing checkpoint-sync automatic-adapter semantics. |
+
+Resolving without a configured mode writes `assisted`. Existing explicit modes remain explicit; no
+snapshot is silently re-resolved on resume.
+
 ## Adapter selection
 
 - `auto` inside Maestri evaluates only Maestri.
@@ -47,9 +59,9 @@ separate plan schema.
 
 ## Coordinator-assisted Orca
 
-When automatic Orca is `unsupported`, an operator may explicitly authorize the main agent to
-coordinate direct Orca worktrees. This path is supervised through the existing Orca CLI and is not a
-new executor verb or compatibility result. It must read the frozen
+When mode is `assisted` and the plan exposes at least two safe ready slices, the main agent
+coordinates direct Orca worktrees by default. This path is supervised through the existing Orca CLI,
+is not a compatibility result, and never constructs the automatic adapter. It must read the frozen
 `roles.implementer.provider/model/effort` and always launch an explicit command, never trust an
 unobservable default. The command examples below use `shq(value)` to mean actual POSIX-shell quoting
 (for example `shlex.quote`); do not concatenate literal quote characters around arbitrary values.
@@ -140,6 +152,23 @@ never uses a name or branch selector.
 Assisted execution never records a compatibility PASS, and the automatic adapter remains serial
 until its lifecycle canary passes.
 
+## Assisted probe
+
+```text
+python3 tools/orca_assisted_probe.py create|route|turn|verify-effect|audit|cleanup [arguments]
+```
+
+Each subcommand emits one JSON object. Inputs name the repository, exact owned worktree/branch and
+terminal identities, frozen provider/model/effort, packet file, turn marker, expected task commits,
+allowed paths, gate, and bounded timing values. No task ID, commit subject, packet filename, session
+prefix, or QA evidence path is implicit.
+
+`create`, `turn`/send, worktree comment `set`, terminal `stop`, and worktree `rm` are one-shot logical
+mutations. A transient, missing, or error receipt enters only bounded read-only inspection. Complete
+packet bodies remain in coordinator-owned files outside slice worktrees; sends carry only the
+fixed-shape pointer and have no inline or body-length fallback. Importing the module executes no
+subcommand and calls no host process.
+
 ## Local compatibility state
 
 PASS receipts live below Git common state, outside `.specs/`. Identity includes repository, adapter,
@@ -155,11 +184,14 @@ receipt. Receipts contain no worker transcript, environment value, token, or cre
 | Canary lifecycle or cleanup failure | `unsupported`; failed stage and retained IDs, no PASS receipt. |
 | Current Maestri machine contract | `unsupported`; missing structured lifecycle and floor deletion. |
 | Missing explicit adapter | `unsupported`; serial fallback. |
+| Assisted plan has fewer than two ready slices | Sequential execution; zero assisted effects. |
+| Assisted isolation, resource, ownership, or reconciliation proof fails | Stop the affected lane and continue sequentially; preserve every foreign resource. |
 
 ## Exports
 
-The executor recognizes `auto`, `orca`, and `maestri`. Adapter modules expose a read-only
-compatibility probe; only a compatible adapter exposes execution effects.
+The executor recognizes adapters `auto`, `orca`, and `maestri`, and workflow modes `assisted`,
+`disabled`, `safe`, and `full`. Adapter modules expose a read-only compatibility probe; only a
+compatible automatic adapter exposes automatic execution effects.
 
 ## Removals
 
