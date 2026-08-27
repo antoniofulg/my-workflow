@@ -1,6 +1,91 @@
 # Host-Agnostic Slice Parallelization Validation
 
 **Verdict**: PASS
+**Date**: 2026-08-27
+**Spec**: `.specs/features/host-agnostic-slice-parallelization/spec.md`
+**Diff range**: `851d9b5..ec072a9`
+**Verifier**: independent Technical Verifier (author != verifier)
+
+## Ranked Gaps
+
+None. Fingerprint `6cbd12e1ef928d5f0ec328c230da0ea6213f577dafe314885c3d562539b35bc0`
+is technically resolved: all 12 packet/reconciliation mutants are killed. Real Orca E2E remains
+pending and is not claimed by this technical verdict.
+
+## Spec-Anchored Outcomes
+
+| Outcome | Spec-defined result | `file:line` + assertion/evidence | Result |
+| --- | --- | --- | --- |
+| Frozen implementer route | Assisted implementer is exactly `codex` / `gpt-5.6-luna` / `low`; all other routes, cadence, mode, and overrides stay frozen. | `.specs/features/host-agnostic-slice-parallelization/workflow.json:2`-`:49`; `tools/shared/tests/autonomous-parallelization.test.ts:153`-`:164` assert the exact current tuple and current charter/scenario. Resolver read returned the same v2 snapshot. | PASS |
+| One send per logical packet | Route, initial task, and follow-up each send once; no blind retry or replacement after any receipt outcome. | `.agents/skills/autonomous/references/parallelization.md:107`-`:112`; packet-scoped assertions at `tools/shared/tests/autonomous-parallelization.test.ts:341`-`:357`. | PASS |
+| Bounded same-handle reconciliation | Error, missing receipt, or `agent_prompt_stalled` reconciles only the same connected startup/current handle every 250 ms for at most 300000 ms, with no model turns. | `.agents/skills/autonomous/references/parallelization.md:114`-`:122`; packet-scoped assertions at `tools/shared/tests/autonomous-parallelization.test.ts:355`-`:364`. | PASS |
+| Complete effect proof | One exact marker and complete screen/Git/status/commit/gate/comment agreement are required; every partial, dirty, conflicting, wrong-handle, failed, timeout, or ambiguous state serializes. | `.agents/skills/autonomous/references/parallelization.md:118`-`:126`; packet-scoped assertions at `tools/shared/tests/autonomous-parallelization.test.ts:365`-`:378`. | PASS |
+| Dependency wait | Waiting remains event-driven and uses no model-turn polling. | `.agents/skills/autonomous/references/parallelization.md:127`-`:128`; exact packet assertion at `tools/shared/tests/autonomous-parallelization.test.ts:379`-`:381`. | PASS |
+
+Historical reports remain historical: `docs/qa/reports/2026-08-26-assisted-orca-slices.md` and
+`docs/qa/reports/2026-08-27-assisted-orca-slices.md` still record their executed `high` route. The
+current charter/scenario alone moved to `low`; no historical report was rewritten.
+
+## Focused Gates
+
+- `npm_config_offline=true npm test -- --run tools/shared/tests/autonomous-parallelization.test.ts`:
+  1 file passed; 4/4 tests passed; 0 failed; 0 skipped.
+- `npm_config_offline=true npm test -- --run tools/shared/tests/qa-skills.test.ts`:
+  1 file passed; 23/23 tests passed; 0 failed; 0 skipped.
+- Workflow resolver read with `--feature host-agnostic-slice-parallelization --slices 4
+  --native-provider codex`: exit 0; snapshot v2; implementer `codex` / `gpt-5.6-luna` / `low`;
+  `grouped.3`, `disabled`, other roles, and overrides unchanged.
+- `validate_spec.py`: 0 errors, 0 warnings.
+- `validate_tasks.py`: 0 errors, 0 warnings.
+- `git diff --check 851d9b5..ec072a9`: PASS.
+- Full gate: not run; packet explicitly required focused gates only.
+
+## Discrimination Sensor
+
+Sensor used temporary file copies in disposable directories. No Git worktree, stash, live Orca,
+worker, terminal, or QA mutation was created. A temporary standalone Git repository was used only
+to give `qa-skills.test.ts` its normal tracked-file semantics. The real checkout porcelain had only
+the two pre-existing validation/fingerprint paths before sensor work and had the identical two
+entries afterward.
+
+| Mutation | Focused result |
+| --- | --- |
+| Permit blind resend after ambiguous receipt. | KILLED — autonomous suite 1 failed, 3 passed. |
+| Permit replacement worker for the logical packet. | KILLED — autonomous suite 1 failed, 3 passed. |
+| Accept a commit alone as success. | KILLED — autonomous suite 1 failed, 3 passed. |
+| Change expected phase marker form. | KILLED — autonomous suite 1 failed, 3 passed. |
+| Remove multiple-marker rejection. | KILLED — autonomous suite 1 failed, 3 passed. |
+| Remove the 300000 ms bound. | KILLED — autonomous suite 1 failed, 3 passed. |
+| Change packet reconciliation interval from 250 ms to 251 ms. | KILLED — autonomous suite 1 failed, 3 passed. |
+| Permit model turns during effect reconciliation. | KILLED — autonomous suite 1 failed, 3 passed. |
+| Replace event-driven dependency waiting with polling. | KILLED — autonomous suite 1 failed, 3 passed. |
+| Drift current frozen implementer effort from `low` to `high`. | KILLED — autonomous suite 1 failed, 3 passed. Baseline QA 23/23 still accepts historical reports that record executed `high` routes. |
+| Reconcile against a different connected handle. | KILLED — autonomous suite 1 failed, 3 passed. |
+| Continue after dirty/gate-failed/wrong-handle/ambiguous state. | KILLED — autonomous suite 1 failed, 3 passed. |
+
+**Sensor result**: 12/12 killed; 0 survived — PASS.
+
+## Quality and Scope
+
+- Diff changes policy/spec/DX/tasks/threat/QA metadata, one frozen snapshot, and the canonical
+  contract test; it changes no TypeScript/Python product implementation.
+- Current declarative values are internally consistent and historical QA evidence remains intact.
+- Packet assertions are scoped to the canonical packet section and discriminate exact route,
+  handle, timing, no-model-turn, event-driven, and fail-closed outcomes.
+- Real Orca E2E remains pending after technical remediation. This report makes no E2E success claim.
+
+## Summary
+
+**Overall**: PASS. Focused gates green and discrimination is 12/12.
+
+**Next step**: close the technical fingerprint, then run fresh QA Execute for the mini two-slice
+Orca E2E. This report does not close the external Orca lifecycle defect.
+
+## Prior validation record (preserved)
+
+# Host-Agnostic Slice Parallelization Validation
+
+**Verdict**: PASS
 **Date**: 2026-08-26
 **Spec**: `.specs/features/host-agnostic-slice-parallelization/spec.md`
 **Diff range**: `9d97092..4385b25` (AST-01 remediation); full feature range `2ab4cec..4385b25` rechecked
