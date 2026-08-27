@@ -3,10 +3,10 @@
 ## Handoff
 
 - **Feature**: `.specs/features/merge-alone-slices`
-- **Phase / Task**: Final QA handoff / DR2 complete
-- **Completed**: T1-T5, R1, and R2 committed; final Technical Verifier PASS with 11/11 ACs, 16/16 contracts, full gate 380/380, and sensor 1/1 killed. DR1 aligned validator primary-task syntax with the planner; DR2 isolates remediation fields and rejects missing-colon primary headings without changing QA or validation evidence.
+- **Phase / Task**: Final QA / QA Execute
+- **Completed**: T1-T5, R1-R2, DR1-DR2 committed; Technical Verifier PASS; final Deep Review blockers corrected with gates green; QA Plan mapped all MAS ACs and created two dated charters.
 - **In-progress** (file:line): none.
-- **Next step**: Run final QA Plan and QA Execute; no further Deep Review round is planned.
+- **Next step**: Dispatch fresh QA Execute for the two merge-alone charters, update affected scenarios and report, then run the closing full gate.
 - **Blockers**: none.
 - **Uncommitted files**: none.
 - **Branch**: `fix/merge-alone-slices`
