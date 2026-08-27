@@ -90,17 +90,17 @@ preserves two independently mergeable slices.
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| MAS-01 | P1: Praxis regression derives one slice | Tasks | In Tasks |
-| MAS-02 | P1: Independent outcomes derive two slices | Tasks | In Tasks |
-| MAS-03 | P1: Closure fields validate | Tasks | In Tasks |
-| MAS-04 | P1: Task membership validates | Tasks | In Tasks |
+| MAS-01 | P1: Praxis regression derives one slice | Tasks | Verified |
+| MAS-02 | P1: Independent outcomes derive two slices | Tasks | Verified |
+| MAS-03 | P1: Closure fields validate | Tasks | Verified |
+| MAS-04 | P1: Task membership validates | Tasks | Verified |
 | MAS-05 | P1: Optional count asserts derived value | Tasks | In Tasks |
 | MAS-06 | P1: Missing tasks defaults to one slice | Tasks | In Tasks |
 | MAS-07 | P1: Malformed tasks fail closed | Tasks | In Tasks |
 | MAS-08 | P1: Resume preserves frozen snapshot | Tasks | In Tasks |
 | MAS-09 | P1: Template distinguishes planning units | Tasks | In Tasks |
-| MAS-10 | P1: Remediation does not inflate slices | Tasks | In Tasks |
-| MAS-11 | P1: Downstream planners share membership | Tasks | In Tasks |
+| MAS-10 | P1: Remediation does not inflate slices | Tasks | Verified |
+| MAS-11 | P1: Downstream planners share membership | Tasks | Verified |
 
 **Coverage:** 11 total, 11 mapped to tasks, 0 unmapped.
 

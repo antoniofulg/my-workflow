@@ -31,6 +31,7 @@ Exit codes: 0 pass, 1 errors found (or warnings under --strict), 2 usage error.
 """
 
 import argparse
+import json
 import os
 import re
 import sys
@@ -39,6 +40,16 @@ REQUIRED_SECTIONS = ["Test Coverage Matrix", "Gate Check Commands", "Execution P
 TASK_RE = re.compile(r"^#{2,4}\s+(T\d+)\s*:", re.IGNORECASE)
 EDGE_RE = re.compile(r"\bT\d+\b")
 FILE_HINT_RE = re.compile(r"[\w./-]+\.\w{1,6}\b")
+SLICE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
+CLOSURE_SECTION_RE = re.compile(r"^##\s+Vertical Slice Closure\s*$", re.IGNORECASE)
+CLOSURE_HEADERS = (
+    "slice",
+    "observable outcome",
+    "independent gate",
+    "merge if later slices are cancelled?",
+    "why",
+)
+CLOSURE_SEPARATOR_RE = re.compile(r"^:?-{3,}:?$")
 
 
 def resolve_tasks(target, root):
@@ -78,14 +89,20 @@ def section_present(lines, name):
 
 
 def parse_tasks(lines):
-    """Return a dict: task_id -> {'deps': set, 'tests': str|None, 'gate': str|None, 'where': str}."""
+    """Return task metadata, including every declared primary-task slice field."""
     tasks = {}
     current = None
     for ln in lines:
         m = TASK_RE.match(ln.strip())
         if m:
             current = m.group(1).upper()
-            tasks[current] = {"deps": set(), "tests": None, "gate": None, "where": ""}
+            tasks[current] = {
+                "deps": set(),
+                "tests": None,
+                "gate": None,
+                "where": "",
+                "slice_values": [],
+            }
             continue
         if current is None:
             continue
@@ -105,7 +122,151 @@ def parse_tasks(lines):
         gm = re.match(r"^\*{0,2}Gate\*{0,2}\s*:\s*(.*)$", stripped, re.IGNORECASE)
         if gm:
             tasks[current]["gate"] = gm.group(1).strip()
+        sm = re.match(r"^\*{0,2}Slice\*{0,2}\s*:\s*(?:\*{0,2})?(.*)$", stripped, re.IGNORECASE)
+        if sm:
+            tasks[current]["slice_values"].append(sm.group(1).strip())
     return tasks
+
+
+def _table_cells(line):
+    stripped = line.strip()
+    if not stripped.startswith("|") or not stripped.endswith("|"):
+        return None
+    return [cell.strip() for cell in stripped[1:-1].split("|")]
+
+
+def _parse_closure_table(lines):
+    """Return ordered closure rows and validation errors for the canonical table."""
+    section_indexes = [index for index, line in enumerate(lines) if CLOSURE_SECTION_RE.match(line.strip())]
+    if not section_indexes:
+        return [], ["missing required section: ## Vertical Slice Closure"]
+    if len(section_indexes) > 1:
+        return [], ["Vertical Slice Closure section must appear exactly once"]
+
+    rows = []
+    errors = []
+    header_found = False
+    start = section_indexes[0] + 1
+    for line in lines[start:]:
+        stripped = line.strip()
+        if re.match(r"^#{1,2}\s+", stripped):
+            break
+        if not stripped:
+            continue
+        cells = _table_cells(line)
+        if cells is None:
+            if header_found:
+                errors.append("Vertical Slice Closure contains a malformed table row")
+            continue
+        if not header_found:
+            normalized = tuple(cell.casefold() for cell in cells)
+            if normalized != CLOSURE_HEADERS:
+                errors.append("Vertical Slice Closure has a non-canonical header")
+            header_found = True
+            continue
+        if all(CLOSURE_SEPARATOR_RE.fullmatch(cell) for cell in cells):
+            continue
+        if len(cells) != len(CLOSURE_HEADERS):
+            errors.append("Vertical Slice Closure row must contain five cells")
+            continue
+        slice_id, outcome, gate, merge_alone, why = cells
+        label = slice_id or "<empty>"
+        if not slice_id or not SLICE_ID_RE.fullmatch(slice_id):
+            errors.append(f"Vertical Slice Closure slice {label!r} must be a non-empty identifier")
+        if not outcome:
+            errors.append(f"Vertical Slice Closure slice {label!r} has an empty observable outcome")
+        if not gate:
+            errors.append(f"Vertical Slice Closure slice {label!r} has an empty independent gate")
+        if merge_alone != "yes":
+            errors.append(f"Vertical Slice Closure slice {label!r} requires exact lowercase yes")
+        if not why:
+            errors.append(f"Vertical Slice Closure slice {label!r} has an empty reason")
+        rows.append(
+            {
+                "slice_id": slice_id,
+                "outcome": outcome,
+                "gate": gate.strip("`").strip(),
+                "merge_alone": merge_alone == "yes",
+                "why": why,
+            }
+        )
+    if not header_found:
+        errors.append("Vertical Slice Closure is missing its canonical table header")
+    seen = set()
+    for row in rows:
+        slice_id = row["slice_id"]
+        if slice_id in seen:
+            errors.append(f"Vertical Slice Closure repeats slice {slice_id!r}")
+        seen.add(slice_id)
+    return rows, errors
+
+
+def _slice_contract(lines, tasks):
+    errors = []
+    task_slices = {}
+    seen_tasks = set()
+    for line in lines:
+        match = TASK_RE.match(line.strip())
+        if not match:
+            continue
+        task_id = match.group(1).upper()
+        if task_id in seen_tasks:
+            errors.append(f"{task_id}: duplicate primary task heading")
+        seen_tasks.add(task_id)
+
+    for task_id, task in tasks.items():
+        values = task["slice_values"]
+        if not values:
+            errors.append(f"{task_id}: exactly one non-empty Slice field is required")
+            continue
+        if len(values) != 1:
+            errors.append(f"{task_id}: exactly one Slice field is required")
+            continue
+        slice_id = values[0]
+        if not slice_id or not SLICE_ID_RE.fullmatch(slice_id):
+            errors.append(f"{task_id}: Slice must be a non-empty identifier")
+            continue
+        task_slices[task_id] = slice_id
+
+    rows, closure_errors = _parse_closure_table(lines)
+    errors.extend(closure_errors)
+    closures = {}
+    for row in rows:
+        if row["slice_id"] and row["slice_id"] not in closures:
+            closures[row["slice_id"]] = {
+                "outcome": row["outcome"],
+                "gate": row["gate"],
+                "merge_alone": row["merge_alone"],
+                "why": row["why"],
+            }
+
+    used_slice_ids = list(dict.fromkeys(task_slices.values()))
+    for slice_id in used_slice_ids:
+        if slice_id not in closures:
+            errors.append(f"{slice_id}: primary tasks use a slice without a closure row")
+    for slice_id in closures:
+        if slice_id not in used_slice_ids:
+            errors.append(f"{slice_id}: closure row has no primary task")
+
+    slice_ids = [row["slice_id"] for row in rows if row["slice_id"]]
+    return {
+        "task_slices": task_slices,
+        "slice_ids": slice_ids,
+        "closures": closures,
+    }, errors
+
+
+def validated_slice_contract(tasks_path):
+    """Return the deterministic validated merge-alone slice contract."""
+    with open(tasks_path, "r", encoding="utf-8") as f:
+        lines = f.read().splitlines()
+    tasks = parse_tasks(lines)
+    if not tasks:
+        raise ValueError("no primary tasks found")
+    contract, errors = _slice_contract(lines, tasks)
+    if errors:
+        raise ValueError("; ".join(errors))
+    return contract
 
 
 def parse_phase_membership(lines):
@@ -196,6 +357,9 @@ def check(tasks_path):
         warnings.append("no tasks (### T1: ...) parsed - is this file filled in?")
         return errors, warnings
 
+    _, slice_errors = _slice_contract(lines, tasks)
+    errors.extend(slice_errors)
+
     # Field presence + granularity smell.
     for tid, t in tasks.items():
         if t["tests"] is None:
@@ -253,12 +417,21 @@ def main(argv=None):
     p.add_argument("target", nargs="?", default=None)
     p.add_argument("--root", default=".")
     p.add_argument("--strict", action="store_true")
+    p.add_argument("--slice-contract-json", action="store_true")
     args = p.parse_args(argv)
 
     tasks_path = resolve_tasks(args.target, args.root)
     if not tasks_path:
         print("validate_tasks: could not locate a tasks.md. Pass a path or run from the project root.", file=sys.stderr)
         return 2
+
+    if args.slice_contract_json:
+        try:
+            print(json.dumps(validated_slice_contract(tasks_path), indent=2))
+        except (OSError, ValueError) as exc:
+            print(f"validate_tasks: {exc}", file=sys.stderr)
+            return 1
+        return 0
 
     errors, warnings = check(tasks_path)
     for w in warnings:

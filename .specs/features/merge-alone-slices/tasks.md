@@ -7,7 +7,7 @@ gate, updates this file, and creates one atomic Conventional Commit. The Impleme
 single batch; a fresh Verifier closes the feature.
 
 **Design**: `.specs/features/merge-alone-slices/design.md`
-**Status**: Approved
+**Status**: In Progress
 
 ## Vertical Slice Closure
 
@@ -76,18 +76,21 @@ slice membership, deterministic JSON output, fixtures, and downstream planner re
 
 **Done when**:
 
-- [ ] Every primary `T\d+` task has exactly one declared slice.
-- [ ] Every used slice has one complete closure row with exact lowercase `yes`.
-- [ ] Duplicate, orphan, missing, and inconsistent records fail with task/slice evidence.
-- [ ] `--slice-contract-json` emits deterministic validated JSON.
-- [ ] Remediation IDs do not create primary slices.
-- [ ] Closure tables do not change existing parallel-plan membership.
-- [ ] Validator gate passes with at least 16 tests; parallel-plan gate passes with at least 19 tests.
+- [x] Every primary `T\d+` task has exactly one declared slice.
+- [x] Every used slice has one complete closure row with exact lowercase `yes`.
+- [x] Duplicate, orphan, missing, and inconsistent records fail with task/slice evidence.
+- [x] `--slice-contract-json` emits deterministic validated JSON.
+- [x] Remediation IDs do not create primary slices.
+- [x] Closure tables do not change existing parallel-plan membership.
+- [x] Validator gate passes with at least 16 tests; parallel-plan gate passes with at least 19 tests.
 
 **Tests**: MAS-UT-001, MAS-UT-002, MAS-UT-003, MAS-UT-004, MAS-UT-005, MAS-UT-006,
 MAS-UT-007, MAS-IT-008
 **Gate**: Validator
 **Commit**: `fix(tlc): validate merge-alone slice closures`
+
+**Status**: complete — `python3 tools/test_tlc_validators.py` (16 tests) and
+`python3 tools/test_parallel_plan.py` (19 tests) passed.
 
 ### T2: Derive Initial Workflow Slice Count
 

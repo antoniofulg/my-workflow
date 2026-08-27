@@ -84,6 +84,23 @@ def test_slice_order_exposes_only_first_incomplete_task() -> None:
         shutil.rmtree(root)
 
 
+def test_closure_table_does_not_change_declared_slice_membership() -> None:
+    closure = (
+        "## Vertical Slice Closure\n\n"
+        "| Slice | Observable outcome | Independent gate | Merge if later slices are cancelled? | Why |\n"
+        "| --- | --- | --- | --- | --- |\n"
+        "| A | First capability. | `gate-a` | yes | Independent value. |\n"
+        "| B | Second capability. | `gate-b` | yes | Independent value. |\n\n"
+    )
+    root = make_repo(closure + task("T1", "A") + task("T2", "A") + task("T3", "B"))
+    try:
+        plan = parallel_plan.plan(root=root, feature="fixture")
+        assert [item["slice"] for item in plan["lanes"]] == ["A", "B"]
+        assert [item["task"] for item in plan["lanes"]] == ["T1", "T3"]
+    finally:
+        shutil.rmtree(root)
+
+
 def test_disabled_mode_returns_one_serial_lane_in_declared_order() -> None:
     root = make_repo(task("T1", "A") + task("T2", "B"), mode="disabled")
     try:
