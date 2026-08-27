@@ -222,12 +222,17 @@ describe("host-owned session continuation removal contract", () => {
     ).toBe(true);
   }, 30_000);
 
-  it("HSC-09 keeps changed QA scenarios fresh until v0.6 evidence exists", () => {
+  it("HSC-09 requires current report evidence for changed QA scenarios", () => {
     const changedScenarios = [
       "docs/qa/scenarios/ADP-adopt-workflow-safely.md",
       "docs/qa/scenarios/REL-report-current-workflow-release.md",
     ];
-    const freshEvidence = /v?0[._-]6[._-]0/i;
+    const canonicalEvidencePath = /^(?:docs\/qa\/evidence\/\d{4}-\d{2}-\d{2}-[^/]+(?:\/[^/]+)*|docs\/qa\/reports\/\d{4}-\d{2}-\d{2}-[^/]+\.md)$/;
+    const canonicalReportPath = /^docs\/qa\/reports\/(\d{4}-\d{2}-\d{2})-[^/]+\.md$/;
+    const reportPaths = execFileSync("rg", ["--files", "docs/qa/reports"], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    }).trim().split(/\r?\n/).filter((path) => canonicalReportPath.test(path));
 
     for (const relativePath of changedScenarios) {
       const source = readRepositoryFile(relativePath);
@@ -235,10 +240,55 @@ describe("host-owned session continuation removal contract", () => {
 
       expect(status, `${relativePath} must declare qa_status`).toBeDefined();
       if (status === "pass") {
-        const evidence = source.match(/^evidence:\s*(.+)$/m)?.[1] ?? "";
-        const report = source.match(/^last_report:\s*(.+)$/m)?.[1] ?? "";
-        expect(evidence, `${relativePath} pass requires evidence`).toMatch(freshEvidence);
-        expect(report, `${relativePath} pass requires a v0.6 report`).toMatch(freshEvidence);
+        const scenarioId = source.match(/^id:\s*(\S+)$/m)?.[1] ?? "";
+        const evidence = source.match(/^evidence:\s*(.*)$/m)?.[1]?.trim() ?? "";
+        const evidencePaths = evidence.split(";").map((path) => path.trim()).filter(Boolean);
+        const report = source.match(/^last_report:\s*(.*)$/m)?.[1]?.trim() ?? "";
+        const reportMatch = report.match(canonicalReportPath);
+
+        expect(evidencePaths.length, `${relativePath} pass requires non-empty evidence`).toBeGreaterThan(0);
+        expect(
+          evidencePaths.every((path) => canonicalEvidencePath.test(path)),
+          `${relativePath} pass requires canonical evidence paths: ${evidence}`,
+        ).toBe(true);
+        expect(
+          evidencePaths.filter((path) => !existsSync(join(repositoryRoot, path))),
+          `${relativePath} pass references missing evidence`,
+        ).toEqual([]);
+        expect(report, `${relativePath} pass requires a canonical current report`).toMatch(canonicalReportPath);
+        expect(existsSync(join(repositoryRoot, report)), `${relativePath} pass references missing report`).toBe(true);
+
+        const reportSource = readRepositoryFile(report);
+        const passRow = reportSource.split(/\r?\n/).find((line) =>
+          line.includes(scenarioId) &&
+          /\|\s*(?:\*\*)?pass(?:\s+after\s+retest)?(?:\*\*)?\s*\|/i.test(line),
+        );
+        expect(
+          passRow,
+          `${relativePath} pass requires its current report to record a pass verdict`,
+        ).toBeDefined();
+        expect(
+          evidencePaths.some((path) => passRow?.includes(path.split("/").pop() ?? "")),
+          `${relativePath} pass requires its report verdict to cite evidence`,
+        ).toBe(true);
+
+        const scenarioReports = reportPaths.filter((candidate) =>
+          readRepositoryFile(candidate).split(/\r?\n/).some((line) =>
+            line.includes(scenarioId) && /\|\s*(?:\*\*)?(?:pass|fail)(?:\s+after\s+retest)?(?:\*\*)?\s*\|/i.test(line),
+          ),
+        );
+        expect(
+          report,
+          `${relativePath} pass must point to the latest report for its scenario`,
+        ).toBe([...scenarioReports].sort().pop()!);
+
+        const reportDate = reportMatch?.[1];
+        expect(
+          reportDate && evidencePaths.some((path) =>
+            path.match(/^(?:docs\/qa\/evidence|docs\/qa\/reports)\/(\d{4}-\d{2}-\d{2})-/)?.[1] === reportDate,
+          ),
+          `${relativePath} pass requires evidence from the current report cycle`,
+        ).toBe(true);
       } else {
         expect(["untested", "fail", "blocked-verify", "blocked-decision", "skipped"]).toContain(status!);
       }
