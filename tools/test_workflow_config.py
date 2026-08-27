@@ -231,6 +231,49 @@ def test_malformed_tasks_fails_before_snapshot_write() -> None:
         shutil.rmtree(root)
 
 
+def test_resume_returns_frozen_snapshot_without_reading_changed_tasks() -> None:
+    for current_tasks in (
+        task_contract(task_row("T1", "A") + task_row("T2", "B"), feature_count=2),
+        task_row("T1", "A"),
+    ):
+        root = make_repo()
+        try:
+            write_tasks(root, task_contract(task_row("T1", "A")), "frozen")
+            first = workflow_config.resolve(root=root, feature="frozen", native_provider="codex")
+            snapshot_path = root / ".specs/features/frozen/workflow.json"
+            before = snapshot_path.read_bytes()
+            write_tasks(root, current_tasks, "frozen")
+            resumed = workflow_config.resolve(
+                root=root, feature="frozen", slice_count=8, native_provider="cursor"
+            )
+            assert resumed == first
+            assert snapshot_path.read_bytes() == before
+        finally:
+            shutil.rmtree(root)
+
+
+def test_refresh_rederives_current_slices_without_changing_snapshot_schema() -> None:
+    root = make_repo()
+    try:
+        write_tasks(root, task_contract(task_row("T1", "A")), "refreshable")
+        first = workflow_config.resolve(root=root, feature="refreshable", native_provider="codex")
+        write_tasks(
+            root,
+            task_contract(task_row("T1", "A") + task_row("T2", "B"), feature_count=2),
+            "refreshable",
+        )
+        refreshed = workflow_config.resolve(root=root, feature="refreshable", native_provider="codex", refresh=True)
+        assert refreshed["deep_review"]["groups"] == [[1, 2]]
+        persisted = json.loads(
+            (root / ".specs/features/refreshable/workflow.json").read_text(encoding="utf-8")
+        )
+        assert set(persisted) == set(frozen_snapshot(first))
+        assert persisted["version"] == 2
+        assert persisted["deep_review"]["groups"] == [[1, 2]]
+    finally:
+        shutil.rmtree(root)
+
+
 def test_parallelization_accepts_supported_modes() -> None:
     root = make_repo()
     try:

@@ -139,15 +139,17 @@ derive current closures without changing the version-2 snapshot schema.
 
 **Done when**:
 
-- [ ] Resume returns the frozen snapshot after Tasks change from one to two slices.
-- [ ] Resume does not validate changed or malformed Tasks.
-- [ ] Refresh derives current Tasks and atomically replaces groups.
-- [ ] Existing snapshot schema remains unchanged.
-- [ ] Resolver gate passes with at least 51 tests.
+- [x] Resume returns the frozen snapshot after Tasks change from one to two slices.
+- [x] Resume does not validate changed or malformed Tasks.
+- [x] Refresh derives current Tasks and atomically replaces groups.
+- [x] Existing snapshot schema remains unchanged.
+- [x] Resolver gate passes with at least 51 tests.
 
 **Tests**: MAS-IT-006, MAS-IT-007
 **Gate**: Resolver
 **Commit**: `fix(config): preserve frozen slice resolution on resume`
+
+**Status**: complete — `python3 tools/test_workflow_config.py` (51 tests) passed.
 
 ### T4: Publish the Slice Planning Contract
 

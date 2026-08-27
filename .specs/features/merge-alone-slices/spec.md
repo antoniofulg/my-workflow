@@ -97,7 +97,7 @@ preserves two independently mergeable slices.
 | MAS-05 | P1: Optional count asserts derived value | Tasks | Verified |
 | MAS-06 | P1: Missing tasks defaults to one slice | Tasks | Verified |
 | MAS-07 | P1: Malformed tasks fail closed | Tasks | Verified |
-| MAS-08 | P1: Resume preserves frozen snapshot | Tasks | In Tasks |
+| MAS-08 | P1: Resume preserves frozen snapshot | Tasks | Verified |
 | MAS-09 | P1: Template distinguishes planning units | Tasks | In Tasks |
 | MAS-10 | P1: Remediation does not inflate slices | Tasks | Verified |
 | MAS-11 | P1: Downstream planners share membership | Tasks | Verified |
