@@ -1,6 +1,6 @@
 # BUG-20260827-orca-terminal-send-truncates-claude-worker-packet
 
-- **Status:** contract routed around — awaiting retest; the host transport defect remains open upstream
+- **Status:** open — the host transport defect remains open upstream; the assisted contract routes around it and awaits retest
 - **Severity:** critical
 - **Scenario:** `QAS-coordinate-assisted-orca-slices`
 - **Expected:** The assisted contract's one mandated transport — exactly one `orca terminal send --text <shq(task_payload)> --enter` per logical packet, never retried — delivers the complete packet to the frozen-route worker, or reports a failure the coordinator can act on.

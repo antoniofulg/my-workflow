@@ -6,7 +6,7 @@ persona: Workflow operator
 journey: J-execute-parallel-slices
 expected: With explicit authorization, two assisted Orca slices overlap through one exact parked and resumed B worker, preserve every readiness stage, integrate deterministically, and leave no owned worktree, path, branch ref, or terminal residue.
 entry_points: .agents/skills/autonomous/references/parallelization.md; .specs/features/host-agnostic-slice-parallelization/workflow.json; orca worktree; orca terminal
-qa_status: fail
+qa_status: untested
 bug_ids: BUG-20260827-assisted-orca-tui-idle-before-route-proof; BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree; BUG-20260827-luna-low-worker-commits-before-green-gate; BUG-20260827-assisted-pilot-batch-cli-drops-final-newline; BUG-20260827-medium-route-contract-test-still-expects-low; BUG-20260827-orca-terminal-send-truncates-claude-worker-packet
 fix_status: pending
 retest_status: fail
@@ -30,6 +30,10 @@ absence checks for every owned worktree, path, branch ref, and terminal. Every l
 written to a coordinator-owned file outside every slice worktree and delivered as a short fixed-shape
 pointer through exactly one send; an ambiguous receipt is reconciled only on the same handle through
 one bounded machine-only marker/state proof and never by retry or replacement.
+
+The pointer-delivery contract has never been walked: every retest through Retest 10 exercised the
+superseded inline-payload transport, so this scenario is reset to `untested` and Retest 11 must
+walk the pointer contract end to end.
 
 The 2026-08-26 assisted walk is retained as historical pre-remediation evidence: both clean,
 out-of-contract attempts to create a separate frozen-route terminal timed out, so no rendered route

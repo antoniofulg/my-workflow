@@ -122,7 +122,7 @@ a `tui-idle` reading agree; Git HEAD equals that marker; required task statuses,
 and gates match; the marker HEAD is a descendant of the exact `pre_head` proven with
 `git merge-base --is-ancestor <pre_head> <marker-head>`; commits in
 `<pre_head>..<marker-head>` equal the expected task-commit count and identities; and changed paths
-are a subset of the packet allowlist, including its task-status path. A reset, foreign or unrelated
+are a subset of the packet-declared changed-path allowlist, including its task-status path. A reset, foreign or unrelated
 commit, extra commit, out-of-scope path, or status mismatch is ambiguous and fails closed. Only a
 turn whose phase is exactly `B_PARKED` requires the exact parked-B checkpoint comment; route, A, and
 other nonparked turns do not. Record the receipt/effect divergence and continue without resending.
@@ -202,7 +202,9 @@ orca terminal send --terminal <startupTerminal.handle> --text <shq(task_payload)
 ```
 
 `packet_file` crosses the shell boundary inside that pointer and is covered by that single
-`shq(payload)`; never quote it twice. The packet body never crosses `terminal send`. This does not
+`shq(payload)`; never quote it twice. The packet body never crosses `terminal send`. The worker must be able to read
+`packet_file` from outside its own worktree and report an unreadable path at once, so the lane
+serializes without burning the turn barrier. This does not
 make the host transport reliable; it reduces the mandated payload to a size at which the observed
 truncation did not occur. Every fail-closed rule above still applies, and a truncated pointer cannot
 produce a valid marker, so truncation still fails closed instead of silently half-executing.

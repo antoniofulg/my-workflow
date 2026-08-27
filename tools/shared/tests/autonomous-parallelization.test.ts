@@ -186,16 +186,38 @@ describe("autonomous parallel slice dispatch contract", () => {
     );
     expect(normalizedPolicy).toContain("The packet body never crosses `terminal send`");
     expect(normalizedPolicy).toContain(
+      "The worker must be able to read `packet_file` from outside its own worktree and report an unreadable path at once",
+    );
+    expect(normalizedPolicy).toContain(
       "`packet_file` crosses the shell boundary inside that pointer and is covered by that single `shq(payload)`; never quote it twice",
     );
     expect(normalizedPolicy).toContain("does not make the host transport reliable");
     expect(normalizedPolicy).toContain(
       "a truncated pointer cannot produce a valid marker, so truncation still fails closed instead of silently half-executing",
     );
-    // The removed inline-payload path has no fallback and no length threshold.
+    // AST-04: pointer delivery is unconditional. No conditional, threshold, fallback, or branch
+    // may let the packet body cross `terminal send`. Pinned as a concept, not as one wording:
+    // no size threshold may exist anywhere in the contract, and every sentence that mentions the
+    // packet must be free of conditional or alternative-delivery language.
     expect(normalizedPolicy).not.toContain(
       "construct `task_payload` as the complete slice packet",
     );
+    expect(
+      normalizedPolicy.match(/[^.;:]*\d[\d,]*\s*(characters?|chars?|bytes?|[kmg]i?b)\b[^.;:]*/i),
+      "no size threshold may gate packet delivery",
+    ).toBeNull();
+    const conditionalDelivery =
+      /\b(if|unless|whenever|otherwise|instead of|fall ?backs?|falls? back|threshold|shorter|longer|smaller|larger|bigger|less than|more than|fewer than|below|above|exceeds?|optional|optionally|may be sent|can be sent|inline|directly|skip the packet file)\b/i;
+    const packetSentences = normalizedPolicy
+      .split(/(?<=[.:;])\s+/)
+      .filter((sentence) => /packet/i.test(sentence));
+    expect(packetSentences.length).toBeGreaterThan(3);
+    for (const sentence of packetSentences) {
+      expect(
+        sentence,
+        "packet delivery must stay unconditional: no threshold, fallback, or alternative path",
+      ).not.toMatch(conditionalDelivery);
+    }
     expect(normalizedPolicy).toContain("apply `shq(payload)` once to that complete payload");
     expect(normalizedPolicy).toContain("Never wrap either payload in literal outer double quotes");
     expect(policy).not.toContain('--text "exec <validated-frozen-agent-command>"');
@@ -392,7 +414,7 @@ describe("autonomous parallel slice dispatch contract", () => {
       "commits in `<pre_head>..<marker-head>` equal the expected task-commit count and identities",
     );
     expect(normalizedPacketContract).toContain(
-      "changed paths are a subset of the packet allowlist, including its task-status path",
+      "changed paths are a subset of the packet-declared changed-path allowlist, including its task-status path",
     );
     expect(normalizedPacketContract).toContain("A reset, foreign or unrelated commit, extra commit, out-of-scope path, or status mismatch is ambiguous and fails closed");
     expect(normalizedPacketContract).toContain(

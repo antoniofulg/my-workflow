@@ -103,7 +103,7 @@ has one 40-hex SHA; two fresh non-Working `source=screen` frames plus `tui-idle`
 equals the marker; required task statuses, atomic commits, and gates match; the marker HEAD is a
 descendant of exact `pre_head` by `git merge-base --is-ancestor <pre_head> <marker-head>`; commits
 since `pre_head` equal the expected task-commit count and identities; and changed paths are within
-the packet allowlist including the task-status path. Reset, foreign/unrelated or extra commits,
+the packet-declared changed-path allowlist including the task-status path. Reset, foreign/unrelated or extra commits,
 out-of-scope paths, or status mismatch are ambiguous and fail closed. Only phase `B_PARKED` requires
 the exact parked-B comment; route, A, and other nonparked packets do not. Record receipt/effect
 divergence and continue without resending. Deadline, partial, dirty, conflicting/multiple marker,
