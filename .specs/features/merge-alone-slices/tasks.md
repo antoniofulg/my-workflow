@@ -342,14 +342,37 @@ Done when:
 - Tests: MAS-IT-010..012 in canonical planner, executor, and pilot suites.
 - Gate: Targeted parallel suites, workflow resolver, adoption, and full `npm run test:all`.
 - Commit: `fix(parallel): accept current workflow snapshot v2`
-- Status: complete — v2 consumers are implemented and local gates pass; MAS-12/13 remain pending fresh independent verification.
+- Status: verified — MAS-12/13 and MAS-IT-010..012 passed targeted lanes, the full gate, and 2/2 version-predicate mutations; overall feature verification found a separate MAS-01/MAS-UT-001 gap.
+
+### R3: Exercise Three Technical Cohorts
+
+- What: Make the Praxis regression fixture declare three technical cohorts around the same five
+  primary tasks and one merge-alone closure, then assert both the cohort count and one-slice result.
+- Where: `tools/fixtures/tlc-validator/merge-alone-one-slice.md` and the canonical validator/resolver
+  regression tests.
+- Slice: A
+- Depends on: QA1
+- Reuses: MAS-UT-001 and MAS-IT-001 fixtures and assertions.
+- Requirements: MAS-01
+
+Done when:
+
+- [ ] The fixture contains exactly three technical phase/cohort headings and five primary tasks.
+- [ ] All five tasks still belong to one closure and resolver cadence remains exactly one slice.
+- [ ] A regression deriving count from cohorts fails the canonical suite.
+- [ ] Targeted and full gates pass before fresh independent verification.
+
+- Tests: Strengthen MAS-UT-001 and reuse MAS-IT-001.
+- Gate: Validator, resolver, planner, and full `npm run test:all`.
+- Commit: `test(workflow): cover multi-cohort single slice`
+- Status: pending — fresh verification exposed the missing discriminating input.
 
 ## Phase Execution Map
 
 ```text
 Phase 1 → Phase 2 → Phase 3
 
-T1 → T2 → T3 → T4 → T5 → R1 → R2 → DR1 → DR2 → QA1
+T1 → T2 → T3 → T4 → T5 → R1 → R2 → DR1 → DR2 → QA1 → R3
 ```
 
 ## Task Granularity Check
@@ -366,6 +389,7 @@ T1 → T2 → T3 → T4 → T5 → R1 → R2 → DR1 → DR2 → QA1
 | DR1 | One canonical task-syntax contract | Pass |
 | DR2 | One remediation/heading-boundary contract | Pass |
 | QA1 | One active workflow-snapshot protocol | Pass |
+| R3 | One three-cohort regression boundary | Pass |
 
 ## Diagram-Definition Cross-Check
 
@@ -381,6 +405,7 @@ T1 → T2 → T3 → T4 → T5 → R1 → R2 → DR1 → DR2 → QA1
 | DR1 | R2 | R2 → DR1 | Pass |
 | DR2 | DR1 | DR1 → DR2 | Pass |
 | QA1 | DR2 | DR2 → QA1 | Pass |
+| R3 | QA1 | QA1 → R3 | Pass |
 
 ## Test Co-location Validation
 
@@ -396,3 +421,4 @@ T1 → T2 → T3 → T4 → T5 → R1 → R2 → DR1 → DR2 → QA1
 | DR1 | Validator/template/planner contract | unit + structural | Strengthened MAS-03/MAS-09/MAS-11 | Pass |
 | DR2 | Validator heading-boundary contract | unit | Strengthened MAS-03/MAS-10/MAS-11 | Pass |
 | QA1 | Parallel workflow snapshot consumers | integration + lifecycle | MAS-IT-010..012 | Pass |
+| R3 | Validator/resolver cohort discrimination | unit + integration | MAS-UT-001 + MAS-IT-001 | Pass |

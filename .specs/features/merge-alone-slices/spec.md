@@ -106,8 +106,8 @@ planner and executor; both accept it, while a version-1 fixture is rejected.
 | MAS-09 | P1: Template distinguishes planning units | DR1 | Verified |
 | MAS-10 | P1: Remediation does not inflate slices | DR2 | Verified |
 | MAS-11 | P1: Downstream planners share membership | DR2 | Verified |
-| MAS-12 | P1: Parallel consumers accept workflow snapshot v2 | QA1 | Implemented — pending fresh independent verification |
-| MAS-13 | P1: Parallel consumers reject workflow snapshot v1 | QA1 | Implemented — pending fresh independent verification |
+| MAS-12 | P1: Parallel consumers accept workflow snapshot v2 | QA1 | Verified |
+| MAS-13 | P1: Parallel consumers reject workflow snapshot v1 | QA1 | Verified |
 
 **Coverage:** 13 total, 13 mapped to tasks, 0 unmapped.
 
@@ -118,4 +118,4 @@ planner and executor; both accept it, while a version-1 fixture is rejected.
 - [x] Invalid closure contracts and count mismatches fail before snapshot replacement.
 - [x] Resume and no-Tasks behaviour preserve their declared semantics.
 - [x] All repository gates pass without adding dependencies or compatibility parsers.
-- [ ] Parallel planning and execution consume the resolver's version-2 snapshot and reject version 1.
+- [x] Parallel planning and execution consume the resolver's version-2 snapshot and reject version 1.
