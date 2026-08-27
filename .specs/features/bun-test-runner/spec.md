@@ -125,7 +125,7 @@ the release scenario, and verify host/project sentinels and tracked lockfiles re
 | BTR-02 | Run structural contracts | Tasks | Verified |
 | BTR-03 | Run structural contracts | Tasks | Verified |
 | BTR-04 | Run structural contracts | Tasks | Verified |
-| BTR-05 | Run structural contracts | Tasks | In Tasks |
+| BTR-05 | Run structural contracts | Tasks | Verified |
 | BTR-06 | Run structural contracts | Tasks | Verified |
 | BTR-07 | Run structural contracts | Tasks | Verified |
 | BTR-08 | Run structural contracts | Tasks | Verified |
@@ -140,7 +140,7 @@ the release scenario, and verify host/project sentinels and tracked lockfiles re
 | BTR-17 | Edge cases | Tasks | Verified |
 | BTR-18 | Edge cases | Tasks | Verified |
 | BTR-19 | Edge cases | Tasks | In Tasks |
-| BTR-20 | Edge cases | Tasks | In Tasks |
+| BTR-20 | Edge cases | Tasks | Verified |
 
 **Coverage:** 20 total, 20 mapped to tasks, 0 unmapped.
 

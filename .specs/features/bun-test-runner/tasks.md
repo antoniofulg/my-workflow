@@ -110,10 +110,10 @@ T3 -> T4 -> T5
 
 **Done when**:
 
-- [ ] `package.json`, `package-lock.json`, and `tsconfig.json` contain no active Vitest dependency or type reference.
-- [ ] `npm ls --all` exits zero with no Vitest package in the tree.
-- [ ] `npm pack --dry-run --json` contains no Vitest artifact or ignored QA evidence.
-- [ ] The Build gate passes with the native Bun suite.
+- [x] `package.json`, `package-lock.json`, and `tsconfig.json` contain no active Vitest dependency or type reference.
+- [x] `npm ls --all` exits zero with no Vitest package in the tree.
+- [x] `npm pack --dry-run --json` contains no Vitest artifact or ignored QA evidence.
+- [x] The Build gate passes with the native Bun suite.
 
 **Tests**: BTR-IT-005, BTR-IT-010
 **Gate**: build
