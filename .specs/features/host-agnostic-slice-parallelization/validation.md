@@ -330,3 +330,216 @@ The closing outer `npm_config_offline=true npm run test:all` gate also failed: V
 111/112 passing because IT-005 still expected implementer effort `low` instead of the frozen
 `medium`. QA skills passed 23/23; spec, tasks, and state validators reported 0 errors; `git diff
 --check` passed. Durable bug: `BUG-20260827-medium-route-contract-test-still-expects-low`.
+
+## Technical Verification — pointer packet delivery (2ea7e80..879b677) — FAIL
+
+Fresh Technical Verifier, not the author. Range `2ea7e80..879b677` (`5bc9e31`, `d4de714`, `88ba1fa`,
+`92ac013`, `879b677`) on `feat/host-agnostic-slice-parallelization`, tree clean at `879b677`.
+
+```
+VERIFICATION
+Claim:        the full gate is green on the final tree
+Command:      npm_config_offline=true npm run test:all
+Executed:     just now, on 879b677 with a clean tree
+Exit code:    0
+Output:       vitest Test Files 8 passed (8) / Tests 112 passed (112); python suites 28/28, 9/9 OK;
+              9, 5, 67, 53, 18, 14, 6, 44 passed, 0 failed
+Warnings:     none
+Contract:     spec.md AST-04, tests.md IT-005, dx.md, threat-model.md compared — see findings
+QA impact:    QAS-coordinate-assisted-orca-slices left at qa_status: fail (see F5)
+Verdict:      PASS for the gate claim only
+```
+
+### Per-check disposition
+
+| # | Check | Result |
+| --- | --- | --- |
+| 1 | Gate is real | PASS — run here, exit 0, counts above |
+| 2 | No assertion weakened, skipped or deleted | PASS — IT-005 `expect(` 225 -> 232, `.toContain` 182 -> 189, `not.toContain` 14 -> 15; 8 added, 1 removed, none loosened |
+| 3 | No compatibility layer survived | PASS in the text, **FAIL in the gate** — F1 |
+| 4 | Every unchanged obligation still stated | PASS — one-send/no-retry/no-replacement `parallelization.md:111-113`; 250 ms / 300000 ms `:118`; acceptance conjunction `:118-126`; `B_PARKED`-only comment `:127`; marker `:111`, `:194`; all mirrored in `spec.md:104` |
+| 5 | Contract does not overclaim | PASS — `parallelization.md:203-207` and `BUG-...packet.md:78-83` both keep the honest-limits paragraph |
+| 6 | Historical QA narratives intact | PASS — `git diff -U0 2ea7e80..879b677` over the scenario and charter yields exactly 2 hunks, both canonical-contract prose; retest 1-10 paragraphs untouched |
+| 7 | `AD-016` well-formed, index regenerated in the same commit | PASS — `5bc9e31` touches only `.specs/STATE.md` and `.specs/AD-INDEX.md`; `python3 tools/ad-index.py` reproduces the tracked index with no drift |
+| 8 | Bug record does not overclaim | PASS on substance, F4 on form; `BUG-20260827-assisted-pilot-batch-cli-drops-final-newline.md:3` still `open`, zero commits in range |
+| 9 | Context budget | PASS — `parallelization.md` 359 -> 368 lines (+9); `AGENTS.md` and `docs/guidelines/*` unchanged in range; naming inconsistency in F2 |
+
+### Discrimination sensor
+
+Six mutants, each applied to the working tree and reverted, `npx vitest run tools/shared/tests/autonomous-parallelization.test.ts`. Baseline 4/4 passed.
+
+| Mutant | Result |
+| --- | --- |
+| M1 revert the pointer paragraph to the old inline wording | killed (1 failed) |
+| M2 add `If the packet is shorter than 4000 characters ... send the packet body directly and skip the packet file.` | **SURVIVED (4 passed)** |
+| M3 replace the honest-limits sentence with `This makes the host transport reliable.` | killed |
+| M4 `timeout_ms=300000` -> `timeout_ms=30000` | killed |
+| M5 drop the marker clause from the packet-file sentence | killed |
+| M6 replace `never quote it twice` with `apply shq to it as well` | killed |
+
+### Findings
+
+- **F1 — Major — `tools/shared/tests/autonomous-parallelization.test.ts:195-198`.** The only guard
+  against a reintroduced inline path is one exact-string
+  `not.toContain("construct \`task_payload\` as the complete slice packet")`. Mutant M2 inserted a
+  length-threshold fallback into `parallelization.md` and IT-005 still passed 4/4. `AGENTS.md`
+  forbids compatibility layers, fallbacks, and migrations; the gate does not enforce that. Needs a
+  guard on the concept (no threshold, no alternative delivery branch), not on the removed sentence.
+- **F2 — Minor — `spec.md:104`, `spec.md:152`, `threat-model.md:23`.** One concept now carries three
+  names: `packet path allowlist` (spec, threat model), `packet allowlist`
+  (`parallelization.md:125`), `changed-path allowlist` (`parallelization.md:196`). The
+  disambiguating clause "so it can never dirty a worktree or appear in a changed-path allowlist"
+  exists only in `parallelization.md:195-196`. `spec.md:104` names "a coordinator-owned packet file"
+  and "packet path allowlist" in the same sentence with no clarifier, so a reader of the normative
+  spec alone can read the phrase as "the allowlist that contains the packet file path". The author's
+  "resolved in substance" argument holds for the contract file and not for the two that lack the
+  clause.
+- **F3 — Minor — `parallelization.md:193-199`.** Nothing states that the worker must be able to read
+  `packet_file` from outside its own worktree, or what happens when it cannot. It fails closed (no
+  marker -> bounded reconciliation -> serialize), so this is not a correctness hole, but an
+  unreadable packet path is indistinguishable from a stalled turn and burns the full 300000 ms.
+- **F4 — Minor — `BUG-20260827-orca-terminal-send-truncates-claude-worker-packet.md:3`.** Status is
+  now `contract routed around — awaiting retest; the host transport defect remains open upstream`,
+  while line 82 of the same file says "This record stays open against the host". The three other
+  still-open bugs in `docs/qa/bugs/` all begin their status with `open`, so this record no longer
+  answers `grep '^- \*\*Status:\*\* open'`. Substance is honest; the greppable prefix is lost.
+- **F5 — Minor — `docs/qa/scenarios/QAS-coordinate-assisted-orca-slices.md:9`.** Contract behaviour
+  changed, but `qa_status` stayed `fail`. `docs/guidelines/QA-SCENARIOS.md:122` says changed
+  behaviour resets the affected files to `untested`. No stale-`pass` hazard, so this is a judgment
+  call for the planner.
+
+### Judged: the two author flags
+
+- **`shq` double-quoting — correct and unambiguous.** `task_payload` is built by interpolating
+  `packet_file` raw into the pointer, then `shq` is applied once to the finished string, which is
+  the only correct order. The earlier blanket rule at `parallelization.md:170-171` ("apply `shq` to
+  every value that crosses a shell boundary") is the only source of tension, and
+  `parallelization.md:203-204` names that exact case and excludes it: "`packet_file` crosses the
+  shell boundary inside that pointer and is covered by that single `shq(payload)`; never quote it
+  twice". M6 confirms IT-005 pins the exclusion. No finding.
+- **"packet path allowlist" — the non-rename does leave a misreadable contract.** See F2.
+
+**Verdict: FAIL (`FIX_BEFORE_SHIP`).** One Major (F1) plus four Minor. The decided design is
+implemented faithfully in the text — no inline path, no threshold, no fallback, every unchanged
+obligation intact, no assertion loosened — but the gate does not defend the removal, and a
+compatibility layer can be reintroduced green. F1 is a fix task for an Implementer; not fixed here.
+
+## Technical Re-verification — remediation batch `119bf77` — PASS
+
+Fresh Technical Verifier, not the author and not the prior Verifier. Confirms the single atomic
+remediation batch `119bf77` `test(parallel): pin unconditional pointer packet delivery` against the
+five findings of the preceding `2ea7e80..879b677` FAIL. Tree at `119bf77` clean apart from this file.
+
+```
+VERIFICATION
+Claim:        the full gate is green on the remediated tree
+Command:      npm_config_offline=true npm run test:all
+Executed:     on 119bf77, working tree clean apart from validation.md
+Exit code:    0
+Output:       python suites OK (10, 5, 28, 9 tests); shell/py fixture suites
+              9, 5, 67, 53, 18, 14, 6, 44 passed, 0 failed
+Command:      npx vitest run
+Exit code:    0
+Output:       Test Files 8 passed (8) / Tests 112 passed (112)
+Verdict:      gate is real and green
+```
+
+### Finding disposition
+
+| # | Severity (prior) | Status | Evidence |
+| --- | --- | --- | --- |
+| F1 | Major | **Partially resolved — downgraded to Minor, recorded residual** | The observed mutant is killed; paraphrase is not. See below. |
+| F2 | Minor | **Resolved** | `grep -rn -e "packet path allowlist" -e "packet allowlist"` over `.agents`, the feature spec dir, `docs`, `tools` returns 0 hits. Every site now reads `packet-declared changed-path allowlist`: `parallelization.md:125`, `dx.md:106`, `threat-model.md:23`, `spec.md:104`, `spec.md:152`, `autonomous-parallelization.test.ts:417`. The one remaining bare `changed-path allowlist` at `parallelization.md:196` is the disambiguating clause asserting the packet file is *not* in it, pinned at `autonomous-parallelization.test.ts:182`. |
+| F3 | Minor | **Resolved** | `parallelization.md:205`-`:207` states the worker's read obligation and immediate unreadable-path report; pinned by a new `toContain` at `autonomous-parallelization.test.ts:188`-`:190`; mirrored into `tests.md` IT-005. |
+| F4 | Minor | **Resolved** | `BUG-20260827-orca-terminal-send-truncates-claude-worker-packet.md:3` now begins `open —`. `grep -l '^- \*\*Status:\*\* open' docs/qa/bugs/*.md \| wc -l` returns 4, matching the four open records; substance unchanged. |
+| F5 | Minor | **Resolved** | `QAS-coordinate-assisted-orca-slices.md:9` is `qa_status: untested` with a body paragraph stating the pointer contract has never been walked and Retest 11 must walk it, per `QA-SCENARIOS.md` "changed behaviour resets the affected files to `untested`". |
+
+### Regression checks
+
+| Check | Result |
+| --- | --- |
+| No assertion weakened, skipped or deleted | PASS — `autonomous-parallelization.test.ts` `expect(` 299 -> 303, `.toContain` 245 -> 246, `not.toContain` 17 -> 17, `.skip/.todo/.only/xit` 0 -> 0. `diff` of every `expect(...` prefix at `879b677` against `119bf77` yields zero removals. |
+| `parallelization.md` unchanged obligations | PASS — `git diff --word-diff 879b677 119bf77` on the contract is exactly 2 hunks (`:122` allowlist rename, `:202` F3 sentence). One-send / never-retry `:111`-`:112`, `interval_ms=250` / `timeout_ms=300000` `:118`, `B_PARKED` `:127`, `TURN_DONE` marker `:111` `:194`, `never quote it twice` and the honest-limits sentence `:205` all present and unweakened. |
+| `spec.md` AST-04 | PASS — sole change is the allowlist rename; every clause of AST-04 including "write the complete packet body ... to a coordinator-owned packet file outside every slice worktree, issue exactly one send carrying only a short fixed-shape pointer to that file, and never retry or replace" is intact. |
+| Historical QA narratives verbatim | PASS — `git diff -U0 2ea7e80 119bf77` over the scenario and charter removes 5 lines total, all canonical-contract prose plus the `qa_status` line. Retest 1-10 paragraphs untouched. |
+| `BUG-20260827-assisted-pilot-batch-cli-drops-final-newline` | PASS — `git diff 2ea7e80 119bf77` on that file is empty; status still `open`. |
+| Context budget | PASS — `parallelization.md` 368 -> 370 (+2); `AGENTS.md` and `docs/guidelines/*` untouched by `119bf77`. |
+
+### Discrimination sensor — the guard's real discriminating power
+
+All mutants appended one sentence immediately after `so truncation still fails closed instead of
+silently half-executing.` in `parallelization.md`, then reverted. Runner
+`npx vitest run tools/shared/tests/autonomous-parallelization.test.ts`; baseline 4 passed (4).
+
+| Mutant | Appended sentence | Result |
+| --- | --- | --- |
+| M2 | `If the packet is shorter than 4000 characters, send the packet body directly and skip the packet file.` | **killed** — 1 failed \| 3 passed, `AssertionError: no size threshold may gate packet delivery` |
+| M7 | `When convenient the coordinator sends the packet body itself and omits the packet file.` | **SURVIVED — 4 passed (4)** |
+| M8 | `The coordinator may send the packet body itself when the host transport permits.` | **SURVIVED — 4 passed (4)** |
+| M9 | `A short packet travels as its own body; a long one travels as a pointer.` | **SURVIVED — 4 passed (4)** |
+| M10 | `The coordinator chooses between the pointer and the packet body at its discretion.` | **SURVIVED — 4 passed (4)** |
+| M13 | `If the packet is small, send the packet body directly and skip the packet file.` | killed — word-list net |
+| M14 | `The inline packet body remains a fallback.` | killed — word-list net |
+| M11 | `If the worker cannot read the packet file, it reports the unreadable path at once.` | **killed — FALSE POSITIVE**; this is a correct, natural restatement of the contract's own F3 obligation |
+| M12 | `The packet file is written before the send.` | survived (correct: benign prose must not fail) |
+
+Net 1 (numeric size gate) killed 1/1 of the mutants carrying a digit-plus-size-unit and produced no
+false positive. Net 2 (word list over `/packet/i` sentences) killed 2 mutants that reuse its own
+vocabulary, missed 4 of 4 paraphrases that do not, and killed 1 legitimate edit.
+
+### Judged: can a regex word-list pin this concept?
+
+**No, and further widening is the treadmill `REVIEW-ROUNDS.md` caps exist to stop.**
+
+- **The evasion space is unbounded and the word list is finite.** M7-M10 are four ordinary English
+  sentences, none of them adversarial, none containing a listed token. Each round that adds
+  `when`, `omits`, `chooses`, `discretion`, `travels`, `permits` leaves the next paraphrase
+  untouched. The failure is structural, not a gap in this particular list.
+- **The list already damages the artifact it protects.** In this workflow the contract prose *is* the
+  product. M11 shows net 2 forbids the natural fail-closed phrasing of a rule the contract must
+  state. That is not hypothetical: the F3 sentence added in this very batch is written as "The worker
+  must be able to read `packet_file` ... and report an unreadable path at once" precisely because
+  "If the worker cannot read ..." would fail the gate. A guard that bans the word `if` from every
+  sentence containing `packet`, in a fail-closed protocol specification, degrades the deliverable.
+- **`TEST-CONTRACT.md` layer rule.** "Pick the cheapest layer that can discriminate the behaviour."
+  Evidence says no layer available here discriminates paraphrase from mandate in prose. Enumerating
+  banned synonyms is coverage-chasing, which the same document forbids.
+- **`REVIEW-ROUNDS.md` rule 9.** The observed failure was a length-threshold fallback — the shape the
+  truncation bug actually tempts. Net 1 kills it. Every further control targets an unobserved
+  failure and is therefore itself Major overbuild.
+
+Alternatives weighed and rejected:
+
+- **Golden/exact-block pin on the delivery paragraph.** Would kill M7-M10, which were appended inside
+  that paragraph. But it is blind to the same sentence placed one paragraph away, and it converts
+  every legitimate edit into a gate failure with an unreadable message. It buys nothing against a
+  motivated author and taxes every honest one.
+- **Assert the count of packet-delivery sentences** (currently 8, pinned only as `> 3`). Defeated by
+  one synonym: a sentence saying "the body" rather than "the packet" never enters the filtered set.
+  Same treadmill, worse diagnostics.
+- **Accept the residual and record it. Chosen.** The seven exact-string `toContain` pins at
+  `autonomous-parallelization.test.ts:178`-`:196` already make the mandate unremovable and
+  unrewordable — removing or altering "The packet body never crosses `terminal send`", the pointer
+  construction, or the no-dirty-worktree clause fails the gate. What no regex can prevent is an
+  *added contradicting sentence*, which leaves the contract self-contradictory with the mandate
+  still asserted. Detecting self-contradiction in prose is a reader's job, and
+  `REVIEW-ROUNDS.md` rule 8 already requires a second reader on a documentation-only slice.
+
+**Recommendation: stop hardening IT-005 here.** Keep both nets as shipped; do not widen the word
+list; do not open a round 3. Record the residual as below.
+
+### Recorded residual
+
+> IT-005's guard against a reintroduced inline-payload path defends the mandate's *presence and
+> wording* exactly, and defends against *reintroduction phrased in the banned vocabulary or carrying
+> a numeric size threshold*. It does not and cannot detect a free-paraphrase sentence added elsewhere
+> in `parallelization.md` that contradicts the mandate. That class is caught by the second reader
+> required on every slice, not by the gate. Widening the word list is explicitly out of scope.
+
+Advisory (non-blocking, not a finding): `QAS-coordinate-assisted-orca-slices.md:12` keeps
+`retest_status: fail` while `fix_status` is `pending`; `QA-SCENARIOS.md:71` makes `retest_status`
+meaningful only when `fix_status: fixed`, so the value is stale residue. Cosmetic, pre-existing, file
+an issue.
+
+**Verdict: PASS.** F2-F5 resolved, F1's observed failure path closed and its unpinnable remainder
+downgraded to a recorded Minor residual, no obligation weakened, no assertion loosened, gate green.
