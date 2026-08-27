@@ -1,6 +1,6 @@
 # BUG-20260827-orca-terminal-send-truncates-claude-worker-packet
 
-- **Status:** open
+- **Status:** contract routed around — awaiting retest; the host transport defect remains open upstream
 - **Severity:** critical
 - **Scenario:** `QAS-coordinate-assisted-orca-slices`
 - **Expected:** The assisted contract's one mandated transport — exactly one `orca terminal send --text <shq(task_payload)> --enter` per logical packet, never retried — delivers the complete packet to the frozen-route worker, or reports a failure the coordinator can act on.
@@ -59,3 +59,25 @@ begins. Any of these would close it, and the choice belongs to the contract owne
 
 Retest must re-walk `QAS-coordinate-assisted-orca-slices` end to end and prove packet delivery
 before each task turn. No automatic Orca compatibility claim is made or implied by this record.
+
+## Resolution
+
+The contract owner took the third option above: a packet transport that does not cross the TUI
+input. `AD-016` removes the inline-payload path from
+`.agents/skills/autonomous/references/parallelization.md`. The coordinator now writes the complete
+slice packet — marker requirement included — to a coordinator-owned file outside every slice
+worktree, and the one mandated `orca terminal send` carries only a short fixed-shape pointer to that
+file. There is no fallback and no length threshold that selects between inline and file delivery.
+`exec_payload` and the pre-packet recording obligations are unchanged, as are the one-send,
+no-retry, no-replacement-worker, bounded same-handle reconciliation, fail-closed acceptance, and
+`TURN_DONE <phase> head=<40-hex-sha>` marker rules.
+
+Contract, `AST-04`, `IT-005`, the charter, and this scenario changed in commits `5bc9e31`,
+`d4de714`, `88ba1fa`, and `92ac013` on `feat/host-agnostic-slice-parallelization`.
+
+**This does not fix the host transport.** `orca terminal send --text` still reports a complete write
+that the receiving TUI may not receive, and that defect belongs upstream. The change reduces the
+mandated payload to a size at which the observed loss did not occur; it does not prove delivery.
+Because a truncated pointer cannot produce a valid marker, truncation still fails closed instead of
+silently half-executing. This record stays open against the host until
+`QAS-coordinate-assisted-orca-slices` is re-walked end to end on the pointer transport.
