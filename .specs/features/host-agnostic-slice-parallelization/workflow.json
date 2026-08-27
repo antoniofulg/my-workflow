@@ -13,10 +13,8 @@
     ]
   },
   "feature": "host-agnostic-slice-parallelization",
-  "git_head": "198eeb50c254bc0d63fe29c32fe330961de2d9e3",
-  "overrides": {
-    "implementer": "claude"
-  },
+  "git_head": "18f7f3cf1a4818abe70d56ce71e2f8a4391d2a69",
+  "overrides": {},
   "parallelization": {
     "mode": "disabled",
     "resource_provider": null
@@ -24,16 +22,16 @@
   "profile": null,
   "roles": {
     "deep_reviewer": {
-      "agent_file": ".codex/agents/deep-reviewer.toml",
+      "agent_file": ".claude/agents/deep-reviewer.md",
       "effort": "high",
-      "model": "gpt-5.6-luna",
-      "provider": "codex"
+      "model": "sonnet",
+      "provider": "claude"
     },
     "explorer": {
-      "agent_file": ".codex/agents/explorer.toml",
+      "agent_file": ".claude/agents/explorer.md",
       "effort": "medium",
-      "model": "gpt-5.6-luna",
-      "provider": "codex"
+      "model": "sonnet",
+      "provider": "claude"
     },
     "implementer": {
       "agent_file": ".claude/agents/implementer.md",
@@ -42,10 +40,10 @@
       "provider": "claude"
     },
     "verifier": {
-      "agent_file": ".codex/agents/verifier.toml",
+      "agent_file": ".claude/agents/verifier.md",
       "effort": "medium",
-      "model": "gpt-5.6-sol",
-      "provider": "codex"
+      "model": "sonnet",
+      "provider": "claude"
     }
   },
   "version": 2
