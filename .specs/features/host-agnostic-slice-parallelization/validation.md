@@ -114,3 +114,16 @@ contract-verified with E2E pending.
 **Gate**: focused 4/4; full Vitest 112/112 plus all 13 Python lanes; validators green.
 
 **Next step**: close the AST-01 fingerprint, then dispatch fresh QA Execute for the affected assisted-Orca journey.
+
+## QA Execute Retest — 2026-08-27
+
+**Verdict**: FAIL at AST-01 rendered-route proof.
+
+The fresh QA verifier created and seed-gated the disposable integration ground, proved one new,
+unique, unused A startup handle, and sent the exact frozen Codex route. Orca returned
+`tui-idle: satisfied`, but the immediate `source=screen` read still showed only the startup shell.
+No prompt, task edit, task commit, B slice, overlap, verifier, or grouped review followed. Exact
+cleanup proved zero `qa-assisted-20260827` worktree, path, branch-ref, or terminal residue.
+
+Durable evidence: `docs/qa/reports/2026-08-27-assisted-orca-slices.md` and
+`docs/qa/bugs/BUG-20260827-assisted-orca-tui-idle-before-route-proof.md`.

@@ -70,6 +70,12 @@ without returning an agent handle. Exact setup cleanup left zero slice residue. 
 [`assisted Orca report`](../reports/2026-08-26-assisted-orca-slices.md) and
 [`BUG-20260826-assisted-orca-terminal-create-timeout`](../bugs/BUG-20260826-assisted-orca-terminal-create-timeout.md).
 
+The 2026-08-27 current-contract retest reached startup-shell promotion but failed the mandatory
+rendered-route boundary: Orca reported `tui-idle` before the exact `source=screen` read exposed the
+Codex route, then the handle disconnected. No task prompt, task edit, B slice, or automatic
+compatibility canary ran. Exact cleanup removed every `qa-assisted-20260827` worktree, branch, path,
+and terminal. See the [2026-08-27 assisted report](../reports/2026-08-27-assisted-orca-slices.md).
+
 [`QAS-run-resource-free-parallel-orca-slices`](../scenarios/QAS-run-resource-free-parallel-orca-slices.md)
 and [`QAS-clean-owned-parallel-slice-pilot`](../scenarios/QAS-clean-owned-parallel-slice-pilot.md)
 are `blocked-verify` at the external Orca/Codex recovery boundary. R14's user-takeover residue,

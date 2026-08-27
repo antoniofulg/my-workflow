@@ -6,13 +6,13 @@ persona: Workflow operator
 journey: J-execute-parallel-slices
 expected: With explicit authorization, two assisted Orca slices overlap through one exact parked and resumed B worker, preserve every readiness stage, integrate deterministically, and leave no owned worktree, path, branch ref, or terminal residue.
 entry_points: .agents/skills/autonomous/references/parallelization.md; .specs/features/host-agnostic-slice-parallelization/workflow.json; orca worktree; orca terminal
-qa_status: untested
-bug_ids: BUG-20260826-assisted-orca-terminal-create-timeout (historical)
-fix_status: reclassified — current contract uses startupTerminal.handle promotion
-retest_status: required
+qa_status: fail
+bug_ids: BUG-20260827-assisted-orca-tui-idle-before-route-proof
+fix_status: pending
+retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-26-assisted-orca-slices/session.md
-last_report: docs/qa/reports/2026-08-26-assisted-orca-slices.md
+evidence: docs/qa/evidence/2026-08-27-assisted-orca-slices/session.md
+last_report: docs/qa/reports/2026-08-27-assisted-orca-slices.md
 overlaps: QAS-run-resource-free-parallel-orca-slices; QAS-clean-owned-parallel-slice-pilot; QAS-qualify-orca-host-before-parallel-use
 ---
 
@@ -34,3 +34,9 @@ proof or worker handle existed. The owned setup worktree was cleanly removed wit
 the attempt did not exercise the current startup-shell promotion contract. See the [historical QA
 report](../reports/2026-08-26-assisted-orca-slices.md) and [reclassified bug
 record](../bugs/BUG-20260826-assisted-orca-terminal-create-timeout.md).
+
+The 2026-08-27 current-contract retest failed before prompt delivery. Orca accepted the exact frozen
+`exec` payload and reported `tui-idle`, but the immediate `source=screen` read still showed the
+startup shell instead of the required route tuple. A later handle inspection showed the requested
+route only after the handle had disconnected. See the [current report](../reports/2026-08-27-assisted-orca-slices.md)
+and [`BUG-20260827-assisted-orca-tui-idle-before-route-proof`](../bugs/BUG-20260827-assisted-orca-tui-idle-before-route-proof.md).
