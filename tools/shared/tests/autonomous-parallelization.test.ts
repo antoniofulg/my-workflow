@@ -253,8 +253,8 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(routeLoop).not.toContain("orca terminal wait --terminal");
     expect(routeLoop).toContain("Every `interval_ms=250`");
     expect(routeLoop).toContain("any nonmatch resets the count to zero");
-    expect(normalizedPolicy.indexOf("tui-idle")).toBeGreaterThan(
-      normalizedPolicy.indexOf("Count two CONSECUTIVE matching frames"),
+    expect(routeLoop.indexOf("tui-idle")).toBeGreaterThan(
+      routeLoop.indexOf("Count two CONSECUTIVE matching frames"),
     );
     // AST-02: one worker per ready slice and sequential tasks to the first dependency.
     expect(policy).toContain("Start at most one worker for each planner-ready slice");
@@ -298,6 +298,61 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(normalizedPolicy).toContain("Prove Orca, Git, path, branch ref, and terminal absence");
     expect(normalizedPolicy).toMatch(/Never select cleanup by name or\s+branch/);
     expect(policy).toContain("zero owned residue");
+
+    // Ambiguous terminal sends reconcile one effect on the same handle; they never retry or adopt
+    // a commit without the complete machine-observable turn proof.
+    expect(normalizedPolicy).toContain("Before every logical packet");
+    expect(normalizedPolicy).toContain("unique turn ID/phase");
+    expect(normalizedPolicy).toContain("`TURN_DONE <phase> head=<40-hex-sha>` (exactly one SHA)");
+    expect(normalizedPolicy).toContain("Issue exactly one send for that packet");
+    expect(normalizedPolicy).toContain("never retry after a success, error, missing receipt, or `agent_prompt_stalled`");
+    expect(normalizedPolicy).toContain("never launch a replacement worker");
+    expect(normalizedPolicy).toContain("normal 300-second worker-turn barrier");
+    expect(normalizedPolicy).toContain("bounded machine-only effect reconciliation on the same exact handle");
+    expect(normalizedPolicy).toContain("`interval_ms=250`");
+    expect(normalizedPolicy).toContain("`timeout_ms=300000`");
+    expect(normalizedPolicy).toContain("no model turns");
+    expect(normalizedPolicy).toContain("exactly one expected turn is proven end-to-end");
+    expect(normalizedPolicy).toContain("two fresh non-Working `source=screen` frames");
+    expect(normalizedPolicy).toContain("a `tui-idle` reading agree");
+    expect(normalizedPolicy).toContain("receipt/effect divergence");
+    expect(normalizedPolicy).toContain("continue without resending");
+    expect(normalizedPolicy).toContain("conflicting or multiple marker SHAs");
+    expect(normalizedPolicy).toContain("Never clean or adopt a foreign effect");
+    expect(normalizedPolicy).toContain("never report success from a commit alone");
+    expect(normalizedPolicy).toContain("not a dependency waiter or watchdog");
+    expect(normalizedPolicy).toContain("dependency waiting remains event-driven");
+
+    const packetContractAt = policy.indexOf("Before every logical packet");
+    const createAt = policy.indexOf("Before the one mutating create");
+    const reconciliationAt = policy.indexOf("A successful send follows the normal 300-second worker-turn barrier");
+    const serialRecoveryAt = policy.indexOf("No effect by the deadline");
+    expect(packetContractAt).toBeGreaterThan(-1);
+    expect(createAt).toBeGreaterThan(packetContractAt);
+    expect(reconciliationAt).toBeGreaterThan(packetContractAt);
+    expect(serialRecoveryAt).toBeGreaterThan(reconciliationAt);
+
+    const normalizedPacketContract = policy.slice(packetContractAt, serialRecoveryAt);
+    expect(normalizedPacketContract).toContain("Issue exactly one send for that packet");
+    expect(normalizedPacketContract).toContain("never retry after a success, error, missing receipt");
+    expect(normalizedPacketContract).toContain("same exact handle");
+    expect(normalizedPacketContract).toContain("exactly one expected turn is proven end-to-end");
+    expect(normalizedPacketContract).toContain("Git HEAD equals that marker");
+    expect(normalizedPacketContract).toContain("required task statuses, atomic commits");
+    expect(normalizedPacketContract).toContain("gates match");
+    expect(normalizedPacketContract).toContain("continue without resending");
+    expect(normalizedPacketContract).not.toContain("retry the send");
+    expect(normalizedPacketContract).not.toContain("accept the commit");
+
+    const normalizedDxContract = dx.replace(/\s+/g, " ");
+    expect(normalizedDxContract).toContain("Before every logical packet");
+    expect(normalizedDxContract).toContain("`TURN_DONE <phase> head=<40-hex-sha>`");
+    expect(normalizedDxContract).toContain("never retry a success, error, missing receipt, or `agent_prompt_stalled`");
+    expect(normalizedDxContract).toContain("same handle every `interval_ms=250` for at most `timeout_ms=300000`");
+    expect(normalizedDxContract).toContain("exactly one expected turn is proven end-to-end");
+    expect(normalizedDxContract).toContain("two fresh non-Working `source=screen` frames plus `tui-idle`");
+    expect(normalizedDxContract).toContain("a commit alone is never success");
+    expect(normalizedDxContract).toContain("dependency waiting remains event-driven");
 
     const receiptAt = policy.indexOf("Record an immutable ownership receipt");
     const revalidateAt = policy.indexOf("immediately revalidate\n   the immutable ownership receipt before cleanup");

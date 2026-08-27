@@ -104,6 +104,28 @@ prove the exact startup handle; send `exec` once; run the bounded route loop; th
 payload. Before that sequence reaches the route commands. Do not edit `tasks.md`, start a task, or
 continue in parallel.
 
+Before every logical packet—including route promotion, the initial task packet, and each
+follow-up—record the exact handle, a unique turn ID/phase, `pre_head`, the current task statuses,
+worktree comment and affected-gate state, and the expected marker form
+`TURN_DONE <phase> head=<40-hex-sha>` (exactly one SHA). Issue exactly one send for that packet;
+never retry after a success, error, missing receipt, or `agent_prompt_stalled`, and never launch a
+replacement worker.
+
+A successful send follows the normal 300-second worker-turn barrier. An error, missing receipt, or
+`agent_prompt_stalled` enters bounded machine-only effect reconciliation on the same exact handle:
+inspect it every `interval_ms=250` for at most `timeout_ms=300000`, with no model turns. Accept an
+effect only when exactly one expected turn is proven end-to-end: the same handle remains connected;
+the exact unique phase marker has one 40-hex SHA; two fresh non-Working `source=screen` frames and
+a `tui-idle` reading agree; Git HEAD equals that marker; required task statuses, atomic commits,
+and gates match; and, for a parked B turn, the exact checkpoint comment matches. Record the
+receipt/effect divergence and continue without resending.
+
+No effect by the deadline, partial state, conflicting or multiple marker SHAs, dirty state, gate
+failure, wrong handle, or ambiguity serializes the lane and retains it for exact recovery. Never
+clean or adopt a foreign effect, and never report success from a commit alone. This bounded probe is
+not a dependency waiter or watchdog: dependency waiting remains event-driven and spends no model
+turns polling unchanged state.
+
 Before the one mutating create, snapshot the exact repository worktree and terminal inventory into
 `before_inventory` and generate a unique logical slice name. Invoke exactly one create with an explicit base and setup
 policy:

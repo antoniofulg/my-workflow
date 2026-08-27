@@ -170,6 +170,8 @@ worktree comments/removal, existing checkpoint sync, and serial fallback rules.
 - [x] The explicit base/setup worktree startup shell is proven new and unused, receives `exec <validated-command>`, and remains the sole worker handle; no second terminal is created.
 - [x] Worktree creation snapshots before state, issues one unique-name mutating create, and reconciles a missing/late receipt through a 250 ms / 60000 ms SETTLE WINDOW with cumulative inventory difference and final audit, without blind retry or ambiguous adoption.
 - [x] Immutable ownership receipt is separated from mutable head/handle state; the worktree is detached when needed, the exact branch is safely deleted and its ref absence proven, and only then is the worktree removed.
+- [x] Every logical packet records the exact handle, unique turn ID/phase, pre-head, task/comment/gate state, and one expected marker; each send occurs once with no retry or replacement worker.
+- [x] Error, missing, or `agent_prompt_stalled` receipts reconcile only the same handle through a machine-only 250 ms / 300000 ms bounded effect proof; partial, dirty, conflicting, foreign, or ambiguous effects serialize, and commit-only adoption is rejected.
 - [x] TLC task order, Verifier, grouped deep-review, QA, and full-gate contracts remain unchanged.
 - [x] `npm_config_offline=true npm test -- --run tools/shared/tests/autonomous-parallelization.test.ts` passes with zero failures.
 

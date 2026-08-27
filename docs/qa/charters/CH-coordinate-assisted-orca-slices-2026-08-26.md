@@ -22,6 +22,8 @@ the exact clean integrated owned resources.
 
 The automatic adapter remains unsupported and records no compatibility PASS. Each assisted terminal
 renders `source=screen` with the exact frozen provider/model/effort tuple before prompt delivery;
+A missing, error, or `agent_prompt_stalled` send receipt is reconciled once on the same handle through
+the bounded machine-only marker/state proof, never retried or replaced;
 A and B overlap; B runs sequentially through its first unmet dependency; its clean comment records
 slice B, completed-through task, next `B:T12`, dependency `A:T7`, and current HEAD; the exact A
 producer commit enters B; the declared affected gate passes; the same terminal or its sole
@@ -41,6 +43,10 @@ gate stages remain ordered; worktree, Git path, exact branch ref, and terminal a
 - Reconcile the parked comment against `tasks.md` and Git. After verified `A:T7`, synchronize its
   exact producer commit, run the affected gate declared by the fixture, and follow up the same B
   terminal; if its handle is stale, reacquire only the sole handle from B's owned worktree.
+- For every route, task, or follow-up packet, record the exact handle/turn phase, pre-head,
+  task/comment/gate state, and expected marker; send once. On an ambiguous receipt, inspect only the
+  same handle every 250 ms for at most 300000 ms and accept only one complete marker/HEAD/status/
+  commit/gate/comment effect, otherwise serialize for exact recovery.
 - Record atomic task commits and scoped gates, one Technical Verifier per code-changing slice, the
   frozen `grouped.3` deep-review cadence, final QA, deterministic slice integration, and one final
   full gate. The packet reports the exact HEAD `d28cbf1` full gate already passed with Vitest
