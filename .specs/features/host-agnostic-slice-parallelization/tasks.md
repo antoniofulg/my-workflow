@@ -257,7 +257,7 @@ zero automatic-adapter effect.
 
 ### T8: Ship the self-contained assisted Orca probe
 
-**Status:** pending
+**Status:** complete
 **Slice:** F
 **Resources:** none
 **Observable behaviour:** A main agent can execute the proven assisted lifecycle through one
@@ -272,16 +272,20 @@ import evidence files.
 **Tools:** Skills `ponytail`, `tlc-spec-driven`; stdlib only; fake `orca` on `PATH` for tests.
 **Done when:**
 
-- [ ] Live Retest 12 behavior is flattened into one module with no `importlib` or evidence import.
-- [ ] Repository/worktree/branch, packet path, provider/model/effort, task/commit expectations, gates,
+- [x] Live Retest 12 behavior is flattened into one module with no `importlib` or evidence import.
+- [x] Repository/worktree/branch, packet path, provider/model/effort, task/commit expectations, gates,
   markers, timing, and ownership prefix are parameters; no fixture or retest identifier is hardcoded.
-- [ ] Module dispatch occurs only under `if __name__ == "__main__":`; importing it records zero Orca calls.
-- [ ] Fake Orca injects transient/error/missing receipts and records exactly one create, send, comment
+- [x] Module dispatch occurs only under `if __name__ == "__main__":`; importing it records zero Orca calls.
+- [x] Fake Orca injects transient/error/missing receipts and records exactly one create, send, comment
   set, stop, and rm per logical operation; repeated calls are read-only inspections only.
-- [ ] Sent payload equals the pointer and never contains the packet body.
-- [ ] Fake two-slice lifecycle parks, verifies, syncs, reruns the gate, resumes the same handle,
+- [x] Sent payload equals the pointer and never contains the packet body.
+- [x] Fake two-slice lifecycle parks, verifies, syncs, reruns the gate, resumes the same handle,
   integrates, cleans owned resources, and preserves foreign resources.
-- [ ] `python3 tools/test_orca_assisted_probe.py` passes with zero failures.
+- [x] `python3 tools/test_orca_assisted_probe.py` passes with zero failures.
+
+**Result:** 4/4 fake-Orca contract checks passed; mutations are one-shot, read-only retries are
+bounded, pointer delivery excludes the packet body, cleanup preserves foreign worktrees, and import
+is inert.
 
 **Tests:** IT-007, IT-008, IT-009, SEC-007 in `tools/test_orca_assisted_probe.py`
 **Gate:** Quick. Commit `feat(orca): ship assisted coordinator probe`.
