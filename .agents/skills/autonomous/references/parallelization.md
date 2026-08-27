@@ -89,7 +89,7 @@ after proving the owned startup shell:
 ```bash
 codex --model <shq(model)> -c <shq(model_reasoning_effort=<effort>)>
 claude --model <shq(model)> --effort <shq(effort)>
-cursor agent --model <shq(model[effort=effort])>
+cursor agent --model <shq(model[effort=<effort>])>
 ```
 
 Here `shq(value)` means the output of an actual POSIX-shell quoting function (for example
@@ -129,17 +129,27 @@ serializes and cleans only verified owned setup resources. Apply `shq` to every 
 shell boundary and build the fixed provider command only after that proof, then send `exec` to the
 exact handle:
 
+Construct `exec_payload` as the complete `exec <validated-frozen-agent-command>` string, then apply
+`shq(payload)` once to that complete payload before passing it to `--text`:
+
 ```bash
 orca terminal send --terminal <startupTerminal.handle> \
-  --text "exec <validated-frozen-agent-command>" --enter --json
+  --text <shq(exec_payload)> --enter --json
 orca terminal wait --terminal <startupTerminal.handle> --for tui-idle --timeout-ms 60000 --json
 orca terminal read --terminal <startupTerminal.handle> --screen --json
-orca terminal send --terminal <startupTerminal.handle> --text "<slice task packet>" --enter --json
 ```
 
-Accept the screen only when it reports `source=screen` and the provider, model, and effort all match
-the frozen tuple. A failed conjunction serializes and cleans before `exec`; `screen-unavailable`, an
-omitted provider, a mismatch, or ambiguity serializes before the task packet or any task edit.
+After the screen proof matches the frozen route, construct `task_payload` as the complete slice
+packet, then apply `shq(payload)` once to that complete payload before passing it to `--text`:
+
+```bash
+orca terminal send --terminal <startupTerminal.handle> --text <shq(task_payload)> --enter --json
+```
+
+Never wrap either payload in literal outer double quotes. Accept the screen only when it reports
+`source=screen` and the provider, model, and effort all match the frozen tuple. A failed conjunction
+serializes and cleans before `exec`; `screen-unavailable`, an omitted provider, a mismatch, or
+ambiguity serializes before the task packet or any task edit.
 Record mutable `current_head` and `current_handle` separately; the same startup handle remains the
 worker handle and is updated only after a commit, sync, or exact-handle reacquisition. Never open a
 second terminal or create a second worker for the same slice.

@@ -122,10 +122,11 @@ describe("autonomous parallel slice dispatch contract", () => {
       ),
     ) as { roles: { implementer: { provider: string; model: string; effort: string } } };
     const implementer = workflow.roles.implementer;
+    const normalizedPolicy = policy.replace(/\s+/g, " ");
     const providerCommandPatterns: Record<string, RegExp> = {
       codex: /codex --model <shq\(model\)> -c <shq\(model_reasoning_effort=<effort>\)>/,
       claude: /claude --model <shq\(model\)> --effort <shq\(effort\)>/,
-      cursor: /cursor agent --model <shq\(model\[effort=effort\]\)>/,
+      cursor: /cursor agent --model <shq\(model\[effort=<effort>\]\)>/,
     };
 
     // AST-01: assisted execution is separate from automatic compatibility and honors frozen route.
@@ -157,6 +158,12 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(policy).toContain("shq(value)");
     expect(policy).toContain("actual POSIX-shell quoting");
     expect(policy).toContain("fixed-argv/no-shell wrapper");
+    expect(normalizedPolicy).toContain("complete `exec <validated-frozen-agent-command>` string");
+    expect(normalizedPolicy).toContain("complete slice packet");
+    expect(normalizedPolicy).toContain("apply `shq(payload)` once to that complete payload");
+    expect(normalizedPolicy).toContain("Never wrap either payload in literal outer double quotes");
+    expect(policy).not.toContain('--text "exec <validated-frozen-agent-command>"');
+    expect(policy).not.toContain('--text "<slice task packet>"');
     expect(policy).toContain("orca worktree create --name <slice> --base-branch <base-branch> --setup inherit --json");
     expect(policy).not.toContain("orca worktree create --name <slice> --no-parent");
     expect(policy).toContain("terminal read");
@@ -171,7 +178,6 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(policy).toContain("screen-unavailable");
     expect(policy).toContain("matching the frozen tuple");
     expect(policy).toMatch(/Do not\s+edit `tasks\.md`/);
-    const normalizedPolicy = policy.replace(/\s+/g, " ");
     expect(normalizedPolicy).toMatch(
       /Prove that the exact `startupTerminal\.handle` was newly created by this worktree operation, is uniquely owned by this just-created worktree, is an unused shell, and has no agent\/default-task activity\./,
     );
@@ -180,10 +186,12 @@ describe("autonomous parallel slice dispatch contract", () => {
       "Before any terminal send, inspect that exact handle",
       "Prove that the exact `startupTerminal.handle`",
       "Apply `shq` to every value that crosses a shell boundary and build the fixed provider command only after that proof",
-      'orca terminal send --terminal <startupTerminal.handle> \\ --text "exec <validated-frozen-agent-command>"',
+      "Construct `exec_payload` as the complete `exec <validated-frozen-agent-command>` string",
+      "orca terminal send --terminal <startupTerminal.handle> \\ --text <shq(exec_payload)>",
       "orca terminal wait --terminal <startupTerminal.handle> --for tui-idle",
       "orca terminal read --terminal <startupTerminal.handle> --screen",
-      'orca terminal send --terminal <startupTerminal.handle> --text "<slice task packet>"',
+      "After the screen proof matches the frozen route, construct `task_payload` as the complete slice",
+      "orca terminal send --terminal <startupTerminal.handle> --text <shq(task_payload)>",
     ];
     lifecycleMarkers.splice(2, 0, "orca terminal show --terminal <startupTerminal.handle> --json");
     const lifecyclePositions = lifecycleMarkers.map((marker) => normalizedPolicy.indexOf(marker));

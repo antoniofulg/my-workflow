@@ -61,15 +61,16 @@ owned by it, is one new unused shell, and has no agent/default-task activity, th
 frozen tuple values and send `exec <validated-command>` to that same handle. The verified provider
 forms are `codex --model <shq(model)> -c <shq(model_reasoning_effort=<effort>)>`,
 `claude --model <shq(model)> --effort <shq(effort)>`, and `cursor agent --model
-<shq(model[effort=effort])>`; merge Cursor effort into an existing parameter block. Use the
+<shq(model[effort=<effort>])>`; merge Cursor effort into an existing parameter block. Use the
 selected executable's `--help`/availability check, wait for `tui-idle`, then run
 `orca terminal read --terminal <handle> --screen --json`. Continue only when `source=screen` renders
 the exact provider, model, and effort tuple. `screen-unavailable`, omitted provider, mismatch, or
 ambiguity stops and serializes before the prompt or task edit. An inexpressible or unavailable route
 stops setup without editing `tasks.md`. Always use the two-step
 `worktree create` plus startup-shell promotion, preserving startup policy. Never open a second
-terminal. Deliver the packet and later follow-ups with
-`terminal send` to that same exact verified handle. Any failed ownership/new/unused/activity
+terminal. Construct each complete `exec` or task-packet payload first, apply `shq(payload)` once to
+the complete value, and pass it as `--text <shq(payload)>`; never use literal outer double quotes.
+Deliver the packet and later follow-ups with `terminal send` to that same exact verified handle. Any failed ownership/new/unused/activity
 conjunction or handle ambiguity serializes before `exec` and prompt delivery.
 
 The coordinator starts at most one worker per ready slice. Tasks inside each slice stay sequential.

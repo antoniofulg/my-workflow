@@ -168,7 +168,7 @@ worktree comments/removal, existing checkpoint sync, and serial fallback rules.
 - [x] Cleanup stops workers and removes only clean integrated coordinator-owned worktrees, with zero owned residue proven.
 - [x] Frozen implementer provider/model/effort is expressed explicitly and proven from rendered terminal screen before prompt delivery.
 - [x] The explicit base/setup worktree startup shell is proven new and unused, receives `exec <validated-command>`, and remains the sole worker handle; no second terminal is created.
-- [x] Immutable ownership receipt is separated from mutable head/handle state; exact branch deletion and ref absence are proven after worktree removal.
+- [x] Immutable ownership receipt is separated from mutable head/handle state; the worktree is detached when needed, the exact branch is safely deleted and its ref absence proven, and only then is the worktree removed.
 - [x] TLC task order, Verifier, grouped deep-review, QA, and full-gate contracts remain unchanged.
 - [x] `npm_config_offline=true npm test -- --run tools/shared/tests/autonomous-parallelization.test.ts` passes with zero failures.
 
