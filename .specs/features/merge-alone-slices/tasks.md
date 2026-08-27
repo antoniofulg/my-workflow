@@ -7,7 +7,7 @@ gate, updates this file, and creates one atomic Conventional Commit. The Impleme
 single batch; a fresh Verifier closes the feature.
 
 **Design**: `.specs/features/merge-alone-slices/design.md`
-**Status**: In Progress — awaiting final QA
+**Status**: Technical Verification PASS — ready for QA retest
 
 ## Vertical Slice Closure
 
@@ -365,8 +365,9 @@ Done when:
 - Tests: Strengthen MAS-UT-001 and reuse MAS-IT-001.
 - Gate: Validator, resolver, planner, and full `npm run test:all`.
 - Commit: `test(workflow): cover multi-cohort single slice`
-- Status: complete — the canonical fixture and validator/resolver assertions now discriminate three
-  technical cohorts from one merge-alone slice; fresh independent verification remains pending.
+- Status: verified — fresh Technical Verification matched 13/13 acceptance criteria and 19/19
+  test-contract rows; the cohort-count mutant and both active-v2 predicate mutants were killed.
+  The whole feature is ready for QA retest.
 
 ## Phase Execution Map
 

@@ -111,6 +111,9 @@ planner and executor; both accept it, while a version-1 fixture is rejected.
 
 **Coverage:** 13 total, 13 mapped to tasks, 0 unmapped.
 
+**Verification:** R3 PASS at `5dee2e2`; 13/13 acceptance criteria and 19/19 test-contract rows
+matched, with the cohort-count regression killed. The whole feature is ready for QA retest.
+
 ## Success Criteria
 
 - [x] The Praxis/Bun five-task migration resolves to one slice.

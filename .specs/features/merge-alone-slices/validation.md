@@ -2,162 +2,120 @@
 
 **Date**: 2026-08-27
 **Spec**: `.specs/features/merge-alone-slices/spec.md`
-**Diff range**: `d0dd82d..HEAD`
-**Verified head**: `100f963c25f7eb5f904431087fd383dc5ffffa4a`
+**Diff range**: `d0dd82d..5dee2e2`
+**Verified head**: `5dee2e245d7243db8b52cd1cbd2452aaddc9c353`
 **Verifier**: fresh independent Technical Verifier (author != verifier)
-**Verdict**: FAIL
+**Verdict**: PASS
 
 ## Task Completion
 
-| Task | Status | Evidence |
+| Task group | Status | Evidence |
 | --- | --- | --- |
-| T1 | Needs Fix | Validator 17/17 and planner 20/20 passed, but `tools/fixtures/tlc-validator/merge-alone-one-slice.md:17` does not exercise MAS-UT-001's three-cohort input. |
-| T2 | Done | `tools/test_workflow_config.py:174`; resolver 54/54 passed. |
-| T3 | Done | `tools/test_workflow_config.py:308`; resume and refresh assertions passed. |
-| T4 | Done | `tools/shared/tests/workflow-config.test.ts:42`; Bun 116/116 passed. |
-| T5 | Done | `package.json:12`; full gate 380/380 passed. |
-| R1 | Done | `tools/test_workflow_config.py:230` and `tools/test_parallel_plan.py:89`; prior atomicity and membership gaps remain closed. |
-| R2 | Done | `tools/test_tlc_validators.py:143`; every invalid merge-alone value requires slice `A` and exact lowercase `yes`. |
-| QA1 | Done — independently verified | `tools/test_parallel_plan.py:127`, `tools/test_parallel_executor.py:120`, and `tools/test_qa_parallel_pilot.py:32`; real v2 resolver flow, planner/executor rejection, and pilot lifecycle passed. |
+| T1-T5 | Verified | Validator, resolver, public-contract, adoption, and full gates passed; `tasks.md:52` through `tasks.md:212` retain exact task gates. |
+| R1-R2 | Verified | Error identity, byte preservation, remediation exclusion, membership equality, and count bounds pass at `tools/test_tlc_validators.py:146` and `tools/test_workflow_config.py:195`. |
+| DR1-DR2 | Verified | Canonical heading, Slice-field, closure-gate, and remediation-boundary cases pass in `tools/test_tlc_validators.py:1`. |
+| QA1 | Verified | Active v2 consumers pass at `tools/test_parallel_plan.py:127`, `tools/test_parallel_executor.py:120`, and `tools/test_qa_parallel_pilot.py:23`. |
+| R3 | Verified | `tools/test_tlc_validators.py:115` proves three cohorts, five primary tasks, and one closure-owned slice; the cohort-count mutant is killed by `tools/test_workflow_config.py:174`. |
+
+R3 fixture counts are independently reproduced by `rg -c '^### Phase ' tools/fixtures/tlc-validator/merge-alone-one-slice.md` = 3, `rg -c '^### T[0-9]+:' tools/fixtures/tlc-validator/merge-alone-one-slice.md` = 5, and `rg -c '^\| [A-Z]+ \| ' tools/fixtures/tlc-validator/merge-alone-one-slice.md` = 1 closure.
 
 ## Spec-Anchored Acceptance Criteria
 
-Twelve acceptance criteria match their exact spec-defined outcomes. MAS-01 lacks a discriminating
-three-cohort regression fixture.
-
 | AC | Spec-defined outcome | `file:line` + assertion evidence | Result |
 | --- | --- | --- | --- |
-| MAS-01 | Five primary tasks, three technical cohorts, and one closure derive exactly one slice. | `tools/test_tlc_validators.py:115` through `tools/test_tlc_validators.py:122` assert five tasks and one closure, but `tools/fixtures/tlc-validator/merge-alone-one-slice.md:17` declares only one phase/cohort. No current assertion proves three cohorts remain one slice. | GAP |
-| MAS-02 | Two merge-alone outcomes derive exactly two slices. | `tools/test_tlc_validators.py:130` — slice IDs equal `["A", "B"]`; `tools/test_workflow_config.py:189` — groups equal `[[1, 2]]`. | PASS |
-| MAS-03 | Empty outcome, gate, or reason, and every non-exact-`yes` decision fail while naming invalid slice `A`. | `tools/test_tlc_validators.py:133` through `tools/test_tlc_validators.py:156` pin empty-field identity; `tools/test_tlc_validators.py:161` tests `no`, empty, `Yes`, and `true`; `tools/test_tlc_validators.py:164` requires `slice 'A'.*exact lowercase yes`. | PASS |
-| MAS-04 | Zero, multiple, or unknown membership and orphan or duplicate closures fail while naming inconsistent task or slice. | `tools/test_tlc_validators.py:167` through `tools/test_tlc_validators.py:190` require `T1` or `Z`; `tools/test_tlc_validators.py:196` and `tools/test_tlc_validators.py:199` require duplicate `A` and orphan `B`. | PASS |
-| MAS-05 | Initial and refresh count mismatches fail before snapshot creation or byte replacement; non-positive assertions fail. | `tools/test_workflow_config.py:201` and `tools/test_workflow_config.py:204` pin initial mismatch and absence; `tools/test_workflow_config.py:250` and `tools/test_workflow_config.py:253` pin refresh mismatch and byte equality; `tools/test_workflow_config.py:210` through `tools/test_workflow_config.py:225` reject `0` and `-1` before write. | PASS |
-| MAS-06 | Missing `tasks.md` derives exactly one slice. | `tools/test_workflow_config.py:287` — groups equal `[[1]]`. | PASS |
-| MAS-07 | Malformed present Tasks fail before snapshot creation or replacement. | `tools/test_workflow_config.py:299` through `tools/test_workflow_config.py:303` assert initial failure and no file; `tools/test_workflow_config.py:274` through `tools/test_workflow_config.py:278` assert refresh failure and unchanged bytes. | PASS |
-| MAS-08 | Normal resume returns frozen state without re-deriving changed or malformed Tasks. | `tools/test_workflow_config.py:309` through `tools/test_workflow_config.py:324` exercise both forms and assert object and byte equality. | PASS |
-| MAS-09 | Published planning contract distinguishes slice, phase/cohort, and batch, and derives count from validated Tasks. | `tools/shared/tests/workflow-config.test.ts:50` through `tools/shared/tests/workflow-config.test.ts:62` pin closure fields, all three unit definitions, derived ownership, optional assertion wording, and removal of manual-count examples. | PASS |
-| MAS-10 | `T2R1` and `TDR1` remain outside primary membership and count. | `tools/test_tlc_validators.py:124` through `tools/test_tlc_validators.py:131` assert both headings while preserving exactly four primary memberships across `A` and `B`; fixture identities appear at `tools/fixtures/tlc-validator/merge-alone-two-slices.md:64` and `tools/fixtures/tlc-validator/merge-alone-two-slices.md:71`. | PASS |
-| MAS-11 | Validator and parallel planner use identical primary-task membership and slice IDs. | `tools/test_parallel_plan.py:112` through `tools/test_parallel_plan.py:122` derive both outputs from one document and assert direct equality. | PASS |
-| MAS-12 | Real resolver v2 output reaches planner with identical task/slice membership; planner and executor accept v2 while feature, mode, and Git-head checks remain. | `tools/test_parallel_plan.py:127` through `tools/test_parallel_plan.py:152` assert resolver output version, validator equality, and frozen Git head; `tools/test_parallel_executor.py:120` through `tools/test_parallel_executor.py:126` assert executor v2 acceptance; `tools/test_parallel_plan.py:370` through `tools/test_parallel_plan.py:420` preserve feature/mode/version validation. | PASS |
-| MAS-13 | Planner and executor reject workflow snapshot v1 without fallback or migration. | `tools/test_parallel_plan.py:370` through `tools/test_parallel_plan.py:394` require `invalid workflow snapshot` for v1; `tools/test_parallel_executor.py:127` through `tools/test_parallel_executor.py:136` require the same executor error after rewriting v2 to v1. | PASS |
+| MAS-01 | Five primary tasks, three technical cohorts, and one closure derive exactly one slice. | `tools/test_tlc_validators.py:115` through `tools/test_tlc_validators.py:135` assert 3 cohorts, 5 primary tasks, `slice_ids == ["A"]`, 5 memberships, and exact `A` ownership; `tools/test_workflow_config.py:174` through `tools/test_workflow_config.py:180` assert resolver groups `[[1]]`. | PASS |
+| MAS-02 | Two merge-alone outcomes derive exactly two slices. | `tools/test_tlc_validators.py:137` through `tools/test_tlc_validators.py:144` assert `A`, `B`, and exact membership; `tools/test_workflow_config.py:185` through `tools/test_workflow_config.py:190` assert groups `[[1, 2]]`. | PASS |
+| MAS-03 | Empty closure fields and every non-exact-`yes` decision fail while naming the invalid slice. | `tools/test_tlc_validators.py:146` through `tools/test_tlc_validators.py:178` require slice `A`, each missing field, and exact lowercase `yes` for `no`, empty, `Yes`, and `true`. | PASS |
+| MAS-04 | Zero, multiple, unknown, orphan, and duplicate membership fail with task or slice identity. | `tools/test_tlc_validators.py:180` through `tools/test_tlc_validators.py:213` require `T1`, `Z`, duplicate `A`, or orphan `B`. | PASS |
+| MAS-05 | Initial/refresh count mismatch and non-positive assertions fail before snapshot mutation. | `tools/test_workflow_config.py:195` through `tools/test_workflow_config.py:254` assert mismatch messages, absent initial snapshot, and byte-identical refresh snapshot; `tools/test_workflow_config.py:210` rejects `0` and `-1`. | PASS |
+| MAS-06 | Missing `tasks.md` derives one slice. | `tools/test_workflow_config.py:284` through `tools/test_workflow_config.py:290` assert `[[1]]`. | PASS |
+| MAS-07 | Malformed present Tasks fail before snapshot creation or replacement. | `tools/test_workflow_config.py:259` through `tools/test_workflow_config.py:304` assert named closure failure, no initial file, and unchanged refresh bytes. | PASS |
+| MAS-08 | Resume returns frozen state without reading changed or malformed Tasks. | `tools/test_workflow_config.py:309` through `tools/test_workflow_config.py:325` assert frozen object and bytes for both task states. | PASS |
+| MAS-09 | Published contract distinguishes slice, phase/cohort, and batch and removes manual count ownership. | `tools/shared/tests/workflow-config.test.ts:50` through `tools/shared/tests/workflow-config.test.ts:62` assert all three terms, closure fields, derived ownership, and optional assertion wording. | PASS |
+| MAS-10 | `T2R1` and `TDR1` do not enter primary membership or count. | `tools/test_tlc_validators.py:137` through `tools/test_tlc_validators.py:144` assert both headings and exactly four primary memberships; fixtures appear at `tools/fixtures/tlc-validator/merge-alone-two-slices.md:64` and `tools/fixtures/tlc-validator/merge-alone-two-slices.md:71`. | PASS |
+| MAS-11 | Validator and planner preserve identical primary-task membership and slice IDs. | `tools/test_parallel_plan.py:101` through `tools/test_parallel_plan.py:122` compare outputs derived from one task document. | PASS |
+| MAS-12 | Planner and executor accept resolver snapshot v2 while preserving identity validation. | `tools/test_parallel_plan.py:127` through `tools/test_parallel_plan.py:152` assert real resolver v2, membership equality, and Git head; `tools/test_parallel_executor.py:120` through `tools/test_parallel_executor.py:126` assert executor acceptance. | PASS |
+| MAS-13 | Planner and executor reject active snapshot v1 without fallback or migration. | `tools/test_parallel_plan.py:370` through `tools/test_parallel_plan.py:394` and `tools/test_parallel_executor.py:127` through `tools/test_parallel_executor.py:136` require `invalid workflow snapshot`. | PASS |
 
-**Status**: 12/13 matched; 1 coverage gap; 0 spec-precision gaps.
+**Status**: 13/13 matched; 0 uncovered; 0 spec-precision gaps. Count command: `rg -c '^\| MAS-[0-9]{2} \|' .specs/features/merge-alone-slices/validation.md`.
 
 ## Test Contract
 
-Eighteen canonical rows match their stated outcomes. MAS-UT-001 does not exercise its contracted
-three-cohort input.
-
 | Contract | `file:line` + assertion evidence | Result |
 | --- | --- | --- |
-| MAS-UT-001 | `tools/test_tlc_validators.py:115` through `tools/test_tlc_validators.py:122` assert `A`, five primary memberships, merge-alone true, and validator success, but the fixture at `tools/fixtures/tlc-validator/merge-alone-one-slice.md:17` contains only one phase/cohort instead of three. | GAP |
-| MAS-UT-002 | `tools/test_tlc_validators.py:124` through `tools/test_tlc_validators.py:131` assert exactly `A`, `B`, and exact membership. | PASS |
-| MAS-UT-003 | `tools/test_tlc_validators.py:133` through `tools/test_tlc_validators.py:156` assert slice `A` plus each missing field. | PASS |
-| MAS-UT-004 | `tools/test_tlc_validators.py:158` through `tools/test_tlc_validators.py:165` reject `no`, empty, `Yes`, and `true` while requiring slice `A` and exact lowercase `yes`. | PASS |
-| MAS-UT-005 | `tools/test_tlc_validators.py:167` through `tools/test_tlc_validators.py:190` assert zero, multiple, and unknown membership with `T1` or `Z`. | PASS |
-| MAS-UT-006 | `tools/test_tlc_validators.py:192` through `tools/test_tlc_validators.py:200` assert duplicate `A` and orphan `B`. | PASS |
-| MAS-UT-007 | `tools/test_tlc_validators.py:124` through `tools/test_tlc_validators.py:131` assert `T2R1`, `TDR1`, and unchanged primary membership/count. | PASS |
-| MAS-IT-001 | `tools/test_workflow_config.py:179` asserts groups exactly `[[1]]`. | PASS |
-| MAS-IT-002 | `tools/test_workflow_config.py:189` asserts groups exactly `[[1, 2]]`. | PASS |
-| MAS-IT-003 | `tools/test_workflow_config.py:201` through `tools/test_workflow_config.py:204` assert initial mismatch and no file; `tools/test_workflow_config.py:250` through `tools/test_workflow_config.py:253` assert refresh mismatch and unchanged bytes. | PASS |
-| MAS-IT-004 | `tools/test_workflow_config.py:287` asserts missing Tasks yields exactly `[[1]]`. | PASS |
-| MAS-IT-005 | `tools/test_workflow_config.py:299` through `tools/test_workflow_config.py:303` assert malformed closure failure and no snapshot. | PASS |
-| MAS-IT-006 | `tools/test_workflow_config.py:309` through `tools/test_workflow_config.py:324` assert frozen object and bytes for changed-valid and malformed Tasks. | PASS |
-| MAS-IT-007 | `tools/test_workflow_config.py:339` through `tools/test_workflow_config.py:346` assert refresh derives and persists `[[1, 2]]` without schema/version change. | PASS |
-| MAS-IT-008 | `tools/test_parallel_plan.py:112` through `tools/test_parallel_plan.py:122` directly compare planner membership with validator output from the same document. | PASS |
-| MAS-IT-009 | `tools/shared/tests/workflow-config.test.ts:50` through `tools/shared/tests/workflow-config.test.ts:62` assert published vocabulary and resolver ownership. | PASS |
-| MAS-IT-010 | `tools/test_parallel_plan.py:127` through `tools/test_parallel_plan.py:152` pass real resolver v2 output to the planner and assert exact validator membership plus Git head. | PASS |
-| MAS-IT-011 | `tools/test_parallel_plan.py:370` through `tools/test_parallel_plan.py:394` and `tools/test_parallel_executor.py:120` through `tools/test_parallel_executor.py:136` accept v2 and reject v1 with `invalid workflow snapshot`. | PASS |
-| MAS-IT-012 | `tools/test_qa_parallel_pilot.py:32` through `tools/test_qa_parallel_pilot.py:57` assert pilot workflow v2 and current dry-run/worktree lifecycle; `tools/test_qa_parallel_pilot.py:168` through `tools/test_qa_parallel_pilot.py:187` reject v1 and stale Git head. | PASS |
+| MAS-UT-001 | `tools/test_tlc_validators.py:115` through `tools/test_tlc_validators.py:135` assert exactly 3 cohorts, 5 primary tasks, closure `A`, 5 `A` memberships, and exact merge-alone `true`. | PASS |
+| MAS-UT-002 | `tools/test_tlc_validators.py:137` through `tools/test_tlc_validators.py:144` assert exactly `A`, `B`, and exact membership. | PASS |
+| MAS-UT-003 | `tools/test_tlc_validators.py:146` through `tools/test_tlc_validators.py:169` assert slice `A` plus each missing field. | PASS |
+| MAS-UT-004 | `tools/test_tlc_validators.py:171` through `tools/test_tlc_validators.py:178` reject `no`, empty, `Yes`, and `true` with exact error identity. | PASS |
+| MAS-UT-005 | `tools/test_tlc_validators.py:180` through `tools/test_tlc_validators.py:203` assert zero, multiple, and unknown membership. | PASS |
+| MAS-UT-006 | `tools/test_tlc_validators.py:205` through `tools/test_tlc_validators.py:213` assert duplicate `A` and orphan `B`. | PASS |
+| MAS-UT-007 | `tools/test_tlc_validators.py:137` through `tools/test_tlc_validators.py:144` assert both remediation forms and unchanged primary membership. | PASS |
+| MAS-IT-001 | `tools/test_workflow_config.py:174` through `tools/test_workflow_config.py:180` resolve the shared three-cohort fixture to `[[1]]`. | PASS |
+| MAS-IT-002 | `tools/test_workflow_config.py:185` through `tools/test_workflow_config.py:190` resolve two closures to `[[1, 2]]`. | PASS |
+| MAS-IT-003 | `tools/test_workflow_config.py:195` through `tools/test_workflow_config.py:254` assert mismatch failure and absent/byte-identical snapshot state. | PASS |
+| MAS-IT-004 | `tools/test_workflow_config.py:284` through `tools/test_workflow_config.py:290` assert no-Tasks `[[1]]`. | PASS |
+| MAS-IT-005 | `tools/test_workflow_config.py:293` through `tools/test_workflow_config.py:304` assert malformed closure failure and no snapshot. | PASS |
+| MAS-IT-006 | `tools/test_workflow_config.py:309` through `tools/test_workflow_config.py:325` assert byte-for-byte frozen resume. | PASS |
+| MAS-IT-007 | `tools/test_workflow_config.py:330` through `tools/test_workflow_config.py:347` assert refresh `[[1, 2]]` with unchanged schema/version. | PASS |
+| MAS-IT-008 | `tools/test_parallel_plan.py:101` through `tools/test_parallel_plan.py:122` directly compare validator and planner membership. | PASS |
+| MAS-IT-009 | `tools/shared/tests/workflow-config.test.ts:50` through `tools/shared/tests/workflow-config.test.ts:62` assert the published planning contract. | PASS |
+| MAS-IT-010 | `tools/test_parallel_plan.py:127` through `tools/test_parallel_plan.py:152` pass real resolver v2 output to planner and assert exact membership. | PASS |
+| MAS-IT-011 | `tools/test_parallel_plan.py:370` through `tools/test_parallel_plan.py:394` and `tools/test_parallel_executor.py:120` through `tools/test_parallel_executor.py:136` accept v2 and reject v1. | PASS |
+| MAS-IT-012 | `tools/test_qa_parallel_pilot.py:23` through `tools/test_qa_parallel_pilot.py:67` assert pilot v2 lifecycle; `tools/test_qa_parallel_pilot.py:168` through `tools/test_qa_parallel_pilot.py:187` reject v1 and stale Git head. | PASS |
 
-**Status**: 18/19 matched; 1 contract-row gap.
-
-## Prior Fingerprint Re-check
-
-| Fingerprint | Current evidence | Result |
-| --- | --- | --- |
-| Error identities (`1f53e6...`) | `tools/test_tlc_validators.py:143` now requires both offending slice `A` and exact lowercase `yes` for all four invalid decisions. | CLOSED BY EVIDENCE |
-| Refresh byte preservation (`4af4d6...`) | `tools/test_workflow_config.py:253` and `tools/test_workflow_config.py:278` assert unchanged bytes. | CLOSED BY EVIDENCE |
-| Remediation shapes (`bc169e...`) | `tools/test_tlc_validators.py:110` through `tools/test_tlc_validators.py:114` cover `T2R1` and `TDR1`. | CLOSED BY EVIDENCE |
-| Validator/planner equality (`c988fe...`) | `tools/test_parallel_plan.py:110` compares outputs from one document. | CLOSED BY EVIDENCE |
-| Non-positive assertions (`0ea676...`) | `tools/test_workflow_config.py:210` through `tools/test_workflow_config.py:225` reject `0` and `-1`. | CLOSED BY EVIDENCE |
-
-The immutable `1f53e6...` fingerprint had two failed remediation results before R2. This result passes,
-so no third-failure halt is triggered. The separately owned accounting file was not edited by this
-Verifier.
+**Status**: 19/19 matched. Count command: `rg -c '^\| MAS-(UT|IT)-[0-9]{3} \|' .specs/features/merge-alone-slices/validation.md`.
 
 ## Discrimination Sensor
 
-| Mutation | File:line | Description | Result |
+Sensor used detached temporary worktree `/tmp/mas-r3-sensor.GQo9yW/tree`; real-tree porcelain was empty before creation and after forced removal.
+
+| Mutation | File:line | Targeted command | Result |
 | --- | --- | --- | --- |
-| 1 | `.agents/skills/workflow-config/scripts/parallel_plan.py:46` | In detached scratch worktree, changed active workflow predicate `version != 2` to `version != 1`. | KILLED: `python3 tools/test_parallel_plan.py` exited 1 because v2 resolver/fixture snapshots were rejected. |
-| 2 | `.agents/skills/autonomous/scripts/parallel_execute.py:496` | In the same detached scratch, changed executor workflow predicate `version != 2` to `version != 1`. | KILLED: `python3 tools/test_parallel_executor.py` exited 1 because v2 workflow snapshots were rejected. |
+| Replace closure-owned `len(slice_ids)` with `tasks.md` `### Phase` count. | `.agents/skills/workflow-config/scripts/workflow_config.py:643` | `python3 -c 'import tools.test_workflow_config as t; t.test_initial_resolution_derives_one_slice_from_tasks()'` | KILLED: expected `[[1]]`, mutant derived 3 cohorts. |
+| Change planner active workflow predicate from v2 to v1. | `.agents/skills/workflow-config/scripts/parallel_plan.py:46` | `python3 tools/test_parallel_plan.py` | KILLED: suite exited 1. |
+| Change executor active workflow predicate from v2 to v1. | `.agents/skills/autonomous/scripts/parallel_execute.py:496` | `python3 tools/test_parallel_executor.py` | KILLED: suite exited 1 with `invalid workflow snapshot`. |
 
-**Sensor depth**: lightweight, two behavior mutations covering both changed consumer predicates.
-**Isolation**: scratch `/tmp/mas-qa1-verifier.zhPoT6` removed; pre-sensor and post-cleanup real-tree porcelain were identical and clean.
-**Result**: 2/2 killed; 0 survived.
-
-## Edge Cases
-
-- Exact `yes`: `tools/test_tlc_validators.py:140` through `tools/test_tlc_validators.py:144` reject `no`, empty, `Yes`, and `true`, naming slice `A`.
-- Duplicate closure IDs: `tools/test_tlc_validators.py:175` rejects duplicate `A`.
-- Zero/negative assertions: `tools/test_workflow_config.py:210` through `tools/test_workflow_config.py:225` reject both before write.
-- Frozen resume and refresh: `tools/test_workflow_config.py:309` through `tools/test_workflow_config.py:346` cover changed Tasks, byte preservation, re-derivation, and schema stability.
-- Version boundary: planner and executor reject v1 at `tools/test_parallel_plan.py:370` and `tools/test_parallel_executor.py:120`; pilot rejects v1 and a stale Git head at `tools/test_qa_parallel_pilot.py:168`.
+**Sensor depth**: lightweight, highest-risk closure/cohort and active-version boundaries.
+**Result**: 3/3 killed; 0 survived. Count command: `rg -c '^\| (Replace|Change) ' .specs/features/merge-alone-slices/validation.md`.
 
 ## Gate Check
 
-- `python3 tools/test_tlc_validators.py`: 17 passed, 0 failed, 0 skipped.
-- `python3 tools/test_workflow_config.py`: 54 passed, 0 failed, 0 skipped.
-- `python3 tools/test_parallel_plan.py`: 20 passed, 0 failed, 0 skipped.
-- `python3 tools/test_parallel_executor.py`: 46 passed, 0 failed, 0 skipped.
-- `python3 tools/test_qa_parallel_pilot.py`: 13 passed, 0 failed, 0 skipped.
-- `python3 scripts/test_adopt.py`: passed (`ok`).
-- `npm run test:all`: 383 passed (116 Bun + 267 Python), 0 failed, 0 skipped.
-- Prior recorded full-gate baseline at verified head `802aea9`: 380 passed; current delta: +3 tests.
-- `git diff --check`: passed.
-- Pre-sensor and post-sensor real-tree porcelain: identical and clean.
+| Gate | Command | Fresh result |
+| --- | --- | --- |
+| Actual feature contract | `python3 .agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/merge-alone-slices/tasks.md --slice-contract-json` | Exit 0; 5 primary tasks, 1 slice, 1 closure. |
+| Validator | `python3 tools/test_tlc_validators.py` | 17 passed, 0 failed. |
+| Resolver | `python3 tools/test_workflow_config.py` | 54 passed, 0 failed. |
+| Planner | `python3 tools/test_parallel_plan.py` | 20 passed, 0 failed. |
+| Executor | `python3 tools/test_parallel_executor.py` | 46 passed, 0 failed. |
+| QA pilot | `python3 tools/test_qa_parallel_pilot.py` | 13 passed, 0 failed. |
+| Adoption | `python3 scripts/test_adopt.py` | Exit 0, final `ok`. |
+| Full | `npm run test:all` | 383 passed: 116 Bun + 267 Python; 0 failed, 0 skipped. `expr 9 + 59 + 46 + 20 + 13 + 6 + 54 + 10 + 5 + 28 + 17` = 267; `expr 116 + 267` = 383. Bun count was emitted by `bun test`. |
 
-## Code Quality
+No test count decreased from the prior 380-check verified tree; `expr 383 - 380` = +3. No tests were weakened, removed, or skipped.
 
-| Principle | Status |
+## Schema and History Boundaries
+
+- Resolver emits active workflow v2 at `.agents/skills/workflow-config/scripts/workflow_config.py:834`.
+- Planner output remains plan schema v1 at `.agents/skills/workflow-config/scripts/parallel_plan.py:224`; executor runtime/result schemas remain v1 at `.agents/skills/autonomous/scripts/parallel_execute.py:82` and `.agents/skills/autonomous/scripts/parallel_execute.py:415`.
+- QA pilot workflow is v2 at `tools/qa_parallel_pilot.py:72`; its lifecycle/tombstone schemas remain v1 at `tools/qa_parallel_pilot.py:24` and `tools/qa_parallel_pilot.py:191`.
+- `git diff --exit-code 459ece2..HEAD -- '.specs/features/*/workflow.json'` exited 0. Historical v1 snapshots remain at `.specs/features/optional-design-tools/workflow.json:35`, `.specs/features/parallel-slice-dispatch/workflow.json:37`, and `.specs/features/security-skills/workflow.json:36`.
+
+## Code Quality and QA Impact
+
+| Check | Result |
 | --- | --- |
-| Minimum implementation and no new dependency | PASS |
-| Surgical feature scope and existing patterns | PASS |
-| Fail-before-write ordering and byte preservation | PASS |
-| Spec-anchored outcome assertions | FAIL: MAS-01's three-cohort input is absent. |
-| Per-layer contract coverage | FAIL: MAS-UT-001 exercises one cohort, not three. |
-| Every in-scope test is claimed | PASS |
-| Guidelines | PASS: `docs/guidelines/TEST-CONTRACT.md`, `docs/guidelines/REVIEW-ROUNDS.md`, `docs/guidelines/VERIFICATION-EVIDENCE.md`, and TLC `references/validate.md`. |
-
-## Protocol Boundary Check
-
-- Active workflow snapshots are v2: `.agents/skills/workflow-config/scripts/parallel_plan.py:46` and `.agents/skills/autonomous/scripts/parallel_execute.py:496` reject every other version.
-- Plan, runtime state, and executor result schemas remain v1 at `.agents/skills/workflow-config/scripts/parallel_plan.py:226`, `.agents/skills/autonomous/scripts/parallel_execute.py:86`, and `.agents/skills/autonomous/scripts/parallel_execute.py:417`.
-- Pilot lifecycle remains v1, asserted at `tools/test_qa_parallel_pilot.py:134`.
-- `git diff --exit-code 459ece2..100f963 -- '.specs/features/*/workflow.json'` passed: all tracked historical workflow snapshots are byte-unchanged.
-
-## Ranked Gaps
-
-1. MAS-01 / MAS-UT-001 — `tools/fixtures/tlc-validator/merge-alone-one-slice.md:17` contains one phase/cohort although the contract requires three. Add three technical cohorts around the same five primary tasks and keep the exact one-slice assertions. This must fail if phase/cohort count owns slice count.
+| Minimum code, surgical scope, no speculative compatibility | PASS |
+| Existing validator/resolver/planner/executor patterns preserved | PASS |
+| All tests map to ACs, test-contract rows, or existing lifecycle invariants | PASS |
+| Guidelines followed: `TEST-CONTRACT.md`, `VERIFICATION-EVIDENCE.md`, `GATES.md`, `REVIEW-ROUNDS.md`, `QA-SCENARIOS.md` | PASS |
+| QA impact | Public workflow behaviour changed; existing `CFG-plan-parallel-slice-dispatch` remains pending retest. Technical verification authorizes QA retest, not feature closure. |
 
 ## Summary
 
-**Overall**: FAIL — QA1's v2 consumer hard cut is verified, but the feature cannot close with the
-MAS-01/MAS-UT-001 discrimination gap.
+**Overall**: PASS — R3 verified; whole feature ready for QA retest.
 
-**Spec-anchored check**: 12/13 ACs matched; 1 gap.
-**Test contract**: 18/19 rows matched; 1 gap.
-**Sensor**: 2/2 killed; 0 survived.
-**Gate**: 383/383 passed; 0 failed; 0 skipped.
-
-QA1 is independently verified. Next workflow stage is remediation of MAS-01/MAS-UT-001 followed by
-fresh Technical Verification; QA Execute retest remains after a PASS.
-
-## R3 Implementation Check
-
-R3 replaces the one-cohort Praxis fixture with exactly three technical phase headings around the
-same five primary tasks and one closure. `tools/test_tlc_validators.py` now asserts the 3/5/1
-boundary, and the MAS-IT-001 resolver coverage consumes that fixture while still deriving one
-slice. This is implementation evidence only; the prior overall FAIL remains pending fresh
-independent Technical Verification.
+**Spec-anchored check**: 13/13 ACs matched; 0 precision gaps.
+**Test contract**: 19/19 rows matched.
+**Sensor**: 3/3 mutants killed.
+**Full gate**: 383 passed, 0 failed, 0 skipped.
+**Next step**: Fresh QA Execute retest for `CFG-plan-parallel-slice-dispatch`, then feature-closing QA decision.

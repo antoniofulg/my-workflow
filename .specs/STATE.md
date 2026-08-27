@@ -3,12 +3,12 @@
 ## Handoff
 
 - **Feature**: `.specs/features/merge-alone-slices`
-- **Phase / Task**: Execute / R3 complete
-- **Completed**: QA1 hard-cuts planner, executor, and pilot consumers to workflow snapshot v2 with v1 rejection and resolver-membership coverage. R3 updates the canonical fixture to three technical cohorts around five primary tasks and adds discriminating one-slice validator/resolver assertions; targeted gates pass. Fresh Technical Verification remains pending.
+- **Phase / Task**: Technical Verification / R3 PASS
+- **Completed**: Fresh Technical Verification matched all 13 acceptance criteria and 19 test-contract rows at `5dee2e2`; full gate passed 383 checks, and all three isolated mutants were killed, including the cohort-count regression. The whole feature is ready for QA retest.
 - **In-progress** (file:line): none.
-- **Next step**: Run fresh Technical Verification for MAS-01/MAS-UT-001, then QA retest before closure.
-- **Blockers**: Fresh independent verification is pending; `CFG-plan-parallel-slice-dispatch` remains pending QA retest.
-- **Uncommitted files**: none after the FAIL record commit.
+- **Next step**: Run fresh QA Execute retest for `CFG-plan-parallel-slice-dispatch`, then make the feature-closing QA decision.
+- **Blockers**: `CFG-plan-parallel-slice-dispatch` remains pending QA retest; no Technical Verification blockers remain.
+- **Uncommitted files**: none after the atomic Technical Verification commit.
 - **Branch**: `fix/merge-alone-slices`
 
 ## Decisions
