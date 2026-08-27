@@ -51,7 +51,9 @@ When automatic Orca is `unsupported`, an operator may explicitly authorize the m
 coordinate direct Orca worktrees. This path is supervised through the existing Orca CLI and is not a
 new executor verb or compatibility result. It must read the frozen
 `roles.implementer.provider/model/effort` and always launch an explicit command, never trust an
-unobservable default. The verified provider forms are `codex --model <model> -c
+unobservable default. Create the worktree with explicit base/setup, record the exact
+`startupTerminal.handle`, prove that it is one new unused shell with no agent/default task activity,
+then send `exec <validated-command>` to that same handle. The verified provider forms are `codex --model <model> -c
 'model_reasoning_effort="<effort>"'`, `claude --model <model> --effort <effort>`, and `cursor agent
 --model '<model>[effort=<effort>]'`; merge Cursor effort into an existing parameter block. Use the
 selected executable's `--help`/availability check, wait for `tui-idle`, then run
@@ -59,9 +61,9 @@ selected executable's `--help`/availability check, wait for `tui-idle`, then run
 the exact provider, model, and effort tuple. `screen-unavailable`, omitted provider, mismatch, or
 ambiguity stops and serializes before the prompt or task edit. An inexpressible or unavailable route
 stops setup without editing `tasks.md`. Always use the two-step
-`worktree create` plus `terminal create --command`, preserving startup policy. A fallback shell is
-closed only after `terminal list` or `terminal show` proves it is unused. Deliver the packet and
-later follow-ups with `terminal send` to that sole verified handle.
+`worktree create` plus startup-shell promotion, preserving startup policy. Never open a second
+terminal. Deliver the packet and later follow-ups with
+`terminal send` to that same exact verified handle. Any handle ambiguity serializes.
 
 The coordinator starts at most one worker per ready slice. Tasks inside each slice stay sequential.
 At the first unmet dependency, the worker leaves a clean checkpoint and writes this worktree
@@ -80,14 +82,13 @@ returns to serial recovery without automatic conflict resolution. Cleanup remove
 integrated, coordinator-owned worktrees after deterministic integration and proves zero owned
 residue. Before cleanup, immediately revalidate the immutable ownership receipt (repository, full
 worktree id, instance, path, gitdir, branch, and `pre_head`) separately from mutable `current_head`
-and the current sole/reacquired worker handle. Require exact Orca/Git identity, no symlink, clean/no
-operation, current branch tip equal to `current_head`, and slice-head ancestry. Do not require
-`current_head` or a reacquired handle to equal create-time values. Stop the exact current worker,
-recheck, remove only by full id, then safely delete the exact recorded branch with non-force
-`git branch --delete <branch>` when its integrated tip equals `current_head`; prove ref absence with
-`git show-ref --verify --quiet refs/heads/<branch>` failing. Prove Orca/Git/path/branch/terminal
-absence. Any mismatch or missing proof retains the path and serializes; cleanup never uses a name or
-branch selector.
+and the exact same startup/current worker handle. Require exact Orca/Git identity, no symlink,
+clean/no operation, current branch tip equal to `current_head`, and slice-head ancestry. Stop that
+exact handle, recheck, remove only by full id, then safely delete the exact recorded branch with
+non-force `git branch --delete <branch>` when its integrated tip equals `current_head`; prove ref
+absence with `git show-ref --verify --quiet refs/heads/<branch>` failing. Prove
+Orca/Git/path/branch/terminal absence. Any mismatch or missing proof retains the path and serializes;
+cleanup never uses a name or branch selector.
 Assisted execution never records a compatibility PASS, and the automatic adapter remains serial
 until its lifecycle canary passes.
 

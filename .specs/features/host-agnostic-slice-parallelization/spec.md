@@ -98,12 +98,12 @@ workers so that eligible slices overlap now without weakening any TLC or readine
 
 **Acceptance Criteria:**
 
-1. **AST-01:** IF the automatic Orca adapter is incompatible AND the human explicitly authorizes assisted execution THEN the coordinator MAY use Orca's direct two-step worktree plus explicit frozen provider/model/effort command only after a rendered `source=screen` tuple proof, while the automatic executor remains serial and records no compatibility PASS.
+1. **AST-01:** IF the automatic Orca adapter is incompatible AND the human explicitly authorizes assisted execution THEN the coordinator MAY use Orca's direct worktree plus startup-shell promotion and explicit frozen provider/model/effort command only after proving one unused startup handle and a rendered `source=screen` tuple, while the automatic executor remains serial and records no compatibility PASS.
 2. **AST-02:** WHEN a declared slice-start dependency reaches its required completed and verified state THEN the coordinator SHALL start at most one worker for that slice, and that worker SHALL execute only sequential tasks through the first unmet dependency.
 3. **AST-03:** WHEN the next task depends on an unavailable upstream task THEN the worker SHALL leave a clean committed checkpoint, report its slice, completed-through task, next task, exact dependency, and current HEAD in the Orca worktree comment, then end its turn without polling.
-4. **AST-04:** WHEN the declared upstream dependency completes THEN the coordinator SHALL synchronize the exact producer commit into the private dependent worktree, rerun the affected gate, and follow up the same worker terminal. A stale terminal handle SHALL be reacquired from that worktree instead of starting another worker.
+4. **AST-04:** WHEN the declared upstream dependency completes THEN the coordinator SHALL synchronize the exact producer commit into the private dependent worktree, rerun the affected gate, and follow up the same startup worker handle. A stale handle SHALL be refreshed only as that exact handle from the owned worktree; a different terminal SHALL serialize instead of starting another worker.
 5. **AST-05:** IF the checkpoint is dirty, missing, conflicting, fails its affected gate, or cannot be reconciled unambiguously THEN the coordinator SHALL stop that lane and continue through serial recovery without automatic conflict resolution.
-6. **AST-06:** WHEN verified slice commits are integrated in deterministic slice order THEN the coordinator SHALL stop each owned worker, remove only its clean integrated worktree, safely delete only its exact owned branch, and prove zero owned worktree, branch-ref, and terminal residue.
+6. **AST-06:** WHEN verified slice commits are integrated in deterministic slice order THEN the coordinator SHALL stop the exact startup worker handle, remove only its clean integrated worktree, safely delete only its exact owned branch, and prove zero owned worktree, branch-ref, and terminal residue.
 7. **AST-07:** Assisted overlap SHALL preserve one atomic commit and scoped gate per task, Technical Verifier per code-changing slice, frozen grouped deep-review cadence, final QA, and one full gate on the final tree.
 
 **Independent Test:** Run a disposable two-slice Orca pilot where slice B starts after an early slice
@@ -143,6 +143,8 @@ sync, and leaves zero owned worktree or terminal residue.
 - IF an assisted worker terminal handle becomes stale THEN the coordinator SHALL reacquire the sole handle from the owned worktree and SHALL NOT dual-send or launch a replacement worker.
 - IF an assisted worktree contains unintegrated or dirty changes THEN cleanup SHALL stop and report the exact retained path.
 - IF the rendered terminal screen is unavailable, omits the provider, mismatches the frozen provider/model/effort tuple, or is ambiguous THEN assisted execution SHALL serialize before prompt or task edits.
+- IF the startup terminal is not a new unused shell, has default/agent activity, or more than one owned handle exists THEN assisted execution SHALL serialize before `exec`, prompt, or task edits.
+- IF the exact startup handle cannot be kept continuously identified THEN assisted execution SHALL serialize and SHALL NOT create a second terminal.
 - IF the immutable ownership receipt mismatches Orca or Git, the current branch tip does not equal `current_head`, or the slice head is not integrated THEN cleanup SHALL stop before deletion.
 - IF the exact owned branch cannot be safely deleted after worktree removal or its ref absence cannot be proven THEN cleanup SHALL stop and retain the path.
 

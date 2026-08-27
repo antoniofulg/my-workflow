@@ -76,8 +76,11 @@ Approaches considered:
 - **Purpose:** Overlap eligible slices while automatic Orca orchestration is known incompatible.
 - **Location:** `.agents/skills/autonomous/references/parallelization.md`; executed by the main agent
   through Orca's direct worktree and terminal CLI.
-- **Ownership:** The coordinator launches one worker per slice, records checkpoints in the Orca
-  worktree comment, reacquires stale terminal handles from that worktree, and performs exact cleanup.
+- **Ownership:** The coordinator creates one explicit-base worktree per slice, records its immutable
+  receipt and exact startup terminal handle, proves that startup shell is new and unused, promotes
+  that shell with the frozen provider command, records checkpoints in the Orca worktree comment,
+  reacquires only that exact handle when stale, and performs exact cleanup. A second terminal or
+  ambiguous startup ownership serializes before prompt or task edits.
 - **Wait state:** `slice=<id>; state=parked; completed_through=<task>; next=<task>;
   blocked_on=<slice:task>; head=<sha>`. This is a human/agent handoff hypothesis, always reconciled
   against Git and `tasks.md`; no program accepts it as a machine lifecycle receipt.
@@ -114,6 +117,7 @@ Only `status=compatible` with `proof.cleanup=clean` is persisted or consumed by 
 | Canary partial failure | Attempt only exact owned cleanup; retain IDs if unproven. | Adapter remains blocked. |
 | Maestri machine contract incomplete | List missing capabilities. | Adapter remains blocked. |
 | Assisted checkpoint dirty or ambiguous | Park the worker and retain its exact worktree. | Serial recovery; no deletion or follow-up. |
+| Assisted startup shell active, duplicated, or unobservable | Do not promote it or send a task packet. | Serial recovery; retain only verified owned setup. |
 | Assisted terminal handle stale | Re-list the owned worktree's terminals and select its sole worker handle. | Resume the same worker; never duplicate it. |
 | Assisted sync conflict or affected gate failure | Abort lane continuation. | Serial recovery; no automatic resolution. |
 

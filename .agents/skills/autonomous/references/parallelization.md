@@ -99,25 +99,27 @@ effort all present and matching the frozen tuple. `screen-unavailable`, an omitt
 mismatch, or ambiguity stops and serializes before the prompt or any task edit; clean only verified
 owned setup resources. Do not edit `tasks.md`, start a task, or continue in parallel.
 
-Always create the worktree first, then launch the verified explicit command in its sole worker
-terminal. This two-step form preserves Orca startup policy and avoids trusting a default terminal:
+Create the worktree with an explicit base and setup policy. Promote the startup shell returned by
+that create operation; never create a second terminal for the worker:
 
 ```bash
-orca worktree create --name <slice> --no-parent --json
-orca terminal create --worktree id:<repo-id>::<worktree-path> \
-  --title <slice> \
-  --command '<verified-frozen-agent-command>' --json
-orca terminal wait --terminal <worker-handle> --for tui-idle --timeout-ms 60000 --json
-orca terminal read --terminal <worker-handle> --screen --json
-orca terminal send --terminal <worker-handle> --text "<slice task packet>" --enter --json
+orca worktree create --name <slice> --base-branch <base-branch> --setup inherit --json
+orca terminal show --terminal <startupTerminal.handle> --json
+orca terminal send --terminal <startupTerminal.handle> \
+  --text "exec <validated-frozen-agent-command>" --enter --json
+orca terminal wait --terminal <startupTerminal.handle> --for tui-idle --timeout-ms 60000 --json
+orca terminal read --terminal <startupTerminal.handle> --screen --json
+orca terminal send --terminal <startupTerminal.handle> --text "<slice task packet>" --enter --json
 ```
 
-Record an immutable ownership receipt before sending the packet: repository, complete worktree id,
-instance, absolute path, gitdir, branch, and `pre_head`. Record mutable `current_head` and the
-current sole worker handle separately; update them after commits, sync, and handle reacquisition.
-Use the complete worktree id from that receipt and one current worker handle from that worktree. If
-a bare worktree create opened a fallback shell, verify it is unused with `terminal list` or
-`terminal show` before closing it. Never create a second worker for the same slice.
+Record an immutable ownership receipt immediately from the create result: repository, complete
+worktree id, instance, absolute path, gitdir, branch, `pre_head`, and the exact
+`startupTerminal.handle`. Prove with `terminal show`/`list` that this handle is a new unused shell:
+it has no agent or default task activity, and exactly one coordinator-owned startup handle exists.
+Ambiguity, multiple owned handles, or any existing activity serializes and cleans only verified
+owned setup resources. Record mutable `current_head` and `current_handle` separately; the same
+startup handle remains the worker handle and is updated only after a commit, sync, or exact-handle
+reacquisition. Never open a second terminal or create a second worker for the same slice.
 
 The coordinator follows this lifecycle:
 
@@ -147,13 +149,13 @@ The coordinator follows this lifecycle:
    the immutable ownership receipt before cleanup. `orca worktree show`/`list` must still match the
    repository, complete worktree id, instance, absolute path, gitdir, and branch. Git must show the
    exact worktree/gitdir/path, no symlink, a clean state, and no merge/rebase/cherry-pick/revert in
-   progress. The mutable `current_head` must be current, the sole current worker handle must be
-   closed or exactly reacquired, the recorded branch tip must equal `current_head`, and
+   progress. The mutable `current_head` must be current, the sole `current_handle` must be the exact
+   startup handle and closed only for cleanup, the recorded branch tip must equal `current_head`, and
    `git merge-base --is-ancestor <slice-head> <integration-head>` must pass. Do not require
-   `current_head` to equal `pre_head` or a reacquired handle to equal the initial handle.
-6. Stop the exact current worker handle, recheck the immutable receipt, current head, recorded branch
-   tip, clean state, and no operation in progress. Remove only by the complete worktree id. If the
-   exact recorded branch still exists, delete only that branch with safe non-force
+   `current_head` to equal `pre_head`, but never substitute a different terminal handle.
+6. Stop the exact startup/current worker handle, recheck the immutable receipt, current head, recorded
+   branch tip, clean state, and no operation in progress. Remove only by the complete worktree id. If
+   the exact recorded branch still exists, delete only that branch with safe non-force
    `git branch --delete <branch>` after its tip equals `current_head` and is integrated, then prove
    the ref is absent with `git show-ref --verify --quiet refs/heads/<branch>` failing. Prove Orca,
    Git, path, branch ref, and terminal absence and zero owned residue. Any mismatch, missing

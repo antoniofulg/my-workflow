@@ -42,7 +42,7 @@ claims only technical contract coverage for AST-01 through AST-07 and SEC-008.
 | MAE-02 | Missing Maestri capabilities cause unsupported with no floor, agent, or Git effect. | `tools/test_maestri_adapter.py:17-27,77-113` asserts the exact missing list, serial fallback, and no worktree. | PASS |
 | MAE-03 | Complete capability names alone never authorize generic Git-worktree execution. | `tools/test_maestri_adapter.py:56-71,103-113` asserts `host-owned-execution-unimplemented`, forbids worktree creation, and asserts fallback. | PASS |
 | MAE-04 | Human-readable output is not accepted as a lifecycle receipt. | `tools/test_maestri_adapter.py:119-127` asserts malformed text remains unsupported with all capabilities missing. | PASS |
-| AST-01 | Assisted execution requires explicit authorization, writes no compatibility PASS, and leaves automatic execution unsupported. | `tools/shared/tests/autonomous-parallelization.test.ts:132-157` asserts authorization, no PASS, frozen provider tuple, explicit provider commands, screen proof, and pre-edit serialization. | PASS (contract only) |
+| AST-01 | Assisted execution requires explicit authorization, promotes one new unused startup shell with the frozen route, writes no compatibility PASS, and leaves automatic execution unsupported. | `tools/shared/tests/autonomous-parallelization.test.ts:132-157` asserts authorization, no PASS, frozen provider tuple, explicit provider commands, startup-shell proof, exact-handle `exec`, screen proof, and pre-edit serialization. | PASS (contract only) |
 | AST-02 | Start at most one worker per planner-ready slice and run sequentially to the first unmet dependency. | `tools/shared/tests/autonomous-parallelization.test.ts:159-160` asserts one-worker and sequential-stop outcomes. | PASS (contract only) |
 | AST-03 | Park with a clean committed checkpoint; exact comment includes slice, completed-through task, next task, upstream slice/task, and HEAD; end without polling. | `tools/shared/tests/autonomous-parallelization.test.ts:162-165` matches the complete two-line payload and asserts no polling. | PASS (contract only) |
 | AST-04 | Sync exact producer commit, rerun affected gate, follow up same terminal, and reacquire a stale handle without replacement. | `tools/shared/tests/autonomous-parallelization.test.ts:167-169` asserts each outcome. | PASS (contract only) |
@@ -81,6 +81,10 @@ pre-existing modified `review-fingerprints.json`, `spec.md`, and `validation.md`
 
 - **Focused command**: `npm_config_offline=true npm test -- --run tools/shared/tests/autonomous-parallelization.test.ts`
 - **Focused result**: PASS, 4 passed, 0 failed, 0 skipped.
+- **Current QA-bug remediation**: The focused contract suite was rerun after replacing the second-terminal
+  route with startup-shell promotion: 4 passed, 0 failed, 0 skipped. The full gate, live Orca canary,
+  and E2E pilot were intentionally not rerun in this remediation; E2E-001 and the external QA bug
+  remain pending fresh verification.
 - **Declared full command**: `npm_config_offline=true npm run test:all`
 - **Full result**: PASS, exit 0. Vitest: 112 passed, 0 failed, 0 skipped. All 13 Python test lanes exited 0 with zero failures; current Python suite contains 218 top-level `def test_` definitions.
 - **Structural validators**: `validate_spec.py` and `validate_tasks.py` each reported 0 errors and 0 warnings.

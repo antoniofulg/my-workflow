@@ -19,7 +19,7 @@
 | IT-002 | ORC-05 | Orca canary failure | Start, completion, release, or removal fails | No PASS cache; failed stage and retained IDs reported. |
 | IT-003 | HST-01–HST-04 | Executor preflight CLI | `preflight` with auto/orca/maestri, including disabled mode | One JSON result; disabled start/resume remains fail-closed while diagnostic preflight can inspect the host. |
 | IT-004 | MAE-01–MAE-04 | Maestri current contract | Recording current CLI manifest | `unsupported`; zero floor/recruit/Git effects. |
-| IT-005 | AST-01–AST-07 | Assisted coordinator contract | Automatic Orca unsupported with explicit assisted authorization | Direct coordinator-owned worker lifecycle; no compatibility PASS; unchanged TLC/review/QA stages. |
+| IT-005 | AST-01–AST-07 | Assisted coordinator contract | Automatic Orca unsupported with explicit assisted authorization | Explicit-base worktree promotes one new unused startup shell with the frozen route, uses the same handle, cleans exact owned resources, records no compatibility PASS, and preserves TLC/review/QA stages. |
 
 ## End-to-end
 
