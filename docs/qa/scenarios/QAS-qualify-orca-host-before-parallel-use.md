@@ -4,7 +4,7 @@ area: QAS
 title: Qualify Orca before parallel execution
 persona: Workflow operator
 journey: J-execute-parallel-slices
-expected: Read-only preflight rejects Orca 1.4.188 without effects, reuses only an identity-matched clean PASS, and allows a candidate runtime only after an explicit correlated canary proves worker completion and zero residue.
+expected: Read-only preflight rejects known-bad Orca without effects, reuses only an identity-matched clean PASS, and allows a candidate runtime only after an explicit correlated canary proves worker completion and zero residue.
 entry_points: .agents/skills/autonomous/scripts/parallel_execute.py preflight --adapter orca; .agents/skills/autonomous/scripts/parallel_execute.py preflight --adapter orca --canary; .agents/skills/autonomous/scripts/parallel_execute.py start --adapter orca
 qa_status: untested
 bug_ids:
@@ -13,7 +13,7 @@ retest_status:
 fix_commits:
 evidence: docs/qa/evidence/2026-08-26-host-adapter-compatibility/cli-results.json; docs/qa/evidence/2026-08-26-host-adapter-compatibility/residue-after-charter.json; docs/qa/evidence/2026-08-26-host-adapter-compatibility/session.md; docs/qa/evidence/2026-08-26-host-adapter-compatibility/retest-after-cd1886f/results.json; docs/qa/evidence/2026-08-26-host-adapter-compatibility/retest-after-cd1886f/session.md
 last_report: docs/qa/reports/2026-08-26-host-adapter-compatibility.md
-overlaps: CFG-fallback-unproven-parallel-execution; QAS-run-resource-free-parallel-orca-slices
+overlaps: CFG-fallback-unproven-parallel-execution; QAS-run-resource-free-parallel-orca-slices; QAS-coordinate-assisted-orca-slices
 ---
 
 Covers ORC-01 through ORC-07 and the user-observable diagnostics, redaction, cleanup proof, and
@@ -29,3 +29,9 @@ authorized candidate `--canary`; no positive compatibility claim was made.
 
 Fresh fix-loop QA at `cd1886f` re-passed the installed-runtime rejection and zero-effect checks.
 Candidate qualification remains honestly `untested`; no candidate version existed and no canary ran.
+
+The current QA packet records a later explicit candidate canary against Orca `1.4.190`: worker
+start failed at `dispatch_input` / `agent_prompt_stalled`, the live residual was cleaned, and the
+audit record was retained as `identity_unproven`. That result is not a compatibility PASS, so
+automatic execution remains unsupported. The next assisted-pilot session inspects this result
+read-only and does not rerun `preflight --canary`.

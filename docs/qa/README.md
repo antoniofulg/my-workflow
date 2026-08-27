@@ -25,7 +25,11 @@ No browser, API, or mobile surface exists in this repository.
   `parallel_execute.py preflight` command. The parallel-slice journey uses the installed Orca CLI
   only after readiness, `orchestration.contract.v1`, version compatibility, and an identity-matched
   clean lifecycle-canary receipt are proven; the disposable fixture and lifecycle oracle are owned by
-  [`tools/qa_parallel_pilot.py`](../../tools/qa_parallel_pilot.py). Deep Review publication recipes
+  [`tools/qa_parallel_pilot.py`](../../tools/qa_parallel_pilot.py). Explicitly authorized assisted
+  execution uses the same CLI/manual adapter through the direct worktree, terminal, checkpoint,
+  follow-up, and ownership-checked cleanup path in the
+  [parallelization contract](../../.agents/skills/autonomous/references/parallelization.md); it does
+  not make the automatic adapter compatible. Deep Review publication recipes
   use a checkout-local fake `gh` that logs arguments;
   [`tools/test_deep_review_contract.py`](../../tools/test_deep_review_contract.py) owns that
   no-network adapter.
@@ -49,7 +53,11 @@ No browser, API, or mobile surface exists in this repository.
   worker/worktree lifecycle. For parallel execution, use the setup, dry-run, public executor
   `start`/`status`/`resume`, lifecycle-check, and cleanup sequence in
   [the E2E-001 handoff](../../.specs/features/parallel-slice-executor/qa-pilot.md); do not replace a
-  serial fallback or incomplete lifecycle with a simulated success.
+  serial fallback or incomplete lifecycle with a simulated success. For an explicitly authorized
+  assisted pilot, follow the direct Orca sequence and exact ownership checks in the
+  [parallelization contract](../../.agents/skills/autonomous/references/parallelization.md), using
+  the frozen role tuple from that feature's `workflow.json`; do not route it through the automatic
+  executor or write a compatibility PASS.
 - Installed QA tooling discovered: Vitest is declared in [`package.json`](../../package.json) for
   structural checks; it is not a real-user runner. Python standard-library checks live in
   [`scripts/test_adopt.py`](../../scripts/test_adopt.py).
@@ -65,7 +73,10 @@ The workflow does not install a framework or invent commands when a runner is ab
   host preflight emits one structured result whose adapter, status, reason, missing capabilities,
   runtime identity, and proof agree with the installed host;
   the parallel pilot dry-run validates exactly two resource-free lanes, and its lifecycle-check
-  accepts only two correlated terminal read-before-ack-before-release receipts.
+  accepts only two correlated terminal read-before-ack-before-release receipts. Assisted-pilot
+  health is the exact frozen route rendered from `source=screen`, one worker per ready slice, an
+  exact parked checkpoint, affected-gate success after producer sync, same-terminal continuation,
+  deterministic integration, and independently proven worktree/path/branch-ref/terminal absence.
 - Environment and checkout isolation: each QA run uses a target directory owned by the active
   checkout; [`scripts/test_adopt.py`](../../scripts/test_adopt.py) demonstrates isolated temporary
   targets and cleanup.
@@ -88,10 +99,13 @@ The workflow does not install a framework or invent commands when a runner is ab
 - Raw evidence path: `docs/qa/evidence/` (disposable and ignored by this repository).
 - Durable reports and statuses: `docs/qa/`.
 - Known limitations or unreachable surfaces: installed Orca `1.4.188` is explicitly unsupported and
-  must not create a compatibility Run, Task, worker, or worktree. Current Maestri CLI capability
+  must not create a compatibility Run, Task, worker, or worktree. The packet-observed Orca `1.4.190`
+  candidate canary failed worker start at `dispatch_input` / `agent_prompt_stalled`; its live
+  residual was cleaned, its audit record remains `identity_unproven`, and automatic execution stays
+  unsupported. Current Maestri CLI capability
   claims remain unsupported because host-owned structured execution and machine floor cleanup are
   not implemented; preflight must not create a floor, recruit an agent, or invoke Git worktree
-  commands. A live Orca candidate canary is outside the 2026-08-26 QA cycle. Orca can prove two resource-free worktrees and worker
+  commands. No new automatic Orca canary is authorized by the assisted-pilot charter. Orca can prove two resource-free worktrees and worker
   lifecycles concurrently, but this repository has no product runtime, port allocator, database, or
   configured consumer resource provider. Resource-bearing lanes therefore must serialize here;
   each consuming product must separately adopt and QA its provider. No browser, API, mobile, auth,
