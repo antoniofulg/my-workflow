@@ -94,9 +94,9 @@ preserves two independently mergeable slices.
 | MAS-02 | P1: Independent outcomes derive two slices | Tasks | Verified |
 | MAS-03 | P1: Closure fields validate | Tasks | Verified |
 | MAS-04 | P1: Task membership validates | Tasks | Verified |
-| MAS-05 | P1: Optional count asserts derived value | Tasks | In Tasks |
-| MAS-06 | P1: Missing tasks defaults to one slice | Tasks | In Tasks |
-| MAS-07 | P1: Malformed tasks fail closed | Tasks | In Tasks |
+| MAS-05 | P1: Optional count asserts derived value | Tasks | Verified |
+| MAS-06 | P1: Missing tasks defaults to one slice | Tasks | Verified |
+| MAS-07 | P1: Malformed tasks fail closed | Tasks | Verified |
 | MAS-08 | P1: Resume preserves frozen snapshot | Tasks | In Tasks |
 | MAS-09 | P1: Template distinguishes planning units | Tasks | In Tasks |
 | MAS-10 | P1: Remediation does not inflate slices | Tasks | Verified |

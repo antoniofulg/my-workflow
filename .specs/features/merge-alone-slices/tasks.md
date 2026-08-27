@@ -110,15 +110,17 @@ assertion.
 
 **Done when**:
 
-- [ ] Praxis fixture derives one slice and the independent-capabilities fixture derives two.
-- [ ] No `tasks.md` derives one slice.
-- [ ] Present malformed Tasks stops before snapshot write.
-- [ ] Optional zero, negative, or mismatched `--slices` stops before snapshot write.
-- [ ] Resolver gate passes with at least 49 tests.
+- [x] Praxis fixture derives one slice and the independent-capabilities fixture derives two.
+- [x] No `tasks.md` derives one slice.
+- [x] Present malformed Tasks stops before snapshot write.
+- [x] Optional zero, negative, or mismatched `--slices` stops before snapshot write.
+- [x] Resolver gate passes with at least 49 tests.
 
 **Tests**: MAS-IT-001, MAS-IT-002, MAS-IT-003, MAS-IT-004, MAS-IT-005
 **Gate**: Resolver
 **Commit**: `fix(config): derive slice count from task outcomes`
+
+**Status**: complete — `python3 tools/test_workflow_config.py` (49 tests) passed.
 
 ### T3: Preserve Resume and Refresh Semantics
 
