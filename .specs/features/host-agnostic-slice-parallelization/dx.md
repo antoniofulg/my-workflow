@@ -83,9 +83,10 @@ bounded TUI materialization probe is not the dependency waiter: it performs no m
 not poll or spin on task state. An inexpressible or unavailable route stops setup without editing
 `tasks.md`. Always use the two-step
 `worktree create` plus startup-shell promotion, preserving startup policy. Never open a second
-terminal. Construct each complete `exec` or task-packet payload first, apply `shq(payload)` once to
+terminal. Construct each complete `exec` or task-pointer payload first, apply `shq(payload)` once to
 the complete value, and pass it as `--text <shq(payload)>`; never use literal outer double quotes.
-Deliver the packet and later follow-ups with `terminal send` to that same exact verified handle. Any failed ownership/new/unused/activity
+The packet body itself is written to a coordinator-owned file outside every slice worktree; only its
+pointer and later follow-ups go through `terminal send` to that same exact verified handle. Any failed ownership/new/unused/activity
 conjunction or handle ambiguity serializes before `exec` and prompt delivery.
 
 Before every logical packet, record the exact handle, unique turn ID/phase, `pre_head`, current task
