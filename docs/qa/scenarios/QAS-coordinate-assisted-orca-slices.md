@@ -17,7 +17,7 @@ overlaps: QAS-run-resource-free-parallel-orca-slices; QAS-clean-owned-parallel-s
 ---
 
 Covers E2E-001, AST-01 through AST-07, and the user-observable ownership and cleanup outcome of
-SEC-008. The canonical pilot uses the frozen implementer route `codex` / `gpt-5.6-luna` / `high`,
+SEC-008. The canonical pilot uses the frozen implementer route `codex` / `gpt-5.6-luna` / `low`,
 starts B only after `A:T1` completes and verifies, and parks it at the exact later dependency
 `B:T12 depends_on A:T7`.
 
