@@ -3,11 +3,11 @@
 ## Handoff
 
 - **Feature**: `.specs/features/host-agnostic-slice-parallelization`
-- **Phase / Task**: Execute / T5 - publish coordinator-assisted Orca fallback
-- **Completed**: T1, T2, T3, T4; prior Technical Verifier, grouped deep-review, QA, and validation PASS
+- **Phase / Task**: Halted / post-cap gate after final Deep Review remediation
+- **Completed**: T1–T5; Technical Verifier PASS; Deep Review rounds 1–2 complete; final blocker remediation committed at `a4d5e0c`; Orca `1.4.190` canary failed and exact live residue was cleaned
 - **In-progress** (file:line): none
-- **Next step**: Dispatch T5, then run a two-slice assisted Orca pilot and repeat affected review and QA stages.
-- **Blockers**: Automatic Orca orchestration remains incompatible on `1.4.188`; the explicitly authorized coordinator-assisted path does not enable the automatic adapter.
+- **Next step**: Start a fresh run after machine contention changes, run the full gate once, then continue with E2E-001 only if it passes.
+- **Blockers**: `stall_attempts=3` reached after three full-gate attempts timed out in `tools/knowledge/tests/check.test.ts` without a strict-subset failure set. Automatic Orca orchestration also remains incompatible: `1.4.190` failed `worker-start` with `agent_prompt_stalled`.
 - **Uncommitted files**: none.
 - **Branch**: `feat/host-agnostic-slice-parallelization`
 
