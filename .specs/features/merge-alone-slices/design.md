@@ -21,9 +21,11 @@ flowchart LR
     T[tasks.md] --> V[validate_tasks.py]
     V --> C[validated closure JSON]
     C --> W[workflow_config.py]
-    C --> P[task Slice fields already read by parallel_plan.py]
+    C --> P[parallel_plan.py with workflow snapshot v2]
     W --> S[workflow.json deep-review groups]
     P --> L[parallel lanes]
+    S --> P
+    S --> E[parallel_execute.py with workflow snapshot v2]
 ```
 
 Normal resume returns the valid snapshot before opening `tasks.md`. Initial resolution and explicit
@@ -36,6 +38,7 @@ the existing balanced-group and atomic snapshot writer.
 | --- | --- | --- |
 | Existing task field parser | `.agents/skills/tlc-spec-driven/scripts/validate_tasks.py` | Add `Slice` to the existing per-task field extraction. |
 | Existing task slice parser | `.agents/skills/workflow-config/scripts/parallel_plan.py` | Keep reading `**Slice:**`; prove the closure table is ignored. |
+| Existing parallel executor | `.agents/skills/workflow-config/scripts/parallel_execute.py` | Consume the same active workflow snapshot version as the resolver and planner. |
 | Existing balanced cadence | `.agents/skills/workflow-config/scripts/workflow_config.py` | Feed it the validated derived count. |
 | Existing atomic snapshot path | `.agents/skills/workflow-config/scripts/workflow_config.py` | Preserve resume and replacement semantics. |
 | Existing Markdown fixtures | `tools/fixtures/tlc-validator/` | Add positive and negative closure contracts. |
@@ -91,7 +94,7 @@ the existing balanced-group and atomic snapshot writer.
 | --- | --- | --- | --- |
 | Existing feature task files predate the closure table | `.specs/features/*/tasks.md` | Revalidating or refreshing an old feature can fail | Intentional hard cut; normal resume remains snapshot-owned, and new/updated plans use the template. |
 | Two downstream task readers exist | TLC validator and `parallel_plan.py` | Membership could drift | Keep the existing `**Slice:**` field as their shared input and add a no-regression planner test. |
-| Snapshot versions 1 and 2 coexist | workflow-config and parallel executor | Unrelated parallel features can already reject snapshots | Keep snapshot schema unchanged; file separate work if this incompatibility must be resolved. |
+| Historical version-1 snapshots remain tracked | `.specs/features/*/workflow.json` | Bulk rewriting would alter historical feature evidence | Keep historical files byte-for-byte; active consumers reject v1 and accept the resolver's v2 output. |
 | Markdown table parsing is exact | validator | Helpful formatting variants may fail | Publish one canonical header and exact `yes`; errors name the field instead of guessing. |
 
 ## Tech Decisions
@@ -103,3 +106,4 @@ the existing balanced-group and atomic snapshot writer.
 | Resume | Snapshot first, no task read | Preserves frozen routing and AC 6 from issue #71. |
 | Optional manual count | Assertion on initial/refresh only | Detects expectation mismatch without restoring manual ownership. |
 | Remediation records | Excluded from primary count | Review work is not a new mergeable product outcome. |
+| Active workflow snapshot | Hard cut to version 2 | The resolver already emits v2; accepting v1 would restore compatibility explicitly rejected by AD-014. |

@@ -25,6 +25,9 @@
 | MAS-IT-007 | Re-derives explicit refresh | Same changed tasks followed by refresh | Refreshed groups cover slices `1` and `2` |
 | MAS-IT-008 | Keeps downstream task membership aligned | Validated task contract passed to parallel planning | Parallel slice membership equals validator membership |
 | MAS-IT-009 | Publishes the task-planning contract | Adopted TLC template and workflow-config skill | Template distinguishes slice/phase/batch and resolver docs omit manual count ownership |
+| MAS-IT-010 | Connects resolver output to parallel planning | Real resolver version-2 output passed to the planner | Planner preserves the resolver's task and slice membership |
+| MAS-IT-011 | Enforces the active workflow snapshot version | Planner and executor receive version-2 and version-1 fixtures | Both accept version 2 and reject version 1 |
+| MAS-IT-012 | Keeps the parallel QA pilot current | QA pilot creates and consumes its workflow snapshot | Pilot uses version 2 and completes its existing lifecycle |
 
 ## End-to-end
 

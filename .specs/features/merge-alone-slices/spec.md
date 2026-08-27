@@ -20,7 +20,6 @@ review cadence, and adds verification cost even when only the final combined sta
 | Inferring product value from task names or file paths | Product value remains a Planner decision materialized in the closure table. |
 | Prohibiting incremental migrations | An intermediate state remains a valid slice when it has independent value and would ship alone. |
 | Re-resolving existing snapshots during resume | Frozen workflow state remains authoritative until explicit refresh. |
-| Changing parallel-executor snapshot protocol versions | The existing version mismatch is independent of slice derivation. |
 
 ## Assumptions & Open Questions
 
@@ -31,6 +30,7 @@ review cadence, and adds verification cost even when only the final combined sta
 | Optional `--slices` during normal resume | Ignore for derivation; return the frozen snapshot | Resume must not read changed tasks or re-resolve cadence. | yes — acceptance criterion 6 |
 | Optional `--slices` during initial resolution or refresh | Exact assertion against derived count | It can catch an operator expectation mismatch without owning the count. | yes — acceptance criterion 4 |
 | Missing `tasks.md` | Exactly one slice | Tasks was auto-sized away, so no multi-slice plan exists to derive. | yes — acceptance criterion 5 |
+| Active workflow snapshot version | Version 2 only; reject version 1 | Workflow resolution already writes version 2, and the prior routing decision removed fallback compatibility. Historical snapshots remain evidence and are not rewritten. | yes — AD-014 |
 
 **Open questions:** none — all resolved by issue #71 and existing snapshot semantics.
 
@@ -72,10 +72,13 @@ implementation begins.
 9. WHEN the task template describes planning units THEN it SHALL distinguish a vertical slice as a merge-alone outcome, a phase or cohort as technical ordering, and a batch as worker capacity.
 10. WHEN review remediation records such as `T2R1` appear in a task document THEN validation SHALL keep them outside the primary task slice count.
 11. WHEN the validated closure contract feeds downstream planning THEN workflow configuration and parallel planning SHALL use the same primary-task membership and slice IDs.
+12. WHEN workflow configuration writes a version-2 snapshot THEN the parallel planner and executor SHALL accept it while preserving feature, mode, and Git-head validation.
+13. IF an active parallel planner or executor receives a version-1 workflow snapshot THEN it SHALL reject it without fallback or migration.
 
 **Independent Test**: Run the Praxis/Bun regression fixture through task validation and workflow
 resolution; it produces one slice and a one-slice review plan. Run the two-capability fixture; it
-preserves two independently mergeable slices.
+preserves two independently mergeable slices. Feed the resulting version-2 snapshot to the parallel
+planner and executor; both accept it, while a version-1 fixture is rejected.
 
 ## Edge Cases
 
@@ -85,6 +88,8 @@ preserves two independently mergeable slices.
 - IF `--slices` is zero or negative THEN resolution SHALL reject it as an invalid assertion.
 - WHEN tasks change after a snapshot is frozen THEN normal resume SHALL keep the prior snapshot and
   explicit refresh SHALL validate and derive the new closure contract.
+- IF a parallel consumer receives a version-1 workflow snapshot THEN it SHALL fail instead of
+  silently interpreting or upgrading it.
 
 ## Requirement Traceability
 
@@ -101,8 +106,10 @@ preserves two independently mergeable slices.
 | MAS-09 | P1: Template distinguishes planning units | DR1 | Verified |
 | MAS-10 | P1: Remediation does not inflate slices | DR2 | Verified |
 | MAS-11 | P1: Downstream planners share membership | DR2 | Verified |
+| MAS-12 | P1: Parallel consumers accept workflow snapshot v2 | QA1 | Pending |
+| MAS-13 | P1: Parallel consumers reject workflow snapshot v1 | QA1 | Pending |
 
-**Coverage:** 11 total, 11 mapped to tasks, 0 unmapped.
+**Coverage:** 13 total, 13 mapped to tasks, 0 unmapped.
 
 ## Success Criteria
 
@@ -111,3 +118,4 @@ preserves two independently mergeable slices.
 - [x] Invalid closure contracts and count mismatches fail before snapshot replacement.
 - [x] Resume and no-Tasks behaviour preserve their declared semantics.
 - [x] All repository gates pass without adding dependencies or compatibility parsers.
+- [ ] Parallel planning and execution consume the resolver's version-2 snapshot and reject version 1.

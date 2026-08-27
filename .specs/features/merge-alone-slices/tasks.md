@@ -316,12 +316,40 @@ heading without its required colon, even when later valid tasks remain.
 - Commit: `fix(tlc): reject malformed and leaking task headings`
 - Status: complete — targeted and full gates passed; ready for final QA.
 
+### QA1: Consume the Active Workflow Snapshot Version
+
+- What: Hard-cut the parallel planner, executor, and QA pilot fixtures to workflow snapshot version
+  2; reject version 1 without rewriting historical snapshots or changing unrelated plan/runtime
+  schema versions.
+- Where: `.agents/skills/workflow-config/scripts/parallel_plan.py`,
+  `.agents/skills/workflow-config/scripts/parallel_execute.py`, parallel planner/executor/pilot tests,
+  and the parallelization reference.
+- Slice: A
+- Depends on: DR2
+- Reuses: The resolver's version-2 snapshot, existing feature/mode/Git-head validation, and current
+  parallel test fixtures.
+- Requirements: MAS-12, MAS-13
+
+Done when:
+
+- [ ] Planner and executor accept workflow snapshot version 2 and preserve existing identity checks.
+- [ ] Planner and executor reject workflow snapshot version 1 without compatibility parsing.
+- [ ] Real resolver output feeds the planner with unchanged task and slice membership.
+- [ ] The parallel QA pilot uses version 2 and completes its existing lifecycle.
+- [ ] Historical snapshots and unrelated plan/runtime/result schema versions remain unchanged.
+- [ ] Targeted, adoption, and full gates pass.
+
+- Tests: MAS-IT-010..012 in canonical planner, executor, and pilot suites.
+- Gate: Targeted parallel suites, workflow resolver, adoption, and full `npm run test:all`.
+- Commit: `fix(parallel): accept current workflow snapshot v2`
+- Status: in progress — QA exposed the resolver/consumer mismatch.
+
 ## Phase Execution Map
 
 ```text
 Phase 1 → Phase 2 → Phase 3
 
-T1 → T2 → T3 → T4 → T5 → R1 → R2 → DR1 → DR2
+T1 → T2 → T3 → T4 → T5 → R1 → R2 → DR1 → DR2 → QA1
 ```
 
 ## Task Granularity Check
@@ -337,6 +365,7 @@ T1 → T2 → T3 → T4 → T5 → R1 → R2 → DR1 → DR2
 | R2 | One exact error-identity assertion | Pass |
 | DR1 | One canonical task-syntax contract | Pass |
 | DR2 | One remediation/heading-boundary contract | Pass |
+| QA1 | One active workflow-snapshot protocol | Pass |
 
 ## Diagram-Definition Cross-Check
 
@@ -351,6 +380,7 @@ T1 → T2 → T3 → T4 → T5 → R1 → R2 → DR1 → DR2
 | R2 | R1 | R1 → R2 | Pass |
 | DR1 | R2 | R2 → DR1 | Pass |
 | DR2 | DR1 | DR1 → DR2 | Pass |
+| QA1 | DR2 | DR2 → QA1 | Pass |
 
 ## Test Co-location Validation
 
@@ -365,3 +395,4 @@ T1 → T2 → T3 → T4 → T5 → R1 → R2 → DR1 → DR2
 | R2 | TLC validator error contract | unit | Strengthened MAS-UT-004 | Pass |
 | DR1 | Validator/template/planner contract | unit + structural | Strengthened MAS-03/MAS-09/MAS-11 | Pass |
 | DR2 | Validator heading-boundary contract | unit | Strengthened MAS-03/MAS-10/MAS-11 | Pass |
+| QA1 | Parallel workflow snapshot consumers | integration + lifecycle | MAS-IT-010..012 | Pass |

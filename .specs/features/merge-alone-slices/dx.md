@@ -24,6 +24,8 @@ python3 .agents/skills/workflow-config/scripts/workflow_config.py \
   `--slices`.
 - **Refresh**: validates current tasks and derives the count again before atomically replacing the
   snapshot.
+- **Parallel consumers**: planner and executor accept the resolver's workflow snapshot version 2;
+  version 1 is rejected without fallback or migration.
 
 ### Task validation contract output
 
