@@ -114,7 +114,20 @@ class TLCValidatorTests(unittest.TestCase):
 
     def test_validates_the_praxis_contract_as_one_slice(self) -> None:
         path = FIXTURES / "merge-alone-one-slice.md"
+        source = path.read_text(encoding="utf-8")
         contract = validate_tasks.validated_slice_contract(str(path))
+        cohorts = [
+            line
+            for line in source.splitlines()
+            if line.startswith("### Phase ")
+        ]
+        primary_tasks = [
+            line
+            for line in source.splitlines()
+            if validate_tasks.TASK_RE.match(line)
+        ]
+        self.assertEqual(len(cohorts), 3)
+        self.assertEqual(len(primary_tasks), 5)
         self.assertEqual(contract["slice_ids"], ["A"])
         self.assertEqual(len(contract["task_slices"]), 5)
         self.assertEqual(set(contract["task_slices"].values()), {"A"})

@@ -17,7 +17,19 @@
 ### Phase 1: Foundation
 
 ```text
-T1 -> T2 -> T3 -> T4 -> T5
+T1 -> T2
+```
+
+### Phase 2: Implementation
+
+```text
+T3 -> T4
+```
+
+### Phase 3: Release
+
+```text
+T5
 ```
 
 ## Vertical Slice Closure

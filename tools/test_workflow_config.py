@@ -174,7 +174,8 @@ def test_defaults_and_native_routing() -> None:
 def test_initial_resolution_derives_one_slice_from_tasks() -> None:
     root = make_repo()
     try:
-        write_tasks(root, task_contract(task_row("T1", "A")))
+        fixture = ROOT / "tools/fixtures/tlc-validator/merge-alone-one-slice.md"
+        write_tasks(root, fixture.read_text(encoding="utf-8"))
         snapshot = workflow_config.resolve(root=root, feature="fixture", native_provider="codex")
         assert snapshot["deep_review"]["groups"] == [[1]]
     finally:

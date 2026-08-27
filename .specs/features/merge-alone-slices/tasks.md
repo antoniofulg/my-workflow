@@ -357,15 +357,16 @@ Done when:
 
 Done when:
 
-- [ ] The fixture contains exactly three technical phase/cohort headings and five primary tasks.
-- [ ] All five tasks still belong to one closure and resolver cadence remains exactly one slice.
-- [ ] A regression deriving count from cohorts fails the canonical suite.
-- [ ] Targeted and full gates pass before fresh independent verification.
+- [x] The fixture contains exactly three technical phase/cohort headings and five primary tasks.
+- [x] All five tasks still belong to one closure and resolver cadence remains exactly one slice.
+- [x] A regression deriving count from cohorts fails the canonical suite.
+- [x] Targeted and full gates pass before fresh independent verification.
 
 - Tests: Strengthen MAS-UT-001 and reuse MAS-IT-001.
 - Gate: Validator, resolver, planner, and full `npm run test:all`.
 - Commit: `test(workflow): cover multi-cohort single slice`
-- Status: pending — fresh verification exposed the missing discriminating input.
+- Status: complete — the canonical fixture and validator/resolver assertions now discriminate three
+  technical cohorts from one merge-alone slice; fresh independent verification remains pending.
 
 ## Phase Execution Map
 

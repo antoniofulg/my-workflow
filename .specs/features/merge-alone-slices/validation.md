@@ -153,3 +153,11 @@ MAS-01/MAS-UT-001 discrimination gap.
 
 QA1 is independently verified. Next workflow stage is remediation of MAS-01/MAS-UT-001 followed by
 fresh Technical Verification; QA Execute retest remains after a PASS.
+
+## R3 Implementation Check
+
+R3 replaces the one-cohort Praxis fixture with exactly three technical phase headings around the
+same five primary tasks and one closure. `tools/test_tlc_validators.py` now asserts the 3/5/1
+boundary, and the MAS-IT-001 resolver coverage consumes that fixture while still deriving one
+slice. This is implementation evidence only; the prior overall FAIL remains pending fresh
+independent Technical Verification.

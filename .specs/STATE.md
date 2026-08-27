@@ -3,11 +3,11 @@
 ## Handoff
 
 - **Feature**: `.specs/features/merge-alone-slices`
-- **Phase / Task**: Execute / QA1 independently verified
-- **Completed**: QA1 hard-cuts planner, executor, and pilot consumers to workflow snapshot v2 with v1 rejection and resolver-membership coverage. Fresh Technical Verification passed MAS-12/13, every targeted lane, the full gate, and both version-predicate mutations, but the overall verdict is FAIL because MAS-UT-001 does not exercise its contracted three-cohort input.
+- **Phase / Task**: Execute / R3 complete
+- **Completed**: QA1 hard-cuts planner, executor, and pilot consumers to workflow snapshot v2 with v1 rejection and resolver-membership coverage. R3 updates the canonical fixture to three technical cohorts around five primary tasks and adds discriminating one-slice validator/resolver assertions; targeted gates pass. Fresh Technical Verification remains pending.
 - **In-progress** (file:line): none.
-- **Next step**: Remediate MAS-01/MAS-UT-001 with a five-task, three-cohort, one-closure regression fixture, then run fresh Technical Verification before QA retest.
-- **Blockers**: MAS-01/MAS-UT-001 lacks discriminating three-cohort coverage; `CFG-plan-parallel-slice-dispatch` remains pending QA retest.
+- **Next step**: Run fresh Technical Verification for MAS-01/MAS-UT-001, then QA retest before closure.
+- **Blockers**: Fresh independent verification is pending; `CFG-plan-parallel-slice-dispatch` remains pending QA retest.
 - **Uncommitted files**: none after the FAIL record commit.
 - **Branch**: `fix/merge-alone-slices`
 
