@@ -37,7 +37,9 @@ import re
 import sys
 
 REQUIRED_SECTIONS = ["Test Coverage Matrix", "Gate Check Commands", "Execution Plan", "Task Breakdown"]
-TASK_RE = re.compile(r"^#{2,4}\s+(T\d+)\s*:", re.IGNORECASE)
+TASK_RE = re.compile(r"^###\s+(T\d+)\s*:")
+NESTED_TASK_RE = re.compile(r"^####\s+(T\d+)\s*:")
+TASK_HEADING_RE = re.compile(r"^#{2,6}\s+([Tt]\d+)\s*:")
 EDGE_RE = re.compile(r"\bT\d+\b")
 FILE_HINT_RE = re.compile(r"[\w./-]+\.\w{1,6}\b")
 SLICE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
@@ -102,6 +104,7 @@ def parse_tasks(lines):
                 "gate": None,
                 "where": "",
                 "slice_values": [],
+                "invalid_slice_fields": [],
             }
             continue
         if current is None:
@@ -122,10 +125,36 @@ def parse_tasks(lines):
         gm = re.match(r"^\*{0,2}Gate\*{0,2}\s*:\s*(.*)$", stripped, re.IGNORECASE)
         if gm:
             tasks[current]["gate"] = gm.group(1).strip()
-        sm = re.match(r"^\*{0,2}Slice\*{0,2}\s*:\s*(?:\*{0,2})?(.*)$", stripped, re.IGNORECASE)
+        sm = re.match(r"^\*\*Slice:\*\*\s*(.*?)\s*$", stripped)
         if sm:
             tasks[current]["slice_values"].append(sm.group(1).strip())
+        elif re.match(r"^\*{0,2}Slice\*{0,2}\s*:", stripped, re.IGNORECASE):
+            tasks[current]["invalid_slice_fields"].append(stripped)
     return tasks
+
+
+def _task_breakdown_syntax_errors(lines):
+    """Reject primary task headings that the downstream planner cannot consume."""
+    start_indexes = [
+        index
+        for index, line in enumerate(lines)
+        if re.match(r"^##\s+Task Breakdown\s*$", line.strip())
+    ]
+    if not start_indexes:
+        return []
+    errors = []
+    start = start_indexes[0] + 1
+    for line in lines[start:]:
+        stripped = line.strip()
+        heading = TASK_HEADING_RE.match(stripped)
+        if heading and not TASK_RE.match(stripped):
+            task_id = heading.group(1).upper()
+            errors.append(
+                f"{task_id}: primary task heading must be exactly `### T<number>:` in Task Breakdown"
+            )
+        if re.match(r"^##\s+", stripped):
+            break
+    return errors
 
 
 def _table_cells(line):
@@ -170,12 +199,13 @@ def _parse_closure_table(lines):
             errors.append("Vertical Slice Closure row must contain five cells")
             continue
         slice_id, outcome, gate, merge_alone, why = cells
+        normalized_gate = gate.strip("`").strip()
         label = slice_id or "<empty>"
         if not slice_id or not SLICE_ID_RE.fullmatch(slice_id):
             errors.append(f"Vertical Slice Closure slice {label!r} must be a non-empty identifier")
         if not outcome:
             errors.append(f"Vertical Slice Closure slice {label!r} has an empty observable outcome")
-        if not gate:
+        if not normalized_gate:
             errors.append(f"Vertical Slice Closure slice {label!r} has an empty independent gate")
         if merge_alone != "yes":
             errors.append(f"Vertical Slice Closure slice {label!r} requires exact lowercase yes")
@@ -185,7 +215,7 @@ def _parse_closure_table(lines):
             {
                 "slice_id": slice_id,
                 "outcome": outcome,
-                "gate": gate.strip("`").strip(),
+                "gate": normalized_gate,
                 "merge_alone": merge_alone == "yes",
                 "why": why,
             }
@@ -202,7 +232,7 @@ def _parse_closure_table(lines):
 
 
 def _slice_contract(lines, tasks):
-    errors = []
+    errors = _task_breakdown_syntax_errors(lines)
     task_slices = {}
     seen_tasks = set()
     for line in lines:
@@ -216,6 +246,8 @@ def _slice_contract(lines, tasks):
 
     for task_id, task in tasks.items():
         values = task["slice_values"]
+        if task["invalid_slice_fields"]:
+            errors.append(f"{task_id}: Slice field must use exactly `**Slice:**`")
         if not values:
             errors.append(f"{task_id}: exactly one non-empty Slice field is required")
             continue
@@ -262,6 +294,9 @@ def validated_slice_contract(tasks_path):
         lines = f.read().splitlines()
     tasks = parse_tasks(lines)
     if not tasks:
+        syntax_errors = _task_breakdown_syntax_errors(lines)
+        if syntax_errors:
+            raise ValueError("; ".join(syntax_errors))
         raise ValueError("no primary tasks found")
     contract, errors = _slice_contract(lines, tasks)
     if errors:
@@ -293,7 +328,7 @@ def parse_phase_membership(lines):
 
         heading = re.match(r"^(#{2,6})\s+\S", ln.strip())
         if heading:
-            hm = TASK_RE.match(ln.strip())
+            hm = TASK_RE.match(ln.strip()) or NESTED_TASK_RE.match(ln.strip())
             if hm:
                 nested_membership[hm.group(1).upper()] = phase_idx
                 continue
@@ -354,6 +389,7 @@ def check(tasks_path):
 
     tasks = parse_tasks(lines)
     if not tasks:
+        errors.extend(_task_breakdown_syntax_errors(lines))
         warnings.append("no tasks (### T1: ...) parsed - is this file filled in?")
         return errors, warnings
 

@@ -60,6 +60,16 @@ describe("workflow configuration skill", () => {
     expect(normalizedReadme).not.toContain("--feature register-user-native --slices 4");
     expect(normalizedReadme).not.toContain("--feature register-user-profile --slices 4");
     expect(normalizedReadme).not.toContain("--feature register-user-override --slices 4");
+
+    const taskBreakdown = template.slice(template.indexOf("## Task Breakdown"));
+    const taskExamples = [...taskBreakdown.matchAll(/^### (T\d+):/gm)];
+    expect(taskExamples.map(([_, taskId]) => taskId)).toEqual(["T1", "T2", "T3", "T4"]);
+    taskExamples.forEach((match, index) => {
+      const start = match.index ?? 0;
+      const end = taskExamples[index + 1]?.index ?? taskBreakdown.length;
+      const body = taskBreakdown.slice(start, end);
+      expect(body.match(/^\*\*Slice:\*\* \[id\]$/gm) ?? []).toHaveLength(1);
+    });
   });
 
   it("identifies a complete agent definition for every supported role and provider", () => {

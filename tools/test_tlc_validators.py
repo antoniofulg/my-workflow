@@ -59,10 +59,26 @@ class TLCValidatorTests(unittest.TestCase):
 
 
     def test_nested_phase_definitions_keep_each_task_in_its_phase(self) -> None:
-        self.assertEqual(
-            validate_tasks.parse_phase_membership(lines("nested-phase-tasks.md")),
-            {"T1": 1, "T2": 2},
+        path = FIXTURES / "nested-phase-tasks.md"
+        self.assertEqual(validate_tasks.parse_phase_membership(lines(path.name)), {"T1": 1, "T2": 2})
+        contract = validate_tasks.validated_slice_contract(str(path))
+        self.assertEqual(contract["task_slices"], {"T1": "A", "T2": "A"})
+        self.assertEqual(validate_tasks.check(str(path))[0], [])
+
+
+    def test_rejects_task_syntax_not_consumed_by_planner(self) -> None:
+        source = (FIXTURES / "merge-alone-one-slice.md").read_text(encoding="utf-8")
+        cases = (
+            ("### T1: Discovery", "## T1: Discovery", "T1: primary task heading must be exactly"),
+            ("### T1: Discovery", "#### T1: Discovery", "T1: primary task heading must be exactly"),
+            ("### T1: Discovery", "### t1: Discovery", "T1: primary task heading must be exactly"),
+            ("**Slice:** A", "Slice: A", "T1: Slice field must use exactly"),
         )
+        for original, replacement, expected in cases:
+            with self.subTest(replacement=replacement):
+                path = self._temporary_tasks(source.replace(original, replacement, 1))
+                with self.assertRaisesRegex(ValueError, expected):
+                    validate_tasks.validated_slice_contract(str(path))
 
 
     def test_execution_plan_diagrams_map_later_task_definitions_to_their_phase(self) -> None:
@@ -123,6 +139,10 @@ class TLCValidatorTests(unittest.TestCase):
             ),
             (
                 "| A | The complete migration is usable. |  | yes | It is the requested deliverable. |",
+                "slice 'A' has an empty independent gate",
+            ),
+            (
+                "| A | The complete migration is usable. | ` ` | yes | It is the requested deliverable. |",
                 "slice 'A' has an empty independent gate",
             ),
             (

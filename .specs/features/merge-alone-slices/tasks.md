@@ -7,7 +7,7 @@ gate, updates this file, and creates one atomic Conventional Commit. The Impleme
 single batch; a fresh Verifier closes the feature.
 
 **Design**: `.specs/features/merge-alone-slices/design.md`
-**Status**: Done
+**Status**: In Progress — awaiting final Deep Review
 
 ## Vertical Slice Closure
 
@@ -264,12 +264,40 @@ lowercase `yes` contract.
 - Commit: `test(tlc): pin merge-alone error identity`
 - Status: complete — `python3 tools/test_tlc_validators.py` passed with 16 tests and no skips.
 
+### DR1: Align Canonical Slice Task Syntax
+
+**What**: Make validated primary-task headings and Slice fields match the planner's canonical
+syntax, normalize closure gates before emptiness checks, and publish/test Slice fields on every task
+template example while preserving nested phase outlines.
+
+- Where: `.agents/skills/tlc-spec-driven/scripts/validate_tasks.py`; `.agents/skills/tlc-spec-driven/references/tasks.md`; canonical TLC tests/fixtures and structural contract
+- Slice: A
+- Depends on: R2
+- Reuses: Planner heading/field syntax, existing nested-phase fixture, and published Task Breakdown
+  examples.
+- Requirements: MAS-03, MAS-09, MAS-11
+
+**Done when**:
+
+- [x] Primary task validation accepts only case-sensitive `### T<number>:` headings with exactly
+  `**Slice:**` fields, rejects planner-incompatible shapes, and leaves nested `#### T<number>:` phase
+  outlines outside primary duplicate detection.
+- [x] Closure gate validation rejects backtick-only gates with the offending slice identity.
+- [x] Every primary task example in the TLC template carries exactly one `**Slice:** [id]` field.
+- [x] Canonical validator, planner, structural, adoption, and full gates pass with no weakened,
+  removed, or skipped tests.
+
+- Tests: Extend nested-phase, syntax rejection, gate normalization, and template Slice assertions.
+- Gate: Targeted TLC/planner/structural/adoption checks plus full `npm run test:all`
+- Commit: `fix(workflow): align canonical slice task syntax`
+- Status: complete — targeted and full gates passed; ready for final Deep Review.
+
 ## Phase Execution Map
 
 ```text
 Phase 1 → Phase 2 → Phase 3
 
-T1 → T2 → T3 → T4 → T5 → R1 → R2
+T1 → T2 → T3 → T4 → T5 → R1 → R2 → DR1
 ```
 
 ## Task Granularity Check
@@ -283,6 +311,7 @@ T1 → T2 → T3 → T4 → T5 → R1 → R2
 | T5 | One current QA/release record set | Pass |
 | R1 | One Technical Verifier remediation batch | Pass |
 | R2 | One exact error-identity assertion | Pass |
+| DR1 | One canonical task-syntax contract | Pass |
 
 ## Diagram-Definition Cross-Check
 
@@ -295,6 +324,7 @@ T1 → T2 → T3 → T4 → T5 → R1 → R2
 | T5 | T4 | T4 → T5 | Pass |
 | R1 | T5 | T5 → R1 | Pass |
 | R2 | R1 | R1 → R2 | Pass |
+| DR1 | R2 | R2 → DR1 | Pass |
 
 ## Test Co-location Validation
 
@@ -307,3 +337,4 @@ T1 → T2 → T3 → T4 → T5 → R1 → R2
 | T5 | QA/changelog records | none | none; full/QA gates | Pass |
 | R1 | Existing validator/resolver/planner contracts | unit + integration | Strengthened MAS assertions | Pass |
 | R2 | TLC validator error contract | unit | Strengthened MAS-UT-004 | Pass |
+| DR1 | Validator/template/planner contract | unit + structural | Strengthened MAS-03/MAS-09/MAS-11 | Pass |

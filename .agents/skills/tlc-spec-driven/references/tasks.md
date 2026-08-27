@@ -246,6 +246,7 @@ T8 → T9
 
 ### T1: [Create X Interface]
 
+**Slice:** [id]
 **What**: [One sentence: exact deliverable]
 **Where**: `src/path/to/file.ts`
 **Depends on**: None
@@ -270,6 +271,7 @@ T8 → T9
 
 ### T2: [Implement Y Service]
 
+**Slice:** [id]
 **What**: [Exact deliverable]
 **Where**: `src/services/YService.ts`
 **Depends on**: T1
@@ -294,6 +296,7 @@ T8 → T9
 
 ### T3: [Create Z Component]
 
+**Slice:** [id]
 **What**: [Exact deliverable]
 **Where**: `src/components/ZComponent.tsx`
 **Depends on**: T1
@@ -319,6 +322,7 @@ T8 → T9
 
 ### T4: [Add A Feature to Y]
 
+**Slice:** [id]
 **What**: [Exact deliverable]
 **Where**: `src/services/YService.ts` (modify)
 **Depends on**: T2, T3
