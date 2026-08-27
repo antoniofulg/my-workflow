@@ -128,6 +128,54 @@ def test_full_mode_records_completed_cross_slice_dependency_checkpoint() -> None
         shutil.rmtree(root)
 
 
+def test_assisted_mode_matches_full_readiness_and_checkpoint_plan() -> None:
+    tasks = (
+        task("T1", "A", status="complete", where="src/a.py")
+        + task("T2", "B", depends_on="T1", where="src/b.py")
+        + task("T3", "C", where="src/c.py")
+    )
+    assisted_root = make_repo(tasks, mode="assisted")
+    full_root = make_repo(tasks, mode="full")
+    try:
+        assisted = parallel_plan.plan(root=assisted_root, feature="fixture")
+        full = parallel_plan.plan(root=full_root, feature="fixture")
+        assert assisted["fallback"] is False
+        assert assisted["lanes"] == full["lanes"]
+        assert assisted["blocked"] == full["blocked"]
+        assert assisted["lanes"][0]["sync_after"] == ["T1"]
+    finally:
+        shutil.rmtree(assisted_root)
+        shutil.rmtree(full_root)
+
+
+def test_assisted_incomplete_dependency_conflict_and_malformed_metadata_serialize() -> None:
+    cases = (
+        (
+            task("T1", "A") + task("T2", "B", depends_on="T1"),
+            False,
+            "dependency-incomplete:T1",
+        ),
+        (
+            task("T1", "A", where="src/shared.py") + task("T2", "B", where="src/shared.py"),
+            True,
+            "write-conflict:T1:T2:src/shared.py",
+        ),
+        (task("T1", "A", where="src/a.py,src/b.py"), True, "ambiguous-where:T1"),
+    )
+    for tasks, fallback, reason in cases:
+        root = make_repo(tasks, mode="assisted")
+        try:
+            plan = parallel_plan.plan(root=root, feature="fixture")
+            assert plan["fallback"] is fallback
+            if fallback:
+                assert plan["lanes"][0]["id"] == "serial"
+                assert reason in plan["reasons"]
+            else:
+                assert blocked_task(plan, "T2")["reasons"] == [reason]
+        finally:
+            shutil.rmtree(root)
+
+
 def test_full_mode_declares_sorted_union_of_producer_paths_for_checkpoint() -> None:
     root = make_repo(
         task("T1", "A", status="complete", where="src/z.py")

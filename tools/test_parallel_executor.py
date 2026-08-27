@@ -206,6 +206,77 @@ def test_disabled_coordinator_returns_serial_without_constructing_adapter() -> N
         shutil.rmtree(root)
 
 
+def test_assisted_coordinator_returns_plan_without_constructing_adapter() -> None:
+    root = make_repo(mode="assisted")
+    original_plan = parallel_execute.Coordinator._plan
+    constructed = False
+    try:
+        def factory() -> object:
+            nonlocal constructed
+            constructed = True
+            return object()
+
+        def assisted_plan(self: object) -> dict[str, object]:
+            return {
+                "version": 1,
+                "feature": "fixture",
+                "mode": "assisted",
+                "source_git_head": "head",
+                "fallback": False,
+                "lanes": [
+                    {"id": "slice-A", "slice": "A", "task": "T1", "status": "ready", "sync_after": [], "declared_paths": ["src/a.py"], "resources": []},
+                    {"id": "slice-B", "slice": "B", "task": "T2", "status": "ready", "sync_after": [], "declared_paths": ["src/b.py"], "resources": []},
+                ],
+                "blocked": [],
+                "reasons": [],
+            }
+
+        parallel_execute.Coordinator._plan = assisted_plan  # type: ignore[method-assign]
+        result = parallel_execute.Coordinator(root, "fixture", adapter_factory=factory).start()
+        assert result["fallback"] is False
+        assert result["mode"] == "assisted"
+        assert result["coordinator"] == "assisted"
+        assert [lane["id"] for lane in result["lanes"]] == ["slice-A", "slice-B"]  # type: ignore[index]
+        assert constructed is False
+    finally:
+        parallel_execute.Coordinator._plan = original_plan  # type: ignore[method-assign]
+        shutil.rmtree(root)
+
+
+def test_assisted_cli_does_not_select_automatic_adapter() -> None:
+    root = make_repo(mode="assisted")
+    original_factory = parallel_execute._adapter_factory
+    original_plan = parallel_execute.Coordinator._plan
+    calls: list[str] = []
+    try:
+        parallel_execute._adapter_factory = lambda name, root, feature: calls.append(name) or None  # type: ignore[assignment]
+        parallel_execute.Coordinator._plan = lambda self: {
+            "version": 1,
+            "feature": "fixture",
+            "mode": "assisted",
+            "source_git_head": "head",
+            "fallback": False,
+            "lanes": [
+                {"id": "slice-A", "slice": "A", "task": "T1", "status": "ready", "sync_after": [], "declared_paths": ["src/a.py"], "resources": []},
+                {"id": "slice-B", "slice": "B", "task": "T2", "status": "ready", "sync_after": [], "declared_paths": ["src/b.py"], "resources": []},
+            ],
+            "blocked": [],
+            "reasons": [],
+        }  # type: ignore[method-assign]
+        for command in ("start", "resume"):
+            stdout = io.StringIO()
+            with redirect_stdout(stdout):
+                exit_code = parallel_execute.main([command, "--root", str(root), "--feature", "fixture"])
+            result = json.loads(stdout.getvalue())
+            assert exit_code == 0
+            assert result["coordinator"] == "assisted"
+        assert calls == []
+    finally:
+        parallel_execute._adapter_factory = original_factory  # type: ignore[assignment]
+        parallel_execute.Coordinator._plan = original_plan  # type: ignore[method-assign]
+        shutil.rmtree(root)
+
+
 def test_incompatible_adapter_probe_serializes_before_worktree_effect() -> None:
     root = make_repo()
     original_plan = parallel_execute.Coordinator._plan

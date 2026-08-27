@@ -13,7 +13,7 @@ from pathlib import PurePosixPath
 from typing import Any
 
 
-MODES = {"disabled", "safe", "full"}
+MODES = {"disabled", "assisted", "safe", "full"}
 STATUS_VALUES = {"pending", "in_progress", "waiting", "complete"}
 TASK_HEADING = re.compile(r"^###\s+(T\d+)\s*:")
 FIELD = re.compile(r"^\*\*([^*]+):\*\*\s*(.*?)\s*$")
@@ -307,7 +307,7 @@ def plan(
             elif dependency.slice_id != task.slice_id:
                 if mode == "safe" and dependency.slice_id not in verified:
                     task_reasons.append(f"awaiting-verified-slice:{dependency.slice_id}")
-                elif mode == "full":
+                elif mode in {"assisted", "full"}:
                     sync_after.append(dependency.id)
         if task_reasons:
             blocked[task.id] = list(dict.fromkeys(task_reasons))

@@ -230,7 +230,7 @@ worktree comments/removal, existing checkpoint sync, and serial fallback rules.
 
 ### T7: Route assisted plans outside the automatic adapter
 
-**Status:** pending
+**Status:** complete
 **Slice:** E
 **Resources:** none
 **Observable behaviour:** Assisted mode exposes `full`-equivalent ready/sync planning to the main
@@ -245,12 +245,12 @@ zero automatic-adapter effect.
 **Tools:** Skills `ponytail`, `tlc-spec-driven`; no new dependency.
 **Done when:**
 
-- [ ] Assisted independent and completed-producer plans equal `full` readiness and `sync_after` output.
-- [ ] Incomplete dependencies remain waiting; write conflicts and malformed metadata serialize.
-- [ ] Assisted `start`/`resume` returns a coordinator plan before automatic adapter construction.
-- [ ] Explicit disabled still invokes no planner, adapter, Git, or host call.
-- [ ] `safe` and `full` keep their automatic-adapter behavior unchanged.
-- [ ] `python3 tools/test_parallel_plan.py && python3 tools/test_parallel_executor.py` passes with zero failures.
+- [x] Assisted independent and completed-producer plans equal `full` readiness and `sync_after` output.
+- [x] Incomplete dependencies remain waiting; write conflicts and malformed metadata serialize.
+- [x] Assisted `start`/`resume` returns a coordinator plan before automatic adapter construction.
+- [x] Explicit disabled still invokes no planner, adapter, Git, or host call.
+- [x] `safe` and `full` keep their automatic-adapter behavior unchanged.
+- [x] `python3 tools/test_parallel_plan.py && python3 tools/test_parallel_executor.py` passes with zero failures.
 
 **Tests:** UT-008 in `tools/test_parallel_plan.py`; IT-006 in `tools/test_parallel_executor.py`
 **Gate:** Quick. Commit `feat(workflow): route assisted slice execution`.

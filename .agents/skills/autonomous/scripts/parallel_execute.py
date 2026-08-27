@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 
-MODES = {"disabled", "safe", "full"}
+MODES = {"disabled", "assisted", "safe", "full"}
 LANE_STATES = {"ready", "needs_resources", "running", "waiting", "needs_sync", "invalidated", "gate_required", "complete", "failed", "serial"}
 TRANSITIONS: dict[str, set[str]] = {
     "ready": {"needs_resources", "running", "invalidated", "serial", "failed"},
@@ -1275,6 +1275,10 @@ class Coordinator:
         lanes = list(plan.get("lanes", []))
         if plan.get("fallback"):
             return _serial_result(self.feature, mode, "plan-fallback", lanes)
+        if mode == "assisted":
+            if len(lanes) < 2:
+                return _serial_result(self.feature, mode, "no-ready-overlap", lanes)
+            return {**plan, "coordinator": "assisted", "actions": []}
         try:
             state = self._load_state(snapshot)
         except StateError as exc:
@@ -1649,6 +1653,16 @@ def _workflow_is_disabled(root: Path, feature: str) -> bool:
         return False
 
 
+def _workflow_uses_automatic_adapter(root: Path, feature: str) -> bool:
+    try:
+        path = Path(root) / ".specs" / "features" / feature / "workflow.json"
+        snapshot = json.loads(path.read_text(encoding="utf-8"))
+        mode = snapshot.get("parallelization", {}).get("mode")
+        return mode in {"safe", "full"}
+    except (OSError, TypeError, AttributeError, json.JSONDecodeError):
+        return False
+
+
 def main(
     argv: list[str] | None = None,
     *,
@@ -1660,7 +1674,7 @@ def main(
         selected_adapter_factory = adapter_factory
         if selected_adapter_factory is None and (
             args.command == "preflight"
-            or (args.command not in {"status", "preflight"} and not _workflow_is_disabled(args.root, args.feature))
+            or (args.command not in {"status", "preflight"} and _workflow_uses_automatic_adapter(args.root, args.feature))
         ):
             selected_adapter_factory = _adapter_factory(args.adapter, args.root, args.feature)
         coordinator = Coordinator(
