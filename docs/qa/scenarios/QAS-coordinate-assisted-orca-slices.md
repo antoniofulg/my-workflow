@@ -6,12 +6,12 @@ persona: Workflow operator
 journey: J-execute-parallel-slices
 expected: With explicit authorization, two assisted Orca slices overlap through one exact parked and resumed B worker, preserve every readiness stage, integrate deterministically, and leave no owned worktree, path, branch ref, or terminal residue.
 entry_points: .agents/skills/autonomous/references/parallelization.md; .specs/features/host-agnostic-slice-parallelization/workflow.json; orca worktree; orca terminal
-qa_status: untested
+qa_status: pass
 bug_ids: BUG-20260827-assisted-orca-tui-idle-before-route-proof; BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree; BUG-20260827-luna-low-worker-commits-before-green-gate; BUG-20260827-assisted-pilot-batch-cli-drops-final-newline; BUG-20260827-medium-route-contract-test-still-expects-low; BUG-20260827-orca-terminal-send-truncates-claude-worker-packet
-fix_status: pending
-retest_status:
-fix_commits: 40f2d55; 395a691
-evidence: docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-8/session.md; docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-8/deep-review-result.md; docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-10/session.md
+fix_status: fixed
+retest_status: pass
+fix_commits: 40f2d55; 395a691; d4de714; 119bf77; b6bdcad
+evidence: docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-12/session.md; docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-12/deep-review-artifacts/state.json; docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-12/newline-disposition.md; docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-12/truncation-disposition.md
 last_report: docs/qa/reports/2026-08-27-assisted-orca-slices.md
 overlaps: QAS-run-resource-free-parallel-orca-slices; QAS-clean-owned-parallel-slice-pilot; QAS-qualify-orca-host-before-parallel-use
 ---
@@ -31,13 +31,17 @@ written to a coordinator-owned file outside every slice worktree and delivered a
 pointer through exactly one send; an ambiguous receipt is reconciled only on the same handle through
 one bounded machine-only marker/state proof and never by retry or replacement.
 
-The pointer-delivery contract has not been walked against a current frozen route: every retest
-through Retest 10 exercised the superseded inline-payload transport, and Retest 11 was aborted by
-human direction before its evidence could close anything. This scenario stays `untested`.
+The pointer-delivery contract was walked end to end against the current frozen
+`claude` / `sonnet` / `medium` route by Retest 12, which is the verdict this scenario now carries.
+Retests through 10 exercised the superseded inline-payload transport and Retest 11 was aborted by
+human direction, so neither closes anything; the history below is kept as memory.
 
-`retest_status` is empty rather than `fail`: `QA-SCENARIOS.md` makes that field meaningful only when
-`fix_status: fixed`, and `fix_status` is `pending`. The stale value was a recording error, not a
-verdict, and correcting it changes no result.
+One linked bug stays open by design:
+[`BUG-20260827-orca-terminal-send-truncates-claude-worker-packet`](../bugs/BUG-20260827-orca-terminal-send-truncates-claude-worker-packet.md)
+is an upstream host defect that no change in this repository can fix. `fix_status: fixed` and
+`retest_status: pass` describe the workflow-side remediation — AD-016 pointer delivery — which
+Retest 12 retested and passed. The host defect itself is unfixed and did not reproduce in Retest 12's
+single characterization, which is a fact about that attempt, not a clearance.
 
 The 2026-08-26 assisted walk is retained as historical pre-remediation evidence: both clean,
 out-of-contract attempts to create a separate frozen-route terminal timed out, so no rendered route
@@ -224,3 +228,59 @@ Retest 11 observed the superseded `low` route honour every task packet exactly �
 packet-exact subjects and counts, a green gate before every commit, and zero corrective commits — so
 the raise is a precaution, not a response to an observed violation. That single observation came from
 a run recorded `invalid / not exercised` and is not a durable verdict for either effort.
+
+Retest 12 started at `2026-08-27T18:08:00Z` against `b6bdcad` with prefix `qa-assisted-20260827-r13`
+and the re-frozen implementer route `claude` / `sonnet` / **`medium`**. **It is the terminal verdict:
+`pass`.** Every stage completed with an evidence path. Pointer transport was re-proved before any
+slice existed (2418-char body, 188-char pointer, `bytesWritten: 189`, exact token and both positional
+bounds returned). The route prover was parametrized on the effort rather than rewritten, and rendered
+`Claude Code v2.1.247` with `Sonnet 5 with medium effort · Claude Max` on two consecutive
+`source=screen` frames for all six terminals, rejecting the other two efforts. Slices A and B were
+each created exactly once; all four task packets and all four review packets were delivered as
+177-190 character pointers with exactly one send each and no retry after any receipt outcome.
+
+**The medium route's task integrity is now observed, not assumed.** Six task commits with
+packet-exact subjects and counts, a green gate before every commit, changed paths inside every
+allowlist, a clean tree after every turn, and zero corrective commits and zero amends. Retest 7's
+low-effort violation did not recur. A and B overlapped for **58.536 s** at concurrency 2; B parked
+with the exact normative comment; the exact `A:T7` producer commit `2c1b1ab` synced with no conflict;
+the affected gate reran `7/7`; and `B_FINAL` continued on the **same** handle with no reacquisition,
+no dual-send, and no replacement worker. Fresh per-slice Technical Verifiers on their own terminals
+both returned `verdict=PASS` at 10/10, author ≠ verifier. Deterministic A-then-B integration was
+conflict-free at `07540bc` with all six checkboxes `[x]` and the fixture gate `12/12`.
+
+Grouped Deep Review at the frozen `grouped.3` cadence returned **`SHIP`** in one round — 0 Critical,
+0 Major, 3 Minor, 6 advisories, defect and polish lanes both 359/359 complete, R01-R14 all accounted
+— read back from the generated artifacts rather than the reviewer's claim. No round 2 and no fix loop
+were required.
+
+The expected newline Major did not reproduce, and Retest 12 established that itself rather than
+inheriting Retest 11's finding: on a copy proven byte-identical to the reviewed tree, newline-
+terminated stdin returned `b'ada-lovelace\ngrace-hopper\n'`; the required focused subprocess
+assertion exists at `pilot/tests/test_batch.py:34-43`; and injecting the exact recorded symptom made
+the canonical suite fail, so that assertion discriminates. `pilot/` is a disposable fixture the
+workers regenerate every run, so the artifact the bug was filed against no longer exists. No
+remediation batch was manufactured.
+
+Final CLI persona QA walked the charter tour plus ten edge probes, all exit `0` with zero stderr
+bytes; comprehension, recovery, trust and speed lenses pass, and accessibility and language are not
+applicable to a plain stdout token stream. Exact cleanup revalidated **13/13** on all three owned
+worktrees, deleted all three branches non-force with ref absence proven, removed all three complete
+Orca ids, and a 60-second **39-sample** audit found zero owned residue in every sample and at the
+deadline, returning the exact two-worktree baseline.
+
+Recorded against this run, not hidden: the coordinator issued a **second `orca worktree create`** for
+the ground worktree's logical name, because Retest 11's probe dispatches at module scope with no
+`__name__` guard and importing it to inherit its hardening executed the create a second time. The
+harness was fixed before any further Orca call, the fix was proved with a fake `orca` on `PATH`
+(exactly one `worktree create` across 421 recorded calls), both erroneous worktrees were cleaned
+exactly at 10/10 reconstructed ownership, and ground was recreated once. The ground stage therefore
+does not certify the one-create rule; slices A and B do, and `create_result=1` in each of their
+create logs is the check. Two smaller coordinator observations — a declined permission dialog that
+Claude Code read as an interrupt on Slice B's verifier, and the `deep-review` skill's
+`disable-model-invocation` guard satisfied with an explicit slash invocation — are recorded in the
+report and raw session.
+
+No compatibility PASS was written and no `preflight --canary` ran; `parallelization.mode` stays
+`disabled` and automatic Orca execution remains unsupported. Evidence:
+[`retest-12/session.md`](../evidence/2026-08-27-assisted-orca-slices/retest-12/session.md).

@@ -1,6 +1,6 @@
 # BUG-20260827-assisted-pilot-batch-cli-drops-final-newline
 
-- **Status:** open
+- **Status:** closed — not reproducible on the current fixture; both halves of the required fix present and proven discriminating (Retest 12)
 - **Severity:** major
 - **Scenario:** `QAS-coordinate-assisted-orca-slices`
 - **Expected:** The integrated mini CLI preserves newline-delimited output framing and passes grouped Deep Review before final persona QA.
@@ -47,3 +47,37 @@ fixed.
 This bug stays **open** with no Resolution. It cannot be reached until packet delivery to the worker
 is provable; the transport defect blocks it. Evidence:
 `docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-10/session.md`.
+
+## Retest 12 — reached, re-derived, and closed
+
+Retest 12 is the first cycle to actually reach this defect: the pointer-delivery contract carried all
+four task packets, the fixture was implemented and integrated at `07540bc`, and grouped Deep Review
+ran over it. The disposition was established by fresh measurement, **not** inherited from Retest 11
+(whose run is recorded `invalid / not exercised`).
+
+Every probe ran on a copy of `pilot/` proven byte-identical to the reviewed tree
+(`diff -r <ground>/pilot <copy>/pilot --exclude=__pycache__` → identical). The reviewed tree was
+never mutated.
+
+| Check | Result |
+| --- | --- |
+| `printf 'Ada Lovelace\nGrace Hopper\n' \| python3 -m pilot.batch` | `b'ada-lovelace\ngrace-hopper\n'` — `ENDS_WITH_NEWLINE = True` |
+| Recorded root cause present? | No — `pilot/batch.py:15-17` prints one record at a time and never writes a bare `"\n".join(...)` |
+| Required focused subprocess assertion present? | Yes — `pilot/tests/test_batch.py:34-43`, `MainCLITest.test_stdin_stdout_normalizes_each_line`, asserting stdout is exactly `"john-smith\nmary-jane-watson\n"` |
+| Does that assertion discriminate this bug? | Yes — injecting the exact recorded symptom gives `b'ada-lovelace\ngrace-hopper'` and `Ran 12 tests … FAILED (failures=1)`; clean before and after restore, `Ran 12 tests … OK` |
+| Grouped Deep Review over the same tree | `SHIP`, **0 open Major** |
+| Final CLI persona QA, newline-terminated stdin (E1) | framing preserved, exit `0`, zero stderr bytes |
+
+Both halves of the required fix — preserve a final newline when stdin has one, plus a focused
+subprocess assertion — are satisfied. **Nothing was remediated, because nothing was broken, and no
+remediation batch was manufactured.**
+
+The honest caveat: `pilot/` is a **disposable fixture the workers regenerate on every run**, so the
+artifact this bug was filed against (Retest 8's `splitlines()` + join implementation) no longer
+exists and cannot be re-observed. This record closes because the behaviour it protects is present
+and discriminated on the current fixture, not because a specific line was edited. Should a future
+run's worker reintroduce the symptom, that is a new observation against this same symptom id.
+
+Evidence: `docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-12/newline-disposition.md`;
+`.../retest-12/persona-qa.txt`; `.../retest-12/deep-review-artifacts/state.json`;
+`.../retest-12/session.md`.

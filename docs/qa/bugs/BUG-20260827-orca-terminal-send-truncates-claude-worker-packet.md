@@ -1,6 +1,6 @@
 # BUG-20260827-orca-terminal-send-truncates-claude-worker-packet
 
-- **Status:** open — the host transport defect remains open upstream; the assisted contract routes around it and awaits retest
+- **Status:** open — the host transport defect remains open upstream. The assisted contract's route-around was retested end to end and passed (Retest 12); the host defect itself is unfixed and did not reproduce in that run's single characterization
 - **Severity:** critical
 - **Scenario:** `QAS-coordinate-assisted-orca-slices`
 - **Expected:** The assisted contract's one mandated transport — exactly one `orca terminal send --text <shq(task_payload)> --enter` per logical packet, never retried — delivers the complete packet to the frozen-route worker, or reports a failure the coordinator can act on.
@@ -81,3 +81,40 @@ mandated payload to a size at which the observed loss did not occur; it does not
 Because a truncated pointer cannot produce a valid marker, truncation still fails closed instead of
 silently half-executing. This record stays open against the host until
 `QAS-coordinate-assisted-orca-slices` is re-walked end to end on the pointer transport.
+
+## Retest 12 — route-around retested and passed; host defect still open
+
+The retest this record was waiting for has now happened, and it separates cleanly into two results.
+
+**The workflow-side remediation passes.** Under AD-016 every mandated packet crossed
+`orca terminal send` as a short pointer and none carried a body. Eight logical packets — bodies of
+1226, 1355, 1635, 1644, 1523, 1627, 1678 and 2077 characters — were delivered as **177-190 character
+pointers**, each sent exactly once, each `ok=true`, and each honoured packet-exactly. `A_FINAL` and
+`B_PARKED`, the two packets Retest 10 lost at 1354 and 1677 characters, both arrived and were
+executed exactly. The full scenario reached grouped Deep Review `SHIP`, final persona QA, and exact
+cleanup.
+
+**The host defect is not cleared.** One bounded characterization ran on the coordinator's ground
+(non-slice) shell, the same place Retest 10 measured it:
+
+| Fact | Retest 10 | Retest 12 |
+| --- | --- | --- |
+| Inline payload | 2081 chars | **2012 chars** |
+| Receipt | `ok=true`, full `bytesWritten` | `ok=true`, `accepted=true`, `bytesWritten: 2013` |
+| Received by the agent | 36 chars (98.3 % lost) | **the complete payload** — replied `TRUNC first=Q000 last=Q339 total=340` |
+
+This does **not** close the bug, and Retest 12 does not claim it does. The record's own finding is
+that loss is timing-dependent rather than a fixed cap, so a single clean sample disproves an
+intermittent defect no more than a single dirty sample proves it. Nothing in Orca changed between the
+two runs — both ran on `1.4.190` — and `orca terminal send --help` still exposes no acknowledgement
+mode, so a coordinator still cannot distinguish a complete write from a lost one by its receipt.
+
+The bug therefore stays **open** against the host. What changed is that the assisted contract no
+longer depends on the answer: the mandated payload is a ~180-character pointer, a size at which no
+loss has been observed across Retests 10, 11 and 12, and a truncated pointer cannot produce a valid
+marker, so truncation still fails closed instead of half-executing. Closing this record requires an
+upstream `terminal send` acknowledgement mode, not another QA cycle.
+
+Evidence: `docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-12/truncation-disposition.md`;
+`.../retest-12/truncation-probe.jsonl`; `.../retest-12/truncation-payload.txt`;
+`.../retest-12/session.md`.

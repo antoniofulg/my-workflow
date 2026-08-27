@@ -731,3 +731,173 @@ repository worktrees; `orca worktree list` → `2`; `git branch --list '*r12*'` 
   `npm_config_offline=true npm run test:all` → exit `0`; Vitest `Test Files 8 passed (8)`,
   `Tests 112 passed (112)`; all Python lanes passed (`9`, `5`, `67`, `53`, `18`, `14`, `6`, `44`
   passed with `0 failed`). Log: `/tmp/r12-abort-gate.log`.
+
+## Retest 12 — 2026-08-27T18:08:00Z — **PASS**
+
+- **Source:** `b6bdcad` (`feat/host-agnostic-slice-parallelization`)
+- **Adapter:** CLI/manual through installed Orca `1.4.190` direct worktree and terminal interfaces
+- **Exact repository:** `4d0d9503-7a68-4fa7-93fb-3b07cd6c0d7f`
+- **Unique prefix:** `qa-assisted-20260827-r13` (Retest 11 consumed `r12`); collision check before
+  any create returned `0` for Orca worktrees, Git branches, and terminals
+- **Frozen route:** implementer `claude`/`sonnet`/**`medium`**, verifier `claude`/`sonnet`/`medium`,
+  deep_reviewer `claude`/`sonnet`/`high`, cadence `grouped.3`, groups `[[1,2],[3,4]]`. Nothing ran
+  on Codex.
+- **Raw evidence:** `docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-12/`
+- **Duration:** `18:08:00.260486Z` → `18:55:25.707676Z`, **2845.447 s** (47 min 25 s)
+
+### Verdict
+
+**PASS.** Every stage of the assisted E2E completed with evidence: pointer transport proof, rendered
+medium-route proof on all six terminals, one create per slice, four packet-exact worker turns,
+58.536 s of A/B overlap at concurrency 2, exact parking, exact producer sync with the affected gate,
+same-handle continuation, fresh per-slice Technical Verifiers, conflict-free deterministic
+integration, grouped Deep Review `SHIP` with zero open Critical or Major, final persona QA 10/10,
+fixture full gate `12/12`, and exact cleanup returning the two-worktree baseline with zero residue.
+
+### Scenario matrix
+
+| Scenario | Charter leg | Expected | Verdict | Independent confirmation | Evidence |
+| --- | --- | --- | --- | --- | --- |
+| `QAS-coordinate-assisted-orca-slices` | E2E-001 / AST-01–AST-07 / SEC-008 | Two slices overlap through one exact parked/resumed B worker, integrate deterministically, leave zero owned residue | **PASS** | Deep Review verdict read back from generated artifacts, not the agent's claim; canonical suite re-run by the coordinator on `07540bc` (`Ran 12 tests … OK`); cleanup audited over 39 samples plus independent `git`/`orca` baseline queries | `retest-12/session.md` |
+| Adjacent `QAS-qualify-orca-host-before-parallel-use` | No automatic canary | Assisted execution creates no compatibility evidence | **PASS** for this boundary; status unchanged | No `preflight --canary` ran; `workflow.json` keeps `parallelization.mode: disabled` | `retest-12/session.md` |
+| Adjacent `QAS-clean-owned-parallel-slice-pilot` | Exact assisted ownership cleanup | Only receipt-owned resources disappear | **PASS** for this run; status unchanged | 13/13 revalidation each, 39-sample audit clean, two foreign artifacts explicitly left untouched | `retest-12/cleanup.jsonl`, `retest-12/cleanup-audit.jsonl` |
+
+### Coordinator fault — a second `orca worktree create`
+
+Recorded prominently because it is the rule that invalidated Retest 11. Retest 11's probe dispatches
+its subcommand at module scope with no `__name__` guard, so importing it to inherit its hardening
+executed the `create`, and this run's own dispatcher executed it again — two creates ~3 s apart for
+the ground worktree's logical name. The harness was fixed before any further Orca call and the fix
+was **proved with a fake `orca` on `PATH`** (exactly 1 `worktree create` across 421 recorded calls)
+before being trusted. Both erroneous worktrees were cleaned exactly, 10/10 reconstructed ownership
+each, and ground was recreated once as `…-r13-ground3`.
+
+The ground stage therefore does not certify the one-create rule. Slices A and B do, and it is
+checkable: `create_result=1` in each of `ground-create.jsonl`, `a-create.jsonl`, `b-create.jsonl`.
+
+Two smaller coordinator observations are recorded in `session.md` §7 and §9: a permission dialog on
+Slice B's verifier that the coordinator declined (the keystroke was read as an interrupt, ending that
+turn cleanly with no partial commit, and one same-handle follow-up completed it unchanged), and the
+`deep-review` skill's `disable-model-invocation` guard, which the review agent correctly refused to
+work around and which the coordinator satisfied with the explicit slash invocation.
+
+### Execution ledger
+
+| Item | Result |
+| --- | --- |
+| Ground | `…-r13-ground3`, branch `feat/…-r13-ground3`, `pre_head=b6bdcad`; seed `d9d3921`, fixture gate `Ran 1 test … OK` |
+| Hunk proof | 2 independent hunks, 13 immutable context lines, `status=PASS` — byte-identical to retests 8, 10, 11 |
+| Slice A | `…-r13-a`, `pre_head=d9d3921`, sole handle `term_3d4b64b7-…`, ownership `new`/`sole`/`unused` all true |
+| Slice B | `…-r13-b`, `pre_head=d42d2ce`, created only after `A:T1` reconciled 12/12, sole handle `term_0993c20f-…` |
+| Route proof | `Claude Code v2.1.247` + `Sonnet 5 with medium effort · Claude Max` on two consecutive `source=screen` frames, other two efforts absent, on all six terminals |
+| Packets | 8 logical packets, bodies 1226-2077 chars, all delivered as 177-190 char pointers, **one send each**, all `ok=true`, all honoured |
+| Task commits | **6**, packet-exact subjects and counts, green gate before every commit, zero corrective commits, zero amends |
+| Overlap | `18:16:52.510990Z` → `18:17:51.046586Z`, **58.536 s**, max concurrency **2** |
+| Parked comment | exact: `slice=B; state=parked; completed_through=B:T9; next=B:T12; blocked_on=A:T7; head=6835d9e…` |
+| Producer sync | exact `A:T7` `2c1b1ab` merged into B, no conflict, affected gate `Ran 7 tests … OK`, synced head `7331235` |
+| Continuation | `B_FINAL` on the same handle, no reacquisition, no dual-send, no replacement worker |
+| Technical Verifiers | fresh agents on their own terminals, author ≠ verifier, both 10/10, `verdict=PASS` |
+| Integration | A fast-forward, B `ort` merge with no conflict, head `07540bc`, both slice heads ancestors, all six checkboxes `[x]` |
+
+### Sonnet-medium task integrity
+
+Retest 7 failed because a low-effort worker committed over a red gate and added a corrective commit;
+Retest 11 saw the low route clean but is `invalid / not exercised`. This run is the first observation
+of the **medium** route across all four task packets:
+
+- `A_T1` → 1 commit `feat(pilot): add basic name normalization` (`d42d2ce`), gate `4 tests OK`
+- `A_FINAL` → 2 commits `feat(pilot): normalize apostrophes` (`2c1b1ab`), `feat(pilot): normalize ordered lines` (`196d82d`), gate `6 tests OK`
+- `B_PARKED` → 1 commit `feat(pilot): add batch normalization` (`6835d9e`), gate `6 tests OK`
+- `B_FINAL` → 2 commits `feat(pilot): add name validation` (`2a11198`), `feat(pilot): add batch CLI` (`6db92f3`), gate `11 tests OK`
+
+All twelve reconciliation checks true on every turn. Six task commits, packet-exact, green gate
+before every commit, allowlisted paths, clean tree after every turn, zero corrective commits, zero
+amends. Retest 7's failure mode did not recur.
+
+### Grouped Deep Review — SHIP
+
+Frozen `deep_reviewer` route `sonnet`/`high`, canonical skill with its native fresh `deep-reviewer`
+subagents at bounded concurrency 3, `--full`, no publish, scope `d9d3921…..07540bc…`. Verdict read
+back from `state.json` / `review-stats.json` / `findings.json`, not from the agent:
+
+| Fact | Value |
+| --- | --- |
+| Rounds | 1 |
+| Verdict | **SHIP** |
+| Critical / Major | **0 / 0** |
+| Minor (defects) | 3, all open, none blocking a journey |
+| Advisories | 6 |
+| Candidates / reported / suppressed | 17 / 9 / 8 |
+| Hunk coverage | defect 359/359 complete; polish 359/359 complete |
+| Rule accounting | R01–R14 all accounted |
+| Duration | 18 m 59 s |
+
+Under `REVIEW-ROUNDS.md` only a `Blocker` or `Major` triggers a round, so round 2 was not required
+and no fix loop ran. The three Minors are fixture-local: a missing case-sensitivity test for
+`is_normalized`, and two accuracy gaps in `pilot/validation-b.md`. The fixture is disposable and was
+destroyed at cleanup, so they are recorded here rather than filed.
+
+### The expected newline Major did not reproduce — established independently
+
+`BUG-20260827-assisted-pilot-batch-cli-drops-final-newline` was filed against Retest 8's fixture.
+`pilot/` is regenerated by the workers every run, so that artifact no longer exists. Retest 11
+reached the same conclusion but is `invalid / not exercised`, so this run re-derived it from scratch
+on a copy proven byte-identical to the reviewed tree:
+
+- `printf 'Ada Lovelace\nGrace Hopper\n' | python3 -m pilot.batch` → `b'ada-lovelace\ngrace-hopper\n'`,
+  ends with a newline. `pilot/batch.py:15-17` prints one record at a time and never writes a bare
+  `"\n".join(...)`, which is the recorded root cause.
+- The required focused subprocess assertion exists: `pilot/tests/test_batch.py:34-43`.
+- That assertion **discriminates**: injecting the exact recorded symptom into the copy gives
+  `b'ada-lovelace\ngrace-hopper'` and `Ran 12 tests … FAILED (failures=1)`; restoring gives `OK`.
+- Grouped Deep Review over the same tree returned zero open Major.
+
+Both halves of the required fix are satisfied. **No remediation batch was manufactured.**
+
+### Host transport defect — measured, still open
+
+One bounded characterization on the ground (non-slice) shell: a **2012-char** inline payload,
+`ok=true`, `bytesWritten: 2013`, worker replied `TRUNC first=Q000 last=Q339 total=340` — the complete
+payload, no loss. Retest 10's comparable 2081-char payload lost 98.3 %.
+
+This does **not** clear `BUG-20260827-orca-terminal-send-truncates-claude-worker-packet`. The loss is
+timing-dependent by the record's own description; one clean sample no more disproves an intermittent
+defect than one dirty sample proves it, nothing in Orca changed, and `orca terminal send --text`
+still exposes no acknowledgement mode. The bug stays open; this run did not reproduce it and, under
+AD-016, never depended on the answer.
+
+### Final CLI persona QA — persona Workflow operator
+
+Charter tour walked in full. Ten edge probes against a copy byte-identical to `07540bc`, all exit `0`
+with zero stderr bytes: newline-terminated and unterminated stdin, empty stdin, an interior blank
+line, collapsed whitespace, ASCII apostrophes, CRLF, a Unicode curly apostrophe, a single unterminated
+line, and 500 records. Lenses comprehension / recovery / trust / speed all pass; accessibility and
+language are not applicable to a plain stdout token stream.
+
+One recorded observation, not a defect: this run's worker filters interior blank lines
+(`pilot/batch.py:7`) and covers that with `test_skips_blank_lines`, where Retest 11's independently
+written fixture preserved them. The fixture task specifies neither, so both conform.
+
+### Cleanup and residue
+
+Pre-cleanup revalidation **13/13** on each of the three owned worktrees. Terminals stopped `rc 0`
+with zero terminals remaining; each checkout detached at its exact `current_head` unchanged; each
+exact branch deleted with non-force `git branch --delete` `rc 0`; `git show-ref --verify --quiet`
+failed for all three, proving ref absence; all three complete Orca ids removed with paths absent.
+Plus the two erroneous ground worktrees, cleaned the same way.
+
+60-second sampled audit: **39 samples**, zero residue in every sample and at the deadline,
+`repo_worktrees: 2`, `git_worktrees: 2`, `observed_dirty_samples: 0`. Independent confirmation:
+`git worktree list` → exactly 2; `orca worktree list --repo id:4d0d9503-…` → `2`;
+`git branch -a | grep -c r13` → `0`; owned terminals `0`; no `qa-assisted-*` workspace path;
+no `~/Projects/.parallel-slice-pilot-*`.
+
+Two pre-existing foreign artifacts were identified and deliberately left untouched: the empty
+`~/orca/workspaces/my-workflow/src/main` tree, and Orca repo `fcea29fd-…` registered at
+`docs/qa/evidence/2026-08-26-assisted-orca-slices/fixture-integration`.
+
+### Gates
+
+- Fixture full gate on the final integrated tree `07540bc`:
+  `python3 -m unittest discover -s pilot/tests -p 'test_*.py'` → `Ran 12 tests … OK`, exit `0`.
+- Outer full gate on the final tree: see below.
