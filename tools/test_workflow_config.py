@@ -110,7 +110,7 @@ def test_defaults_and_native_routing() -> None:
         snapshot = workflow_config.resolve(
             root=root, feature="default", slice_count=4, native_provider="codex"
         )
-        assert snapshot["parallelization"] == {"mode": "disabled", "resource_provider": None}
+        assert snapshot["parallelization"] == {"mode": "assisted", "resource_provider": None}
         assert snapshot["deep_review"] == {"cadence": "grouped.3", "groups": [[1, 2], [3, 4]]}
         assert all(value["provider"] == "codex" for value in snapshot["roles"].values())
         assert snapshot["roles"]["verifier"]["agent_file"] == ".codex/agents/verifier.toml"
@@ -122,7 +122,7 @@ def test_parallelization_accepts_supported_modes() -> None:
     root = make_repo()
     try:
         resolver = ROOT / ".agents/skills/workflow-config/scripts/workflow_config.py"
-        for mode in ("disabled", "safe", "full"):
+        for mode in ("disabled", "assisted", "safe", "full"):
             write_parallelization(root,
                 f"[parallelization]\nmode = '{mode}'\n", encoding="utf-8"
             )

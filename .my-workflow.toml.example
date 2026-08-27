@@ -1,7 +1,7 @@
 version = 2
 
 [parallelization]
-mode = "disabled" # disabled, safe, or full
+mode = "assisted" # assisted (default), disabled, safe, or full
 # Optional repository-relative executable for resource-bearing lanes.
 # resource_provider = "tools/workflow_resources"
 

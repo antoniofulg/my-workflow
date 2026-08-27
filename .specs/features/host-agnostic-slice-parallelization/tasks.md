@@ -207,7 +207,7 @@ worktree comments/removal, existing checkpoint sync, and serial fallback rules.
 
 ### T6: Default workflow resolution to assisted mode
 
-**Status:** pending
+**Status:** complete
 **Slice:** E
 **Resources:** none
 **Observable behaviour:** A consumer that does not choose a mode receives `assisted`; explicit
@@ -220,10 +220,10 @@ worktree comments/removal, existing checkpoint sync, and serial fallback rules.
 **Tools:** Skills `ponytail`, `tlc-spec-driven`; no new dependency.
 **Done when:**
 
-- [ ] Missing parallelization configuration freezes `mode: assisted`.
-- [ ] Explicit `disabled|assisted|safe|full` survives resolution and snapshot validation unchanged.
-- [ ] Invalid modes still fail before snapshot mutation.
-- [ ] `python3 tools/test_workflow_config.py` passes with zero failures.
+- [x] Missing parallelization configuration freezes `mode: assisted`.
+- [x] Explicit `disabled|assisted|safe|full` survives resolution and snapshot validation unchanged.
+- [x] Invalid modes still fail before snapshot mutation.
+- [x] `python3 tools/test_workflow_config.py` passes with zero failures.
 
 **Tests:** UT-007 in `tools/test_workflow_config.py`
 **Gate:** Quick. Commit `feat(workflow): default to assisted parallelization`.
