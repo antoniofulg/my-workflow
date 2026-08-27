@@ -166,9 +166,9 @@ worktree comments/removal, existing checkpoint sync, and serial fallback rules.
 - [x] Dependency completion synchronizes the exact producer commit, reruns the affected gate, and follows up the same terminal.
 - [x] Dirty, ambiguous, conflicting, or failed state serializes without automatic resolution or unsafe cleanup.
 - [x] Cleanup stops workers and removes only clean integrated coordinator-owned worktrees, with zero owned residue proven.
-- [x] Frozen implementer provider/model/effort is expressed explicitly and proven by two consecutive connected rendered terminal screens before prompt delivery; route materialization is bounded and machine-only, separate from dependency waiting.
+- [x] Frozen implementer provider/model/effort is expressed explicitly and proven by two consecutive connected `source=screen` reads matching the frozen route before prompt delivery; the exact-handle route loop runs every 250 ms for at most 60000 ms, resets on nonmatch, and remains separate from dependency waiting.
 - [x] The explicit base/setup worktree startup shell is proven new and unused, receives `exec <validated-command>`, and remains the sole worker handle; no second terminal is created.
-- [x] Worktree creation snapshots before state, issues one unique-name mutating create, and reconciles a missing/late receipt through one bounded before/after inventory without blind retry or ambiguous adoption.
+- [x] Worktree creation snapshots before state, issues one unique-name mutating create, and reconciles a missing/late receipt through a 250 ms / 60000 ms SETTLE WINDOW with cumulative inventory difference and final audit, without blind retry or ambiguous adoption.
 - [x] Immutable ownership receipt is separated from mutable head/handle state; the worktree is detached when needed, the exact branch is safely deleted and its ref absence proven, and only then is the worktree removed.
 - [x] TLC task order, Verifier, grouped deep-review, QA, and full-gate contracts remain unchanged.
 - [x] `npm_config_offline=true npm test -- --run tools/shared/tests/autonomous-parallelization.test.ts` passes with zero failures.

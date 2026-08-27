@@ -57,8 +57,9 @@ Use a fixed-argv/no-shell wrapper where possible, and apply `shq` to every provi
 slice, base-branch, branch, ref, and handle value otherwise. Snapshot the exact repository worktree
 and terminal inventory before the one mutating create, generate a unique logical name, and invoke
 exactly one create. The public Orca CLI has no idempotency key, so a missing receipt or timeout is
-never retried blindly; reconcile one bounded before/after inventory difference and adopt exactly one
-candidate only after complete immutable receipt and ownership proof. Zero, multiple, or ambiguous
+never retried blindly; re-list exact worktree and terminal inventories every 250 ms for at most
+60000 ms, compute the cumulative before/after inventory difference, and perform a final audit before adopting
+exactly one candidate only after complete immutable receipt and ownership proof. Zero, multiple, or ambiguous
 candidates serialize and exact-clean every provably owned late effect. Create the worktree with explicit
 base/setup, record the exact
 `startupTerminal.handle`, prove that it was newly created by the just-created worktree, uniquely
@@ -68,11 +69,13 @@ forms are `codex --model <shq(model)> -c <shq(model_reasoning_effort=<effort>)>`
 `claude --model <shq(model)> --effort <shq(effort)>`, and `cursor agent --model
 <shq(model[effort=<effort>])>`; merge Cursor effort into an existing parameter block. Use the
 selected executable's `--help`/availability check, then send the complete `exec` payload once. Run a
-bounded machine-only route-materialization probe with an explicit overall timeout and small interval:
+bounded machine-only route-materialization loop with explicit timeout and small interval (every 250 ms
+for at most 60000 ms):
 each iteration uses exact-handle `orca terminal show --terminal <handle> --json` plus `orca terminal read --terminal <handle> --screen --json`, and the
 handle must remain connected. Continue only after two consecutive screen reads report `source=screen`
-with the exact provider, model, and effort tuple. After the first matching frame, `tui-idle` may be
-checked, but the next matching screen is still required. `screen-unavailable`, omitted provider,
+with the exact provider, model, and effort tuple; any nonmatch resets the consecutive count. After
+the first matching frame, `tui-idle` may be checked, but the next matching screen is still required.
+`screen-unavailable`, omitted provider,
 mismatch, disconnect, timeout, or ambiguity stops and serializes before the prompt or task edit. This
 bounded TUI materialization probe is not the dependency waiter: it performs no model turns and does
 not poll or spin on task state. An inexpressible or unavailable route stops setup without editing

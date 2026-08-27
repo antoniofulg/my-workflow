@@ -178,7 +178,12 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(policy).toContain("exactly one create");
     expect(policy.match(/orca worktree create --name <slice>/g)?.length).toBe(1);
     expect(normalizedPolicy).toContain("never retried blindly");
-    expect(normalizedPolicy).toContain("bounded `after_inventory - before_inventory` difference");
+    expect(policy).toContain("SETTLE WINDOW");
+    expect(normalizedPolicy).toContain("re-listing the exact repository worktree and terminal inventories every `interval_ms=250`");
+    expect(normalizedPolicy).toContain("computing the cumulative `current - before_inventory` difference");
+    expect(normalizedPolicy).toContain("At the deadline, perform one final inventory/audit after the last re-list");
+    expect(normalizedPolicy).toContain("only a proven zero-candidate result may serialize as zero effect");
+    expect(normalizedPolicy).toContain("never retry or issue a second create");
     expect(normalizedPolicy).toContain("zero, multiple, or ambiguous candidates serialize");
     expect(normalizedPolicy).toContain("complete immutable receipt and ownership proof");
     expect(policy).toContain("exec <validated-frozen-agent-command>");
@@ -196,30 +201,35 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(policy).toContain("performs no model turns");
     expect(policy).toContain("screen-unavailable");
     expect(policy).toContain("matching the frozen tuple");
+    expect(normalizedPolicy).toContain("each iteration performs the exact-handle `orca terminal show --terminal <startupTerminal.handle> --json` plus `orca terminal read --terminal <startupTerminal.handle> --screen --json`");
+    expect(normalizedPolicy).toContain("Count two CONSECUTIVE matching frames; any nonmatch resets the count to zero");
+    expect(normalizedPolicy).toContain("for no more than `timeout_ms=60000`");
+    expect(normalizedPolicy).not.toContain("one screen read before");
+    expect(normalizedPolicy).not.toContain("one immediate second read");
+    expect(normalizedPolicy).not.toContain("one after-inventory snapshot");
+    expect(normalizedPolicy).not.toContain("single after_inventory");
+    expect(normalizedPolicy).not.toMatch(/\bretry(?:ing)?\s+(?:the\s+)?create\b/i);
+    expect(normalizedPolicy).not.toContain("retry the create");
     expect(policy).toMatch(/Do not\s+edit `tasks\.md`/);
     expect(normalizedPolicy).toMatch(
       /Prove that the exact `startupTerminal\.handle` was newly created by this worktree operation, is uniquely owned by this just-created worktree, is an unused shell, and has no agent\/default-task activity\./,
     );
     const lifecycleMarkers = [
-      "Record an immutable ownership receipt immediately from the create result",
+      "orca worktree create --name <slice> --base-branch <base-branch> --setup inherit --json",
+      "Record an immutable ownership receipt immediately from the create result or the one reconciled candidate",
       "Before any terminal send, inspect that exact handle",
       "Prove that the exact `startupTerminal.handle`",
       "Apply `shq` to every value that crosses a shell boundary and build the fixed provider command only after that proof",
       "Construct `exec_payload` as the complete `exec <validated-frozen-agent-command>` string",
       "orca terminal send --terminal <startupTerminal.handle> \\ --text <shq(exec_payload)>",
-      "bounded machine-only route-materialization probe",
-      "orca terminal show --terminal <startupTerminal.handle> --json",
-      "orca terminal read --terminal <startupTerminal.handle> --screen",
-      "orca terminal wait --terminal <startupTerminal.handle> --for tui-idle",
-      "orca terminal show --terminal <startupTerminal.handle> --json",
-      "orca terminal read --terminal <startupTerminal.handle> --screen",
-      "After the screen proof matches the frozen route, construct `task_payload` as the complete slice",
+      "Then run the bounded machine-only TUI materialization probe loop on that same handle",
+      "each iteration performs the exact-handle `orca terminal show --terminal <startupTerminal.handle> --json` plus `orca terminal read --terminal <startupTerminal.handle> --screen --json`",
+      "After the route loop reaches two consecutive matching frames, construct `task_payload` as the",
       "orca terminal send --terminal <startupTerminal.handle> --text <shq(task_payload)>",
     ];
-    let lifecyclePositions: number[] = [];
     let previousLifecyclePosition = -1;
-    lifecyclePositions = lifecycleMarkers.map((marker, index) => {
-      const position = normalizedPolicy.indexOf(marker, index <= 6 ? 0 : previousLifecyclePosition + 1);
+    const lifecyclePositions = lifecycleMarkers.map((marker) => {
+      const position = normalizedPolicy.indexOf(marker, previousLifecyclePosition + 1);
       previousLifecyclePosition = position;
       return position;
     });
@@ -228,8 +238,21 @@ describe("autonomous parallel slice dispatch contract", () => {
     for (let index = 1; index < lifecyclePositions.length; index += 1) {
       expect(lifecyclePositions[index]).toBeGreaterThan(lifecyclePositions[index - 1]);
     }
-    expect(normalizedPolicy.indexOf("orca terminal wait --terminal <startupTerminal.handle> --for tui-idle"))
-      .toBeGreaterThan(normalizedPolicy.indexOf("orca terminal read --terminal <startupTerminal.handle> --screen"));
+    const routeLoopStart = normalizedPolicy.indexOf(
+      "Then run the bounded machine-only TUI materialization probe loop",
+    );
+    const taskPayloadStart = normalizedPolicy.indexOf(
+      "After the route loop reaches two consecutive matching frames",
+    );
+    const routeLoop = normalizedPolicy.slice(routeLoopStart, taskPayloadStart);
+    expect(routeLoop.match(/orca terminal show --terminal <startupTerminal\.handle>/g)?.length).toBe(1);
+    expect(routeLoop.match(/orca terminal read --terminal <startupTerminal\.handle>/g)?.length).toBe(1);
+    expect(routeLoop).not.toContain("orca terminal wait --terminal");
+    expect(routeLoop).toContain("Every `interval_ms=250`");
+    expect(routeLoop).toContain("any nonmatch resets the count to zero");
+    expect(normalizedPolicy.indexOf("tui-idle")).toBeGreaterThan(
+      normalizedPolicy.indexOf("Count two CONSECUTIVE matching frames"),
+    );
     // AST-02: one worker per ready slice and sequential tasks to the first dependency.
     expect(policy).toContain("Start at most one worker for each planner-ready slice");
     expect(policy).toMatch(/sequential TLC tasks and stops at the\s+first unmet task dependency/);

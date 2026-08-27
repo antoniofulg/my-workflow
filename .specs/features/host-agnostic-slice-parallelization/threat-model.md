@@ -17,7 +17,7 @@ feature adds the assisted coordinator's ownership and recovery boundary.
 | Canary -> cleanup | Worker starts but release or checkout removal fails | No compatible receipt; retained identity reported | Staged cleanup and IT-002/SEC-005 |
 | Maestri text -> ownership state | Human output is parsed as a receipt | Adapter refuses execution | Structured-output requirement and UT-005/IT-004 |
 | Diagnostics -> local state | Host returns tokens, env, or transcript | Values never persist | Existing recursive redaction and SEC-004 |
-| Coordinator -> assisted worker | Unverifiable default, stale pre-send idle, one-screen acceptance, or second terminal launches the wrong frozen route | Lane stops before task edit or prompt; automatic adapter remains unsupported | Explicit authorization, frozen provider/model/effort argv, unused startup-shell proof, bounded machine-only two-screen `source=screen` proof on a connected exact handle, exact-handle continuity, and AST-01 |
+| Coordinator -> assisted worker | Unverifiable default, stale pre-send idle, one-screen acceptance, or second terminal launches the wrong frozen route | Lane stops before task edit or prompt; automatic adapter remains unsupported | Explicit authorization, frozen provider/model/effort argv, unused startup-shell proof, bounded machine-only repeated 250 ms / 60000 ms two-screen `source=screen` proof on a connected exact handle with reset-on-nonmatch, exact-handle continuity, and AST-01 |
 | Create timeout -> late Orca effect | Missing create receipt is blindly retried or an ambiguous late worktree is adopted | No replacement create; zero/multiple/ambiguous candidates serialize and every provably owned late effect is exact-cleaned | Before/after exact inventory, unique logical name, one mutating create, immutable receipt/ownership proof, and SEC-008 |
 | Parked checkpoint -> follow-up | Stale or ambiguous comment resumes the wrong task or head | Lane serializes without follow-up or replacement worker | Reconcile comment with `tasks.md` and Git; AST-03–AST-05 |
 | Assisted cleanup -> Git/Orca resource | Foreign, dirty, or unintegrated resource is removed | No deletion; exact owned path remains for serial recovery | Exact create receipt, Orca/Git identity revalidation, integrated ancestor, ordered stop/detach/branch-delete/ref-proof/remove, and absence proof; SEC-008 |
@@ -33,8 +33,8 @@ feature adds the assisted coordinator's ownership and recovery boundary.
 - A worktree identity or integration ancestry may change between the create receipt and cleanup.
 - The startup shell may already contain agent/default-task activity or more than one owned handle.
 - The initial handle may be replaced by an accidental second terminal or lose identity continuity.
-- A route may render after an initial idle signal, and a create invocation may materialize a late
-  duplicate after its receipt timed out.
+- A route may render after an initial idle signal.
+- A create invocation may materialize a late duplicate after its receipt timed out.
 
 ## Residuals
 

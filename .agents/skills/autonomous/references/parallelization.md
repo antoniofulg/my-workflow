@@ -83,8 +83,8 @@ worktree, worker terminal, checkpoint, dependency notification, integration, and
 
 Before launch, read `roles.implementer.provider`, `roles.implementer.model`, and
 `roles.implementer.effort` from the frozen `workflow.json`. Never trust an unobservable Orca
-default to select the worker route. Build and verify an explicit command for the frozen route only
-after proving the owned startup shell:
+default to select the worker route. The following are non-normative command shapes; no route command
+is sent before exact startup-handle proof:
 
 ```bash
 codex --model <shq(model)> -c <shq(model_reasoning_effort=<effort>)>
@@ -97,33 +97,33 @@ Here `shq(value)` means the output of an actual POSIX-shell quoting function (fo
 are argv shapes; use a fixed-argv/no-shell wrapper where possible, and otherwise apply `shq` to every
 interpolated provider, model, effort, slice, base-branch, branch, ref, and handle value. Merge the
 Cursor effort into an existing parameter block instead of adding a duplicate block. Use the selected
-executable's `--help` and availability check to confirm the command is expressible. After the command
-is sent once, a bounded machine-only TUI materialization probe uses exact-handle
-`terminal show --json` and `terminal read --screen --json` with `timeout_ms=60000` and
-`interval_ms=250`. The handle must remain connected. Accept only `source=screen` with provider, model,
-and effort all present and matching the frozen tuple in two consecutive screen reads. After the first
-matching frame, `terminal wait --for tui-idle` may be checked, but acceptance still requires the next
-matching screen read. A timeout, mismatch, disconnect, `screen-unavailable`, omitted provider, or
-ambiguity stops and serializes before the prompt or any task edit; clean only verified owned setup
-resources. This probe is not the dependency waiter: it performs no model turns and does not poll or
-spin on task state. Do not edit `tasks.md`, start a task, or continue in parallel.
+executable's `--help` and availability check to confirm the command is expressible.
+
+The canonical launch sequence is the only normative order: create once; reconcile the receipt;
+prove the exact startup handle; send `exec` once; run the bounded route loop; then send the task
+payload. Before that sequence reaches the route commands. Do not edit `tasks.md`, start a task, or
+continue in parallel.
 
 Before the one mutating create, snapshot the exact repository worktree and terminal inventory into
 `before_inventory` and generate a unique logical slice name. Invoke exactly one create with an explicit base and setup
-policy; the public Orca CLI has no idempotency key, so a missing receipt or timeout is never retried
-blindly. Reconcile that call with one bounded `after_inventory - before_inventory` difference using
-the logical name. Adopt exactly one candidate only after a complete immutable receipt and ownership proof can be
-reconstructed; zero, multiple, or ambiguous candidates serialize and exact-clean every provably
-owned late effect. Never invent a receipt or claim compatibility from an ambiguous result. Record the
-immutable receipt and prove the startup shell before promoting it; never create a second terminal for
-the worker:
+policy:
 
 ```bash
 orca worktree create --name <slice> --base-branch <base-branch> --setup inherit --json
 ```
 
-Record an immutable ownership receipt immediately from the create result: repository, complete
-worktree id, instance, absolute path, gitdir, branch, `pre_head`, and the exact
+If the create result is missing or times out, it is never retried blindly: never retry or issue a second create. Enter a machine-
+only SETTLE WINDOW for at most `timeout_ms=60000`, re-listing the exact repository worktree and
+terminal inventories every `interval_ms=250` and computing the cumulative `current - before_inventory`
+difference (the `after_inventory - before_inventory` difference over the window). Adopt exactly one
+candidate only after a complete immutable receipt and ownership proof
+can be reconstructed from the receipt and the same inventory identities. zero, multiple, or ambiguous
+candidates serialize; exact-clean each candidate when provably owned, then serialize. At the deadline, perform one
+final inventory/audit after the last re-list; only a proven zero-candidate result may serialize as zero
+effect. Never invent a receipt or claim compatibility from an ambiguous result.
+
+Record an immutable ownership receipt immediately from the create result or the one reconciled
+candidate: repository, complete worktree id, instance, absolute path, gitdir, branch, `pre_head`, and the exact
 `startupTerminal.handle`.
 
 Before any terminal send, inspect that exact handle:
@@ -146,31 +146,30 @@ Construct `exec_payload` as the complete `exec <validated-frozen-agent-command>`
 ```bash
 orca terminal send --terminal <startupTerminal.handle> \
   --text <shq(exec_payload)> --enter --json
-# bounded machine-only route-materialization probe: show/read, explicit timeout + interval
-orca terminal show --terminal <startupTerminal.handle> --json
-orca terminal read --terminal <startupTerminal.handle> --screen --json
-# after the first matching frame, tui-idle may be checked; require the next matching screen too
-orca terminal wait --terminal <startupTerminal.handle> --for tui-idle --timeout-ms 60000 --json
-orca terminal show --terminal <startupTerminal.handle> --json
-orca terminal read --terminal <startupTerminal.handle> --screen --json
 ```
 
-After the screen proof matches the frozen route, construct `task_payload` as the complete slice
-packet, then apply `shq(payload)` once to that complete payload before passing it to `--text`:
+Then run the bounded machine-only TUI materialization probe loop on that same handle. Every
+`interval_ms=250`, and for no more than `timeout_ms=60000`, each iteration performs the exact-handle
+`orca terminal show --terminal <startupTerminal.handle> --json` plus `orca terminal read --terminal <startupTerminal.handle> --screen --json`. The handle must remain connected. Require two consecutive screen reads from that exact handle with
+`source=screen` and provider, model, and effort all present and matching the frozen tuple. Count two
+CONSECUTIVE matching frames; any nonmatch resets the count to zero. After the first matching frame,
+`terminal wait --for tui-idle` may be checked only as a hint/check; it is never the barrier and the
+next matching screen is still required. A timeout, mismatch, disconnect, `screen-unavailable`,
+omitted provider, or ambiguity serializes before any task payload or task edit. one screen or one pre-send `tui-idle` result is never sufficient. This probe is not the dependency waiter. This probe
+performs no model turns and does not poll or spin on task state; dependency waiting remains event-driven.
+
+After the route loop reaches two consecutive matching frames, construct `task_payload` as the
+complete slice packet, then apply `shq(payload)` once to that complete payload before passing it to
+`--text`:
 
 ```bash
 orca terminal send --terminal <startupTerminal.handle> --text <shq(task_payload)> --enter --json
 ```
 
-Never wrap either payload in literal outer double quotes. The probe's final acceptance requires two
-consecutive matching `source=screen` frames while the exact handle remains connected; one screen or
-one pre-send `tui-idle` result is never sufficient. A failed conjunction serializes and cleans before
-the task packet or any task edit; `screen-unavailable`, an omitted provider, a mismatch, disconnect,
-timeout, or ambiguity also serializes. The probe is machine-only and bounded; dependency waiting
-remains event-driven and does not poll, spin, or spend model turns checking unchanged state.
-Record mutable `current_head` and `current_handle` separately; the same startup handle remains the
-worker handle and is updated only after a commit, sync, or exact-handle reacquisition. Never open a
-second terminal or create a second worker for the same slice.
+Never wrap either payload in literal outer double quotes. Record mutable `current_head` and
+`current_handle` separately; the same startup handle remains the worker handle and is updated only
+after a commit, sync, or exact-handle reacquisition. Never open a second terminal or create a second
+worker for the same slice.
 
 The coordinator follows this lifecycle:
 
