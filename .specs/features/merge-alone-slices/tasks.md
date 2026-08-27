@@ -243,12 +243,33 @@ membership equality.
 - Commit: `test(workflow): strengthen merge-alone contract coverage`
 - Status: complete — validator 16, resolver 54, planner 19, and full `npm run test:all` gates passed.
 
+### R2: Pin Exact-Yes Error Identity
+
+**What**: Require every invalid merge-alone decision assertion to name both slice `A` and the exact
+lowercase `yes` contract.
+
+- Where: `tools/test_tlc_validators.py`
+- Slice: A
+- Depends on: R1
+- Reuses: Existing MAS-UT-004 parameterized invalid-decision test.
+- Requirement: MAS-03
+
+**Done when**:
+
+- [ ] `no`, empty, `Yes`, and `true` each assert slice `A` plus exact lowercase `yes`.
+- [ ] Validator gate passes with no weakened, removed, or skipped tests.
+
+- Tests: Strengthen MAS-UT-004.
+- Gate: Validator
+- Commit: `test(tlc): pin merge-alone error identity`
+- Status: pending — second failed remediation for fingerprint `1f53e6...`.
+
 ## Phase Execution Map
 
 ```text
 Phase 1 → Phase 2 → Phase 3
 
-T1 → T2 → T3 → T4 → T5 → R1
+T1 → T2 → T3 → T4 → T5 → R1 → R2
 ```
 
 ## Task Granularity Check
@@ -261,6 +282,7 @@ T1 → T2 → T3 → T4 → T5 → R1
 | T4 | One published planning contract | Pass |
 | T5 | One current QA/release record set | Pass |
 | R1 | One Technical Verifier remediation batch | Pass |
+| R2 | One exact error-identity assertion | Pending |
 
 ## Diagram-Definition Cross-Check
 
@@ -272,6 +294,7 @@ T1 → T2 → T3 → T4 → T5 → R1
 | T4 | T3 | T3 → T4 | Pass |
 | T5 | T4 | T4 → T5 | Pass |
 | R1 | T5 | T5 → R1 | Pass |
+| R2 | R1 | R1 → R2 | Pass |
 
 ## Test Co-location Validation
 
@@ -283,3 +306,4 @@ T1 → T2 → T3 → T4 → T5 → R1
 | T4 | Agent/public contract | structural + adoption | MAS-IT-009 | Pass |
 | T5 | QA/changelog records | none | none; full/QA gates | Pass |
 | R1 | Existing validator/resolver/planner contracts | unit + integration | Strengthened MAS assertions | Pass |
+| R2 | TLC validator error contract | unit | Strengthened MAS-UT-004 | Pending |
