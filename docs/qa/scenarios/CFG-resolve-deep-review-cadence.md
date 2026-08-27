@@ -6,13 +6,13 @@ persona: Workflow adopter
 journey: J-configure-feature-workflow
 expected: The resolver derives balanced review groups from validated merge-alone task outcomes, defaults missing Tasks to one slice, reports the effective nonnegative remediation stall bound, and rejects invalid inputs before writing state.
 entry_points: .my-workflow.toml.example; .my-workflow.toml; .agents/skills/workflow-config/scripts/workflow_config.py; .agents/skills/workflow-config/SKILL.md; docs/guidelines/REVIEW-ROUNDS.md
-qa_status: untested
+qa_status: pass
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence:
-last_report:
+evidence: docs/qa/evidence/2026-08-27-merge-alone-slices/derive-validator-one.json; docs/qa/evidence/2026-08-27-merge-alone-slices/derive-validator-two.json; docs/qa/evidence/2026-08-27-merge-alone-slices/independent-initial-read.log; docs/qa/evidence/2026-08-27-merge-alone-slices/edge-count-mismatch.stderr.log; docs/qa/evidence/2026-08-27-merge-alone-slices/edge-count-zero.stderr.log; docs/qa/evidence/2026-08-27-merge-alone-slices/edge-count-negative.stderr.log
+last_report: docs/qa/reports/2026-08-27-merge-alone-slices.md
 overlaps:
 ---
 
@@ -29,3 +29,7 @@ families rejected before snapshot creation.
 
 The merge-alone slice contract changes this current promise. A fresh QA walk must cover derived
 counts, closure validation, optional count assertions, and the no-Tasks default.
+
+QA on 2026-08-27 passed this promise through the public validator/resolver path. Independent reloads
+confirmed one outcome as `[[1]]`, two outcomes as `[[1, 2]]`, and missing Tasks as `[[1]]`; mismatch,
+zero, negative, and malformed closure/membership probes failed with named identities before writes.

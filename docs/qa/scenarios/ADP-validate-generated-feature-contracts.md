@@ -11,8 +11,8 @@ bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence:
-last_report:
+evidence: docs/qa/evidence/2026-08-27-merge-alone-slices/cleanup.log
+last_report: docs/qa/reports/2026-08-27-merge-alone-slices.md
 overlaps:
 ---
 
@@ -26,3 +26,7 @@ layouts and the annotated acceptance-criteria template passed; future-phase depe
 
 The merge-alone closure contract changes this current promise. A fresh QA walk must exercise valid
 one- and two-slice task documents plus named failures for closure and membership defects.
+
+The 2026-08-27 execution stopped before this separate adoption charter when the preceding public
+resolver-to-planner journey found `BUG-20260827-parallel-plan-rejects-workflow-v2`. The disposable
+targets were removed and this scenario remains `untested` for the required fresh post-fix Verifier.

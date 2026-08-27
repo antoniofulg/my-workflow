@@ -6,13 +6,13 @@ persona: Workflow adopter
 journey: J-configure-feature-workflow
 expected: Resolution derives slice count from validated task outcomes, while resume reports live remediation without re-reading Tasks and keeps model/effort routes, cadence, selected parallelization mode, and safe optional resource provider frozen until explicit refresh.
 entry_points: .my-workflow.toml.example; .my-workflow.toml; .claude/agents/; .codex/agents/; .cursor/agents/; .agents/skills/workflow-config/scripts/workflow_config.py; .specs/features/<slug>/workflow.json; .agents/skills/workflow-config/SKILL.md
-qa_status: untested
+qa_status: pass
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence:
-last_report:
+evidence: docs/qa/evidence/2026-08-27-merge-alone-slices/freeze-initial.json; docs/qa/evidence/2026-08-27-merge-alone-slices/freeze-refresh-two.json; docs/qa/evidence/2026-08-27-merge-alone-slices/freeze-resume-after-valid-change.json; docs/qa/evidence/2026-08-27-merge-alone-slices/freeze-resume-after-malformed-change.json; docs/qa/evidence/2026-08-27-merge-alone-slices/independent-freeze-reload.log; docs/qa/evidence/2026-08-27-merge-alone-slices/refresh-count-mismatch.stderr.log; docs/qa/evidence/2026-08-27-merge-alone-slices/refresh-malformed-tasks.stderr.log
+last_report: docs/qa/reports/2026-08-27-merge-alone-slices.md
 overlaps:
 ---
 
@@ -36,3 +36,7 @@ in `docs/qa/reports/2026-08-25-parallel-slice-executor-final.md`; the latest rep
 The merge-alone slice contract changes this current promise. A fresh QA walk must prove malformed
 Tasks fail before snapshot replacement, refresh re-derives current slices, and normal resume keeps
 the frozen snapshot unchanged.
+
+QA on 2026-08-27 passed the changed promise through public initial, resume, and refresh commands.
+Independent JSON/hash reads confirmed resume ignored both valid and malformed current Tasks, refresh
+adopted two slices, and count-mismatch or malformed refresh preserved the prior snapshot bytes.

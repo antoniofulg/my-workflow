@@ -6,13 +6,13 @@ persona: Workflow adopter
 journey: J-configure-feature-workflow
 expected: The read-only planner reports deterministic ready, blocked, checkpoint, or serial-fallback work from primary task Slice membership while the installed orchestration contract keeps slice tasks sequential and preserves every delivery gate.
 entry_points: .agents/skills/workflow-config/scripts/parallel_plan.py; .agents/skills/autonomous/references/parallelization.md
-qa_status: untested
-bug_ids:
-fix_status:
+qa_status: fail
+bug_ids: BUG-20260827-parallel-plan-rejects-workflow-v2
+fix_status: pending
 retest_status:
 fix_commits:
-evidence:
-last_report:
+evidence: docs/qa/evidence/2026-08-27-merge-alone-slices/planner-validator-contract.json; docs/qa/evidence/2026-08-27-merge-alone-slices/planner-resolve.json; docs/qa/evidence/2026-08-27-merge-alone-slices/defect-reproduction.exit; docs/qa/evidence/2026-08-27-merge-alone-slices/defect-reproduction.stderr.log; docs/qa/evidence/2026-08-27-merge-alone-slices/defect-independent-read.log
+last_report: docs/qa/reports/2026-08-27-merge-alone-slices.md
 overlaps: CFG-freeze-feature-workflow
 ---
 
@@ -33,3 +33,8 @@ preflight, not by planner mutation. The real worker lifecycle remains separately
 The merge-alone closure table is now validated upstream of this planner. A fresh QA walk must
 confirm the planner preserves primary-task Slice membership without treating closure rows as extra
 tasks or slices.
+
+QA on 2026-08-27 failed this public path before membership output. The resolver created snapshot
+version 2, but the planner accepted only version 1 and exited with `parallel plan: invalid workflow
+snapshot`. See `BUG-20260827-parallel-plan-rejects-workflow-v2`; a fresh post-fix Verifier must resume
+this charter and its adoption canary.
