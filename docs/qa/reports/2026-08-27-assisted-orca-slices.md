@@ -900,4 +900,17 @@ Two pre-existing foreign artifacts were identified and deliberately left untouch
 
 - Fixture full gate on the final integrated tree `07540bc`:
   `python3 -m unittest discover -s pilot/tests -p 'test_*.py'` → `Ran 12 tests … OK`, exit `0`.
-- Outer full gate on the final tree: see below.
+- Outer full gate on the final tree `a777a9f`, clean working tree:
+  `npm_config_offline=true npm run test:all` → exit `0`; Vitest `Test Files 8 passed (8)`,
+  `Tests 112 passed (112)`; all Python lanes `0 failed` (`9`, `5`, `67`, `53`, `18`, `14`, `6`,
+  `44` passed). Log: `/tmp/r13-final-gate-committed.log`.
+- Structural gate: `python3 .agents/skills/tlc-spec-driven/scripts/validate_state.py
+  host-agnostic-slice-parallelization` → `0 error(s)`, exit `0`.
+
+### Bug dispositions after this cycle
+
+| Bug | Disposition |
+| --- | --- |
+| `BUG-20260827-assisted-pilot-batch-cli-drops-final-newline` | **closed** — re-derived from scratch, not inherited; symptom absent, required assertion present and proven discriminating |
+| `BUG-20260827-orca-terminal-send-truncates-claude-worker-packet` | **open** against the host — AD-016 route-around retested and passed; the host defect is unfixed and did not reproduce in one characterization, which clears nothing |
+| `BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree` | **open** against the automatic executor; not reachable through the assisted path, untouched by this cycle |
