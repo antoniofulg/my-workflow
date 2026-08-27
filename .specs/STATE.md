@@ -3,11 +3,11 @@
 ## Handoff
 
 - **Feature**: `.specs/features/host-agnostic-slice-parallelization`
-- **Phase / Task**: Halted / post-cap gate after final Deep Review remediation
-- **Completed**: T1–T5; Technical Verifier PASS; Deep Review rounds 1–2 complete; final blocker remediation committed at `a4d5e0c`; Orca `1.4.190` canary failed and exact live residue was cleaned
+- **Phase / Task**: QA Execute / awaiting Retest 9 after Retest 8 FAIL at grouped Deep Review
+- **Completed**: T1-T5; Technical Verifier PASS; Deep Review rounds 1-2; assisted Orca lifecycle hardened; QA Execute Retests 1-8; Retest 8 proved 60.694s A/B overlap, exact B parking, exact A:T7 sync, same-handle continuation, fresh Sol-medium Technical Verifiers, conflict-free A-then-B integration at `2051517` with fixture gate 9/9, and exact cleanup of all three owned worktrees (60-second 63-sample audit, zero residue); frozen medium route realigned in the canonical contract at `395a691`
 - **In-progress** (file:line): none
-- **Next step**: Start a fresh run after machine contention changes, run the full gate once, then continue with E2E-001 only if it passes.
-- **Blockers**: `stall_attempts=3` reached after three full-gate attempts timed out in `tools/knowledge/tests/check.test.ts` without a strict-subset failure set. Automatic Orca orchestration also remains incompatible: `1.4.190` failed `worker-start` with `agent_prompt_stalled`.
+- **Next step**: Run QA Execute Retest 9 on live Orca. Fix `python -m pilot.batch` newline framing inside the fresh pilot fixture, then resume grouped Deep Review, final CLI persona QA, fixture full gate, and exact cleanup.
+- **Blockers**: `BUG-20260827-assisted-pilot-batch-cli-drops-final-newline` (open, major) is the sole open grouped Deep Review Major and stops final persona QA; its fixture is disposable and only exists inside a live pilot run, so it cannot be fixed outside Retest 9. Retest 9 needs a live Orca session and is human-scheduled.
 - **Uncommitted files**: none.
 - **Branch**: `feat/host-agnostic-slice-parallelization`
 
