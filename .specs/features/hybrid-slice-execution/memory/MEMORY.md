@@ -13,3 +13,5 @@
   short-circuit the coordinator before constructing external adapters or effect handlers.
 - Planner output records that only concurrent implementer lanes use worktrees; planner, coordinator,
   explorer, verifier, review, and QA roles remain on the integration checkout.
+- Initial assisted admission is always bounded by the automatic baseline of two; an explicit cap
+  above two remains available as the later health-gated ceiling.

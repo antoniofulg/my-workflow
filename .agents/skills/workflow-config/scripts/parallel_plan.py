@@ -424,7 +424,10 @@ def plan(
         for lane in ready[1:]:
             blocked[lane["task"]] = ["disabled-mode"]
     else:
-        initial_cap = 2 if snapshot["max_workers"] == "auto" else snapshot["max_workers"]
+        configured_cap = snapshot["max_workers"]
+        initial_cap = snapshot["automatic_baseline"] if configured_cap == "auto" else min(
+            snapshot["automatic_baseline"], configured_cap
+        )
         for lane, task in zip(ready, ready_tasks):
             if len(selected) >= initial_cap:
                 blocked[task.id] = [f"writer-cap:{initial_cap}"]

@@ -16,7 +16,12 @@ import parallel_plan
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def make_repo(tasks: str, mode: str = "assisted", feature: str = "fixture") -> Path:
+def make_repo(
+    tasks: str,
+    mode: str = "assisted",
+    feature: str = "fixture",
+    max_workers: str | int = "auto",
+) -> Path:
     root = Path(tempfile.mkdtemp())
     feature_dir = root / ".specs/features" / feature
     feature_dir.mkdir(parents=True)
@@ -35,7 +40,7 @@ def make_repo(tasks: str, mode: str = "assisted", feature: str = "fixture") -> P
                 "git_head": head,
                 "parallelization": {
                     "mode": mode,
-                    "max_workers": "auto",
+                    "max_workers": max_workers,
                     "automatic_baseline": 2,
                     "automatic_ceiling": 4,
                     "resource_provider": None,
@@ -212,6 +217,29 @@ def test_concurrent_writer_selection_is_capped_and_not_parity_bound() -> None:
         assert blocked_task(plan, "T4")["reasons"] == ["writer-cap:2"]
     finally:
         shutil.rmtree(root)
+
+
+def test_initial_admission_uses_baseline_before_explicit_ceiling() -> None:
+    tasks = task("T1", "A") + task("T2", "B") + task("T3", "C") + task("T4", "D")
+    for cap in ("auto", 1, 2, 3, 4):
+        root = make_repo(tasks, max_workers=cap)
+        try:
+            plan = parallel_plan.plan(root=root, feature="fixture")
+            expected_count = 1 if cap == 1 else 2
+            assert len(plan["lanes"]) == expected_count
+            assert plan["compatibility"]["selected"] == [f"T{number}" for number in range(1, expected_count + 1)]
+            assert plan["max_workers"] == cap
+
+            snapshot = json.loads(
+                (root / ".specs/features/fixture/workflow.json").read_text(encoding="utf-8")
+            )
+            assert snapshot["parallelization"]["automatic_baseline"] == 2
+            assert snapshot["parallelization"]["automatic_ceiling"] == 4
+            expected_reason = f"writer-cap:{expected_count}"
+            assert blocked_task(plan, "T3")["reasons"] == [expected_reason]
+            assert blocked_task(plan, "T4")["reasons"] == [expected_reason]
+        finally:
+            shutil.rmtree(root)
 
 
 def test_resource_collision_blocks_only_the_conflicting_ready_writer() -> None:
