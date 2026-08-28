@@ -10,5 +10,9 @@
 - Generation-2 remediation adds an AST reachable-lifecycle guard that classifies explicit mutating
   Git verbs and a PATH-backed cleanup ledger; the first post-effect `stop` failure is reconciled
   from persisted `unknown` state without reissuing the stop.
-- T14 focused contract is 19/19 after remediation. Generation 2 remains open under the authorized
-  CP-S4 fingerprint; a fresh Technical Verifier must close it only after independent PASS.
+- The physical sink is local to `MutationRunner.issue`; no private `_sink` method remains. The
+  structural contract rejects `_sink` or equivalent private-sink calls from every public reachable
+  helper while preserving read-only Git/provider inspection paths.
+- T14 focused contract is 19/19 after the generation-2 remediation. Generation 2 remains open under
+  the authorized CP-S4 fingerprint; a fresh Technical Verifier must close it only after independent
+  PASS.

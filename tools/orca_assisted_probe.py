@@ -1393,7 +1393,7 @@ def _write_json(path: Path, value: dict[str, Any]) -> None:
 
 
 def _provider_read(provider: Path, root: str | Path, payload: dict[str, Any], timeout: float) -> subprocess.CompletedProcess[str]:
-    """Run one provider inspection; mutation requests stay inside MutationRunner._sink."""
+    """Run one provider inspection; mutation requests stay inside MutationRunner.issue."""
     return subprocess.run(
         [str(provider)], cwd=str(root), input=json.dumps(payload),
         capture_output=True, text=True, shell=False, timeout=timeout, check=False,
@@ -1470,46 +1470,6 @@ class MutationRunner:
         self.state = state
         self.state_path = state_path
 
-    def _sink(self, effect: dict[str, Any]) -> dict[str, Any]:
-        kind = effect.get("kind")
-        argv = effect.get("argv")
-        if kind == "orca":
-            if not isinstance(argv, list) or not argv or any(not isinstance(item, str) for item in argv):
-                raise ProbeError("malformed Orca mutation")
-            command = [self.args.orca, *argv] if isinstance(argv, list) else []
-            if effect.get("pointer"):
-                    return _send_pointer_once(
-                    OrcaProbe(self.state["repository"], orca=self.args.orca),
-                    str(effect["handle"]), Path(str(effect["packet"])), Path(str(effect["log"])),
-                )
-            return raw(command, timeout=float(getattr(self.args, "timeout", 30.0)))
-        if kind == "git":
-            if not isinstance(argv, list):
-                raise ProbeError("malformed Git mutation")
-            result = git(effect.get("path", self.state["repository_root"]), *argv, check=True)
-            return {"returncode": result.returncode}
-        if kind == "lease":
-            provider = _owned_path(effect.get("provider"), Path(self.state["repository_root"]), "lease provider")
-            operation = effect.get("operation", "acquire")
-            result = subprocess.run(
-                [str(provider)], cwd=self.state["repository_root"], input=json.dumps({
-                    "operation": operation, "lease_id": self.state["lease_id"],
-                    "repository": self.state["repository"], "slice": self.state["slice_id"],
-                    "task": self.state["task_id"], "operation_id": self.state["operation_id"],
-                }), capture_output=True, text=True, shell=False,
-                timeout=float(getattr(self.args, "timeout", 30.0)), check=False,
-            )
-            if result.returncode:
-                raise ProbeError("resource provider mutation failed")
-            try:
-                value = json.loads(result.stdout or "{}")
-            except json.JSONDecodeError as error:
-                raise ProbeError("resource provider returned malformed JSON") from error
-            if not isinstance(value, dict):
-                raise ProbeError("resource provider returned malformed JSON")
-            return value
-        raise ProbeError("unknown mutation kind")
-
     def issue(
         self,
         effect: dict[str, Any],
@@ -1518,6 +1478,46 @@ class MutationRunner:
         success: Callable[[dict[str, Any]], bool] | None = None,
     ) -> dict[str, Any]:
         """Persist in-flight attempt one, issue once, or reconcile an existing effect."""
+        def physical_sink() -> dict[str, Any]:
+            kind = effect.get("kind")
+            argv = effect.get("argv")
+            if kind == "orca":
+                if not isinstance(argv, list) or not argv or any(not isinstance(item, str) for item in argv):
+                    raise ProbeError("malformed Orca mutation")
+                command = [self.args.orca, *argv]
+                if effect.get("pointer"):
+                    return _send_pointer_once(
+                        OrcaProbe(self.state["repository"], orca=self.args.orca),
+                        str(effect["handle"]), Path(str(effect["packet"])), Path(str(effect["log"])),
+                    )
+                return raw(command, timeout=float(getattr(self.args, "timeout", 30.0)))
+            if kind == "git":
+                if not isinstance(argv, list):
+                    raise ProbeError("malformed Git mutation")
+                result = git(effect.get("path", self.state["repository_root"]), *argv, check=True)
+                return {"returncode": result.returncode}
+            if kind == "lease":
+                provider = _owned_path(effect.get("provider"), Path(self.state["repository_root"]), "lease provider")
+                operation = effect.get("operation", "acquire")
+                result = subprocess.run(
+                    [str(provider)], cwd=self.state["repository_root"], input=json.dumps({
+                        "operation": operation, "lease_id": self.state["lease_id"],
+                        "repository": self.state["repository"], "slice": self.state["slice_id"],
+                        "task": self.state["task_id"], "operation_id": self.state["operation_id"],
+                    }), capture_output=True, text=True, shell=False,
+                    timeout=float(getattr(self.args, "timeout", 30.0)), check=False,
+                )
+                if result.returncode:
+                    raise ProbeError("resource provider mutation failed")
+                try:
+                    value = json.loads(result.stdout or "{}")
+                except json.JSONDecodeError as error:
+                    raise ProbeError("resource provider returned malformed JSON") from error
+                if not isinstance(value, dict):
+                    raise ProbeError("resource provider returned malformed JSON")
+                return value
+            raise ProbeError("unknown mutation kind")
+
         effect_id = _token(effect.get("effect_id"), "effect id")
         existing = _effect_record(self.state, effect_id)
         if existing is not None:
@@ -1537,7 +1537,7 @@ class MutationRunner:
             self.state.update(original)
             raise
         try:
-            receipt = (sink or (lambda: self._sink(effect)))()
+            receipt = (sink or physical_sink)()
         except Exception as error:  # noqa: BLE001 - preserve ambiguous post-effect state
             record.update({"status": "unknown", "error": str(error)})
             _write_json(self.state_path, self.state)

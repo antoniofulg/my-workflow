@@ -551,7 +551,7 @@ def _assert_public_mutation_boundary(source: str) -> None:
     functions = _function_index(tree)
     allowed = {
         "raw", "git", "resilient_run", "_send_pointer_once", "_provider_read",
-        "MutationRunner._sink", "MutationRunner.issue", "OrcaProbe.run",
+        "MutationRunner.issue", "OrcaProbe.run",
     }
     pending = ["dispatch", "cleanup"]
     visited: set[str] = set()
@@ -597,6 +597,8 @@ def _check_public_call(call: ast.Call, owner: str) -> None:
         if call.func.id == "git" and _git_mutates(call):
             raise AssertionError(f"direct mutating git call in reachable {owner}")
     if isinstance(call.func, ast.Attribute) and isinstance(call.func.value, ast.Name):
+        if call.func.attr in {"_sink", "_physical_sink"} and owner != "MutationRunner.issue":
+            raise AssertionError(f"private mutation sink bypass in reachable {owner}: {call.func.attr}")
         if call.func.value.id == "subprocess" and call.func.attr in {
             "run", "Popen", "call", "check_call", "check_output"
         }:
@@ -620,6 +622,18 @@ def test_UT020_public_lifecycle_has_one_mutation_issuer() -> None:
         assert "mutating git" in str(error)
     else:
         raise AssertionError("direct mutating git survivor passed the structural guard")
+
+    survivor = source.replace(
+        '    runner = MutationRunner(args, state, state_path)\n',
+        '    runner = MutationRunner(args, state, state_path)\n    runner._sink({"kind": "git", "argv": ["add", "seed"]})\n',
+        1,
+    )
+    try:
+        _assert_public_mutation_boundary(survivor)
+    except AssertionError as error:
+        assert "private mutation sink" in str(error)
+    else:
+        raise AssertionError("direct private mutation sink survivor passed the structural guard")
 
 
 def test_IT017_SEC013_issue_persists_in_flight_before_sink_and_rejects_duplicate_success() -> None:
