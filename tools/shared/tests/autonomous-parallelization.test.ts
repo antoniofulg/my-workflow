@@ -105,7 +105,7 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(policy).toMatch(/uncertainty or failure\s+serializes safely/i);
   });
 
-  it("IT-005 covers the explicitly authorized coordinator-assisted Orca lifecycle", () => {
+  it("IT-005 covers the standard coordinator-assisted Orca lifecycle", () => {
     const policy = readRepositoryFile(
       ".agents/skills/autonomous/references/parallelization.md",
     );
@@ -497,38 +497,23 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(dx).toContain("terminal send");
   });
 
-  it("IT-010 dispatches eligible default-assisted slices and honors disabled serialization", () => {
+  it("IT-010 resolves the adopted default to assisted and honors disabled serialization", () => {
     const root = mkdtempSync(join(tmpdir(), "assisted-contract-"));
     const featureDir = join(root, ".specs", "features", "fixture");
-    const planner = join(
-      repositoryRoot,
-      ".agents",
-      "skills",
-      "workflow-config",
-      "scripts",
-      "parallel_plan.py",
-    );
-    const executor = join(
-      repositoryRoot,
-      ".agents",
-      "skills",
-      "autonomous",
-      "scripts",
-      "parallel_execute.py",
-    );
+    const adopt = join(repositoryRoot, "scripts", "adopt.py");
+    const resolver = join(root, ".agents", "skills", "workflow-config", "scripts", "workflow_config.py");
+    const planner = join(root, ".agents", "skills", "workflow-config", "scripts", "parallel_plan.py");
+    const executor = join(root, ".agents", "skills", "autonomous", "scripts", "parallel_execute.py");
 
     try {
-      mkdirSync(featureDir, { recursive: true });
+      execFileSync("python3", [adopt, root], { encoding: "utf8" });
       execFileSync("git", ["init", "-q"], { cwd: root });
       execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: root });
       execFileSync("git", ["config", "user.name", "Contract Test"], { cwd: root });
       writeFileSync(join(root, "seed"), "seed\n", "utf8");
       execFileSync("git", ["add", "seed"], { cwd: root });
       execFileSync("git", ["commit", "-qm", "seed"], { cwd: root });
-      const head = execFileSync("git", ["rev-parse", "HEAD"], {
-        cwd: root,
-        encoding: "utf8",
-      }).trim();
+      mkdirSync(featureDir, { recursive: true });
       writeFileSync(
         join(featureDir, "tasks.md"),
         [
@@ -549,16 +534,28 @@ describe("autonomous parallel slice dispatch contract", () => {
         ].join("\n"),
         "utf8",
       );
-      const workflowPath = join(featureDir, "workflow.json");
-      writeFileSync(
-        workflowPath,
-        JSON.stringify(
-          { feature: "fixture", git_head: head, parallelization: { mode: "assisted" }, version: 2 },
-          null,
-          2,
-        ) + "\n",
-        "utf8",
-      );
+
+      const resolved = JSON.parse(
+        execFileSync(
+          "python3",
+          [resolver, "--root", root, "--feature", "fixture", "--slices", "2", "--native-provider", "codex"],
+          { encoding: "utf8" },
+        ),
+      ) as { parallelization: { mode: string } };
+      expect(resolved.parallelization.mode).toBe("assisted");
+
+      const adoptedAgents = readFileSync(join(root, "AGENTS.md"), "utf8");
+      const adoptedAutonomous = readFileSync(join(root, ".agents", "skills", "autonomous", "SKILL.md"), "utf8");
+      const adoptedPolicy = readFileSync(join(root, ".agents", "skills", "autonomous", "references", "parallelization.md"), "utf8");
+      const normalizedAgents = adoptedAgents.replace(/\s+/g, " ");
+      const normalizedAutonomous = adoptedAutonomous.replace(/\s+/g, " ");
+      const normalizedPolicy = adoptedPolicy.replace(/\s+/g, " ");
+      expect(normalizedAgents).toContain("use coordinator-assisted inter-slice dispatch by default");
+      expect(normalizedAgents).toContain("Use serial execution only for explicit");
+      expect(normalizedAgents).not.toContain("serial execution as the default");
+      expect(normalizedAutonomous).toContain("Coordinator-assisted dispatch is the default when the plan exposes safe independent slices");
+      expect(normalizedPolicy).toContain("makes coordinator-assisted concurrency the default between safe independent slices");
+      expect(normalizedPolicy).not.toContain("serial fallback remains the default");
 
       const plan = JSON.parse(
         execFileSync("python3", [planner, "--root", root, "--feature", "fixture"], {
@@ -583,13 +580,12 @@ describe("autonomous parallel slice dispatch contract", () => {
       expect(assisted.actions).toEqual([]);
       expect(assisted.lanes.map((lane) => lane.id)).toEqual(["slice-A", "slice-B"]);
 
+      const workflowPath = join(featureDir, "workflow.json");
+      const workflow = JSON.parse(readFileSync(workflowPath, "utf8")) as Record<string, unknown>;
+      workflow.parallelization = { mode: "disabled", resource_provider: null };
       writeFileSync(
         workflowPath,
-        JSON.stringify(
-          { feature: "fixture", git_head: head, parallelization: { mode: "disabled" }, version: 2 },
-          null,
-          2,
-        ) + "\n",
+        JSON.stringify(workflow, null, 2) + "\n",
         "utf8",
       );
       const disabled = JSON.parse(
