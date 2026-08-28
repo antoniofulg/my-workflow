@@ -130,16 +130,90 @@ def remove_obsolete_managed_paths(dest: Path) -> None:
             shutil.rmtree(path)
 
 
-def reject_symlinked_destinations(dest: Path) -> None:
-    """Refuse managed destinations that could redirect an adoption write."""
-    managed = (*COPY_PATHS, *COPY_MISSING_PATHS, "AGENTS.md")
-    for relative in managed:
-        current = dest
-        for component in Path(relative).parts:
-            current /= component
-            if current.is_symlink():
+def _reject_unsafe_destination(
+    root: Path, destination: Path, kind: str, label: str
+) -> None:
+    """Reject redirects and non-regular nodes before adoption can write."""
+    relative = destination.relative_to(root).as_posix()
+    current = root
+    for component in Path(relative).parts:
+        current /= component
+        if current.is_symlink():
+            relation = "destination" if current == destination else "parent"
+            die(
+                f"refusing adoption: {label} {relation} {current} must not be a symlink"
+            )
+        if current != destination and current.exists() and not current.is_dir():
+            die(f"refusing adoption: {label} parent {current} must be a directory")
+    if not destination.exists():
+        return
+    if kind == "directory" and not destination.is_dir():
+        die(f"refusing adoption: {label} destination {destination} must be a directory")
+    if kind == "file" and not destination.is_file():
+        die(f"refusing adoption: {label} destination {destination} must be a file")
+
+
+def _source_nodes(source: Path) -> list[tuple[Path, str]]:
+    nodes = [(source, "directory" if source.is_dir() else "file")]
+    if not source.is_dir():
+        return nodes
+    for child in source.rglob("*"):
+        if "__pycache__" in child.parts or child.suffix == ".pyc":
+            continue
+        nodes.append((child, "directory" if child.is_dir() else "file"))
+    return nodes
+
+
+def _preflight_adoption_destinations(src: Path, dest: Path, skip_agents: bool) -> None:
+    """Validate every path adoption may write before the first mutation."""
+    destinations: list[tuple[Path, str, str]] = []
+
+    def add(relative: Path | str, kind: str, label: str) -> None:
+        destinations.append((dest / relative, kind, label))
+
+    for relative in (*COPY_PATHS, *COPY_MISSING_PATHS):
+        source = src / relative
+        if not source.exists():
+            continue
+        for source_node, kind in _source_nodes(source):
+            node_relative = Path(relative) / source_node.relative_to(source)
+            add(node_relative, kind, "managed destination")
+
+    add(".gitignore", "file", "ignore file")
+    add(".ignore", "file", "ignore file")
+    add(".my-workflow.toml", "file", "local config")
+    add(".claude/skills", "directory", "generated skills directory")
+    if not skip_agents:
+        add("AGENTS.md", "file", "AGENTS.md")
+        add("CLAUDE.md", "file", "CLAUDE.md")
+
+    # workflow_config.py renders one runtime packet for each shipped template.
+    template_root = src / "templates/agents"
+    if template_root.is_dir():
+        for template in template_root.rglob("*"):
+            if not template.is_file():
+                continue
+            provider = template.parent.name
+            add(
+                Path(f".{provider}/agents") / template.name,
+                "file",
+                "generated runtime",
+            )
+
+    for path, kind, label in destinations:
+        _reject_unsafe_destination(dest, path, kind, label)
+
+    # These are intentionally replaced managed pointers. Their parent path is protected
+    # above; a directory here would make the unlink below fail after other writes.
+    agents = dest / ".agents/skills"
+    if agents.is_dir():
+        for skill in agents.iterdir():
+            if not skill.is_dir():
+                continue
+            pointer = dest / ".claude/skills" / skill.name
+            if pointer.exists() and pointer.is_dir() and not pointer.is_symlink():
                 die(
-                    f"refusing adoption: managed destination {current} is a symlink"
+                    f"refusing adoption: generated skill pointer {pointer} must be a file or symlink"
                 )
 
 
@@ -257,7 +331,7 @@ def main(argv: list[str]) -> None:
     if not dest.is_dir():
         die(f"not a directory: {dest}")
     reject_global_tlc_paths(dest)
-    reject_symlinked_destinations(dest)
+    _preflight_adoption_destinations(src, dest, skip_agents)
     if not skip_agents:
         adopt_agents(src, dest)
     remove_obsolete_managed_paths(dest)

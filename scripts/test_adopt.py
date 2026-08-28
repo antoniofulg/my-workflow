@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import io
 import os
 import re
@@ -486,6 +487,52 @@ def test_adoption_rejects_symlinked_managed_destination_without_mutation() -> No
         shutil.rmtree(outside)
 
 
+def test_adoption_rejects_unsafe_generated_destinations_without_mutation() -> None:
+    cases = (".gitignore", ".ignore", "tools")
+    for relative in cases:
+        tmp = Path(tempfile.mkdtemp())
+        outside = Path(tempfile.mkdtemp())
+        try:
+            sentinel = outside / "sentinel"
+            sentinel.write_bytes(b"outside consumer data\n")
+            target = tmp / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.symlink_to(sentinel if target.name != "tools" else outside)
+            before = snapshot_tree(tmp)
+            before_sha = hashlib.sha256(sentinel.read_bytes()).hexdigest()
+            stderr = io.StringIO()
+            with contextlib.redirect_stderr(stderr):
+                try:
+                    run(tmp)
+                except SystemExit as exc:
+                    assert exc.code == 1
+                else:
+                    raise AssertionError(f"expected unsafe destination rejection for {relative}")
+            assert snapshot_tree(tmp) == before
+            assert hashlib.sha256(sentinel.read_bytes()).hexdigest() == before_sha
+            assert "must not be a symlink" in stderr.getvalue()
+        finally:
+            shutil.rmtree(tmp)
+            shutil.rmtree(outside)
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        (tmp / ".gitignore").mkdir()
+        before = snapshot_tree(tmp)
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            try:
+                run(tmp)
+            except SystemExit as exc:
+                assert exc.code == 1
+            else:
+                raise AssertionError("expected non-regular merge destination rejection")
+        assert snapshot_tree(tmp) == before
+        assert "must be a file" in stderr.getvalue()
+    finally:
+        shutil.rmtree(tmp)
+
+
 def test_qa_registry_keeps_fake_proof_current_and_live_orca_blocked() -> None:
     adoption = (ROOT / "docs/qa/scenarios/ADP-adopt-workflow-safely.md").read_text(encoding="utf-8")
     fallback = (ROOT / "docs/qa/scenarios/CFG-fallback-unproven-parallel-execution.md").read_text(encoding="utf-8")
@@ -794,6 +841,7 @@ TESTS = (
     "test_adoption_installs_only_new_authority_byte_identically",
     "test_adoption_imports_probe_without_orca_effect",
     "test_adoption_rejects_symlinked_managed_destination_without_mutation",
+    "test_adoption_rejects_unsafe_generated_destinations_without_mutation",
     "test_qa_registry_keeps_fake_proof_current_and_live_orca_blocked",
     "test_adoption_rejects_invalid_template_before_runtime_writes",
     "test_adoption_rejects_malformed_local_config_without_partial_writes",

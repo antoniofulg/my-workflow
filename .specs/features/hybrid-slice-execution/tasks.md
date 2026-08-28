@@ -10,7 +10,7 @@ Commit. Every code-changing slice closes with a fresh Technical Verifier before 
 is consumed. Final Deep Review and QA use fresh sessions on the integrated tree.
 
 **Design:** `.specs/features/hybrid-slice-execution/design.md`
-**Status:** In Progress — CP-S4 remediation authorized after preserved halt
+**Status:** In Progress — CP-S6 remediation authorized after preserved validation halt
 
 ## Test Coverage Matrix
 

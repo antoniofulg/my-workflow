@@ -8,7 +8,7 @@
     "review:graft:build": "graft build",
     "review:graft:version": "graft --version",
     "test": "vitest run --dir tools",
-    "test:python": "find tools -type f -name 'test_*.py' -print | sort | while read test; do python3 \"$test\" || exit $?; done",
+    "test:python": "python3 scripts/test_adopt.py && find tools -type f -name 'test_*.py' -print | sort | while read test; do python3 \"$test\" || exit $?; done",
     "test:all": "npm run test && npm run test:python"
   },
   "devDependencies": {
