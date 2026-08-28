@@ -12,6 +12,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import time
@@ -224,8 +225,7 @@ def send_pointer(
     """Send one short pointer.  This function has no retry or fallback path."""
     payload = pointer(packet_file, worktree=worktree)
     body = packet_file.read_text(encoding="utf-8")
-    sent = raw(
-        [
+    command = [
             probe.orca,
             "terminal",
             "send",
@@ -235,9 +235,11 @@ def send_pointer(
             payload,
             "--enter",
             "--json",
-        ],
-        timeout=20.0,
-    )
+        ]
+    try:
+        sent = raw(command, timeout=20.0)
+    except Exception as error:  # noqa: BLE001 - one-shot mutation; caller reconciles effect
+        sent = {"ok": False, "error": str(error)}
     append(
         log,
         {
@@ -253,6 +255,47 @@ def send_pointer(
         },
     )
     return sent
+
+
+def mutate_once(
+    probe: OrcaProbe,
+    argv: list[str],
+    reconcile: Any,
+    *,
+    timeout: float,
+    settle_window: float,
+    interval: float,
+) -> dict[str, Any]:
+    """Issue one mutation, then reconcile its same-resource effect with read-only calls."""
+    try:
+        receipt = raw(argv, timeout=timeout)
+    except Exception as error:  # noqa: BLE001 - missing receipt is an ambiguous effect
+        receipt = {"ok": False, "error": str(error)}
+    deadline = time.monotonic() + settle_window
+    samples = 0
+    while time.monotonic() < deadline:
+        samples += 1
+        try:
+            state = reconcile()
+        except Exception as error:  # noqa: BLE001 - read-only reconciliation
+            state = {"complete": False, "error": str(error)}
+        if isinstance(state, dict) and state.get("complete") is True:
+            return {"receipt": receipt, "reconciled": True, "samples": samples, "state": state}
+        time.sleep(interval)
+    raise ProbeError(f"mutation effect not reconciled after {samples} read-only samples")
+
+
+def route_command(provider: str, model: str, effort: str) -> str:
+    """Build the provider-specific frozen route sent to the verified shell."""
+    if provider == "codex":
+        setting = shlex.quote(f"model_reasoning_effort={effort}")
+        return f"exec codex --model {shlex.quote(model)} -c {setting}"
+    if provider == "claude":
+        return f"exec claude --model {shlex.quote(model)} --effort {shlex.quote(effort)}"
+    if provider == "cursor":
+        cursor_model = f"{model}[effort={effort}]"
+        return f"exec cursor agent --model {shlex.quote(cursor_model)}"
+    raise ProbeError(f"unsupported provider route: {provider}")
 
 
 def _receipt(path: Path) -> dict[str, Any]:
@@ -411,7 +454,7 @@ def route(args: argparse.Namespace) -> None:
     log = Path(args.log)
     receipt = _receipt(Path(args.receipt))
     handle = ownership(probe, receipt, log)
-    route_cmd = f"exec {args.provider} --model {args.model} --effort {args.effort}"
+    route_cmd = route_command(args.provider, args.model, args.effort)
     sent = raw([probe.orca, "terminal", "send", "--terminal", handle, "--text", route_cmd,
                 "--enter", "--json"], timeout=args.send_timeout)
     append(log, {"event": "route_sent_once", "at": now(), "handle": handle, "route": route_cmd, "receipt": sent})
@@ -423,11 +466,13 @@ def route(args: argparse.Namespace) -> None:
         shown = probe.run([probe.orca, "terminal", "show", "--terminal", handle, "--json"])
         read = probe.run([probe.orca, "terminal", "read", "--terminal", handle, "--screen", "--json"])
         text = screen_text(read)
+        lowered = text.lower()
         current = terminal(shown)
         rendered = terminal(read)
         match = (current.get("connected") is True and rendered.get("source") == "screen"
-                 and args.provider in text and args.model in text and f"with {args.effort} effort" in text
-                 and all(f"with {effort} effort" not in text for effort in EFFORTS if effort != args.effort))
+                 and args.provider.lower() in lowered and args.model.lower() in lowered
+                 and f"with {args.effort.lower()} effort" in lowered
+                 and all(f"with {effort} effort" not in lowered for effort in EFFORTS if effort != args.effort))
         consecutive = consecutive + 1 if match else 0
         append(log, {"event": "route_sample", "at": now(), "sample": sample, "match": match,
                      "consecutive": consecutive, "connected": current.get("connected"),
@@ -578,8 +623,16 @@ def turn(args: argparse.Namespace) -> None:
 
 def set_comment(args: argparse.Namespace) -> None:
     probe = OrcaProbe(args.repo, orca=args.orca)
-    result = raw([probe.orca, "worktree", "set", "--worktree", f"id:{args.worktree}",
-                  "--comment", args.comment, "--json"], timeout=args.timeout)
+    command = [probe.orca, "worktree", "set", "--worktree", f"id:{args.worktree}",
+               "--comment", args.comment, "--json"]
+    result = mutate_once(
+        probe,
+        command,
+        lambda: {"complete": worktree_comment(probe, args.worktree) == args.comment},
+        timeout=args.timeout,
+        settle_window=getattr(args, "settle_window", DEFAULT_SETTLE_WINDOW),
+        interval=getattr(args, "interval", DEFAULT_INTERVAL),
+    )
     print(json.dumps(result, sort_keys=True))
 
 
@@ -593,7 +646,7 @@ def sync_commit(args: argparse.Namespace) -> None:
     already_present = git(args.worktree, "merge-base", "--is-ancestor", args.commit, current,
                            check=False).returncode == 0
     if not already_present:
-        git(args.worktree, "cherry-pick", "--no-edit", args.commit)
+        git(args.worktree, "merge", "--ff-only", args.commit)
     result = gate(args.worktree, args.gate)
     if result["passed"] is not True:
         raise ProbeError("affected gate failed after producer sync")
@@ -603,45 +656,137 @@ def sync_commit(args: argparse.Namespace) -> None:
 
 def stop(args: argparse.Namespace) -> None:
     probe = OrcaProbe(args.repo, orca=args.orca)
-    result = raw([probe.orca, "terminal", "stop", "--terminal", args.handle, "--json"], timeout=args.timeout)
+    def stopped() -> dict[str, Any]:
+        listed = items(probe.run([probe.orca, "terminal", "list", "--json"]), "terminals")
+        return {"complete": all(value.get("handle") != args.handle for value in listed)}
+
+    result = mutate_once(
+        probe,
+        [probe.orca, "terminal", "stop", "--terminal", args.handle, "--json"],
+        stopped,
+        timeout=args.timeout,
+        settle_window=getattr(args, "settle_window", DEFAULT_SETTLE_WINDOW),
+        interval=getattr(args, "interval", DEFAULT_INTERVAL),
+    )
     print(json.dumps(result, sort_keys=True))
 
 
 def remove(args: argparse.Namespace) -> None:
     probe = OrcaProbe(args.repo, orca=args.orca)
-    result = raw([probe.orca, "worktree", "rm", "--worktree", f"id:{args.worktree}", "--json"], timeout=args.timeout)
+    def removed() -> dict[str, Any]:
+        inventory = probe.inventory()
+        return {"complete": str(args.worktree) not in inventory["worktrees"]}
+
+    result = mutate_once(
+        probe,
+        [probe.orca, "worktree", "rm", "--worktree", f"id:{args.worktree}", "--json"],
+        removed,
+        timeout=args.timeout,
+        settle_window=getattr(args, "settle_window", DEFAULT_SETTLE_WINDOW),
+        interval=getattr(args, "interval", DEFAULT_INTERVAL),
+    )
     print(json.dumps(result, sort_keys=True))
 
 
 def cleanup(args: argparse.Namespace) -> None:
-    """Stop and remove only the exact receipt resources, preserving foreign inventory entries."""
+    """Stop and remove only a clean, integrated, exactly-owned worktree."""
     probe = OrcaProbe(args.repo, orca=args.orca)
     receipt = _receipt(Path(args.receipt))
     before = probe.inventory()
+    worktree_id = str(receipt["id"])
     known = receipt["startupTerminal"]["handle"]
+    entry = before["worktrees"].get(worktree_id)
+    if not isinstance(entry, dict):
+        raise ProbeError("owned worktree is absent from the inventory")
+    expected = {
+        "repoId": probe.repo,
+        "instanceId": receipt.get("instance"),
+        "path": str(Path(receipt["path"]).resolve()),
+        "branch": receipt.get("branch"),
+    }
+    for key, value in expected.items():
+        if value is not None and entry.get(key) not in (value, str(value)):
+            raise ProbeError(f"immutable ownership mismatch: {key}")
+    path = Path(receipt["path"]).resolve()
+    if path.is_symlink() or not path.is_dir():
+        raise ProbeError("owned worktree path is unavailable or symlinked")
+    if git(path, "status", "--porcelain").stdout:
+        raise ProbeError("owned worktree is dirty")
+    for marker in ("MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "rebase-merge", "rebase-apply"):
+        if (path / ".git" / marker).exists():
+            raise ProbeError("owned worktree has an operation in progress")
+    current_head = git(path, "rev-parse", "HEAD").stdout.strip()
+    if not SHA40.fullmatch(current_head):
+        raise ProbeError("owned worktree HEAD is malformed")
+    branch = str(receipt["branch"] or "")
+    ref = branch if branch.startswith("refs/heads/") else f"refs/heads/{branch}"
+    branch_tip = git(path, "rev-parse", ref, check=False)
+    if branch_tip.returncode != 0 or branch_tip.stdout.strip() != current_head:
+        raise ProbeError("owned branch tip does not match current HEAD")
+    integration_head = args.integration_head or receipt.get("integration_head")
+    if not isinstance(integration_head, str) or not SHA40.fullmatch(integration_head):
+        raise ProbeError("integration head is required for cleanup proof")
+    if git(path, "merge-base", "--is-ancestor", current_head, integration_head, check=False).returncode != 0:
+        raise ProbeError("owned slice head is not integrated")
+    refs_before = set(git(path, "for-each-ref", "--format=%(refname)", "refs/heads/").stdout.splitlines())
+    foreign_paths_before = {str(Path(value).resolve()): Path(value).exists() for value in args.foreign_path}
     listed = probe.worktree_terminals(str(receipt["id"]))
     owned = [value for value in listed if value.get("handle") == known]
     if len(owned) > 1:
         raise ProbeError("ambiguous owned terminal")
     stopped = False
     if owned:
-        raw([probe.orca, "terminal", "stop", "--terminal", known, "--json"], timeout=args.timeout)
+        stopped_result = mutate_once(
+            probe,
+            [probe.orca, "terminal", "stop", "--terminal", known, "--json"],
+            lambda: {"complete": all(value.get("handle") != known for value in probe.worktree_terminals(worktree_id))},
+            timeout=args.timeout,
+            settle_window=getattr(args, "settle_window", DEFAULT_SETTLE_WINDOW),
+            interval=getattr(args, "interval", DEFAULT_INTERVAL),
+        )
         stopped = True
-    raw([probe.orca, "worktree", "rm", "--worktree", f"id:{receipt['id']}", "--json"], timeout=args.timeout)
+    if git(path, "symbolic-ref", "--quiet", "--short", "HEAD", check=False).stdout.strip() == branch.removeprefix("refs/heads/"):
+        git(path, "switch", "--detach", current_head)
+    if git(path, "branch", "--delete", branch.removeprefix("refs/heads/"), check=False).returncode != 0:
+        raise ProbeError("owned branch could not be deleted safely")
+    if git(path, "show-ref", "--verify", "--quiet", ref, check=False).returncode == 0:
+        raise ProbeError("owned branch ref remains after deletion")
+
+    removed_result = mutate_once(
+        probe,
+        [probe.orca, "worktree", "rm", "--worktree", f"id:{worktree_id}", "--json"],
+        lambda: {"complete": worktree_id not in probe.inventory()["worktrees"]},
+        timeout=args.timeout,
+        settle_window=getattr(args, "settle_window", DEFAULT_SETTLE_WINDOW),
+        interval=getattr(args, "interval", DEFAULT_INTERVAL),
+    )
     after = probe.inventory()
-    foreign_before = set(before["worktrees"]) - {str(receipt["id"])}
-    foreign_after = set(after["worktrees"]) - {str(receipt["id"])}
+    foreign_before = set(before["worktrees"]) - {worktree_id}
+    foreign_after = set(after["worktrees"]) - {worktree_id}
     foreign_terminals_before = set(before["terminals"]) - {known}
     foreign_terminals_after = set(after["terminals"]) - {known}
-    if foreign_before != foreign_after or foreign_terminals_before != foreign_terminals_after:
+    refs_anchor = git(path.parent, "for-each-ref", "--format=%(refname)", "refs/heads/", check=False)
+    refs_after = set(refs_anchor.stdout.splitlines()) if refs_anchor.returncode == 0 else refs_before - {ref}
+    foreign_refs_before = refs_before - {ref}
+    foreign_refs_after = refs_after - {ref}
+    foreign_paths_after = {key: Path(key).exists() for key in foreign_paths_before}
+    if (foreign_before != foreign_after or foreign_terminals_before != foreign_terminals_after
+            or foreign_refs_before != foreign_refs_after or foreign_paths_before != foreign_paths_after):
         raise ProbeError("cleanup changed a foreign resource")
-    print(json.dumps({"status": "cleaned", "worktree": receipt["id"], "handle": known,
-                      "stopped": stopped, "foreign_preserved": True}, sort_keys=True))
+    if worktree_id in after["worktrees"] or known in after["terminals"] or path.exists():
+        raise ProbeError("owned residue remains after cleanup")
+    if git(path.parent, "show-ref", "--verify", "--quiet", ref, check=False).returncode == 0:
+        raise ProbeError("owned branch ref remains after cleanup")
+    print(json.dumps({"status": "cleaned", "worktree": worktree_id, "handle": known,
+                      "stopped": stopped, "foreign_preserved": True,
+                      "stop_reconciled": bool(stopped_result) if owned else True,
+                      "rm_reconciled": bool(removed_result)}, sort_keys=True))
 
 
 def transport(args: argparse.Namespace) -> None:
     probe = OrcaProbe(args.repo, orca=args.orca, interval=args.interval)
-    sent = send_pointer(probe, args.handle, Path(args.packet), Path(args.log))
+    worktree = Path(args.worktree).resolve()
+    sent = send_pointer(probe, args.handle, Path(args.packet), Path(args.log), worktree=worktree)
     deadline = time.monotonic() + args.timeout
     while time.monotonic() < deadline:
         shown = probe.run([probe.orca, "terminal", "show", "--terminal", args.handle, "--json"])
@@ -679,7 +824,7 @@ def terminal_new(args: argparse.Namespace) -> None:
 def verifier_route(args: argparse.Namespace) -> None:
     """Prove a verifier's rendered provider/model/effort route on its exact handle."""
     probe = OrcaProbe(args.repo, orca=args.orca, interval=args.interval)
-    route_cmd = f"exec {args.provider} --model {args.model} --effort {args.effort}"
+    route_cmd = route_command(args.provider, args.model, args.effort)
     sent = raw([probe.orca, "terminal", "send", "--terminal", args.handle, "--text", route_cmd,
                 "--enter", "--json"], timeout=args.send_timeout)
     consecutive = 0
@@ -689,9 +834,10 @@ def verifier_route(args: argparse.Namespace) -> None:
         read = probe.run([probe.orca, "terminal", "read", "--terminal", args.handle, "--screen", "--json"])
         current, rendered = terminal(shown), terminal(read)
         text = screen_text(read)
+        lowered = text.lower()
         match = (current.get("connected") is True and rendered.get("source") == "screen"
-                 and args.provider in text and args.model in text
-                 and f"with {args.effort} effort" in text)
+                 and args.provider.lower() in lowered and args.model.lower() in lowered
+                 and f"with {args.effort.lower()} effort" in lowered)
         consecutive = consecutive + 1 if match else 0
         if consecutive >= 2:
             print(json.dumps({"status": "accepted", "handle": args.handle, "route": route_cmd,
@@ -703,8 +849,8 @@ def verifier_route(args: argparse.Namespace) -> None:
 
 def verifier_send(args: argparse.Namespace) -> None:
     probe = OrcaProbe(args.repo, orca=args.orca)
-    result = send_pointer(probe, args.handle, Path(args.packet), Path(args.log), phase="VERIFIER",
-                          slice=args.slice)
+    result = send_pointer(probe, args.handle, Path(args.packet), Path(args.log),
+                          worktree=Path(args.worktree).resolve(), phase="VERIFIER", slice=args.slice)
     print(json.dumps(result, sort_keys=True))
 
 
@@ -733,6 +879,34 @@ def wait_text(args: argparse.Namespace) -> None:
             return
         time.sleep(probe.interval)
     raise ProbeError(f"marker timeout: {args.marker}")
+
+
+def verify_effect(args: argparse.Namespace) -> None:
+    """Reconcile a previously sent packet without issuing another mutation."""
+    probe = OrcaProbe(args.repo, orca=args.orca, interval=args.interval)
+    receipt = _receipt(Path(args.receipt))
+    effect(args, probe, receipt, {"ok": False, "reconciled_only": True})
+
+
+def audit(args: argparse.Namespace) -> None:
+    """Prove one receipt's owned resources are absent without touching foreign resources."""
+    probe = OrcaProbe(args.repo, orca=args.orca)
+    receipt = _receipt(Path(args.receipt))
+    inventory = probe.inventory()
+    worktree_id = str(receipt["id"])
+    handle = str(receipt["startupTerminal"]["handle"])
+    path = Path(str(receipt["path"])).resolve()
+    branch = str(receipt.get("branch") or "").removeprefix("refs/heads/")
+    ref = f"refs/heads/{branch}" if branch else ""
+    residue = {
+        "worktree": worktree_id in inventory["worktrees"],
+        "terminal": handle in inventory["terminals"],
+        "path": path.exists(),
+        "branch": bool(ref and git(path.parent, "show-ref", "--verify", "--quiet", ref, check=False).returncode == 0),
+    }
+    if any(residue.values()):
+        raise ProbeError(f"owned residue remains: {residue}")
+    print(json.dumps({"status": "clean", "residue": residue}, sort_keys=True))
 
 
 def _json_object(path: Path) -> dict[str, Any]:
@@ -777,77 +951,100 @@ def _state_path(path: str) -> Path:
     return state
 
 
+def _state_identity(value: dict[str, Any]) -> tuple[Any, ...]:
+    return tuple(value.get(field) for field in (
+        "schema_version", "repository", "slice_id", "task_id", "operation_id",
+        "terminal_handle", "route", "commit_id", "lease_id", "packet_path",
+    ))
+
+
 def dispatch(args: argparse.Namespace) -> None:
-    """Persist a complete packet before sending one short pointer."""
-    request_path = Path(args.request).resolve()
+    """Persist correlated packet state before sending one short pointer."""
+    request = _json_object(Path(args.request).resolve())
     state_path = _state_path(args.state)
-    request = _json_object(request_path)
     required = ("schema_version", "repository", "slice_id", "task_id", "operation_id",
-                "terminal_handle", "packet_path", "packet_body")
+                "terminal_handle", "packet_path", "packet_body", "route", "commit_id", "lease_id")
     if any(key not in request for key in required) or request.get("schema_version") != 1:
-        raise ProbeError("dispatch request schema_version 1 and immutable identities are required")
+        raise ProbeError("dispatch request schema_version 1 and complete identity are required")
     repository = _token(request["repository"], "repository")
-    slice_id = _token(request["slice_id"], "slice id")
-    task_id = _token(request["task_id"], "task id")
-    operation_id = _token(request["operation_id"], "operation id")
-    handle = _token(request["terminal_handle"], "terminal handle")
+    root = Path(request.get("repository_root", Path(args.request).parent)).resolve()
+    if not root.is_dir() or root.is_symlink():
+        raise ProbeError("repository root is unavailable or symlinked")
     body = request["packet_body"]
     if not isinstance(body, str) or not body:
         raise ProbeError("packet body is required")
-    root = Path(request.get("repository_root", request_path.parent)).resolve()
-    if not root.is_dir() or root.is_symlink():
-        raise ProbeError("repository root is unavailable or symlinked")
     packet_path = _owned_path(request["packet_path"], root, "packet path", allow_missing=True)
     log_path = _owned_path(request.get("log_path", state_path.parent / "orca-probe.jsonl"), root,
                            "log path", allow_missing=True)
-    packet_path.parent.mkdir(parents=True, exist_ok=True)
-    packet_path.write_text(body, encoding="utf-8")
     state = {
-        "schema_version": 1, "repository": repository, "slice_id": slice_id,
-        "task_id": task_id, "operation_id": operation_id, "terminal_handle": handle,
-        "packet_path": str(packet_path), "log_path": str(log_path), "repository_root": str(root),
+        "schema_version": 1,
+        "repository": repository,
+        "repository_root": str(root),
+        "slice_id": _token(request["slice_id"], "slice id"),
+        "task_id": _token(request["task_id"], "task id"),
+        "operation_id": _token(request["operation_id"], "operation id"),
+        "terminal_handle": _token(request["terminal_handle"], "terminal handle"),
+        "route": _token(request["route"], "route"),
+        "commit_id": request["commit_id"],
+        "lease_id": request["lease_id"],
+        "packet_path": str(packet_path),
+        "log_path": str(log_path),
         "status": "packet_persisted",
     }
+    if state["commit_id"] is not None and (not isinstance(state["commit_id"], str)
+                                            or not SHA40.fullmatch(state["commit_id"])):
+        raise ProbeError("commit identity must be a 40-hex SHA or null")
+    if state["lease_id"] is not None:
+        state["lease_id"] = _token(state["lease_id"], "lease id")
+    if state_path.exists():
+        previous = _json_object(state_path)
+        if _state_identity(previous) != _state_identity(state):
+            raise ProbeError("operation state identity was reused or changed")
+        if previous.get("status") in {"send_started", "pointer_sent", "settled"}:
+            print(json.dumps({"status": previous["status"], "operation_id": state["operation_id"],
+                              "slice_id": state["slice_id"], "task_id": state["task_id"],
+                              "pointer_path": str(packet_path), "replayed": True}, sort_keys=True))
+            return
+    packet_path.parent.mkdir(parents=True, exist_ok=True)
+    packet_path.write_text(body, encoding="utf-8")
+    state["status"] = "send_started"
     state_path.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    sent = send_pointer(OrcaProbe(repository, orca=args.orca), handle, packet_path, log_path)
+    sent = send_pointer(OrcaProbe(repository, orca=args.orca), state["terminal_handle"], packet_path, log_path)
     state["status"] = "pointer_sent"
     state["send_ok"] = sent.get("ok")
     state_path.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(json.dumps({"status": state["status"], "operation_id": operation_id,
-                      "slice_id": slice_id, "task_id": task_id, "pointer_path": str(packet_path)}, sort_keys=True))
+    print(json.dumps({"status": state["status"], "operation_id": state["operation_id"],
+                      "slice_id": state["slice_id"], "task_id": state["task_id"],
+                      "pointer_path": str(packet_path)}, sort_keys=True))
 
 
 def inspect(args: argparse.Namespace) -> None:
-    """Read persisted identity and same-handle terminal state without mutation."""
+    """Settle one persisted operation through bounded same-handle reads."""
     state_path = Path(args.state).resolve()
     state = _json_object(state_path)
-    for field in ("schema_version", "repository", "slice_id", "task_id", "operation_id", "terminal_handle"):
-        if field not in state:
-            raise ProbeError(f"state missing {field}")
-    if state["schema_version"] != 1:
-        raise ProbeError("unsupported probe state version")
+    required = ("schema_version", "repository", "slice_id", "task_id", "operation_id",
+                "terminal_handle", "route", "commit_id", "lease_id")
+    if any(field not in state for field in required) or state["schema_version"] != 1:
+        raise ProbeError("state is missing complete identity")
     repository = _token(state["repository"], "repository")
+    for field in ("slice_id", "task_id", "operation_id", "route"):
+        _token(state[field], field.replace("_", " "))
+    if state["commit_id"] is not None and (not isinstance(state["commit_id"], str)
+                                            or not SHA40.fullmatch(state["commit_id"])):
+        raise ProbeError("commit identity must be a 40-hex SHA or null")
+    if state["lease_id"] is not None:
+        _token(state["lease_id"], "lease id")
     handle = _token(state["terminal_handle"], "terminal handle")
-    terminal_state = terminal(OrcaProbe(repository, orca=args.orca).run(
-        [args.orca, "terminal", "show", "--terminal", handle, "--json"]))
-    if terminal_state.get("handle") not in (None, handle):
+    probe = OrcaProbe(repository, orca=args.orca, interval=args.interval,
+                      read_attempts=args.attempts)
+    shown = terminal(probe.run([args.orca, "terminal", "show", "--terminal", handle, "--json"]))
+    if shown.get("handle") not in (None, handle):
         raise ProbeError("terminal handle identity mismatch")
+    state["status"] = "settled" if shown.get("handle") == handle else "unsettled"
+    state_path.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps({"status": "inspected", "operation_id": state["operation_id"],
                       "slice_id": state["slice_id"], "task_id": state["task_id"],
-                      "handle": handle, "connected": terminal_state.get("connected")}, sort_keys=True))
-
-
-def cleanup_entry(args: argparse.Namespace) -> None:
-    """Route the public cleanup surface through the proven receipt lifecycle."""
-    if args.state:
-        state = _json_object(Path(args.state).resolve())
-        receipt = state.get("receipt_path")
-        if not isinstance(receipt, str) or not receipt:
-            raise ProbeError("cleanup state has no proven ownership receipt")
-        args.receipt = receipt
-    if not args.receipt:
-        raise ProbeError("cleanup requires --state or --receipt")
-    cleanup(args)
+                      "handle": handle, "connected": shown.get("connected")}, sort_keys=True))
 
 
 def parser() -> argparse.ArgumentParser:
@@ -863,6 +1060,8 @@ def parser() -> argparse.ArgumentParser:
 
     inspect_parser = sub.add_parser("inspect")
     inspect_parser.add_argument("--state", required=True)
+    inspect_parser.add_argument("--attempts", type=int, default=3)
+    inspect_parser.add_argument("--interval", type=float, default=DEFAULT_INTERVAL)
     inspect_parser.set_defaults(function=inspect)
 
     create_parser = sub.add_parser("create")
@@ -889,10 +1088,10 @@ def parser() -> argparse.ArgumentParser:
 
     pointer_parser = sub.add_parser("send-pointer")
     pointer_parser.add_argument("--handle", required=True); pointer_parser.add_argument("--packet", required=True); pointer_parser.add_argument("--log", required=True)
-    pointer_parser.add_argument("--worktree"); pointer_parser.set_defaults(function=lambda args: print(json.dumps(send_pointer(OrcaProbe(args.repo, orca=args.orca), args.handle, Path(args.packet), Path(args.log), worktree=Path(args.worktree) if args.worktree else None), sort_keys=True)))
+    pointer_parser.add_argument("--worktree", required=True); pointer_parser.set_defaults(function=lambda args: print(json.dumps(send_pointer(OrcaProbe(args.repo, orca=args.orca), args.handle, Path(args.packet), Path(args.log), worktree=Path(args.worktree)), sort_keys=True)))
 
     transport_parser = sub.add_parser("transport")
-    transport_parser.add_argument("--handle", required=True); transport_parser.add_argument("--packet", required=True); transport_parser.add_argument("--marker", required=True); transport_parser.add_argument("--log", required=True)
+    transport_parser.add_argument("--handle", required=True); transport_parser.add_argument("--packet", required=True); transport_parser.add_argument("--worktree", required=True); transport_parser.add_argument("--marker", required=True); transport_parser.add_argument("--log", required=True)
     transport_parser.add_argument("--timeout", type=float, default=DEFAULT_TURN_WINDOW); transport_parser.add_argument("--interval", type=float, default=DEFAULT_INTERVAL); transport_parser.set_defaults(function=transport)
 
     terminal_parser = sub.add_parser("terminal-new")
@@ -906,21 +1105,32 @@ def parser() -> argparse.ArgumentParser:
     verifier_route_parser.add_argument("--timeout", type=float, default=90.0); verifier_route_parser.add_argument("--send-timeout", type=float, default=20.0); verifier_route_parser.add_argument("--interval", type=float, default=DEFAULT_INTERVAL); verifier_route_parser.set_defaults(function=verifier_route)
 
     verifier_send_parser = sub.add_parser("verifier-send")
-    verifier_send_parser.add_argument("--handle", required=True); verifier_send_parser.add_argument("--packet", required=True); verifier_send_parser.add_argument("--slice", required=True); verifier_send_parser.add_argument("--log", required=True); verifier_send_parser.set_defaults(function=verifier_send)
+    verifier_send_parser.add_argument("--handle", required=True); verifier_send_parser.add_argument("--packet", required=True); verifier_send_parser.add_argument("--worktree", required=True); verifier_send_parser.add_argument("--slice", required=True); verifier_send_parser.add_argument("--log", required=True); verifier_send_parser.set_defaults(function=verifier_send)
 
     wait_parser = sub.add_parser("wait-text")
     wait_parser.add_argument("--handle", required=True); wait_parser.add_argument("--marker", required=True); wait_parser.add_argument("--timeout", type=float, default=DEFAULT_TURN_WINDOW); wait_parser.add_argument("--interval", type=float, default=DEFAULT_INTERVAL); wait_parser.add_argument("--require-file"); wait_parser.add_argument("--require-text"); wait_parser.set_defaults(function=wait_text)
 
+    verify_parser = sub.add_parser("verify-effect")
+    for name in ("receipt", "phase", "log", "pre-head"):
+        verify_parser.add_argument(f"--{name}", required=True)
+    verify_parser.add_argument("--expected-task", action="append", default=[]); verify_parser.add_argument("--expected-count", type=int, required=True)
+    verify_parser.add_argument("--expected-subject", action="append", default=[]); verify_parser.add_argument("--allow-path", action="append", default=[])
+    verify_parser.add_argument("--task-file", default="tasks.md"); verify_parser.add_argument("--gate", nargs="+", required=True); verify_parser.add_argument("--park-comment", default="")
+    verify_parser.add_argument("--timeout", type=float, default=DEFAULT_TURN_WINDOW); verify_parser.add_argument("--interval", type=float, default=DEFAULT_INTERVAL); verify_parser.set_defaults(function=verify_effect)
+
+    audit_parser = sub.add_parser("audit")
+    audit_parser.add_argument("--receipt", required=True); audit_parser.set_defaults(function=audit)
+
     for name, function, option in (("set-comment", set_comment, "worktree"), ("stop", stop, "handle"), ("rm", remove, "worktree")):
         command_parser = sub.add_parser(name); command_parser.add_argument(f"--{option}", required=True)
         if name == "set-comment": command_parser.add_argument("--comment", required=True)
-        command_parser.add_argument("--timeout", type=float, default=30.0); command_parser.set_defaults(function=function)
+        command_parser.add_argument("--timeout", type=float, default=30.0); command_parser.add_argument("--settle-window", type=float, default=DEFAULT_SETTLE_WINDOW); command_parser.add_argument("--interval", type=float, default=DEFAULT_INTERVAL); command_parser.set_defaults(function=function)
 
     sync_parser = sub.add_parser("sync")
     sync_parser.add_argument("--worktree", required=True); sync_parser.add_argument("--commit", required=True)
     sync_parser.add_argument("--gate", nargs="+", required=True); sync_parser.set_defaults(function=sync_commit)
 
-    cleanup_parser = sub.add_parser("cleanup"); cleanup_parser.add_argument("--receipt"); cleanup_parser.add_argument("--state"); cleanup_parser.add_argument("--timeout", type=float, default=30.0); cleanup_parser.set_defaults(function=cleanup_entry)
+    cleanup_parser = sub.add_parser("cleanup"); cleanup_parser.add_argument("--receipt", required=True); cleanup_parser.add_argument("--integration-head", default=""); cleanup_parser.add_argument("--foreign-path", action="append", default=[]); cleanup_parser.add_argument("--timeout", type=float, default=30.0); cleanup_parser.add_argument("--settle-window", type=float, default=DEFAULT_SETTLE_WINDOW); cleanup_parser.add_argument("--interval", type=float, default=DEFAULT_INTERVAL); cleanup_parser.set_defaults(function=cleanup)
     return root
 
 

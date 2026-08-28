@@ -222,10 +222,10 @@ then import the installed probe with a call-counting fake Orca.
 | HSE-21 | Hybrid scheduler | S3 | In Design |
 | HSE-22 | Orca lifecycle | S4 | Implemented in T5 |
 | HSE-23 | Orca lifecycle | S4 | Implemented in T5 |
-| HSE-24 | Orca lifecycle | S4 | In Design |
-| HSE-25 | Orca lifecycle | S4 | In Design |
-| HSE-26 | Orca lifecycle | S4 | In Design |
-| HSE-27 | Orca lifecycle | S4 | In Design |
+| HSE-24 | Orca lifecycle | S4 | Implemented in T6 |
+| HSE-25 | Orca lifecycle | S4 | Implemented in T6 |
+| HSE-26 | Orca lifecycle | S4 | Implemented in T6 |
+| HSE-27 | Orca lifecycle | S4 | Implemented in T6 |
 | HSE-28 | Orca lifecycle | S4 | In Design |
 | HSE-29 | Orca lifecycle | S4 | Implemented in T5 |
 | HSE-30 | Independent proof | S5 | In Design |
@@ -239,13 +239,13 @@ then import the installed probe with a call-counting fake Orca.
 | HSE-38 | Adoption | S6 | In Design |
 | HSE-39 | Security | S1, S2, S4, S6 | In Design |
 | HSE-40 | Security | S2, S3, S4 | In Design |
-| HSE-41 | Security | S4 | In Design |
+| HSE-41 | Security | S4 | Implemented in T6 |
 | HSE-42 | Security | S1, S3, S4 | In Design |
 | HSE-43 | Security | S4 | In Design |
 | HSE-44 | Edge case | S3 | Implemented in T4 |
 | HSE-45 | Edge case | S3 | In Design |
 | HSE-46 | Edge case | S3, S4 | Implemented in T4 |
-| HSE-47 | Edge case | S4 | In Design |
+| HSE-47 | Edge case | S4 | Implemented in T6 |
 | HSE-48 | Edge case | S3 | In Design |
 
 **Coverage:** 48 total, 48 mapped to design slices, 0 unmapped.

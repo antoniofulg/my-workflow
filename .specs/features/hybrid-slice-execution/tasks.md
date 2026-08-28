@@ -216,10 +216,10 @@ persisted and required.
 
 **Done when:**
 
-- [ ] Every fake mutating command count is one in happy and post-effect-timeout paths.
-- [ ] Only bounded same-handle read operations repeat.
-- [ ] Malformed, stale, moved, reused, or contradictory identities fail closed before integration/cleanup.
-- [ ] Assigned 5 cases pass with no existing assertion weakened or deleted.
+- [x] Every fake mutating command count is one in happy and post-effect-timeout paths.
+- [x] Only bounded same-handle read operations repeat.
+- [x] Malformed, stale, moved, reused, or contradictory identities fail closed before integration/cleanup.
+- [x] Assigned 5 cases pass with no existing assertion weakened or deleted.
 - [ ] Full gate exits 0 before commit.
 
 **Tests:** integration + security — IT-007, IT-008, IT-009, SEC-006, SEC-007
