@@ -535,6 +535,22 @@ describe("autonomous parallel slice dispatch contract", () => {
         "utf8",
       );
 
+      const adoptedConfigPath = join(root, ".my-workflow.toml");
+      const adoptedExamplePath = join(root, ".my-workflow.toml.example");
+      expect(readFileSync(adoptedConfigPath, "utf8")).toContain('mode = "assisted"');
+      const explicit = JSON.parse(
+        execFileSync(
+          "python3",
+          [resolver, "--root", root, "--feature", "explicit", "--slices", "2", "--native-provider", "codex"],
+          { encoding: "utf8" },
+        ),
+      ) as { parallelization: { mode: string } };
+      expect(explicit.parallelization.mode).toBe("assisted");
+
+      for (const configPath of [adoptedConfigPath, adoptedExamplePath]) {
+        const config = readFileSync(configPath, "utf8").replace(/^mode = "assisted".*\n/m, "");
+        writeFileSync(configPath, config, "utf8");
+      }
       const resolved = JSON.parse(
         execFileSync(
           "python3",
