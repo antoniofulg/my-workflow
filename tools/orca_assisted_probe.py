@@ -415,7 +415,11 @@ def create(args: argparse.Namespace) -> None:
             break
         time.sleep(probe.interval)
 
-    final = probe.inventory()
+    try:
+        final = probe.inventory()
+    except Exception as error:  # noqa: BLE001 - retain cumulative read-only evidence
+        append(log, {"event": "deadline_audit_error", "at": now(), "error": str(error)})
+        final = {"worktrees": {}, "terminals": {}}
     cumulative.update({key: value for key, value in final["worktrees"].items() if key not in before["worktrees"]})
     matches = [
         value
@@ -459,19 +463,41 @@ def _cleanup_late_candidates(
         if not worktree_id:
             continue
         listed = probe.worktree_terminals(worktree_id)
+        cleanup_ready = True
         for value in listed:
             handle = value.get("handle")
             if not isinstance(handle, str) or not handle or handle in prior_handles:
                 continue
             try:
-                raw([probe.orca, "terminal", "stop", "--terminal", handle, "--json"], timeout=args.create_timeout)
-                append(log, {"event": "late_stop_once", "at": now(), "worktree": worktree_id, "handle": handle})
+                result = mutate_once(
+                    probe,
+                    [probe.orca, "terminal", "stop", "--terminal", handle, "--json"],
+                    lambda handle=handle: {"complete": all(
+                        value.get("handle") != handle for value in probe.worktree_terminals(worktree_id)
+                    )},
+                    timeout=args.create_timeout,
+                    settle_window=args.settle_window,
+                    interval=args.interval,
+                )
+                append(log, {"event": "late_stop_reconciled", "at": now(), "worktree": worktree_id,
+                             "handle": handle, "samples": result["samples"]})
             except Exception as error:  # noqa: BLE001 - preserve the original fail-closed error
+                cleanup_ready = False
                 append(log, {"event": "late_stop_failed", "at": now(), "worktree": worktree_id,
                              "handle": handle, "error": str(error)})
+        if not cleanup_ready:
+            continue
         try:
-            raw([probe.orca, "worktree", "rm", "--worktree", f"id:{worktree_id}", "--json"], timeout=args.create_timeout)
-            append(log, {"event": "late_rm_once", "at": now(), "worktree": worktree_id})
+            result = mutate_once(
+                probe,
+                [probe.orca, "worktree", "rm", "--worktree", f"id:{worktree_id}", "--json"],
+                lambda: {"complete": worktree_id not in probe.inventory()["worktrees"]},
+                timeout=args.create_timeout,
+                settle_window=args.settle_window,
+                interval=args.interval,
+            )
+            append(log, {"event": "late_rm_reconciled", "at": now(), "worktree": worktree_id,
+                         "samples": result["samples"]})
         except Exception as error:  # noqa: BLE001 - preserve the original fail-closed error
             append(log, {"event": "late_rm_failed", "at": now(), "worktree": worktree_id, "error": str(error)})
 
@@ -1140,8 +1166,8 @@ def _positive_float(value: str) -> float:
 
 def _interval_float(value: str) -> float:
     parsed = _positive_float(value)
-    if parsed > DEFAULT_SETTLE_WINDOW:
-        raise argparse.ArgumentTypeError("interval exceeds bounded probe window")
+    if parsed != DEFAULT_INTERVAL:
+        raise argparse.ArgumentTypeError("route interval must be exactly 0.25 seconds")
     return parsed
 
 

@@ -376,6 +376,8 @@ the assisted lifecycle contract or the historical evidence record.
 T10 -> T11
 
 T11 -> T12
+
+T12 -> T13
 ```
 
 ### T11: Enforce assisted effect and cleanup proofs
@@ -442,6 +444,38 @@ and fake-Orca lifecycle tests.
 **Tests:** IT-013, SEC-011 in `tools/test_orca_assisted_probe.py` and executor suites
 **Gate:** Quick. Commit `fix(orca): close assisted probe review gaps`.
 
+### T13: Discriminate final assisted review remediation
+
+**Status:** complete
+**Slice:** G
+**Resources:** none
+**Observable behaviour:** Every final assisted capability, receipt, route, handle, timing, and
+late-create cleanup guard is exercised by a negative test; failed late stop/rm receipts reconcile
+read-only without retrying mutations.
+**Where:** `tools/orca_assisted_probe.py`
+**Files:** `tools/test_orca_assisted_probe.py`, `tools/test_parallel_executor.py`,
+`tools/shared/tests/autonomous-parallelization.test.ts`,
+`.specs/features/host-agnostic-slice-parallelization/review-fingerprints.json`
+**Depends on:** T12
+**Requirement:** AST-01, AST-04, AST-06, AST-08, SEC-008
+**Reuses:** Existing fake-Orca probe, exact receipt, cleanup, and executor contract suites.
+**Tools:** Skills `ponytail`, `tlc-spec-driven`; stdlib only.
+**Done when:**
+
+- [x] Wrong repository, wrong commit identity, moved handle, invalid checkout, active shell,
+  route-send error, and immutable cleanup receipt mutants are killed.
+- [x] Late stop/rm mutations remain exactly once and reconcile successful or failed effects through
+  bounded read-only inspection.
+- [x] Public route parsing accepts only the exact 250 ms interval and a finite bounded timeout.
+- [x] Only the remediated `0fcc…` and `7ca…` fingerprints transition to `resolved`.
+- [x] Probe, executor, canonical, full, spec/task, diff, and commit gates pass.
+
+**Result:** Final Verifier gaps are covered by 29 fake-Orca checks and the existing executor and
+canonical contract suites; `validation.md` remains an uncommitted verifier artifact.
+
+**Tests:** IT-014, SEC-012 in `tools/test_orca_assisted_probe.py`
+**Gate:** Quick. Commit `fix(orca): discriminate assisted review remediation`.
+
 ## Task Granularity Check
 
 | Task | Scope | Status |
@@ -458,6 +492,7 @@ and fake-Orca lifecycle tests.
 | T10 | One adopted agent dispatch contract plus its canonical contract test | PASS |
 | T11 | One resumed assisted effect and cleanup proof remediation plus its canonical fake-host checks | PASS |
 | T12 | Assisted capability, route, receipt, and cleanup fail-closed review remediation | PASS |
+| T13 | Final assisted review negative discrimination and late-cleanup reconciliation | PASS |
 
 ## Diagram-Definition Cross-Check
 
@@ -475,6 +510,7 @@ and fake-Orca lifecycle tests.
 | T10 | T7, T9 | T7 + T9 -> T10 | PASS |
 | T11 | T10 | T10 -> T11 | PASS |
 | T12 | T11 | T11 -> T12 | PASS |
+| T13 | T12 | T12 -> T13 | PASS |
 
 ## Test Co-location Validation
 
@@ -492,6 +528,7 @@ and fake-Orca lifecycle tests.
 | T10 | Agent workflow contract | contract | IT-005 + IT-010 in canonical autonomous suite | PASS |
 | T11 | Assisted coordinator probe | fake-host integration | IT-012 + SEC-010 in the owning probe suite | PASS |
 | T12 | Assisted coordinator and probe boundaries | unit + fake-host integration | IT-013 + SEC-011 in canonical executor/probe suites | PASS |
+| T13 | Assisted probe review boundaries | fake-host integration | IT-014 + SEC-012 in the owning probe suite | PASS |
 
 ## Implementation Batch Recommendation
 
@@ -499,6 +536,7 @@ Phase 2 contains five tasks, within one task-budgeted batch. The coordinator sho
 implementer for Slice E and one implementer for Slice F concurrently, then dispatch one implementer
 for Slice G after T7 and T9 are green and committed. No phase split or front/back split is needed.
 
-Phase 3 contains two resumed remediation tasks: T11 follows T10 after the independent Verifier
-reported proof gaps, and T12 closes the final Deep Review defects. They own the probe, assisted
-executor boundary, and their runnable checks, and each closes with the Quick gate.
+Phase 3 contains three resumed remediation tasks: T11 follows T10 after the independent Verifier
+reported proof gaps, T12 closes the first final Deep Review defects, and T13 closes the remaining
+negative-discrimination and late-cleanup gaps. They own the probe, assisted executor boundary, and
+their runnable checks, and each closes with the Quick gate.

@@ -163,6 +163,70 @@ def test_create_reconciles_late_effect_without_duplicate_worktree() -> None:
         assert json.loads(receipt.read_text(encoding="utf-8"))["id"] == "owned"
 
 
+def test_create_candidate_without_git_identity_is_rejected() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "candidate"
+        path.mkdir()
+        configured = probe.OrcaProbe("repo", interval=0)
+        configured.worktree_terminals = lambda _worktree_id: [{"handle": "new"}]  # type: ignore[method-assign]
+        try:
+            probe.make_receipt(
+                configured,
+                {"id": "lane", "instanceId": "instance", "path": str(path),
+                 "branch": "refs/heads/lane", "head": "a" * 40},
+                {"terminals": {}},
+                {"handle": "new"},
+            )
+        except probe.ProbeError as error:
+            assert "Git checkout identity" in str(error)
+        else:
+            raise AssertionError("non-Git create candidate must fail closed")
+
+
+def test_late_create_cleanup_reconciles_each_mutation_once() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        log = Path(directory) / "cleanup.log"
+        state = {"stopped": False, "removed": False}
+        calls: list[list[str]] = []
+        configured = probe.OrcaProbe("repo", interval=0)
+        configured.worktree_terminals = lambda _worktree_id: [] if state["stopped"] else [{"handle": "late"}]  # type: ignore[method-assign]
+        configured.inventory = lambda: {"worktrees": {} if state["removed"] else {"lane": {}}, "terminals": {}}  # type: ignore[method-assign]
+        original_raw = probe.raw
+        def fake_raw(argv: list[str], timeout: float = 30.0) -> dict[str, object]:
+            calls.append(argv)
+            if argv[2] == "stop":
+                state["stopped"] = True
+            if argv[2] == "rm":
+                state["removed"] = True
+            return {"ok": False}
+        probe.raw = fake_raw  # type: ignore[assignment]
+        args = SimpleNamespace(create_timeout=1.0, settle_window=0.01, interval=0.0)
+        try:
+            probe._cleanup_late_candidates(configured, [{"id": "lane"}], {"terminals": {}}, log, args)
+        finally:
+            probe.raw = original_raw  # type: ignore[assignment]
+        assert [call[2] for call in calls] == ["stop", "rm"]
+        events = [json.loads(line)["event"] for line in log.read_text(encoding="utf-8").splitlines()]
+        assert events == ["late_stop_reconciled", "late_rm_reconciled"]
+
+
+def test_late_create_cleanup_retains_candidate_when_stop_is_not_reconciled() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        calls: list[list[str]] = []
+        configured = probe.OrcaProbe("repo", interval=0)
+        configured.worktree_terminals = lambda _worktree_id: [{"handle": "late"}]  # type: ignore[method-assign]
+        original_raw = probe.raw
+        probe.raw = lambda argv, timeout=30.0: calls.append(argv) or {"ok": False}  # type: ignore[assignment]
+        try:
+            probe._cleanup_late_candidates(
+                configured, [{"id": "lane"}], {"terminals": {}}, Path(directory) / "cleanup.log",
+                SimpleNamespace(create_timeout=1.0, settle_window=0.005, interval=0.0),
+            )
+        finally:
+            probe.raw = original_raw  # type: ignore[assignment]
+        assert [call[2] for call in calls] == ["stop"]
+
+
 def test_route_requires_two_consecutive_screen_frames_after_reset() -> None:
     assert probe.route_command("codex", "gpt-5.6-luna", "low") == (
         "exec codex --model gpt-5.6-luna -c model_reasoning_effort=low"
@@ -193,6 +257,8 @@ def test_route_requires_two_consecutive_screen_frames_after_reset() -> None:
 
         def fake_raw(argv: list[str], timeout: float = 30.0) -> dict[str, object]:
             sends.append(argv)
+            if "send" in argv:
+                raise probe.ProbeError("induced route receipt failure after apply")
             return {"ok": False}
 
         def fake_run(self: object, argv: list[str], timeout: float = 30.0) -> dict[str, object]:
@@ -230,6 +296,37 @@ def test_route_and_receipts_require_exact_correlated_identity() -> None:
     assert not probe.rendered_route_matches("claude sonnet with medium effort and low effort", "claude", "sonnet", "low")
     assert not probe._idle_receipt({"ok": True}, "handle")
     assert probe._idle_receipt({"ok": True, "result": {"terminal": {"handle": "handle"}}}, "handle")
+    route_args = probe.parser().parse_args([
+        "--repo", "repo", "route", "--receipt", "receipt", "--log", "log",
+        "--provider", "claude", "--model", "sonnet", "--effort", "low",
+    ])
+    assert route_args.interval == probe.DEFAULT_INTERVAL
+    try:
+        probe.parser().parse_args([
+            "--repo", "repo", "route", "--receipt", "receipt", "--log", "log",
+            "--provider", "claude", "--model", "sonnet", "--effort", "low", "--interval", "1",
+        ])
+    except SystemExit:
+        pass
+    else:
+        raise AssertionError("route interval must be fixed at 250 ms")
+
+
+def test_receipt_repository_binding_is_not_optional() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "receipt.json"
+        path.write_text(json.dumps({
+            "repository": "repo-a", "instance": "instance", "id": "lane", "path": directory,
+            "branch": "refs/heads/lane", "pre_head": "a" * 40, "gitdir": directory,
+            "worktree_gitdir": directory, "startupTerminal": {"handle": "h"},
+            "before": {"terminals": {}},
+        }), encoding="utf-8")
+        try:
+            probe._receipt(path, repository="repo-b")
+        except probe.ProbeError as error:
+            assert "repository" in str(error)
+        else:
+            raise AssertionError("foreign receipt must be rejected")
 
 
 def test_marker_frame_rejects_foreign_first_frame_handle() -> None:
@@ -242,6 +339,22 @@ def test_marker_frame_rejects_foreign_first_frame_handle() -> None:
     head, reason, *_ = probe.marker_frame(configured, "handle", "A_FINAL")
     assert head is None
     assert reason == "handle-mismatch"
+
+
+def test_startup_proof_rejects_active_default_task_shell() -> None:
+    configured = probe.OrcaProbe("repo", interval=0)
+    configured.worktree_terminals = lambda _worktree_id: [{"handle": "handle"}]  # type: ignore[method-assign]
+    configured.run = lambda _argv, timeout=30.0: {  # type: ignore[method-assign]
+        "result": {"terminal": {"handle": "handle", "connected": True, "writable": True,
+                                  "agentWait": None, "preview": "default task running\n❯"}}
+    }
+    try:
+        probe.ownership(configured, {"id": "lane", "startupTerminal": {"handle": "handle"},
+                                     "before": {"terminals": {}}}, Path(tempfile.gettempdir()) / "probe.log")
+    except probe.ProbeError as error:
+        assert "unused proof" in str(error)
+    else:
+        raise AssertionError("active default task shell must fail startup proof")
 
 
 def test_cleanup_refuses_when_owned_branch_ref_remains() -> None:
@@ -376,7 +489,8 @@ def test_cleanup_stops_only_owned_handle_and_preserves_foreign_worktree() -> Non
 
 def _cleanup_failure_case(*, retain_owned: bool, remove_foreign: bool,
                           remove_foreign_ref: bool = False, fail_ref_audit: bool = False,
-                          fail_ref_state: bool = False) -> str:
+                          fail_ref_state: bool = False, moved_handle: bool = False,
+                          wrong_instance: bool = False) -> str:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         common_git = root.parent / f"common-{root.name}.git"
@@ -390,7 +504,7 @@ def _cleanup_failure_case(*, retain_owned: bool, remove_foreign: bool,
         head = "a" * 40
         receipt_path = root / "receipt.json"
         receipt_path.write_text(json.dumps({"repository": "repo", "id": "lane", "path": str(root), "branch": "refs/heads/lane",
-                                            "instance": "instance", "pre_head": head,
+                                            "instance": "wrong" if wrong_instance else "instance", "pre_head": head,
                                             "gitdir": str(common_git),
                                             "worktree_gitdir": str(admin),
                                             "startupTerminal": {"handle": "owned-terminal"},
@@ -405,12 +519,14 @@ def _cleanup_failure_case(*, retain_owned: bool, remove_foreign: bool,
         final = before if retain_owned else settled
         inventories = iter((before, settled, final))
         stopped = {"value": False, "removed": False}
+        calls: list[list[str]] = []
         original_raw = probe.raw
         original_inventory = probe.OrcaProbe.inventory
         original_terminals = probe.OrcaProbe.worktree_terminals
         original_git = probe.git
 
         def fake_raw(argv: list[str], timeout: float = 30.0) -> dict[str, object]:
+            calls.append(argv)
             if len(argv) > 2 and argv[2] == "stop":
                 stopped["value"] = True
             if len(argv) > 2 and argv[2] == "rm":
@@ -443,7 +559,7 @@ def _cleanup_failure_case(*, retain_owned: bool, remove_foreign: bool,
 
         probe.raw = fake_raw  # type: ignore[assignment]
         probe.OrcaProbe.inventory = lambda self: next(inventories)  # type: ignore[assignment]
-        probe.OrcaProbe.worktree_terminals = lambda self, worktree_id: [] if stopped["value"] else [{"handle": "owned-terminal"}]  # type: ignore[assignment]
+        probe.OrcaProbe.worktree_terminals = lambda self, worktree_id: [] if (stopped["value"] or moved_handle) else [{"handle": "owned-terminal"}]  # type: ignore[assignment]
         probe.git = fake_git  # type: ignore[assignment]
         args = probe.parser().parse_args(["--repo", "repo", "cleanup", "--receipt", str(receipt_path),
                                           "--integration-head", head, "--foreign-path", str(foreign_path),
@@ -452,7 +568,7 @@ def _cleanup_failure_case(*, retain_owned: bool, remove_foreign: bool,
             with contextlib.redirect_stdout(io.StringIO()):
                 probe.cleanup(args)
         except probe.ProbeError as error:
-            return str(error)
+            return f"{error}|mutations={len(calls)}"
         finally:
             probe.raw = original_raw  # type: ignore[assignment]
             probe.OrcaProbe.inventory = original_inventory  # type: ignore[assignment]
@@ -487,6 +603,22 @@ def test_cleanup_refuses_show_ref_error() -> None:
     assert "could not verify repository ref state" in _cleanup_failure_case(
         retain_owned=False, remove_foreign=False, fail_ref_state=True
     )
+
+
+def test_cleanup_rejects_moved_handle_before_destructive_mutation() -> None:
+    result = _cleanup_failure_case(
+        retain_owned=False, remove_foreign=False, moved_handle=True
+    )
+    assert "owned terminal handle" in result
+    assert "mutations=0" in result
+
+
+def test_cleanup_rejects_immutable_receipt_mismatch_before_mutation() -> None:
+    result = _cleanup_failure_case(
+        retain_owned=False, remove_foreign=False, wrong_instance=True
+    )
+    assert "immutable ownership mismatch: instanceId" in result
+    assert "mutations=0" in result
 
 
 def _cleanup_git_residue_case(*, retain_registration: bool, retain_gitdir: bool) -> str:
@@ -630,6 +762,13 @@ def test_effect_reconciliation_accepts_one_same_handle_commit() -> None:
         assert result["checks"]["commit_subjects"] is True
         assert result["checks"]["paths"] is True
         assert result["checks"]["tasks"] is True
+        args.expected_commit = ["b" * 40]
+        try:
+            probe.effect(args, configured, receipt, {"ok": False})
+        except probe.ProbeError as error:
+            assert "effect timeout" in str(error)
+        else:
+            raise AssertionError("wrong commit identity must fail reconciliation")
 
 
 def test_effect_reconciliation_rejects_pending_expected_task() -> None:
