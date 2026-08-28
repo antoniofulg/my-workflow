@@ -11,4 +11,7 @@
   correlation from independent terminal/worktree/Git observations. Mutations have stable effect ids,
   are persisted before issue, and an unknown effect is never reissued on replay.
 - The public argparse surface is exactly `dispatch`, `inspect`, and `cleanup`; focused probe contract
-  is 8/8 and the full offline gate passed after the remediation.
+  is 15/15 after final remediation; the full offline gate remains required before commit.
+- Final remediation extends receipt identity to the full state conjunction, persists cleanup effects
+  through pending/issued/unknown/settled records, and covers independent observation contradictions,
+  post-effect no-retry ledgers, and fail-closed cleanup unsafe-state tables.
