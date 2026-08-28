@@ -100,6 +100,28 @@ python3 tools/orca_assisted_probe.py cleanup --state <state.json>
   failed proof.
 - Dispatch occurs only under `if __name__ == "__main__":`.
 
+## Review Convergence Resume CLI
+
+The existing convergence recorder gains one explicit halt-resume operation:
+
+```text
+python3 .agents/skills/workflow-spec-driven/scripts/review_convergence.py \
+  --root . \
+  --feature <feature-slug> \
+  --resume-fingerprint <64-hex-fingerprint> \
+  --authorization-ref <repository-relative-decisions-anchor>
+```
+
+- Resume accepts only an existing halted fingerprint and a non-empty repository-relative
+  authorization reference.
+- Success appends the next generation, preserves cumulative failures and prior generations, and
+  prints the current normalized entry as JSON.
+- Unknown/non-halted fingerprints, missing authorization, inconsistent history, and same-requirement
+  replacement fingerprints exit non-zero without changing the file.
+- A closing PASS through the existing result recorder also requires a repository-relative fresh
+  Verifier evidence reference; a green gate alone never closes a resumed generation.
+- No reset, delete, rename, or replacement-fingerprint command exists.
+
 ## Machine Health
 
 Health is internal, machine-only JSON. It has no public provider or config key. The scheduler consumes:

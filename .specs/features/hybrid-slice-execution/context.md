@@ -54,6 +54,14 @@ It does not modify Orca or publish the workflow.
 - The live-host journey remains truthfully `blocked-verify` until the upstream transport capability is
   available and a human schedules that external verification.
 
+### Halt recovery
+
+- The human explicitly authorized autonomous work to resume after the third CP-S4 failure.
+- The existing fingerprint and its three failures remain immutable; continuation opens a new audit
+  generation rather than resetting or renaming the blocker.
+- Only the new generation-local failure count restarts. A fresh independent PASS remains required
+  before CP-S4 can release dependent work.
+
 ## Agent Discretion
 
 - Exact internal Python function names and file decomposition, provided public CLI/config contracts

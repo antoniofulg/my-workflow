@@ -23,6 +23,10 @@ extended in place. No case exists only for coverage, prose, or generated-file sn
 | UT-014 | HSE-42 | Health output is normalized | Probe a fake host exposing marker paths, usernames, commands, and env values | Output contains only schema, enums, counts, monotonic age, and admission boolean |
 | UT-015 | HSE-30 | Slice tasks remain sequential | Materialize a slice with three tasks and inspect its execution order | Task N+1 cannot start before task N gate and atomic commit checkpoint |
 | UT-016 | HSE-31, HSE-32, HSE-33, HSE-34 | Author-independent role routing | Route a code slice, integrated review group, QA Plan, and QA Execute | Every proof role has a fresh identity; final implementer packet ends at handoff |
+| UT-017 | HSE-49, HSE-50 | Authorized resume creates the next audit generation | Halt generation 1 at three failures, then resume its exact fingerprint with the recorded decisions.md authorization reference | Generation 2 is open with local count 0; cumulative count remains 3; generation 1 and its halt event remain unchanged; authorization reference is exact |
+| UT-018 | HSE-51 | Halt cannot be bypassed | Attempt resume with empty authorization, unknown/non-halted identity, ordinary result recording, same-requirement rewording, replacement fingerprint, and inconsistent manually reset totals | Every attempt fails before write; original halted bytes remain unchanged |
+| UT-019 | HSE-52 | Resumed generation closes only on independent PASS | Record failure and non-independent or red-gate passes in generation 2, then record a fresh independent PASS with a green gate | Failed/non-qualifying results do not close; qualifying PASS closes generation 2 and fingerprint without changing generation 1 |
+| UT-020 | HSE-54 | Probe exposes one mutation issuer | Parse the probe AST and enumerate reachable `dispatch`/`cleanup` mutation sinks | Every Orca, Git, and provider mutation flows through `MutationRunner.issue`; no alternate direct sink exists |
 
 ## Integration
 
@@ -44,6 +48,9 @@ extended in place. No case exists only for coverage, prose, or generated-file sn
 | IT-014 | HSE-36 | Re-adoption preserves consumer ownership | Edit consumer `.my-workflow.toml` and QA profile, then re-adopt | Owned workflow files update; both consumer files remain byte-identical to their edits |
 | IT-015 | HSE-37 | Offline canonical gate owns complete automation | Run `npm_config_offline=true npm run test:all` with live Orca unavailable | Schema, packets, scheduler, health, leases, fake Orca, adoption, and import lanes all pass; live Orca call count is zero |
 | IT-016 | HSE-38 | QA registry distinguishes fake proof from live host | Parse affected CFG/QAS/ADP scenarios after fake-provider and adoption QA | Fake/adoption journeys cite current evidence; live Orca journey is `blocked-verify` and names upstream limitation |
+| IT-017 | HSE-53, HSE-57 | Durable issue record precedes every sink | Each fake sink reads state at call time; repeat with atomic state persistence forced to fail | Successful calls observe one matching `in_flight` record with attempt 1; persistence failure produces zero physical calls and leaves prior state unchanged |
+| IT-018 | HSE-56 | Successful physical mutators execute once | Run every reachable declared and cleanup mutation with ledger-writing Git, provider, and Orca executables on `PATH` | Each logical operation appears exactly once in its independent physical ledger; pointer text names packet path and omits body |
+| IT-019 | HSE-55 | Restart reconciliation cannot reissue | Enter `dispatch` and `cleanup` with each effect persisted as `in_flight` and `unknown`, with read observations succeeding and failing | Mutation ledgers remain empty; bounded read ledgers contain only same-identity observations; failed observation leaves effect unresolved and fails closed |
 
 ## End-to-end
 
@@ -66,6 +73,8 @@ scenarios own the real-user journeys.
 | SEC-009 | HSE-46 | Dirty coordinator baseline contaminates writers | Add tracked/untracked changes before dispatch and request serial/concurrent execution | Zero writer, worktree, Orca, Git, lease, or packet-delivery effects |
 | SEC-010 | HSE-35, HSE-39 | Adoption installs stale or redirected authority | Place obsolete TLC tree and a symlinked destination in disposable consumer | Adoption refuses unsafe destination; successful clean adoption contains only new byte-identical authority |
 | SEC-011 | HSE-06, HSE-42 | Diagnostics expose sensitive packet or host data | Inject unique packet, terminal, env, secret, username, and absolute-home markers into every failure path | JSON/stderr contain logical IDs, enum reasons, and counts only; all markers are absent |
+| SEC-012 | HSE-49, HSE-50, HSE-51, HSE-52 | Audit history is rewritten to escape a halt | Modify generation number, cumulative count, prior status, halt event, or authorization reference before record/resume | State validation rejects the contradiction before write and preserves the last valid file |
+| SEC-013 | HSE-53, HSE-55, HSE-56 | Post-effect timeout or duplicate statement repeats a mutation | Make each Git, provider, and Orca mutation apply then time out, restart twice, and inject a second successful issue statement in the runner sensor | Every physical mutation ledger remains at exactly one; only bounded read observations may repeat; surviving duplicate fails the suite |
 
 ## Invariant Ownership
 
@@ -75,5 +84,6 @@ scenarios own the real-user journeys.
 | Config/snapshot v3 | Unit/integration | `tools/test_workflow_config.py`, `tools/test_parallel_plan.py` |
 | Dynamic admission, health, leases, lifecycle | Unit/integration | `tools/test_parallel_executor.py`, `tools/test_machine_health.py` |
 | Orca pointer and exactly-once effects | Integration/security | `tools/test_orca_assisted_probe.py`, `tools/test_orca_adapter.py` |
+| Halt generations and immutable fingerprint history | Unit/security | `tools/test_review_convergence.py` |
 | Adoption ownership | Integration/security | `scripts/test_adopt.py` |
 | Role and QA routing | Unit/integration | `tools/shared/tests/autonomous-parallelization.test.ts`, `tools/shared/tests/qa-skills.test.ts` |

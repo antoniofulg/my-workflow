@@ -3,12 +3,12 @@
 ## Handoff
 
 - **Feature**: `.specs/features/hybrid-slice-execution`
-- **Phase / Task**: Execute ready / T1
-- **Completed**: Specify, Design, Test Contract, Threat Model, DX Contract, Tasks; human decisions recorded in AD-015 and `decisions.md`
+- **Phase / Task**: Execute / T13 — authorize halted audit generations
+- **Completed**: T1-T7; CP-S1 and CP-S2 PASS; CP-S4 generation 1 halted after three failed remediations; resumed planning recorded in AD-016
 - **In-progress** (file:line): none
-- **Next step**: Dispatch T1 to bootstrap `workflow-spec-driven`, then follow CP-S1 through the approved assisted checkpoint DAG in `tasks.md`.
-- **Blockers**: Live Orca host verification remains `blocked-verify`; fake providers and adoption dry-run own automated evidence, so implementation is not blocked.
-- **Uncommitted files**: planning package until commit `docs(workflow): plan hybrid slice execution`.
+- **Next step**: Implement T13, open generation 2 through the scripted authorization reference, then implement T14 and dispatch a fresh independent CP-S4 Technical Verifier.
+- **Blockers**: CP-S4 remains blocked until generation 2 receives independent PASS. Live Orca host verification remains `blocked-verify`; fake physical ledgers and adoption dry-run own automated evidence.
+- **Uncommitted files**: resumed planning package until commit `docs(workflow): plan assisted halt recovery`.
 - **Branch**: `feat/hybrid-slice-execution`
 
 ## Decisions
@@ -220,6 +220,8 @@
   versions of one blocker remain bounded and all other halt conditions still apply.
 - **Scope**: Technical Verifier fix/reverify loops, autonomous halt decisions, TLC verifier guidance,
   review workflow documentation, and their contract tests.
+- **Date**: 2026-08-28
+- **Status**: superseded by AD-016
 
 ### AD-015
 
@@ -240,5 +242,21 @@
 - **Scope**: Agent instructions, spec-driven skill and references, role packets, workflow snapshot
   schema, planner/executor scheduling, resource provider and health probe, worktree lifecycle,
   adoption, verification, QA, and context-budget evidence.
+- **Date**: 2026-08-28
+- **Status**: active
+
+### AD-016
+
+- **Decision**: A halted blocker fingerprint may resume only after explicit human authorization
+  creates a new audit generation under that same fingerprint. The prior generation, cumulative
+  failure count, halt event, and authorization reference remain immutable; only the new
+  generation-local failure count starts at zero, and only a fresh independent PASS may close it.
+- **Reason**: A human must be able to authorize a redesigned remediation after a legitimate halt
+  without erasing why the autonomous run stopped or bypassing convergence by rewording the finding.
+- **Trade-off**: Convergence state gains generation history and an explicit resume operation; a
+  halted path cannot continue through JSON edits, a replacement fingerprint, or an ordinary result
+  record.
+- **Scope**: Technical Verifier convergence state, autonomous halt/resume decisions, review
+  guidance, and their contract tests. Supersedes AD-014.
 - **Date**: 2026-08-28
 - **Status**: active

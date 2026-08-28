@@ -23,6 +23,7 @@ No network route, account, credential store, or browser data is introduced.
 | Slice worktrees and commits | Bound to one repository, slice, operation, and verified checkpoint. |
 | Worker packets | Complete on disk; never leaked through telemetry or truncated transport. |
 | Operation and lease state | Correlated, restart-readable, and sufficient for same-effect reconciliation. |
+| Review convergence history | Prior generations, failures, halt events, and human authorization references cannot be reset or substituted. |
 | Consumer machine | Writer and heavy-gate concurrency remain within proved capacity and leases. |
 | Consumer configuration | Preserved across adoption and rejected before effects when stale or malformed. |
 
@@ -30,7 +31,7 @@ No network route, account, credential store, or browser data is introduced.
 
 | Actor | Capability |
 | --- | --- |
-| Project maintainer | Edits repository config, tasks, and resource provider; can explicitly set lane cap. |
+| Project maintainer | Edits repository config, tasks, and resource provider; can explicitly set lane cap and authorize a new audit generation after halt. |
 | Coordinator agent | Reads plans, starts approved effects, integrates verified commits, and requests cleanup. |
 | Slice implementer | Writes only its assigned checkout and commits its sequential tasks. |
 | Read-only role | Reads the integration checkout; cannot own a writer effect. |
@@ -51,6 +52,7 @@ flowchart LR
     Core -->|stdlib normalized probe| Host[Host health signals]
     Core -->|owned paths and refs only| Git[Git and filesystem]
     Core --> State[Persisted operation state]
+    Core --> Audit[Append-only fingerprint generations]
 ```
 
 ## Threats and Controls
@@ -58,7 +60,7 @@ flowchart LR
 | ID | Threat | Boundary | Control and required outcome | Test cases |
 | --- | --- | --- | --- | --- |
 | TM-01 | Long Orca text truncates or changes a worker packet | Core → Orca | Persist complete packet; send and assert pointer only | IT-006, SEC-005 |
-| TM-02 | Timeout causes a second mutation for the same logical effect | Core ↔ Orca/provider/Git | Persist operation ID before mutation; mutate once; reconcile with bounded reads | IT-007, SEC-006 |
+| TM-02 | Timeout, restart, or duplicate statement causes a second mutation for the same logical effect | Core ↔ Orca/provider/Git | Route every mutation through `MutationRunner.issue`; atomically persist `in_flight` before one sink call; reconcile existing state with bounded reads; count independent physical ledgers | IT-007, IT-017, IT-018, IT-019, SEC-006, SEC-013 |
 | TM-03 | Stale or reused receipt is accepted for another slice or repository | Provider/Orca → Core | Require exact repository, slice, handle, operation, commit, path, and lease correlation | IT-009, SEC-007 |
 | TM-04 | Malicious config or JSON reaches subprocess/filesystem sinks | Config/state → Core | Version/type/bounds validation, repository containment, no symlink, fixed argv | UT-006, UT-007, SEC-001, SEC-002 |
 | TM-05 | Cleanup removes another run's worker, worktree, branch, ref, or lease | State/Git → Core | Prove ownership and clean/integrated/stopped/released state before each destructive step | IT-010, SEC-008 |
@@ -68,11 +70,14 @@ flowchart LR
 | TM-09 | Adoption leaves both old and new skills, creating conflicting authority | Source → Consumer | Atomic hard cut; byte-identical installed manifest; old path absent | IT-013, SEC-010 |
 | TM-10 | Telemetry or diagnostics expose packet bodies, secrets, env, terminal text, or home paths | Core → logs | Emit counts/enums/logical IDs only and test forbidden values | UT-004, SEC-011 |
 | TM-11 | Author self-certifies a faulty slice or integrated feature | Role routing → Core | Immutable author identity; fresh Technical Verifier, Deep Review, and QA sessions | UT-016, IT-012 |
+| TM-12 | A halted blocker is resumed by resetting JSON, rewording it, or creating a replacement fingerprint | Maintainer/audit state → Core | Require one explicit resume operation under the existing halted fingerprint; append generation and exact authorization reference; validate cumulative history before write | UT-017, UT-018, UT-019, SEC-012 |
+| TM-13 | The state under test claims exactly-once while a real sink ran twice | Core → Orca/provider/Git | Structural single-issuer check plus PATH-backed physical ledgers outside probe state | UT-020, IT-018, SEC-013 |
 
 ## Failure Policy
 
 - Validation failure happens before the next external mutation.
 - Mutating calls are never retried. Only bounded read-only inspection may repeat.
+- A halt is never reset. Explicit human authorization appends a generation under the same fingerprint.
 - Contradictory evidence is failure, not a majority vote.
 - Unavailable health evidence affects only admission above two; it never kills healthy work.
 - Cleanup stops at the first missing proof and reports exact unresolved residue.

@@ -20,9 +20,9 @@ remain separate from writer lanes.
 | Two fixed persistent lanes | Fewer sessions and predictable machine use | Imbalanced lanes, accumulated context, needless worktrees on small features | Rejected |
 | One worktree per ready slice without a ceiling | Lowest idealized wall time | Unbounded machine pressure, repeated context, harder integration | Rejected |
 
-AD-015 supersedes AD-011's opt-in modes and unchanged-TLC premise. AD-012 through AD-014 remain
-active: provider-neutral effects, deterministic Git ownership, and blocker-fingerprint convergence
-continue unchanged unless this design narrows them.
+AD-015 supersedes AD-011's opt-in modes and unchanged-TLC premise. AD-012 and AD-013 remain active.
+AD-016 supersedes AD-014 by retaining its fingerprint and three-failure halt while adding only an
+explicitly authorized, append-only audit generation for later remediation.
 
 ## Architecture Overview
 
@@ -57,7 +57,7 @@ flowchart TD
 | S1 Lean context contract | Adoption source contains one attributed slice-native skill; packet budgets execute | CP-S1: new skill and packet CLI pass canonical contract tests |
 | S2 Version-3 workflow contract | Project owner can resolve `assisted`/`disabled` plus `max_workers` into a coherent snapshot | CP-S2: resolver and planner accept only v3 |
 | S3 Adaptive hybrid scheduler | Coordinator chooses serial, two-lane, or incremental healthy lanes and leases heavy gates | CP-S3: deterministic scheduler trace and residue-free fake provider pass |
-| S4 Pointer-only Orca lifecycle | Consumer receives a shipped probe that cannot duplicate mutations or clean another run | CP-S4: fake Orca lifecycle/import checks pass |
+| S4 Pointer-only Orca lifecycle | Consumer receives a shipped probe with one physical mutation issuer and authorized audit recovery that cannot erase a halt, duplicate mutations, or clean another run | CP-S4: convergence-generation, structural issuer, physical-ledger, fake Orca lifecycle, and import checks pass under a fresh independent Verifier |
 | S5 Independent proof pipeline | Every writer checkpoint and final tree are certified by fresh roles | CP-S5: role-route contract and trace tests pass |
 | S6 Adoption and truthful QA | Disposable consumer receives the complete workflow and proves it without live Orca | CP-S6: byte-identical dry-run, offline gate, and QA status audit pass |
 
@@ -148,6 +148,28 @@ CP-S2 and the S4 effect contract. S6 consumes all prior checkpoints.
   injected command runners for fake-Orca discrimination.
 - **Invariant:** Import dispatches nothing; every logical mutation has count at most one.
 
+### Review convergence generations
+
+- **Location:** `.agents/skills/workflow-spec-driven/scripts/review_convergence.py`
+- **Purpose:** Preserve immutable blocker history while allowing an explicitly authorized new audit
+  generation under the same fingerprint.
+- **Interfaces:** Existing result-recording API plus one `resume` operation requiring the halted
+  fingerprint and an exact authorization reference.
+- **Invariant:** Cumulative failures, prior generations, and halt events never reset. A resumed
+  generation closes only after a fresh independent PASS with a green gate.
+
+### MutationRunner
+
+- **Location:** `tools/orca_assisted_probe.py`
+- **Purpose:** Own the sole transition from durable effect intent to a physical Orca, Git, or
+  resource-provider mutation.
+- **Interface:** `MutationRunner.issue(effect, sink, observe)` persists `in_flight` atomically before
+  one sink call; existing `in_flight`/`unknown` effects take the read-only observation path only.
+- **Invariant:** Public `dispatch` and `cleanup` contain no alternate mutation sink. Unreachable legacy
+  lifecycle helpers are deleted instead of wrapped.
+- **Proof boundary:** Independent fake executables own the physical call ledgers; the state under test
+  cannot certify its own call count.
+
 ### Role packets
 
 - **Locations:** `templates/agents/{claude,codex,cursor}/`
@@ -209,6 +231,41 @@ worktree_path?, branch?, worker_handle?, verified_commit?, lease_ids[]
 States are `ready → admitted → running → gated → verifying → verified → integrated → cleaned`, with
 `parked` and `failed-closed` side states. Only evidence-bearing transitions advance.
 
+### Fingerprint audit generation
+
+```json
+{
+  "fingerprint": "a83ca4...",
+  "failed_remediations": 3,
+  "status": "open",
+  "current_generation": 2,
+  "generations": [
+    {"generation": 1, "failed_remediations": 3, "status": "halted"},
+    {"generation": 2, "failed_remediations": 0, "status": "open", "authorization_ref": ".specs/features/hybrid-slice-execution/decisions.md#authorized-cp-s4-resume--2026-08-28"}
+  ]
+}
+```
+
+The top-level failure count is cumulative and equals the sum of generation-local counts. Resume
+appends; it never rewrites generation 1. The convergence script has no reset operation. A result for
+the same requirement cannot create a replacement fingerprint while a halted generation exists.
+
+### Effect issue record
+
+```json
+{
+  "effect_id": "op-S4-T7:cleanup-branch",
+  "kind": "git",
+  "status": "in_flight",
+  "attempts": 1,
+  "correlation": {"operation_id": "op-S4-T7", "repository": "repo", "worktree_id": "lane"}
+}
+```
+
+The runner writes the complete state through temp-file, file `fsync`, atomic replace, and directory
+`fsync` before invoking the sink. A write failure returns before the sink. A restart from
+`in_flight` or `unknown` performs bounded reads only.
+
 ## Scheduling Algorithm
 
 1. Reject stale snapshot, dirty integration checkout, unresolved path conflicts, or unsupported effects.
@@ -238,6 +295,9 @@ States are `ready → admitted → running → gated → verifying → verified 
 | Receipt or Git evidence contradictory | Fail closed and retain state | No integration/destructive cleanup |
 | Dirty integration checkout | Stop dispatch | Zero Git/worktree/provider/Orca effects |
 | Cleanup proof incomplete | Stop before destructive step | Exact residue list remains |
+| Halt resume missing or contradictory | Reject before convergence-state write | Prior halted file remains unchanged |
+| Ledger persistence fails | Return before sink invocation | Prior durable state and physical ledgers remain unchanged |
+| Restart sees `in_flight` or `unknown` effect | Reconcile through bounded same-identity reads only | Zero repeated mutations; unresolved evidence fails closed |
 
 ## Risks and Concerns
 
@@ -250,6 +310,8 @@ States are `ready → admitted → running → gated → verifying → verified 
 | Implementer template says one implementer at a time and batch complete | `templates/agents/codex/implementer.toml:25` | Role packet contradicts hybrid slice dispatch | Replace all provider templates and canonical role tests in CP-S5 |
 | Resource provider currently leases lanes, not heavy-gate slots | `.agents/skills/autonomous/scripts/parallel_execute.py:389` | Concurrent gates can contend for exclusive host resources | Extend claims through the same acquire/release/correlation protocol in CP-S3 |
 | Live Orca transport remains externally blocked | `docs/qa/scenarios/QAS-run-resource-free-parallel-orca-slices.md:1` | Automation cannot certify a live host release | Keep scenario `blocked-verify`; fake exact effects and adoption own the gate |
+| Current exactly-once tests count failure-path attempts but not successful physical Git/provider calls | `tools/test_orca_assisted_probe.py:133` | A second successful Git mutation survives while 15/15 focused checks stay green | Route every reachable mutation through `MutationRunner.issue`; use independent PATH ledgers on happy, timeout, restart, and cleanup paths |
+| Halted fingerprints have no authorized-resume state | `.agents/skills/workflow-spec-driven/scripts/review_convergence.py:80` | Continuing would require erasing or bypassing a valid halt | Append audit generations under the same fingerprint and require the durable human authorization reference |
 
 ## Tech Decisions
 
@@ -262,3 +324,5 @@ States are `ready → admitted → running → gated → verifying → verified 
 | Locks | Existing resource-provider leases | A second lock system would duplicate correlation and cleanup failure modes |
 | Orca transport | Packet file plus short pointer only | Works around truncation without modifying Orca |
 | Verification | Fresh Technical Verifier per slice; final independent Deep Review and QA | Author independence remains a quality invariant |
+| Halt recovery | Authorized append-only audit generations under one fingerprint | Permits redesigned remediation without resetting failure evidence |
+| Mutation boundary | One `MutationRunner.issue` plus external physical ledgers | A central guard is smaller and stronger than counting selected call sites in tests |

@@ -10,7 +10,7 @@ Commit. Every code-changing slice closes with a fresh Technical Verifier before 
 is consumed. Final Deep Review and QA use fresh sessions on the integrated tree.
 
 **Design:** `.specs/features/hybrid-slice-execution/design.md`
-**Status:** Approved
+**Status:** In Progress — CP-S4 remediation authorized after preserved halt
 
 ## Test Coverage Matrix
 
@@ -24,6 +24,7 @@ is consumed. Final Deep Review and QA use fresh sessions on the integrated tree.
 | Config and frozen snapshot | unit | Every accepted mode/cap/version and every invalid type/version; resolver/planner/executor alignment | `tools/test_workflow_config.py`, `tools/test_parallel_plan.py` | `python3 tools/test_workflow_config.py && python3 tools/test_parallel_plan.py` |
 | Scheduler, health, leases, lifecycle | unit + integration + security | All state/admission branches, dependency/path/resource edge cases, failure paths, exact mutation counts, residue | `tools/test_parallel_executor.py`, `tools/test_machine_health.py` | `python3 tools/test_machine_health.py && python3 tools/test_parallel_executor.py` |
 | Orca probe and adapter | integration + security | Pointer-only payload, import safety, every logical mutation under transient failure, identity contradictions, cleanup | `tools/test_orca_assisted_probe.py`, `tools/test_orca_adapter.py` | `python3 tools/test_orca_assisted_probe.py && python3 tools/test_orca_adapter.py` |
+| Review convergence state | unit + security | Immutable halt generations, explicit authorization, bypass rejection, independent-PASS-only closure | `tools/test_review_convergence.py` | `python3 tools/test_review_convergence.py` |
 | Role routing and independent proof | contract + integration | Author identity separation, slice checkpoint order, integrated review/QA tree, handoff-only last implementer | `tools/shared/tests/autonomous-parallelization.test.ts`, `tools/shared/tests/qa-skills.test.ts` | Full gate |
 | Adoption and QA registry | integration + security | Byte identity, old path absence, re-adoption preservation, import zero effects, machine-readable truthful statuses | `scripts/test_adopt.py`, canonical TS QA suites | `python3 scripts/test_adopt.py` plus full gate |
 
@@ -57,6 +58,12 @@ T3 → T4
 
 ```text
 T5 → T6 → T7
+```
+
+### Phase 3R: S4 — Authorized halt recovery and physical mutation proof
+
+```text
+T7 → T13 → T14
 ```
 
 ### Phase 4: S5 — Independent proof pipeline
@@ -250,6 +257,76 @@ repository-contained fixed paths, fail-closed foreign-state handling, and normal
 **Gate:** `python3 tools/test_orca_assisted_probe.py && npm_config_offline=true npm run test:all`
 **Commit:** `fix(orca): prove owned cleanup residue`
 
+**Checkpoint result:** Fresh Technical Verification halted CP-S4 after the third failure of immutable
+fingerprint `a83ca4d68afa5e45916eae7606c22e6dd57444470bea7b13cfb916684e98bbfd`.
+T5-T7 and their commits remain completed history; T13-T14 remediate the missing audit-resume and
+successful physical-ledger proofs before CP-S4 is presented again.
+
+### T13: Authorize halted audit generations
+
+**What:** Extend convergence state with append-only audit generations and one explicit resume
+operation, then use that operation with the durable 2026-08-28 human authorization reference to
+open generation 2 under the existing halted CP-S4 fingerprint without changing its first generation.
+
+**Where:** `.agents/skills/workflow-spec-driven/scripts/review_convergence.py`
+**Depends on:** T7
+**Reuses:** Existing fingerprint normalization, atomic state writer, and independent result recorder
+**Requirements:** HSE-49, HSE-50, HSE-51, HSE-52
+
+**Tools:** local filesystem/shell; skills `ponytail` full and `workflow-spec-driven`
+
+**Done when:**
+
+- [ ] Resume accepts only an existing halted fingerprint plus a non-empty exact authorization
+  reference and appends generation 2 with local count 0.
+- [ ] Generation 1 remains halted at 3, cumulative failures remain 3, and its halt event is retained.
+- [ ] Unknown/non-halted resume, ordinary-record bypass, same-requirement rewording, replacement
+  fingerprint, and inconsistent manually reset state fail before write.
+- [ ] Only a fresh independent PASS with a green gate closes generation 2 and the fingerprint;
+  generation 2 halts independently on its third failed remediation.
+- [ ] The resume command updates `review-fingerprints.json` using authorization reference
+  `.specs/features/hybrid-slice-execution/decisions.md#authorized-cp-s4-resume--2026-08-28`;
+  no manual JSON edit or new fingerprint is used.
+- [ ] Assigned 4 cases and full gate exit 0 before commit.
+
+**Tests:** unit + security — UT-017, UT-018, UT-019, SEC-012
+**Gate:** `python3 tools/test_review_convergence.py && npm_config_offline=true npm run test:all`
+**Commit:** `feat(review): authorize halted audit generations`
+
+### T14: Centralize assisted mutation issuance
+
+**What:** Replace the probe's distributed mutation paths with one `MutationRunner.issue` guard that
+atomically persists `in_flight` before one sink call, reconciles existing `in_flight`/`unknown`
+effects by bounded reads only, deletes unreachable legacy mutators, and proves actual Git, provider,
+and Orca calls with independent physical ledgers.
+
+**Where:** `tools/orca_assisted_probe.py`
+**Depends on:** T13
+**Reuses:** Existing effect identities, read-only reconciliation, pointer payload, cleanup ownership,
+and stdlib atomic writer pattern from review convergence
+**Requirements:** HSE-24, HSE-25, HSE-53, HSE-54, HSE-55, HSE-56, HSE-57
+
+**Tools:** local filesystem/shell; skills `ponytail` full and `workflow-spec-driven`
+
+**Done when:**
+
+- [ ] `MutationRunner.issue` is the sole reachable Orca/Git/provider mutation boundary for public
+  `dispatch` and `cleanup`; a structural AST check rejects any alternate sink.
+- [ ] State is durably `in_flight` with attempt 1 before the sink; injected atomic-write failure
+  leaves prior bytes unchanged and all physical ledgers empty.
+- [ ] Existing `in_flight`/`unknown` entries issue zero mutations and use only bounded same-identity
+  reads; absent or contradictory observations fail closed.
+- [ ] PATH-backed Git, provider, and Orca ledgers record exactly one physical mutation for every
+  logical happy, post-effect-timeout, pointer, and cleanup operation.
+- [ ] Terminal ledger contains the short packet pointer and never the packet body.
+- [ ] The duplicate-success Git and provider discrimination mutants both fail the focused suite.
+- [ ] Assigned 5 new cases, all prior S4 cases, focused gate, and full gate exit 0; generation 2 is
+  ready for a fresh independent CP-S4 Technical Verifier.
+
+**Tests:** unit + integration + security — UT-020, IT-017, IT-018, IT-019, SEC-013
+**Gate:** `python3 tools/test_orca_assisted_probe.py && npm_config_offline=true npm run test:all`
+**Commit:** `fix(orca): centralize assisted mutation issuance`
+
 ### T8: Route independent slice proof
 
 **What:** Rewrite provider role templates and autonomous/review guidance so one implementer owns one
@@ -306,7 +383,7 @@ worktrees, refills freed slots, parks dependencies, synchronizes verified checkp
 health-proved writer at a time within the frozen cap.
 
 **Where:** `.agents/skills/autonomous/scripts/parallel_execute.py`
-**Depends on:** T4 (CP-S2), T6 (S4 effect checkpoint), T9
+**Depends on:** T4 (CP-S2), T14 (CP-S4), T9
 **Reuses:** Existing lane states, effect receipts, checkpoint sync, worktree destinations, adapter fallback
 **Requirements:** HSE-16, HSE-17, HSE-18, HSE-19, HSE-20, HSE-45
 
@@ -355,7 +432,7 @@ probe, preserve consumer-owned config/profile on re-adoption, update canonical C
 and prove the disposable installed tree offline while keeping the live host journey `blocked-verify`.
 
 **Where:** `scripts/adopt.py`
-**Depends on:** T2 (CP-S1), T3 (CP-S2), T7 (CP-S4), T8 (CP-S5), T11 (CP-S3)
+**Depends on:** T2 (CP-S1), T3 (CP-S2), T14 (CP-S4), T8 (CP-S5), T11 (CP-S3)
 **Reuses:** COPY_PATHS/COPY_MISSING ownership, `scripts/test_adopt.py`, existing QA personas/journeys/scenarios
 **Requirements:** HSE-01, HSE-35, HSE-36, HSE-37, HSE-38, HSE-39
 
@@ -380,7 +457,7 @@ and prove the disposable installed tree offline while keeping the live host jour
 | --- | --- | --- | --- |
 | S1 / T2 | CP-S1 | S2, S4, S5 | Full gate + fresh Technical Verifier |
 | S2 / T4 | CP-S2 | S3 | Resolver/planner v3 tests + fresh Technical Verifier |
-| S4 / T7 | CP-S4 | S3, S6 | Fake-Orca exact-effects/cleanup tests + fresh Technical Verifier |
+| S4 / T14 | CP-S4 | S3, S6 | Authorized generation-2 audit + structural single issuer + physical Git/provider/Orca ledgers + fresh Technical Verifier PASS |
 | S5 / T8 | CP-S5 | S6 | Role-route trace + fresh Technical Verifier |
 | S3 / T11 | CP-S3 | S6 | Scheduler/health/lease trace + fresh Technical Verifier |
 | S6 / T12 | CP-S6 | Final review/QA | Build gate + fresh Technical Verifier |
@@ -398,6 +475,8 @@ Each ID appears once below and once in exactly one task `Tests` field.
 | T5 | IT-006, IT-011, SEC-005 |
 | T6 | IT-007, IT-008, IT-009, SEC-006, SEC-007 |
 | T7 | IT-010, SEC-001, SEC-008 |
+| T13 | UT-017, UT-018, UT-019, SEC-012 |
+| T14 | UT-020, IT-017, IT-018, IT-019, SEC-013 |
 | T8 | UT-015, UT-016, IT-012 |
 | T9 | UT-012, UT-013, UT-014, SEC-003 |
 | T10 | IT-002, IT-003, IT-005 |
@@ -415,6 +494,8 @@ Each ID appears once below and once in exactly one task `Tests` field.
 | T5 | Probe pointer/import surface | Granular |
 | T6 | Probe effect reconciliation | Granular |
 | T7 | Probe cleanup proof | Granular |
+| T13 | Authorized convergence generation | Granular |
+| T14 | Probe mutation issue guard | Granular |
 | T8 | Independent role routing | Granular |
 | T9 | Normalized health evidence | Granular |
 | T10 | Adaptive writer-slot loop | Granular |
@@ -432,11 +513,13 @@ Each ID appears once below and once in exactly one task `Tests` field.
 | T5 | T1 (cross-phase) | None | Match |
 | T6 | T5 | T5 | Match |
 | T7 | T6 | T6 | Match |
+| T13 | T7 | T7 | Match |
+| T14 | T13 | T13 | Match |
 | T8 | T1 (cross-phase) | None | Match |
 | T9 | T3 (cross-phase) | None | Match |
-| T10 | T4, T6 (cross-phase), T9 | T9 | Match |
+| T10 | T4, T14 (cross-phase), T9 | T9 | Match |
 | T11 | T10 | T10 | Match |
-| T12 | T2, T3, T7, T8, T11 (cross-phase) | None | Match |
+| T12 | T2, T3, T14, T8, T11 (cross-phase) | None | Match |
 
 ## Test Co-location Validation
 
@@ -449,6 +532,8 @@ Each ID appears once below and once in exactly one task `Tests` field.
 | T5 | Orca probe surface | integration + security | integration + security | OK |
 | T6 | Orca effect state | integration + security | integration + security | OK |
 | T7 | Cleanup state | integration + security | integration + security | OK |
+| T13 | Review convergence state | unit + security | unit + security | OK |
+| T14 | Mutation issue guard | unit + integration + security | unit + integration + security | OK |
 | T8 | Role routing | unit + integration | unit + integration | OK |
 | T9 | Health provider | unit + security | unit + security | OK |
 | T10 | Adaptive scheduler | integration | integration | OK |

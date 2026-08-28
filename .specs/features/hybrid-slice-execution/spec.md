@@ -1,7 +1,7 @@
 # Hybrid Slice Execution Specification
 
 **Status:** Approved
-**Decision:** AD-015
+**Decisions:** AD-015, AD-016
 
 ## Problem Statement
 
@@ -45,6 +45,7 @@ assisted-by-default workflow from adoption alone.
 | Missing health evidence | Do not admit lane 3 or later | Unknown capacity is not proof of safety. | yes |
 | Context budgets | Role packet at most 3,072 bytes; slice packet at most 10,240 bytes | These preserve the approved small role packet and context-pack targets as executable limits. | yes |
 | Live host QA | `blocked-verify` with fake-Orca automation remaining mandatory | Upstream support is outside this repository and automated gates must stay deterministic. | yes |
+| Halt recovery | Explicit human authorization creates generation 2 under the existing fingerprint | The 2026-08-28 authorization permits redesigned remediation without erasing the three failures or first halt. | yes |
 
 **Open questions:** none.
 
@@ -61,6 +62,7 @@ assisted-by-default workflow from adoption alone.
 | Observability | Machine-only JSON reports decisions, byte counts, effects, receipts, and residue with paths, environment values, and payload bodies redacted. |
 | External-dependency failure | Orca and resource-provider failures are exercised by fakes; unavailable or contradictory capability prevents unsafe dispatch or cleanup. |
 | State-transition integrity | Persisted operation IDs, handles, commit IDs, lease IDs, and ownership proofs guard every lifecycle transition. |
+| Review convergence | A halted fingerprint can advance only through an authorized audit generation; cumulative failures and halt events never reset. |
 
 ## User Stories
 
@@ -138,6 +140,38 @@ transport defects and transient responses cannot duplicate work or destroy the w
 transient and contradictory observations, and assert exact mutation counts, pointer contents, and
 cleanup residue.
 
+### P1: Resume a halted audit without erasing it
+
+**User Story:** As a maintainer, I want explicit human authorization to reopen a halted blocker in a
+new audit generation so a redesigned remediation can proceed without resetting its history.
+
+**Acceptance Criteria:**
+
+1. WHEN an explicitly authorized resume names a halted fingerprint THEN the workflow SHALL append the next audit generation under that same fingerprint and SHALL store the exact authorization reference. (HSE-49)
+2. WHILE a resumed generation is active the workflow SHALL preserve the prior generation, cumulative failure count, and halt event unchanged and SHALL reset only the new generation-local failure count to zero. (HSE-50)
+3. IF resume targets an unknown or non-halted fingerprint, omits authorization, resets counters manually, rewords the finding, or substitutes a new fingerprint THEN the workflow SHALL reject it before changing convergence state. (HSE-51)
+4. WHEN a fresh independent Verifier returns PASS with a green gate for the resumed fingerprint THEN the workflow SHALL close the current generation and fingerprint; any other result SHALL leave it open or halt it at its own third failure. (HSE-52)
+
+**Independent Test:** Halt one fingerprint, resume it with the recorded human authorization, attempt
+every bypass, and close it only with a fresh independent PASS while the first generation remains
+field-for-field unchanged in history.
+
+### P1: Prove one physical mutation path
+
+**User Story:** As a coordinator, I want every external mutation to cross one persisted issue guard
+so a successful response, timeout, restart, or accidental duplicate statement cannot repeat it.
+
+**Acceptance Criteria:**
+
+1. BEFORE any Orca, Git, or resource-provider mutation reaches its sink the workflow SHALL atomically persist one `in_flight` ledger record through `MutationRunner.issue` with immutable effect identity, kind, correlation, and attempt `1`. (HSE-53)
+2. Every mutation reachable from assisted `dispatch` or `cleanup` SHALL route exclusively through `MutationRunner.issue`, and the structural contract SHALL reject any alternate mutation sink. (HSE-54)
+3. IF a persisted effect is `in_flight` or `unknown` on entry THEN `MutationRunner.issue` SHALL perform zero mutation calls and SHALL use only bounded, same-identity read-only reconciliation; absent read proof SHALL fail closed. (HSE-55)
+4. WHEN happy, post-effect-timeout, and cleanup paths run THEN independent physical Git, resource-provider, and Orca ledgers SHALL each record exactly one mutation per logical operation, and terminal transport SHALL contain the pointer but never the packet body. (HSE-56)
+5. IF atomic ledger persistence fails before issue THEN the workflow SHALL perform zero external mutation calls and SHALL leave the prior durable state unchanged. (HSE-57)
+
+**Independent Test:** Put ledger-writing Git, provider, and Orca executables on `PATH`, exercise every
+reachable mutator, restart from `in_flight` and `unknown`, and inject a pre-sink persistence failure.
+
 ### P1: Preserve independent proof at every boundary
 
 **User Story:** As a maintainer, I want authors and verifiers separated so faster execution never
@@ -183,9 +217,9 @@ then import the installed probe with a call-counting fake Orca.
 | --- | --- | --- | --- |
 | S1 | Public config, snapshot schema, role behavior, adoption, and scheduler runtime | Version-3 hard cut, typed bounds, executable contract tests | HSE-07, HSE-08, HSE-09, HSE-10, HSE-11, HSE-35 |
 | S6 | Config/JSON inputs, packet and worktree paths, subprocess argv, diagnostics | Schema validation, repository containment, fixed argv, redaction | HSE-05, HSE-06, HSE-39, HSE-40, HSE-42 |
-| S9 | Orca and consumer resource-provider processes | Capability proof, pointer-only delivery, correlated receipts, bounded read-only reconciliation | HSE-22, HSE-23, HSE-24, HSE-25, HSE-26, HSE-27 |
-| S10 | Frozen snapshots and persisted operation/lease/cleanup state | Immutable identities, version checks, same-handle reconciliation | HSE-10, HSE-11, HSE-26, HSE-28, HSE-41 |
-| S11 | Concurrent processes, isolated worktrees, gates, terminals, cleanup | Writer-only isolation, health admission, leases, ownership proof, fail-closed cleanup | HSE-15, HSE-16, HSE-17, HSE-20, HSE-21, HSE-28, HSE-43 |
+| S9 | Orca and consumer resource-provider processes | Capability proof, pointer-only delivery, one persisted issue guard, correlated receipts, bounded read-only reconciliation | HSE-22, HSE-23, HSE-24, HSE-25, HSE-26, HSE-27, HSE-53, HSE-54, HSE-55, HSE-56 |
+| S10 | Frozen snapshots and persisted operation/lease/cleanup/review state | Immutable identities and audit generations, version checks, same-handle reconciliation | HSE-10, HSE-11, HSE-26, HSE-28, HSE-41, HSE-49, HSE-50, HSE-51, HSE-52, HSE-53, HSE-57 |
+| S11 | Concurrent processes, isolated worktrees, gates, terminals, cleanup | Writer-only isolation, health admission, leases, ownership proof, fail-closed cleanup | HSE-15, HSE-16, HSE-17, HSE-20, HSE-21, HSE-28, HSE-43, HSE-55, HSE-56 |
 
 ## Edge Cases
 
@@ -222,8 +256,8 @@ then import the installed probe with a call-counting fake Orca.
 | HSE-21 | Hybrid scheduler | S3 | In Design |
 | HSE-22 | Orca lifecycle | S4 | Implemented in T5 |
 | HSE-23 | Orca lifecycle | S4 | Implemented in T5 |
-| HSE-24 | Orca lifecycle | S4 | Implemented in T6 |
-| HSE-25 | Orca lifecycle | S4 | Implemented in T6 |
+| HSE-24 | Orca lifecycle | S4 | Remediation planned in T14 |
+| HSE-25 | Orca lifecycle | S4 | Remediation planned in T14 |
 | HSE-26 | Orca lifecycle | S4 | Implemented in T6 |
 | HSE-27 | Orca lifecycle | S4 | Implemented in T6 |
 | HSE-28 | Orca lifecycle | S4 | Implemented in T7 |
@@ -247,8 +281,17 @@ then import the installed probe with a call-counting fake Orca.
 | HSE-46 | Edge case | S3, S4 | Implemented in T4 |
 | HSE-47 | Edge case | S4 | Implemented in T6 |
 | HSE-48 | Edge case | S3 | In Design |
+| HSE-49 | Halt recovery | S4 | In Tasks |
+| HSE-50 | Halt recovery | S4 | In Tasks |
+| HSE-51 | Halt recovery | S4 | In Tasks |
+| HSE-52 | Halt recovery | S4 | In Tasks |
+| HSE-53 | Mutation issue guard | S4 | In Tasks |
+| HSE-54 | Mutation issue guard | S4 | In Tasks |
+| HSE-55 | Mutation issue guard | S4 | In Tasks |
+| HSE-56 | Mutation issue guard | S4 | In Tasks |
+| HSE-57 | Mutation issue guard | S4 | In Tasks |
 
-**Coverage:** 48 total, 48 mapped to design slices, 0 unmapped.
+**Coverage:** 57 total, 57 mapped to design slices, 0 unmapped.
 
 ## Success Criteria
 
@@ -260,4 +303,8 @@ then import the installed probe with a call-counting fake Orca.
   health and lease failures.
 - [ ] Fake-Orca tests prove one mutation per logical operation, pointer-only payloads, import-time
   zero calls, and residue-zero cleanup.
+- [ ] The halted CP-S4 fingerprint retains generation 1 and cumulative failure history, and closes
+  generation 2 only after a fresh independent PASS.
+- [ ] Independent PATH ledgers and a structural guard prove every reachable Git, provider, and Orca
+  mutation crosses one atomic ledger-before-sink issue path exactly once.
 - [ ] `npm_config_offline=true npm run test:all` exits `0` on the final adopted tree without live Orca.

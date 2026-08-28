@@ -28,3 +28,17 @@
 - Existing PR: `#72`, remote head `836f9d3`.
 - Delivery scope: one new feature branch and pull request containing only work grounded on the
   remote base. The prior PR and local backlog remain untouched.
+
+## Authorized CP-S4 resume — 2026-08-28
+
+**Authorization reference:**
+`.specs/features/hybrid-slice-execution/decisions.md#authorized-cp-s4-resume--2026-08-28`
+
+- The human explicitly authorized a new autonomous run after the third-failure CP-S4 halt and asked
+  it to continue until the feature is safe and delivered.
+- Fingerprint `a83ca4d68afa5e45916eae7606c22e6dd57444470bea7b13cfb916684e98bbfd`
+  remains the identity of the blocker. Its three failures and first halt remain audit history.
+- Resume creates generation 2 under that fingerprint. It resets only generation 2's local failure
+  count; cumulative failures remain three.
+- No manual JSON reset, replacement fingerprint, or rewording may bypass the halt.
+- CP-S4 remains blocked until a fresh independent Verifier returns PASS for the resumed generation.
