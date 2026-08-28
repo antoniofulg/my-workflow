@@ -220,14 +220,14 @@ then import the installed probe with a call-counting fake Orca.
 | HSE-19 | Hybrid scheduler | S3 | Implemented in T4 |
 | HSE-20 | Hybrid scheduler | S3 | Implemented in T4 |
 | HSE-21 | Hybrid scheduler | S3 | In Design |
-| HSE-22 | Orca lifecycle | S4 | In Design |
-| HSE-23 | Orca lifecycle | S4 | In Design |
+| HSE-22 | Orca lifecycle | S4 | Implemented in T5 |
+| HSE-23 | Orca lifecycle | S4 | Implemented in T5 |
 | HSE-24 | Orca lifecycle | S4 | In Design |
 | HSE-25 | Orca lifecycle | S4 | In Design |
 | HSE-26 | Orca lifecycle | S4 | In Design |
 | HSE-27 | Orca lifecycle | S4 | In Design |
 | HSE-28 | Orca lifecycle | S4 | In Design |
-| HSE-29 | Orca lifecycle | S4 | In Design |
+| HSE-29 | Orca lifecycle | S4 | Implemented in T5 |
 | HSE-30 | Independent proof | S5 | In Design |
 | HSE-31 | Independent proof | S5 | In Design |
 | HSE-32 | Independent proof | S5 | In Design |

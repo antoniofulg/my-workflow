@@ -191,10 +191,10 @@ subcommands, packet persistence, short-pointer send, injected runners, JSON stdo
 
 **Done when:**
 
-- [ ] Probe imports no evidence module and dispatches only under the `__name__` guard.
-- [ ] Full packet lands on disk; fake Orca receives one short pointer with no body marker.
-- [ ] JSON output follows `dx.md` and contains no injected sensitive marker.
-- [ ] Assigned 3 cases pass with no existing assertion weakened or deleted.
+- [x] Probe imports no evidence module and dispatches only under the `__name__` guard.
+- [x] Full packet lands on disk; fake Orca receives one short pointer with no body marker.
+- [x] JSON output follows `dx.md` and contains no injected sensitive marker.
+- [x] Assigned 3 cases pass with no existing assertion weakened or deleted.
 - [ ] Full gate exits 0 before commit.
 
 **Tests:** integration + security — IT-006, IT-011, SEC-005
