@@ -134,6 +134,24 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: validation.md:Slice-C-R1-waiting-follow-up (workflow-executor)
 - last seen: 2026-08-24T18:42:24Z
 
+### L-021 - Exercise every public lifecycle command through the state artifact produced by its preceding command.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `lifecycle` · harmful: 0
+- features: hybrid-slice-execution
+- evidence: .specs/features/hybrid-slice-execution/validation-s4.md:45 (lifecycle)
+- last seen: 2026-08-28T18:16:50Z
+
+### L-022 - Correlate every persisted external-effect identity against independent provider and Git observations before advancing state.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `lifecycle` · harmful: 0
+- features: hybrid-slice-execution
+- evidence: .specs/features/hybrid-slice-execution/validation-s4.md:43 (lifecycle)
+- last seen: 2026-08-28T18:16:50Z
+
+### L-023 - Assert repository containment for every writable control path, including state and log outputs.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `security` · harmful: 0
+- features: hybrid-slice-execution
+- evidence: .specs/features/hybrid-slice-execution/validation-s4.md:47 (security)
+- last seen: 2026-08-28T18:16:51Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 21,
+  "next_id": 24,
   "lessons": [
     {
       "id": "L-001",
@@ -364,6 +364,60 @@
       ],
       "created": "2026-08-24T18:42:24Z",
       "last_seen": "2026-08-24T18:42:24Z"
+    },
+    {
+      "id": "L-021",
+      "key": "ac_gap::exercise every public lifecycle command through the state artifact produced by its preceding command",
+      "text": "Exercise every public lifecycle command through the state artifact produced by its preceding command.",
+      "signal": "ac_gap",
+      "scope": "lifecycle",
+      "status": "candidate",
+      "features": [
+        "hybrid-slice-execution"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/hybrid-slice-execution/validation-s4.md:45 (lifecycle)"
+      ],
+      "created": "2026-08-28T18:16:50Z",
+      "last_seen": "2026-08-28T18:16:50Z"
+    },
+    {
+      "id": "L-022",
+      "key": "ac_gap::correlate every persisted external effect identity against independent provider and git observations before advancing state",
+      "text": "Correlate every persisted external-effect identity against independent provider and Git observations before advancing state.",
+      "signal": "ac_gap",
+      "scope": "lifecycle",
+      "status": "candidate",
+      "features": [
+        "hybrid-slice-execution"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/hybrid-slice-execution/validation-s4.md:43 (lifecycle)"
+      ],
+      "created": "2026-08-28T18:16:50Z",
+      "last_seen": "2026-08-28T18:16:50Z"
+    },
+    {
+      "id": "L-023",
+      "key": "ac_gap::assert repository containment for every writable control path including state and log outputs",
+      "text": "Assert repository containment for every writable control path, including state and log outputs.",
+      "signal": "ac_gap",
+      "scope": "security",
+      "status": "candidate",
+      "features": [
+        "hybrid-slice-execution"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/hybrid-slice-execution/validation-s4.md:47 (security)"
+      ],
+      "created": "2026-08-28T18:16:51Z",
+      "last_seen": "2026-08-28T18:16:51Z"
     }
   ]
 }
