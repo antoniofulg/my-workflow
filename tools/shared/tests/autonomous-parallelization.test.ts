@@ -3,28 +3,85 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const repositoryRoot = process.cwd();
+const implementerPacketPaths = [
+  "templates/agents/claude/implementer.md",
+  "templates/agents/codex/implementer.toml",
+  "templates/agents/cursor/implementer.md",
+];
+const verifierPacketPaths = [
+  "templates/agents/claude/verifier.md",
+  "templates/agents/codex/verifier.toml",
+  "templates/agents/cursor/verifier.md",
+];
+const deepReviewPacketPaths = [
+  "templates/agents/claude/deep-reviewer.md",
+  "templates/agents/codex/deep-reviewer.toml",
+  "templates/agents/cursor/deep-reviewer.md",
+];
 
 function readRepositoryFile(relativePath: string): string {
   return readFileSync(join(repositoryRoot, relativePath), "utf8");
 }
 
-describe("autonomous parallel slice dispatch contract", () => {
-  const implementerPacketPaths = [
-    "templates/agents/claude/implementer.md",
-    "templates/agents/codex/implementer.toml",
-    "templates/agents/cursor/implementer.md",
-  ];
-  const verifierPacketPaths = [
-    "templates/agents/claude/verifier.md",
-    "templates/agents/codex/verifier.toml",
-    "templates/agents/cursor/verifier.md",
-  ];
-  const deepReviewPacketPaths = [
-    "templates/agents/claude/deep-reviewer.md",
-    "templates/agents/codex/deep-reviewer.toml",
-    "templates/agents/cursor/deep-reviewer.md",
-  ];
+type RoleRoute = {
+  stage: string;
+  owner: string;
+  authorRelation: string;
+  tree: string;
+  cardinality: string;
+};
 
+function parseRoleRoute(policy: string): RoleRoute[] {
+  const section = policy.match(
+    /<!-- role-route:v1 -->([\s\S]*?)<!-- \/role-route:v1 -->/,
+  )?.[1];
+  expect(section).toBeDefined();
+
+  const rows = section
+    ?.split("\n")
+    .filter((line) => /^\|/.test(line.trim()) && !/^\|\s*-/.test(line.trim()))
+    .map((line) => line.split("|").slice(1, -1).map((cell) => cell.trim())) ?? [];
+  expect(rows.length).toBeGreaterThan(1);
+
+  const [headers, ...data] = rows;
+  expect(headers).toEqual(["stage", "owner", "author relation", "tree", "cardinality"]);
+  return data.map(([stage, owner, authorRelation, tree, cardinality]) => ({
+    stage,
+    owner,
+    authorRelation,
+    tree,
+    cardinality,
+  }));
+}
+
+function routeOwnerForPacket(role: "implementer" | "verifier" | "deep-reviewer"): string[] {
+  if (role === "implementer") return ["implementer", "last-implementer"];
+  if (role === "verifier") return ["technical-verifier", "qa-plan", "qa-execute"];
+  return ["deep-reviewer"];
+}
+
+function packetPathsForRole(role: "implementer" | "verifier" | "deep-reviewer"): string[] {
+  if (role === "implementer") return implementerPacketPaths;
+  if (role === "verifier") return verifierPacketPaths;
+  return deepReviewPacketPaths;
+}
+
+function expectedRoute(route: RoleRoute[], stage: string): RoleRoute {
+  const row = route.find((candidate) => candidate.stage === stage);
+  expect(row, `missing role-route stage: ${stage}`).toBeDefined();
+  return row as RoleRoute;
+}
+
+function treeFor(row: RoleRoute, slice: { id: string; ref: string } | undefined): string {
+  if (row.tree === "private-slice" || row.tree === "private-checkpoint") {
+    expect(slice).toBeDefined();
+    return `private:${slice?.id}@${slice?.ref}`;
+  }
+  if (row.tree === "integrated-head") return "integrated@i1";
+  throw new Error(`unsupported role-route tree: ${row.tree}`);
+}
+
+describe("autonomous parallel slice dispatch contract", () => {
   it("UT-015 keeps tasks sequential inside one implementer slice", () => {
     for (const relativePath of implementerPacketPaths) {
       const packet = readRepositoryFile(relativePath);
@@ -59,46 +116,146 @@ describe("autonomous parallel slice dispatch contract", () => {
     }
   });
 
-  it("IT-012 routes a two-slice trace through the intended trees and actors", () => {
-    const trace = [
-      { phase: "implement", actor: "implementer-S1", tree: "private:S1@a1" },
-      { phase: "technical", actor: "verifier-S1", tree: "private:S1@a1" },
-      { phase: "implement", actor: "implementer-S2", tree: "private:S2@b1" },
-      { phase: "technical", actor: "verifier-S2", tree: "private:S2@b1" },
-      { phase: "integrate", actor: "coordinator", tree: "integrated@i1" },
-      { phase: "deep-review", actor: "deep-reviewer-G1", tree: "integrated@i1" },
-      { phase: "qa-plan", actor: "qa-plan-Q1", tree: "integrated@i1" },
-      { phase: "qa-execute", actor: "qa-execute-Q1", tree: "integrated@i1" },
-      { phase: "handoff", actor: "implementer-S2", tree: "private:S2@b1" },
+  it("IT-012 derives the proof trace from the shipped role-route table", () => {
+    const policy = readRepositoryFile(
+      ".agents/skills/autonomous/references/parallelization.md",
+    );
+    const route = parseRoleRoute(policy);
+    const stageOrder = route.map(({ stage }) => stage);
+    expect(stageOrder).toEqual([
+      "implement",
+      "technical",
+      "integrate",
+      "deep-review",
+      "qa-plan",
+      "qa-execute",
+      "handoff",
+    ]);
+
+    expect(expectedRoute(route, "implement")).toMatchObject({
+      owner: "implementer",
+      authorRelation: "author-only",
+      tree: "private-slice",
+      cardinality: "per-slice",
+    });
+    expect(expectedRoute(route, "technical")).toMatchObject({
+      owner: "technical-verifier",
+      authorRelation: "fresh-not-author",
+      tree: "private-checkpoint",
+      cardinality: "per-slice",
+    });
+    expect(expectedRoute(route, "deep-review")).toMatchObject({
+      owner: "deep-reviewer",
+      authorRelation: "fresh-not-author",
+      tree: "integrated-head",
+      cardinality: "per-group",
+    });
+    for (const stage of ["qa-plan", "qa-execute"]) {
+      expect(expectedRoute(route, stage)).toMatchObject({
+        owner: stage,
+        authorRelation: "fresh-not-author",
+        tree: "integrated-head",
+        cardinality: "once",
+      });
+    }
+    expect(expectedRoute(route, "handoff")).toMatchObject({
+      owner: "last-implementer",
+      authorRelation: "author-only-no-proof",
+      tree: "private-checkpoint",
+      cardinality: "last-implementer",
+    });
+
+    const slices = [
+      { id: "S1", ref: "a1" },
+      { id: "S2", ref: "b1" },
     ];
-    const authors = new Set(["implementer-S1", "implementer-S2"]);
+    const trace = route.flatMap((row) => {
+      if (row.cardinality === "per-slice") {
+        return slices.map((slice) => ({
+          phase: row.stage,
+          actor: `${row.owner}-${slice.id}`,
+          tree: treeFor(row, slice),
+        }));
+      }
+      if (row.cardinality === "per-group") {
+        return [{ phase: row.stage, actor: `${row.owner}-G1`, tree: treeFor(row, undefined) }];
+      }
+      if (row.cardinality === "last-implementer") {
+        return [{
+          phase: row.stage,
+          actor: `${row.owner}-${slices.at(-1)?.id}`,
+          tree: treeFor(row, slices.at(-1)),
+        }];
+      }
+      return [{ phase: row.stage, actor: row.owner, tree: treeFor(row, undefined) }];
+    });
+
+    const authors = new Set(
+      trace.filter(({ phase }) => phase === "implement").map(({ actor }) => actor),
+    );
     const proofActors = new Set(
       trace
         .filter(({ phase }) => ["technical", "deep-review", "qa-plan", "qa-execute"].includes(phase))
         .map(({ actor }) => actor),
     );
-
-    expect(trace.filter(({ phase }) => phase === "technical").map(({ tree }) => tree)).toEqual([
-      "private:S1@a1",
-      "private:S2@b1",
-    ]);
-    expect(trace.filter(({ phase }) => ["deep-review", "qa-plan", "qa-execute"].includes(phase)).map(({ tree }) => tree)).toEqual([
-      "integrated@i1",
-      "integrated@i1",
-      "integrated@i1",
-    ]);
     expect([...authors].every((author) => !proofActors.has(author))).toBe(true);
+    expect(trace.filter(({ phase }) => phase === "technical").map(({ tree }) => tree)).toEqual(
+      slices.map((slice) => treeFor(expectedRoute(route, "technical"), slice)),
+    );
+    expect(
+      trace
+        .filter(({ phase }) => ["deep-review", "qa-plan", "qa-execute"].includes(phase))
+        .map(({ tree }) => tree),
+    ).toEqual(
+      ["deep-review", "qa-plan", "qa-execute"].map((stage) =>
+        treeFor(expectedRoute(route, stage), undefined),
+      ),
+    );
     expect(trace.at(-1)).toEqual({
-      phase: "handoff",
-      actor: "implementer-S2",
-      tree: "private:S2@b1",
+      phase: expectedRoute(route, "handoff").stage,
+      actor: `${expectedRoute(route, "handoff").owner}-${slices.at(-1)?.id}`,
+      tree: treeFor(expectedRoute(route, "handoff"), slices.at(-1)),
     });
-    expect(trace.findIndex(({ phase }) => phase === "integrate")).toBeLessThan(
-      trace.findIndex(({ phase }) => phase === "deep-review"),
-    );
-    expect(trace.findIndex(({ phase }) => phase === "deep-review")).toBeLessThan(
-      trace.findIndex(({ phase }) => phase === "qa-plan"),
-    );
+    expect(stageOrder.indexOf("integrate")).toBeLessThan(stageOrder.indexOf("deep-review"));
+    expect(stageOrder.indexOf("deep-review")).toBeLessThan(stageOrder.indexOf("qa-plan"));
+
+    const packetRoles: Array<"implementer" | "verifier" | "deep-reviewer"> = [
+      "implementer",
+      "verifier",
+      "deep-reviewer",
+    ];
+    for (const role of packetRoles) {
+      const owners = routeOwnerForPacket(role);
+      const ownedStages = route.filter(({ owner }) => owners.includes(owner));
+      expect(ownedStages.length, `no route rows for ${role}`).toBeGreaterThan(0);
+      for (const relativePath of packetPathsForRole(role)) {
+        const packet = readRepositoryFile(relativePath);
+        for (const row of ownedStages) {
+          if (row.stage === "implement") {
+            expect(packet).toMatch(/one implementer owns exactly one slice/i);
+            expect(packet).toMatch(/tasks inside the slice remain sequentially/i);
+          }
+          if (row.stage === "technical") {
+            expect(packet).toMatch(/fresh Technical Verifier/i);
+            expect(packet).toMatch(/private writer (?:tree|worktree|checkpoint)/i);
+          }
+          if (row.stage === "deep-review") {
+            expect(packet).toMatch(/fresh/i);
+            expect(packet).toMatch(/integrated commit range|integrated tree/i);
+            expect(packet).toMatch(/(?:not|never) (?:a |the )?private writer tree/i);
+          }
+          if (row.stage === "qa-plan" || row.stage === "qa-execute") {
+            expect(packet).toMatch(/fresh QA Plan.*fresh QA Execute/is);
+            expect(packet).toMatch(/integrated final tree/i);
+            expect(packet).toMatch(/do not\s+read a private writer tree/i);
+          }
+          if (row.stage === "handoff") {
+            expect(packet).toContain("compact handoff");
+            expect(packet).not.toMatch(/certif(?:y|ies) downstream proof/i);
+          }
+        }
+      }
+    }
   });
 
   it("IT-007 binds the executor capability gate and preserves every lifecycle boundary", () => {

@@ -59,12 +59,28 @@ or cleanup failure returns serial recovery without creating a replacement effect
 ## Proof boundary
 
 The coordinator records each Implementer's author identity with its slice and
-checkpoint. Technical Verification is a fresh session with a different
-identity and reads the exact private writer worktree at that checkpoint.
-After verified checkpoints are integrated, Deep Review receives the integrated
-commit range on the clean integration checkout. Fresh QA Plan and QA Execute
-sessions receive that integrated final tree. No proof role reuses the author
-identity or certifies a private tree as the final result.
+checkpoint. The role-route table below is the single machine-readable source for
+the owner, author relation, and tree boundary of every proof stage. Packets and
+runtime dispatch follow these rows; this prose only describes the lifecycle.
+
+<!-- role-route:v1 -->
+| stage | owner | author relation | tree | cardinality |
+| --- | --- | --- | --- | --- |
+| implement | implementer | author-only | private-slice | per-slice |
+| technical | technical-verifier | fresh-not-author | private-checkpoint | per-slice |
+| integrate | coordinator | coordinator | integrated-head | once |
+| deep-review | deep-reviewer | fresh-not-author | integrated-head | per-group |
+| qa-plan | qa-plan | fresh-not-author | integrated-head | once |
+| qa-execute | qa-execute | fresh-not-author | integrated-head | once |
+| handoff | last-implementer | author-only-no-proof | private-checkpoint | last-implementer |
+<!-- /role-route:v1 -->
+
+Technical Verification is a fresh session with a different identity and reads
+the exact private writer worktree at that checkpoint. After verified checkpoints
+are integrated, Deep Review receives the integrated commit range on the clean
+integration checkout. Fresh QA Plan and QA Execute sessions receive that
+integrated final tree. No proof role reuses the author identity or certifies a
+private tree as the final result.
 
 The plan's `ready` lane is permission to start the named task, not permission to skip a gate. A
 `waiting` or `in_progress` task is never a fresh worker; the planner's state transition is part of

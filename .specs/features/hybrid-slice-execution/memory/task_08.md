@@ -8,3 +8,8 @@
   compact handoff and does not certify downstream proof.
 - Contract coverage is in `tools/shared/tests/autonomous-parallelization.test.ts` as UT-015,
   UT-016, and IT-012; active guidance is aligned in autonomous and workflow review references.
+- IT-012 derives its trace from the delimited role-route table in
+  `.agents/skills/autonomous/references/parallelization.md`; packets remain consumers of that
+  single route source, not a second route authority.
+- CP-S5 remediation keeps `validation-s5.md` and lesson history immutable; the canonical route
+  proof now rejects a changed owner, author relation, tree boundary, or stage order.
