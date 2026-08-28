@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
@@ -2285,6 +2286,60 @@ def test_full_coordinator_integrates_only_all_verified_complete_lanes_once() -> 
         assert resumed["state"]["integration_receipt"]["post_head"] == "merged-head"  # type: ignore[index]
     finally:
         shutil.rmtree(root)
+
+
+def test_lane_scheduler_starts_two_compatible_isolated_writers() -> None:
+    candidates = [
+        {"task": f"T{index}", "declared_paths": [f"src/{index}.py"], "resources": []}
+        for index in range(1, 5)
+    ]
+    scheduler = parallel_execute.LaneScheduler("auto")
+    selected = scheduler.select(candidates, {})
+    assert [lane["task"] for lane in selected] == ["T1", "T2"]
+    assert scheduler.cap == 2
+
+
+def test_lane_scheduler_admits_one_extra_writer_after_healthy_settle() -> None:
+    now = time.monotonic()
+    evidence = {
+        "schema_version": 1,
+        "observed_at_monotonic": now,
+        "cpu": "healthy",
+        "memory": "healthy",
+        "disk": "healthy",
+        "heavy_gates_active": 0,
+    }
+    scheduler = parallel_execute.LaneScheduler("auto", health_reader=lambda: evidence)
+    existing = {
+        "lane-A": {"task": "T1", "state": "running", "declared_paths": ["src/1.py"], "resources": []},
+        "lane-B": {"task": "T2", "state": "running", "declared_paths": ["src/2.py"], "resources": []},
+    }
+    selected = scheduler.select(
+        [
+            {"task": "T1", "declared_paths": ["src/1.py"], "resources": []},
+            {"task": "T2", "declared_paths": ["src/2.py"], "resources": []},
+            {"task": "T3", "declared_paths": ["src/3.py"], "resources": []},
+            {"task": "T4", "declared_paths": ["src/4.py"], "resources": []},
+        ],
+        existing,
+    )
+    assert [lane["task"] for lane in selected] == ["T3"]
+    assert scheduler.cap == 3
+
+
+def test_lane_scheduler_refills_only_compatible_freed_slot() -> None:
+    scheduler = parallel_execute.LaneScheduler("auto")
+    existing = {
+        "lane-A": {"task": "T1", "state": "running", "declared_paths": ["src/shared"], "resources": []},
+    }
+    selected = scheduler.select(
+        [
+            {"task": "T2", "declared_paths": ["src/shared/file.py"], "resources": []},
+            {"task": "T3", "declared_paths": ["src/next.py"], "resources": []},
+        ],
+        existing,
+    )
+    assert [lane["task"] for lane in selected] == ["T3"]
 
 
 if __name__ == "__main__":

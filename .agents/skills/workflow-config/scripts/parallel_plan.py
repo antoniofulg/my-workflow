@@ -295,6 +295,8 @@ def plan(
     *, root: Path,
     feature: str,
     verified_slices: set[str] | None = None,
+    completed_tasks: set[str] | None = None,
+    selection_cap: int | None = None,
 ) -> dict[str, Any]:
     """Return a read-only point-in-time plan for one feature."""
     root = root.resolve()
@@ -339,8 +341,9 @@ def plan(
     candidates: list[Task] = []
     blocked: dict[str, list[str]] = {}
     seen_slices: set[str | None] = set()
+    completed = completed_tasks or set()
     for task in tasks:
-        if task.complete:
+        if task.complete or task.id in completed:
             continue
         if task.slice_id not in seen_slices:
             candidates.append(task)
@@ -428,6 +431,11 @@ def plan(
         initial_cap = snapshot["automatic_baseline"] if configured_cap == "auto" else min(
             snapshot["automatic_baseline"], configured_cap
         )
+        if selection_cap is not None:
+            if type(selection_cap) is not int or selection_cap < 1:
+                raise ValueError("invalid selection cap")
+            configured_limit = snapshot["automatic_ceiling"] if configured_cap == "auto" else configured_cap
+            initial_cap = min(configured_limit, selection_cap)
         for lane, task in zip(ready, ready_tasks):
             if len(selected) >= initial_cap:
                 blocked[task.id] = [f"writer-cap:{initial_cap}"]

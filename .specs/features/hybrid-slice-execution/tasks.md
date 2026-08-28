@@ -391,11 +391,11 @@ health-proved writer at a time within the frozen cap.
 
 **Done when:**
 
-- [ ] Two compatible writers start in isolated worktrees and freed slots receive the next ready slice.
-- [ ] Lane 3+ appears only one per healthy settle window and never exceeds cap.
-- [ ] Moved dependency checkpoint remains parked until sync and reverify.
-- [ ] Assigned 3 cases pass with no existing assertion weakened or deleted.
-- [ ] Full gate exits 0 before commit.
+- [x] Two compatible writers start in isolated worktrees and freed slots receive the next ready slice.
+- [x] Lane 3+ appears only one per healthy settle window and never exceeds cap.
+- [x] Moved dependency checkpoint remains parked until sync and reverify.
+- [x] Assigned 3 cases pass with no existing assertion weakened or deleted.
+- [x] Full gate exits 0 before commit.
 
 **Tests:** integration — IT-002, IT-003, IT-005
 **Gate:** `python3 tools/test_parallel_executor.py && npm_config_offline=true npm run test:all`

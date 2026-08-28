@@ -19,7 +19,13 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from pathlib import PurePosixPath
 from typing import Any, Callable, Mapping, Sequence
+
+try:
+    import machine_health
+except ImportError:  # pragma: no cover - direct package execution supplies this path
+    machine_health = None  # type: ignore[assignment]
 
 
 MODES = {"disabled", "assisted"}
@@ -49,6 +55,86 @@ class StateError(ExecutorError):
 
 class PathBoundaryError(ExecutorError):
     """A path leaves its declared root or crosses an unsafe symlink."""
+
+
+class LaneScheduler:
+    """Select compatible ready writers while growing capacity one healthy window at a time."""
+
+    def __init__(
+        self,
+        configured_cap: str | int,
+        *,
+        baseline: int = 2,
+        ceiling: int = 4,
+        health_reader: Callable[[], Mapping[str, Any] | None] | None = None,
+    ) -> None:
+        if configured_cap != "auto" and (type(configured_cap) is not int or configured_cap < 1):
+            raise ExecutorError("invalid writer cap")
+        if type(baseline) is not int or type(ceiling) is not int or baseline < 1 or ceiling < baseline:
+            raise ExecutorError("invalid writer admission bounds")
+        self.configured_cap = configured_cap
+        self.baseline = baseline
+        self.ceiling = ceiling
+        self.cap = min(ceiling if configured_cap == "auto" else configured_cap, baseline)
+        self.health_reader = health_reader
+
+    @staticmethod
+    def _overlaps(left: Mapping[str, Any], right: Mapping[str, Any]) -> bool:
+        left_paths = left.get("declared_paths", [])
+        right_paths = right.get("declared_paths", [])
+        if not isinstance(left_paths, list) or not isinstance(right_paths, list):
+            return True
+        for left_path in left_paths:
+            for right_path in right_paths:
+                left_parts, right_parts = PurePosixPath(str(left_path)).parts, PurePosixPath(str(right_path)).parts
+                if left_parts[: len(right_parts)] == right_parts or right_parts[: len(left_parts)] == left_parts:
+                    return True
+        return False
+
+    @classmethod
+    def _compatible(cls, candidate: Mapping[str, Any], selected: Sequence[Mapping[str, Any]]) -> bool:
+        resources = candidate.get("resources", [])
+        if not isinstance(resources, list):
+            return False
+        return not any(
+            cls._overlaps(candidate, other) or set(resources) & set(other.get("resources", []))
+            for other in selected
+        )
+
+    def _settle(self, active_count: int) -> None:
+        if active_count < self.baseline or self.cap >= self.ceiling:
+            return
+        evidence = self.health_reader() if self.health_reader is not None else None
+        if machine_health is not None and machine_health.should_admit_lane(
+            active_count,
+            self.configured_cap,
+            evidence,
+            automatic_ceiling=self.ceiling,
+        ):
+            cap_limit = self.ceiling if self.configured_cap == "auto" else self.configured_cap
+            self.cap = min(self.cap + 1, cap_limit)
+
+    def select(
+        self,
+        candidates: Sequence[Mapping[str, Any]],
+        existing: Mapping[str, Mapping[str, Any]],
+    ) -> list[dict[str, Any]]:
+        active = [
+            lane for lane in existing.values()
+            if lane.get("state") in {"needs_resources", "running", "waiting", "needs_sync", "invalidated", "gate_required"}
+        ]
+        self._settle(len(active))
+        selected: list[dict[str, Any]] = []
+        active_tasks = {str(lane.get("task")) for lane in active if isinstance(lane.get("task"), str)}
+        for candidate in candidates:
+            task = candidate.get("task")
+            if not isinstance(task, str) or task in active_tasks:
+                continue
+            if len(active) + len(selected) >= self.cap:
+                break
+            if self._compatible(candidate, [*active, *selected]):
+                selected.append(dict(candidate))
+        return selected
 
 
 def _require_text(value: Any, label: str) -> str:
@@ -474,6 +560,7 @@ class Coordinator:
         gate_receipt_factory: Callable[[Mapping[str, Any]], Mapping[str, Any] | None] | None = None,
         provider_factory: Callable[[Path], ResourceProvider] | None = None,
         worktree_creator: Callable[[Path, str], Mapping[str, Any]] | None = None,
+        health_reader: Callable[[], Mapping[str, Any] | None] | None = None,
     ):
         self.root = Path(root).resolve()
         self.feature = feature
@@ -482,6 +569,7 @@ class Coordinator:
         self.gate_receipt_factory = gate_receipt_factory
         self.provider_factory = provider_factory
         self.worktree_creator = worktree_creator
+        self.health_reader = health_reader
         self.state_path: Path | None = None
 
     def _prepare_repository(self) -> None:
@@ -530,6 +618,67 @@ class Coordinator:
             return parallel_plan.plan(root=self.root, feature=self.feature)
         except ValueError as exc:
             raise ExecutorError(str(exc)) from exc
+
+    def _plan_for_capacity(self, capacity: int, state: Mapping[str, Any]) -> dict[str, Any]:
+        """Recompute the ready queue while excluding tasks already completed in this run."""
+        scripts = Path(__file__).resolve().parents[2] / "workflow-config" / "scripts"
+        if str(scripts) not in sys.path:
+            sys.path.insert(0, str(scripts))
+        import parallel_plan
+
+        completed = {
+            str(lane.get("task"))
+            for lane in state.get("lanes", {}).values()
+            if isinstance(lane, Mapping) and lane.get("state") in {"complete", "failed", "serial"}
+        }
+        try:
+            return parallel_plan.plan(
+                root=self.root,
+                feature=self.feature,
+                completed_tasks=completed,
+                selection_cap=capacity,
+            )
+        except TypeError:
+            # Test doubles and consumers pinned to the point-in-time planner retain the
+            # original call shape; their supplied plan remains the source of truth.
+            return self._plan()
+        except ValueError as exc:
+            raise ExecutorError(str(exc)) from exc
+
+    def _schedule_lanes(
+        self,
+        snapshot: Mapping[str, Any],
+        plan: Mapping[str, Any],
+        state: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        configured = snapshot["parallelization"]["max_workers"]
+        scheduler = LaneScheduler(
+            configured,
+            baseline=snapshot["parallelization"]["automatic_baseline"],
+            ceiling=snapshot["parallelization"]["automatic_ceiling"],
+            health_reader=self.health_reader or (lambda: machine_health.collect_health(self.root) if machine_health else None),
+        )
+        saved = state.get("scheduler")
+        if isinstance(saved, Mapping) and type(saved.get("cap")) is int:
+            scheduler.cap = max(scheduler.baseline if configured == "auto" else 1, min(saved["cap"], scheduler.ceiling))
+        candidates = plan.get("ready_lanes")
+        if not isinstance(candidates, list):
+            candidates = plan.get("lanes", [])
+        active = [
+            lane for lane in state.get("lanes", {}).values()
+            if isinstance(lane, Mapping) and lane.get("state") in {"needs_resources", "running", "waiting", "needs_sync", "invalidated", "gate_required"}
+        ]
+        selected = scheduler.select(
+            [candidate for candidate in candidates if isinstance(candidate, Mapping)],
+            {str(index): lane for index, lane in enumerate(active)},
+        )
+        active_ids = {str(lane.get("task")) for lane in active}
+        selected_ids = {str(lane.get("task")) for lane in selected}
+        for candidate in candidates:
+            if isinstance(candidate, Mapping) and str(candidate.get("task")) in active_ids and str(candidate.get("task")) not in selected_ids:
+                selected.insert(0, dict(candidate))
+        state["scheduler"] = {"cap": scheduler.cap, "active": len(active), "ready": len(candidates)}
+        return selected
 
     def _load_state(self, workflow: Mapping[str, Any]) -> dict[str, Any] | None:
         if self.state_path is None:
@@ -1224,6 +1373,16 @@ class Coordinator:
             state = new_runtime_state(str(self.root), self.feature, mode, snapshot["git_head"])
         if state["source_git_head"] != snapshot["git_head"]:
             return _serial_result(self.feature, mode, "source-head-changed", lanes)
+        if mode == "assisted" and any(
+            any(str(reason).startswith("writer-cap:") for reason in item.get("reasons", []))
+            for item in plan.get("blocked", [])
+            if isinstance(item, Mapping)
+        ):
+            expanded = self._plan_for_capacity(snapshot["parallelization"]["automatic_ceiling"], state)
+            if not expanded.get("fallback"):
+                plan = expanded
+                lanes = list(plan.get("lanes", []))
+        lanes = self._schedule_lanes(snapshot, plan, state)
         self._source_head = snapshot["git_head"]
         seen_slices: set[str] = set()
         provider: ResourceProvider | None = None
@@ -1276,6 +1435,8 @@ class Coordinator:
                     "task": task_id,
                     "state": "ready",
                     "resources": resources,
+                    "declared_paths": list(plan_lane.get("declared_paths", []))
+                    if isinstance(plan_lane.get("declared_paths", []), list) else [],
                     "worktree": plan_lane.get("worktree") is True,
                 }
                 existing = state["lanes"][lane_id]
