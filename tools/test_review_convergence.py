@@ -48,6 +48,27 @@ def test_previous_fingerprint_must_exist_and_belong_to_same_requirement() -> Non
         shutil.rmtree(root)
 
 
+def test_matching_previous_fingerprint_and_green_gate_closes_without_increment() -> None:
+    root = Path(tempfile.mkdtemp())
+    try:
+        failed = review_convergence.record_failure(root, "fixture", "EXE-08", "release ordering", "worker-release")
+        closed = review_convergence.record_result(
+            root,
+            "fixture",
+            "EXE-08",
+            "release ordering",
+            "worker-release",
+            verifier_failed=False,
+            gate_passed=True,
+            previous_fingerprint=failed["fingerprint"],
+        )
+        assert closed["fingerprint"] == failed["fingerprint"]
+        assert closed["failed_remediations"] == 1
+        assert closed["status"] == "closed"
+    finally:
+        shutil.rmtree(root)
+
+
 def test_python_gate_discovers_every_tools_test_suite() -> None:
     package = json.loads((Path(__file__).resolve().parent.parent / "package.json").read_text(encoding="utf-8"))
     script = package["scripts"]["test:python"]

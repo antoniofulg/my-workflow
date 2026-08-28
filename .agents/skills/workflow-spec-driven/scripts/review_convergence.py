@@ -90,10 +90,14 @@ def record_result(
         }
     elif previous_fingerprint is not None:
         current.update({"requirement": _normalize(requirement), "root_cause": _normalize(root_cause), "failure_path": _normalize(failure_path)})
-    if verifier_failed and current["status"] != "halted":
-        current["failed_remediations"] += 1
-        if current["failed_remediations"] >= 3:
-            current["status"] = "halted"
+    if verifier_failed:
+        if current["status"] != "halted":
+            current["failed_remediations"] += 1
+            current["status"] = "open"
+            if current["failed_remediations"] >= 3:
+                current["status"] = "halted"
+    elif gate_passed and previous_fingerprint is not None and current["status"] == "open":
+        current["status"] = "closed"
     state["fingerprints"][key] = current
     _save(path, state)
     return dict(current)
