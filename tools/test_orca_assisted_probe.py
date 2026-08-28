@@ -177,6 +177,7 @@ def test_route_requires_two_consecutive_screen_frames_after_reset() -> None:
         receipt = root / "receipt.json"
         receipt.write_text(json.dumps({"id": "lane", "path": str(root), "branch": "branch",
                                        "pre_head": "a" * 40, "startupTerminal": {"handle": "h"},
+                                       "gitdir": "", "worktree_gitdir": "",
                                        "before": {"terminals": {}}}), encoding="utf-8")
         reads = [
             {"source": "screen", "text": "Claude Code Sonnet 5 with low effort"},
@@ -226,9 +227,14 @@ def test_cleanup_refuses_when_owned_branch_ref_remains() -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         receipt = root / "receipt.json"
+        common_git = root.parent / f"common-{root.name}.git"
+        admin = common_git / "worktrees" / "lane"
+        admin.mkdir(parents=True)
+        (admin / "gitdir").write_text(str(root / ".git") + "\n", encoding="utf-8")
         head = "a" * 40
         receipt.write_text(json.dumps({"id": "lane", "path": str(root), "branch": "refs/heads/lane",
-                                       "instance": "instance", "pre_head": head, "gitdir": str(root.parent),
+                                       "instance": "instance", "pre_head": head, "gitdir": str(common_git),
+                                       "worktree_gitdir": str(admin),
                                        "startupTerminal": {"handle": "h"}, "before": {"terminals": {}}}), encoding="utf-8")
         before = {"worktrees": {"lane": {"id": "lane", "repoId": "repo", "instanceId": "instance",
                                            "path": str(root.resolve()), "branch": "refs/heads/lane"}}, "terminals": {}}
@@ -240,7 +246,9 @@ def test_cleanup_refuses_when_owned_branch_ref_remains() -> None:
 
         def fake_git(path: str | Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
             if args[:2] == ("rev-parse", "--git-common-dir"):
-                return subprocess.CompletedProcess([], 0, str(root.parent) + "\n", "")
+                return subprocess.CompletedProcess([], 0, str(common_git) + "\n", "")
+            if "worktree" in args and "list" in args:
+                return subprocess.CompletedProcess([], 0, f"worktree {root}\n", "")
             if args[:2] == ("show-ref", "--verify"):
                 return subprocess.CompletedProcess([], 0, "", "")
             if args[:2] == ("rev-parse", "HEAD") or args[:2] == ("rev-parse", "refs/heads/lane"):
@@ -269,7 +277,11 @@ def test_cleanup_stops_only_owned_handle_and_preserves_foreign_worktree() -> Non
         worktree = root / "lane"
         worktree.mkdir()
         common_git = root / "common.git"
-        common_git.mkdir()
+        admin = common_git / "worktrees" / "owned"
+        admin.mkdir(parents=True)
+        (admin / "gitdir").write_text(str(worktree / ".git") + "\n", encoding="utf-8")
+        foreign_admin = common_git / "worktrees" / "foreign"
+        foreign_admin.mkdir()
         subprocess.run(["git", "init", "-q"], cwd=worktree, check=True)
         subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=worktree, check=True)
         subprocess.run(["git", "config", "user.name", "Test"], cwd=worktree, check=True)
@@ -283,6 +295,7 @@ def test_cleanup_stops_only_owned_handle_and_preserves_foreign_worktree() -> Non
             json.dumps({
                 "id": "owned-worktree", "path": str(worktree), "branch": "refs/heads/owned",
                 "instance": "owned-instance", "pre_head": head, "gitdir": str(common_git),
+                "worktree_gitdir": str(admin),
                 "startupTerminal": {"handle": "owned-terminal"},
                 "before": {"terminals": {}, "worktrees": {}},
             }), encoding="utf-8",
@@ -291,17 +304,20 @@ def test_cleanup_stops_only_owned_handle_and_preserves_foreign_worktree() -> Non
         after = {"worktrees": {"foreign": {"id": "foreign"}}, "terminals": {"foreign-terminal": {"handle": "foreign-terminal"}}}
         inventories = iter((before, after, after))
         calls: list[list[str]] = []
-        state = {"stopped": False}
+        state = {"stopped": False, "removed": False}
         original_raw = probe.raw
         original_inventory = probe.OrcaProbe.inventory
         original_terminals = probe.OrcaProbe.worktree_terminals
         original_git = probe.git
+
         def fake_raw(argv: list[str], timeout: float = 30.0) -> dict[str, object]:
             calls.append(argv)
             if len(argv) > 2 and argv[2] == "stop":
                 state["stopped"] = True
             if len(argv) > 2 and argv[2] == "rm":
                 shutil.rmtree(worktree)
+                shutil.rmtree(admin)
+                state["removed"] = True
             return {"ok": False}
 
         probe.raw = fake_raw  # type: ignore[assignment]
@@ -310,6 +326,9 @@ def test_cleanup_stops_only_owned_handle_and_preserves_foreign_worktree() -> Non
         def fake_git(path: str | Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
             if args[:2] == ("rev-parse", "--git-common-dir"):
                 return subprocess.CompletedProcess([], 0, str(common_git) + "\n", "")
+            if "worktree" in args and "list" in args:
+                paths = [] if state["removed"] else [str(worktree)]
+                return subprocess.CompletedProcess([], 0, "".join(f"worktree {value}\n" for value in paths), "")
             if "for-each-ref" in args:
                 return subprocess.CompletedProcess([], 0, "refs/heads/owned\nrefs/heads/foreign\n", "")
             if "show-ref" in args:
@@ -335,10 +354,16 @@ def test_cleanup_stops_only_owned_handle_and_preserves_foreign_worktree() -> Non
 
 
 def _cleanup_failure_case(*, retain_owned: bool, remove_foreign: bool,
-                          remove_foreign_ref: bool = False, fail_ref_audit: bool = False) -> str:
+                          remove_foreign_ref: bool = False, fail_ref_audit: bool = False,
+                          fail_ref_state: bool = False) -> str:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
-        common_git = root.parent
+        common_git = root.parent / f"common-{root.name}.git"
+        admin = common_git / "worktrees" / "lane"
+        admin.mkdir(parents=True)
+        (admin / "gitdir").write_text(str(root / ".git") + "\n", encoding="utf-8")
+        foreign_admin = common_git / "worktrees" / "foreign"
+        foreign_admin.mkdir()
         foreign_path = root.parent / f"foreign-{root.name}"
         foreign_path.write_text("foreign\n", encoding="utf-8")
         head = "a" * 40
@@ -346,6 +371,7 @@ def _cleanup_failure_case(*, retain_owned: bool, remove_foreign: bool,
         receipt_path.write_text(json.dumps({"id": "lane", "path": str(root), "branch": "refs/heads/lane",
                                             "instance": "instance", "pre_head": head,
                                             "gitdir": str(common_git),
+                                            "worktree_gitdir": str(admin),
                                             "startupTerminal": {"handle": "owned-terminal"},
                                             "before": {"terminals": {}}}), encoding="utf-8")
         before = {"worktrees": {"lane": {"id": "lane", "repoId": "repo", "instanceId": "instance",
@@ -372,17 +398,23 @@ def _cleanup_failure_case(*, retain_owned: bool, remove_foreign: bool,
                     foreign_path.unlink()
                 if not retain_owned:
                     shutil.rmtree(root)
+                    shutil.rmtree(admin)
             return {"ok": False}
 
         def fake_git(path: str | Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
             if args[:2] == ("rev-parse", "--git-common-dir"):
                 return subprocess.CompletedProcess([], 0, str(common_git) + "\n", "")
+            if "worktree" in args and "list" in args:
+                paths = [] if stopped["removed"] else [str(root)]
+                return subprocess.CompletedProcess([], 0, "".join(f"worktree {value}\n" for value in paths), "")
             if "for-each-ref" in args:
                 if stopped["removed"] and fail_ref_audit:
                     return subprocess.CompletedProcess([], 1, "", "ref audit failed")
                 refs = "refs/heads/lane\n" if stopped["removed"] and remove_foreign_ref else "refs/heads/lane\nrefs/heads/foreign\n"
                 return subprocess.CompletedProcess([], 0, refs, "")
             if "show-ref" in args:
+                if fail_ref_state:
+                    return subprocess.CompletedProcess([], 128, "", "fatal: ref state unavailable")
                 return subprocess.CompletedProcess([], 1, "", "")
             if args[:2] in (("rev-parse", "HEAD"), ("rev-parse", "refs/heads/lane")):
                 return subprocess.CompletedProcess([], 0, head + "\n", "")
@@ -427,6 +459,12 @@ def test_cleanup_refuses_foreign_branch_ref_change() -> None:
 def test_cleanup_refuses_ref_audit_failure() -> None:
     assert "could not enumerate repository refs after cleanup" in _cleanup_failure_case(
         retain_owned=False, remove_foreign=False, fail_ref_audit=True
+    )
+
+
+def test_cleanup_refuses_show_ref_error() -> None:
+    assert "could not verify repository ref state" in _cleanup_failure_case(
+        retain_owned=False, remove_foreign=False, fail_ref_state=True
     )
 
 
@@ -614,6 +652,13 @@ def test_fake_two_slice_lifecycle_parks_syncs_resumes_integrates_and_cleans() ->
             )
         assert receipts["producer"]["gitdir"] == str(common_git)
         assert receipts["dependent"]["gitdir"] == str(common_git)
+        producer_registration = producer_path.resolve()
+        dependent_registration = dependent_path.resolve()
+        foreign_git_registrations = probe.worktree_registrations(common_git) - {
+            producer_registration, dependent_registration
+        }
+        assert producer_registration in probe.worktree_registrations(common_git)
+        assert dependent_registration in probe.worktree_registrations(common_git)
         heads = {handles["producer"]: producer_head}
         marker_original = probe.marker_frame
         comment_original = probe.worktree_comment
@@ -660,7 +705,12 @@ def test_fake_two_slice_lifecycle_parks_syncs_resumes_integrates_and_cleans() ->
                 elif argv[1:3] == ["worktree", "rm"]:
                     worktree_id = argv[4].removeprefix("id:")
                     worktrees.pop(worktree_id, None)
-                    shutil.rmtree(receipts["producer" if worktree_id == "lane-a" else "dependent"]["path"])
+                    worktree_path = Path(receipts["producer" if worktree_id == "lane-a" else "dependent"]["path"])
+                    removed = subprocess.run(
+                        ["git", "-C", str(root), "worktree", "remove", "--force", str(worktree_path)],
+                        capture_output=True, text=True, check=False,
+                    )
+                    assert removed.returncode == 0, removed.stderr
                 return {"ok": False}
 
             probe.raw = fake_raw  # type: ignore[assignment]
@@ -716,6 +766,11 @@ def test_fake_two_slice_lifecycle_parks_syncs_resumes_integrates_and_cleans() ->
                 (root / f"{name}.receipt.json").write_text(json.dumps(receipts[name]), encoding="utf-8")
                 with contextlib.redirect_stdout(io.StringIO()):
                     probe.cleanup(cleanup_args)
+                assert Path(receipts[name]["path"]).resolve() not in probe.worktree_registrations(common_git)
+                assert not Path(receipts[name]["worktree_gitdir"]).exists()
+                assert probe.worktree_registrations(common_git) == foreign_git_registrations | {
+                    Path(value["path"]).resolve() for value in receipts.values() if Path(value["path"]).exists()
+                }
             assert [call[2] for call in calls if len(call) > 2 and call[2] in {"stop", "rm"}] == ["stop", "rm", "stop", "rm"]
             sends = [call for call in calls if len(call) > 2 and call[2] == "send"]
             assert len(sends) == 1

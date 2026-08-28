@@ -290,7 +290,7 @@ def _receipt(path: Path) -> dict[str, Any]:
         raise ProbeError(f"invalid receipt: {path}") from error
     if not isinstance(value, dict):
         raise ProbeError("receipt must be an object")
-    for key in ("id", "path", "branch", "pre_head", "startupTerminal", "before"):
+    for key in ("id", "path", "branch", "pre_head", "gitdir", "worktree_gitdir", "startupTerminal", "before"):
         if key not in value:
             raise ProbeError(f"receipt missing {key}")
     handle = value["startupTerminal"].get("handle") if isinstance(value["startupTerminal"], dict) else None
@@ -314,20 +314,26 @@ def make_receipt(
         raise ProbeError(f"startup handle ambiguous: {len(new)}")
     path = Path(str(candidate.get("path", ""))).resolve()
     gitdir = ""
+    worktree_gitdir = ""
     if path.is_dir():
-        result = subprocess.run(
-            ["git", "-C", str(path), "rev-parse", "--git-common-dir"],
-            capture_output=True,
-            text=True,
-            shell=False,
-            timeout=10,
-            check=False,
-        )
-        if result.returncode == 0:
-            common = Path(result.stdout.strip())
-            if not common.is_absolute():
-                common = path / common
-            gitdir = str(common.resolve())
+        for option, target in (("--git-common-dir", "common"), ("--absolute-git-dir", "linked")):
+            result = subprocess.run(
+                ["git", "-C", str(path), "rev-parse", option],
+                capture_output=True,
+                text=True,
+                shell=False,
+                timeout=10,
+                check=False,
+            )
+            if result.returncode != 0 or not result.stdout.strip():
+                continue
+            metadata = Path(result.stdout.strip())
+            if not metadata.is_absolute():
+                metadata = path / metadata
+            if target == "common":
+                gitdir = str(metadata.resolve())
+            else:
+                worktree_gitdir = str(metadata.resolve())
     return {
         "repository": probe.repo,
         "id": worktree_id,
@@ -335,6 +341,7 @@ def make_receipt(
         "name": candidate.get("displayName"),
         "path": str(path),
         "gitdir": gitdir,
+        "worktree_gitdir": worktree_gitdir,
         "branch": candidate.get("branch"),
         "pre_head": candidate.get("head"),
         "startupTerminal": selected,
@@ -508,6 +515,38 @@ def git(path: str | Path, *args: str, check: bool = True) -> subprocess.Complete
     if check and result.returncode != 0:
         raise ProbeError(result.stderr.strip() or "git command failed")
     return result
+
+
+def ref_exists(path: str | Path, ref: str) -> bool:
+    """Return ref presence; only git's proven absent status is accepted as false."""
+    try:
+        result = git(path, "show-ref", "--verify", "--quiet", ref, check=False)
+    except Exception as error:  # noqa: BLE001 - fail closed on an unavailable ref audit
+        raise ProbeError("could not verify repository ref state") from error
+    if result.returncode == 0:
+        return True
+    if result.returncode == 1:
+        return False
+    raise ProbeError("could not verify repository ref state")
+
+
+def worktree_registrations(common_git_dir: Path) -> set[Path]:
+    result = git(common_git_dir.parent, "--git-dir", str(common_git_dir),
+                 "worktree", "list", "--porcelain", check=False)
+    if result.returncode != 0:
+        raise ProbeError("could not enumerate Git worktree registrations")
+    registrations: set[Path] = set()
+    for line in result.stdout.splitlines():
+        if line.startswith("worktree "):
+            registrations.add(Path(line.removeprefix("worktree ")).resolve())
+    return registrations
+
+
+def worktree_gitdirs(common_git_dir: Path) -> set[Path]:
+    admin_root = common_git_dir / "worktrees"
+    if not admin_root.is_dir():
+        return set()
+    return {entry.resolve() for entry in admin_root.iterdir() if entry.is_dir()}
 
 
 def task_states(path: str | Path, task_file: str = "tasks.md") -> dict[str, str]:
@@ -733,6 +772,21 @@ def cleanup(args: argparse.Namespace) -> None:
     common_git_dir = Path(stored_gitdir).resolve()
     if not common_git_dir.is_dir():
         raise ProbeError("common Git directory is unavailable")
+    stored_worktree_gitdir = str(receipt.get("worktree_gitdir") or "")
+    if not stored_worktree_gitdir:
+        raise ProbeError("receipt linked-worktree Git directory is required")
+    worktree_gitdir = Path(stored_worktree_gitdir).resolve()
+    admin_root = (common_git_dir / "worktrees").resolve()
+    try:
+        worktree_gitdir.relative_to(admin_root)
+    except ValueError as error:
+        raise ProbeError("receipt linked-worktree Git directory is outside repository") from error
+    if not worktree_gitdir.is_dir():
+        raise ProbeError("linked-worktree Git directory is unavailable")
+    registration = worktree_gitdir / "gitdir"
+    registered_path = registration.read_text(encoding="utf-8").strip() if registration.is_file() else ""
+    if not registered_path or Path(registered_path).resolve() != (path / ".git").resolve():
+        raise ProbeError("linked-worktree registration does not match checkout")
     discovered_gitdir = git(path, "rev-parse", "--git-common-dir").stdout.strip()
     discovered_gitdir_path = Path(discovered_gitdir)
     if not discovered_gitdir_path.is_absolute():
@@ -740,6 +794,11 @@ def cleanup(args: argparse.Namespace) -> None:
     discovered_gitdir_path = discovered_gitdir_path.resolve()
     if discovered_gitdir_path != common_git_dir:
         raise ProbeError("receipt common Git directory does not match checkout")
+    registrations_before = worktree_registrations(common_git_dir)
+    if path not in registrations_before:
+        raise ProbeError("owned worktree registration is absent")
+    foreign_registrations_before = registrations_before - {path}
+    foreign_gitdirs_before = worktree_gitdirs(common_git_dir) - {worktree_gitdir}
     refs_before_result = git(common_git_dir.parent, "--git-dir", str(common_git_dir), "for-each-ref",
                              "--format=%(refname)", "refs/heads/", check=False)
     if refs_before_result.returncode != 0:
@@ -765,7 +824,7 @@ def cleanup(args: argparse.Namespace) -> None:
         git(path, "switch", "--detach", current_head)
     if git(path, "branch", "--delete", branch.removeprefix("refs/heads/"), check=False).returncode != 0:
         raise ProbeError("owned branch could not be deleted safely")
-    if git(path, "show-ref", "--verify", "--quiet", ref, check=False).returncode == 0:
+    if ref_exists(common_git_dir.parent, ref):
         raise ProbeError("owned branch ref remains after deletion")
 
     removed_result = mutate_once(
@@ -786,16 +845,21 @@ def cleanup(args: argparse.Namespace) -> None:
     if refs_after_result.returncode != 0:
         raise ProbeError("could not enumerate repository refs after cleanup")
     refs_after = set(refs_after_result.stdout.splitlines())
+    registrations_after = worktree_registrations(common_git_dir)
+    foreign_registrations_after = registrations_after - {path}
+    foreign_gitdirs_after = worktree_gitdirs(common_git_dir) - {worktree_gitdir}
     foreign_refs_before = refs_before - {ref}
     foreign_refs_after = refs_after - {ref}
     foreign_paths_after = {key: Path(key).exists() for key in foreign_paths_before}
     if (foreign_before != foreign_after or foreign_terminals_before != foreign_terminals_after
-            or foreign_refs_before != foreign_refs_after or foreign_paths_before != foreign_paths_after):
+            or foreign_refs_before != foreign_refs_after or foreign_paths_before != foreign_paths_after
+            or foreign_registrations_before != foreign_registrations_after
+            or foreign_gitdirs_before != foreign_gitdirs_after):
         raise ProbeError("cleanup changed a foreign resource")
-    if worktree_id in after["worktrees"] or known in after["terminals"] or path.exists():
+    if (worktree_id in after["worktrees"] or known in after["terminals"] or path.exists()
+            or path in registrations_after or worktree_gitdir.exists()):
         raise ProbeError("owned residue remains after cleanup")
-    ref_after_result = git(common_git_dir.parent, "--git-dir", str(common_git_dir), "show-ref", "--verify", "--quiet", ref, check=False)
-    if ref_after_result.returncode == 0:
+    if ref_exists(common_git_dir.parent, ref):
         raise ProbeError("owned branch ref remains after cleanup")
     print(json.dumps({"status": "cleaned", "worktree": worktree_id, "handle": known,
                       "stopped": stopped, "foreign_preserved": True,
@@ -916,13 +980,17 @@ def audit(args: argparse.Namespace) -> None:
     worktree_id = str(receipt["id"])
     handle = str(receipt["startupTerminal"]["handle"])
     path = Path(str(receipt["path"])).resolve()
+    common_git_dir = Path(str(receipt["gitdir"])).resolve()
+    linked_git_dir = Path(str(receipt["worktree_gitdir"])).resolve()
     branch = str(receipt.get("branch") or "").removeprefix("refs/heads/")
     ref = f"refs/heads/{branch}" if branch else ""
     residue = {
         "worktree": worktree_id in inventory["worktrees"],
         "terminal": handle in inventory["terminals"],
         "path": path.exists(),
-        "branch": bool(ref and git(path.parent, "show-ref", "--verify", "--quiet", ref, check=False).returncode == 0),
+        "branch": bool(ref and ref_exists(common_git_dir.parent, ref)),
+        "registration": path in worktree_registrations(common_git_dir),
+        "gitdir": linked_git_dir.exists(),
     }
     if any(residue.values()):
         raise ProbeError(f"owned residue remains: {residue}")
