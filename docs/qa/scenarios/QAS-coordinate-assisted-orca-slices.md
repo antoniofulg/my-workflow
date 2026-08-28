@@ -4,9 +4,9 @@ area: QAS
 title: Coordinate two assisted Orca slices through a parked dependency
 persona: Workflow operator
 journey: J-execute-parallel-slices
-expected: With explicit authorization, two assisted Orca slices overlap through one exact parked and resumed B worker, preserve every readiness stage, integrate deterministically, and leave no owned worktree, path, branch ref, or terminal residue.
+expected: By default, two eligible assisted Orca slices overlap through one exact parked and resumed B worker, preserve every readiness stage, integrate deterministically, and leave no owned worktree, path, branch ref, or terminal residue.
 entry_points: .agents/skills/autonomous/references/parallelization.md; .specs/features/host-agnostic-slice-parallelization/workflow.json; orca worktree; orca terminal
-qa_status: pass
+qa_status: untested
 bug_ids: BUG-20260827-assisted-orca-tui-idle-before-route-proof; BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree; BUG-20260827-luna-low-worker-commits-before-green-gate; BUG-20260827-assisted-pilot-batch-cli-drops-final-newline; BUG-20260827-medium-route-contract-test-still-expects-low; BUG-20260827-orca-terminal-send-truncates-claude-worker-packet
 fix_status: fixed
 retest_status: pass
@@ -21,8 +21,9 @@ SEC-008. The canonical pilot uses the frozen implementer route `claude` / `sonne
 starts B only after `A:T1` completes and verifies, and parks it at the exact later dependency
 `B:T12 depends_on A:T7`.
 
-Assisted execution is a distinct explicitly authorized path. It never writes a compatibility PASS
-and cannot establish automatic support without a separately authorized, durable candidate canary.
+Assisted execution is the standard default path when the frozen plan exposes safe independent
+slices. It never writes a compatibility PASS and cannot establish automatic support without a
+separately authorized, durable candidate canary.
 A pass requires rendered `source=screen` route proof before prompt delivery, one
 worker per ready slice, a clean exact parked comment, producer-commit sync, the affected gate,
 same-terminal follow-up, deterministic integration, preserved TLC readiness stages, and independent

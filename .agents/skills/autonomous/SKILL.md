@@ -92,9 +92,10 @@ an implementation is found months later.
 feature workflow with `.agents/skills/workflow-config` before dispatch. Three rules an
 unattended run gets wrong:
 
-When the frozen workflow opts into inter-slice dispatch, read
+When the frozen workflow uses inter-slice dispatch, read
 `.agents/skills/autonomous/references/parallelization.md` after workflow resolution and before
-planning. It is an optional orchestration layer above TLC; its serial fallback remains the default.
+planning. Coordinator-assisted dispatch is the default when the plan exposes safe independent
+slices; its serial fallback remains the explicit `disabled` override and fail-closed recovery.
 
 - **Every implementation slice closes its technical review before the next opens** — implement,
   scoped gate, commit, Verifier, and a QA walk when it puts something in front of a user. Deep-review

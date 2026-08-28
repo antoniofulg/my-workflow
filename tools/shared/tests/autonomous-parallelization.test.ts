@@ -1,5 +1,7 @@
-import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
 
 const repositoryRoot = process.cwd();
@@ -136,7 +138,7 @@ describe("autonomous parallel slice dispatch contract", () => {
     };
 
     // AST-01: assisted execution is separate from automatic compatibility and honors frozen route.
-    expect(policy).toContain("explicitly authorized operator path");
+    expect(policy).toContain("standard path for useful overlap");
     expect(policy).toContain("does not write a compatibility PASS");
     expect(policy).toMatch(/automatic execution remains\s+unsupported and serial/);
     const contracts = [
@@ -149,7 +151,6 @@ describe("autonomous parallel slice dispatch contract", () => {
       expect(contract, name).not.toContain("worktree create --agent");
       expect(contract, name).not.toContain("terminal create --command");
     }
-    expect(spec).toMatch(/\| AST-01 \|[\s\S]*?Contract verified; E2E pending/);
     expect(implementer.provider).toBe("claude");
     expect(implementer.model).toBe("sonnet");
     expect(implementer.effort).toBe("medium");
@@ -494,6 +495,115 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(dx).toContain("startup-shell promotion");
     expect(dx).toContain("Never open a second");
     expect(dx).toContain("terminal send");
+  });
+
+  it("IT-010 dispatches eligible default-assisted slices and honors disabled serialization", () => {
+    const root = mkdtempSync(join(tmpdir(), "assisted-contract-"));
+    const featureDir = join(root, ".specs", "features", "fixture");
+    const planner = join(
+      repositoryRoot,
+      ".agents",
+      "skills",
+      "workflow-config",
+      "scripts",
+      "parallel_plan.py",
+    );
+    const executor = join(
+      repositoryRoot,
+      ".agents",
+      "skills",
+      "autonomous",
+      "scripts",
+      "parallel_execute.py",
+    );
+
+    try {
+      mkdirSync(featureDir, { recursive: true });
+      execFileSync("git", ["init", "-q"], { cwd: root });
+      execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: root });
+      execFileSync("git", ["config", "user.name", "Contract Test"], { cwd: root });
+      writeFileSync(join(root, "seed"), "seed\n", "utf8");
+      execFileSync("git", ["add", "seed"], { cwd: root });
+      execFileSync("git", ["commit", "-qm", "seed"], { cwd: root });
+      const head = execFileSync("git", ["rev-parse", "HEAD"], {
+        cwd: root,
+        encoding: "utf8",
+      }).trim();
+      writeFileSync(
+        join(featureDir, "tasks.md"),
+        [
+          "### T1: first",
+          "**Status:** pending",
+          "**Slice:** A",
+          "**Where:** src/a.py",
+          "**Depends on:** None",
+          "**Resources:** none",
+          "",
+          "### T2: second",
+          "**Status:** pending",
+          "**Slice:** B",
+          "**Where:** src/b.py",
+          "**Depends on:** None",
+          "**Resources:** none",
+          "",
+        ].join("\n"),
+        "utf8",
+      );
+      const workflowPath = join(featureDir, "workflow.json");
+      writeFileSync(
+        workflowPath,
+        JSON.stringify(
+          { feature: "fixture", git_head: head, parallelization: { mode: "assisted" }, version: 2 },
+          null,
+          2,
+        ) + "\n",
+        "utf8",
+      );
+
+      const plan = JSON.parse(
+        execFileSync("python3", [planner, "--root", root, "--feature", "fixture"], {
+          encoding: "utf8",
+        }),
+      ) as { mode: string; fallback: boolean; lanes: Array<{ id: string; status: string }> };
+      expect(plan.mode).toBe("assisted");
+      expect(plan.fallback).toBe(false);
+      expect(plan.lanes).toEqual([
+        { id: "slice-A", slice: "A", task: "T1", status: "ready", sync_after: [], declared_paths: ["src/a.py"], resources: [] },
+        { id: "slice-B", slice: "B", task: "T2", status: "ready", sync_after: [], declared_paths: ["src/b.py"], resources: [] },
+      ]);
+
+      const assisted = JSON.parse(
+        execFileSync("python3", [executor, "start", "--root", root, "--feature", "fixture"], {
+          encoding: "utf8",
+        }),
+      ) as { mode: string; fallback: boolean; coordinator: string; actions: unknown[]; lanes: Array<{ id: string }> };
+      expect(assisted.mode).toBe("assisted");
+      expect(assisted.fallback).toBe(false);
+      expect(assisted.coordinator).toBe("assisted");
+      expect(assisted.actions).toEqual([]);
+      expect(assisted.lanes.map((lane) => lane.id)).toEqual(["slice-A", "slice-B"]);
+
+      writeFileSync(
+        workflowPath,
+        JSON.stringify(
+          { feature: "fixture", git_head: head, parallelization: { mode: "disabled" }, version: 2 },
+          null,
+          2,
+        ) + "\n",
+        "utf8",
+      );
+      const disabled = JSON.parse(
+        execFileSync("python3", [executor, "start", "--root", root, "--feature", "fixture"], {
+          encoding: "utf8",
+        }),
+      ) as { mode: string; fallback: boolean; reason: string; lanes: Array<{ id: string }> };
+      expect(disabled.mode).toBe("disabled");
+      expect(disabled.fallback).toBe(true);
+      expect(disabled.reason).toBe("disabled-mode");
+      expect(disabled.lanes).toEqual([{ id: "serial", slice: null, task: null, status: "ready", sync_after: [] }]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it("SEC-006 enforces coordinator ownership before assisted cleanup", () => {

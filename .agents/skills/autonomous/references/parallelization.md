@@ -1,7 +1,8 @@
 # Parallel Slice Dispatch
 
-This contract adds optional concurrency between slices. It does not change TLC task execution:
-TLC remains unchanged, and tasks inside a slice remain sequential.
+This contract makes coordinator-assisted concurrency the default between safe independent slices.
+It does not change TLC task execution: TLC remains unchanged, and tasks inside a slice remain
+sequential. Explicit `disabled` is the sequential override.
 
 ## Entry gate
 
@@ -15,7 +16,9 @@ TLC remains unchanged, and tasks inside a slice remain sequential.
      --root . --feature <feature-slug> [--verified-slice <slice>]
    ```
 
-4. Dispatch parallel lanes only when the frozen mode, plan, and executor capability all allow it.
+4. In the default `assisted` mode, dispatch safe independent lanes through the main coordinator
+   when the plan exposes at least two ready slices. Dispatch automatic lanes only when the frozen
+   mode, plan, and executor capability all allow it.
 
 5. The `auto`/`orca` executor capability gate is proven only when the Orca status is ready,
    `orchestration.contract.v1` is present, the installed version is not known-bad, and an explicit
@@ -74,12 +77,14 @@ The current Maestri CLI is expected to report `unsupported` with missing machine
 future complete structured manifest may become compatible; until then, floor creation and deletion
 remain the host UI's responsibility and are not silently automated.
 
-## Coordinator-assisted Orca fallback
+## Coordinator-assisted Orca default
 
-This is an explicitly authorized operator path for useful overlap while the automatic Orca adapter
-is unsupported. It is not an adapter result, does not write a compatibility PASS, and does not
-change `start` or `resume` semantics. The main agent is the coordinator and owns the slice
-worktree, worker terminal, checkpoint, dependency notification, integration, and cleanup.
+This is the standard path for useful overlap while the automatic Orca adapter is unsupported. When
+the frozen mode is `assisted` and the plan exposes at least two safe ready slices, `start` and
+`resume` return coordinator-owned assisted work before automatic adapter construction. It is not
+an adapter result and does not write a compatibility PASS. The main agent is the coordinator and
+owns the slice worktree, worker terminal, checkpoint, dependency notification, integration, and
+cleanup.
 
 Before launch, read `roles.implementer.provider`, `roles.implementer.model`, and
 `roles.implementer.effort` from the frozen `workflow.json`. Never trust an unobservable Orca
@@ -364,7 +369,7 @@ lifecycle boundary; no completed pilot is claimed.
 
 ## Serial fallback
 
-Serial fallback is the default recovery for disabled mode, missing or invalid metadata, conflicting
-ready lanes, unavailable isolation, dirty waiting state, checkpoint failure, integration conflict,
-or any uncertainty. The fallback follows the existing autonomous serial path and creates no parallel
-worker or worktree for the rejected plan.
+Serial execution is the explicit `disabled` mode and the fail-closed recovery for missing or invalid
+metadata, conflicting ready lanes, unavailable isolation, dirty waiting state, checkpoint failure,
+integration conflict, or any uncertainty. The fallback follows the existing autonomous serial path
+and creates no parallel worker or worktree for the rejected plan.

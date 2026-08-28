@@ -319,7 +319,7 @@ preserves consumer configuration, and imports the installed module with zero Orc
 
 ### T10: Publish assisted execution as the standard agent contract
 
-**Status:** pending
+**Status:** complete
 **Slice:** G
 **Resources:** none
 **Observable behaviour:** Adopted agents dispatch safe independent slices through the main
@@ -334,19 +334,23 @@ planning/runtime conditions.
 **Tools:** Skills `ponytail`, `tlc-spec-driven`, `writing-for-agents`; no documentation lookup.
 **Done when:**
 
-- [ ] AGENTS routes Execute to assisted inter-slice dispatch whenever the frozen plan exposes safe independent slices.
-- [ ] Main coordinator ownership covers create, pointer delivery, parking, producer verification,
+- [x] AGENTS routes Execute to assisted inter-slice dispatch whenever the frozen plan exposes safe independent slices.
+- [x] Main coordinator ownership covers create, pointer delivery, parking, producer verification,
   exact commit sync, affected-gate rerun, same-handle continuation, integration, and cleanup.
-- [ ] Slice workers cannot spawn or clean sibling workers and tasks remain sequential within a slice.
-- [ ] Explicit `disabled`, no ready overlap, write/resource/isolation failure, or uncertifiable
+- [x] Slice workers cannot spawn or clean sibling workers and tasks remain sequential within a slice.
+- [x] Explicit `disabled`, no ready overlap, write/resource/isolation failure, or uncertifiable
   ownership/reconciliation uses sequential execution.
-- [ ] Pointer-only transport remains mandatory with no body, threshold, retry, or replacement fallback.
-- [ ] Automatic `safe`/`full` adapter semantics remain unchanged and no compatibility PASS is fabricated.
-- [ ] `npm_config_offline=true npm test -- --run tools/shared/tests/autonomous-parallelization.test.ts` passes with zero failures.
-- [ ] `npm_config_offline=true npm run test:all` passes with zero failures on the final tree.
+- [x] Pointer-only transport remains mandatory with no body, threshold, retry, or replacement fallback.
+- [x] Automatic `safe`/`full` adapter semantics remain unchanged and no compatibility PASS is fabricated.
+- [x] `npm_config_offline=true npm test -- --run tools/shared/tests/autonomous-parallelization.test.ts` passes with zero failures.
+- [x] `npm_config_offline=true npm run test:all` passes with zero failures on the final tree.
+
+**Result:** The adopted agent contract defaults eligible inter-slice work to coordinator-assisted
+dispatch, keeps tasks within each slice sequential, and serializes explicit `disabled` or any
+fail-closed plan/runtime condition. IT-010 exercises the assisted and disabled executor paths.
 
 **Tests:** IT-005, IT-010 in `tools/shared/tests/autonomous-parallelization.test.ts`
-**Gate:** Full. Commit `docs(workflow): make assisted coordination standard`.
+**Gate:** Full. Commit `docs(agents): default to assisted slice execution`.
 
 ## Phase Execution Map
 

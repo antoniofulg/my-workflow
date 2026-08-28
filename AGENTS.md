@@ -61,6 +61,13 @@ For each feature slice: the gate decides done; one atomic Conventional Commit pe
 Verifier ≠ author on every code-changing slice; every counted claim carries the command that
 produced the number.
 
+During Execute, use coordinator-assisted inter-slice dispatch by default whenever the frozen plan
+exposes at least two safe independent slices. The main agent owns cross-slice worktree, pointer
+delivery, parking, dependency sync, verification, continuation, integration, and cleanup; workers
+execute only their own slice's tasks sequentially. Use serial execution only for explicit
+`disabled` or a fail-closed plan/runtime condition. The full mechanics and recovery rules live in
+`.agents/skills/autonomous/references/parallelization.md`.
+
 Delivery is human-scheduled. Git and the artifacts named below own durable state.
 
 ## Load (the heading, not the whole file)
