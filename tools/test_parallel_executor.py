@@ -211,6 +211,107 @@ def test_disabled_coordinator_returns_serial_without_constructing_adapter() -> N
         shutil.rmtree(root)
 
 
+def test_stale_snapshot_requires_refresh_before_coordinator_or_cli_effects() -> None:
+    root = make_repo()
+    workflow_path = root / ".specs/features/fixture/workflow.json"
+    original = workflow_path.read_bytes()
+    try:
+        script = Path(__file__).resolve().parent.parent / ".agents/skills/autonomous/scripts/parallel_execute.py"
+        for version in (1, 2):
+            workflow = json.loads(original)
+            workflow["version"] = version
+            workflow_path.write_text(json.dumps(workflow), encoding="utf-8")
+            calls = {"adapter": 0, "git": 0, "provider": 0, "worktree": 0}
+
+            def adapter_factory() -> RecordingAdapter:
+                calls["adapter"] += 1
+                return RecordingAdapter()
+
+            def git_factory() -> object:
+                calls["git"] += 1
+                return object()
+
+            def provider_factory(_: Path) -> object:
+                calls["provider"] += 1
+                return object()
+
+            def worktree_creator(_: Path, __: str) -> dict[str, str]:
+                calls["worktree"] += 1
+                return {}
+
+            coordinator = parallel_execute.Coordinator(
+                root,
+                "fixture",
+                adapter_factory=adapter_factory,
+                git_adapter_factory=git_factory,
+                provider_factory=provider_factory,
+                worktree_creator=worktree_creator,
+            )
+            try:
+                coordinator.start()
+            except parallel_execute.ExecutorError as exc:
+                assert str(exc) == "workflow snapshot version is stale; rerun resolution with --refresh"
+            else:
+                raise AssertionError("stale snapshot must require refresh")
+            assert calls == {"adapter": 0, "git": 0, "provider": 0, "worktree": 0}
+
+            result = subprocess.run(
+                [sys.executable, str(script), "start", "--root", str(root), "--feature", "fixture"],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            assert result.returncode == 1
+            assert result.stdout == ""
+            assert result.stderr == (
+                "parallel executor: workflow snapshot version is stale; "
+                "rerun resolution with --refresh\n"
+            )
+    finally:
+        workflow_path.write_bytes(original)
+        shutil.rmtree(root)
+
+
+def test_dirty_assisted_coordinator_has_zero_external_effects() -> None:
+    root = make_repo()
+    try:
+        (root / "dirty.txt").write_text("uncommitted\n", encoding="utf-8")
+        calls = {"adapter": 0, "git": 0, "provider": 0, "worktree": 0}
+
+        def adapter_factory() -> RecordingAdapter:
+            calls["adapter"] += 1
+            return RecordingAdapter()
+
+        def git_factory() -> object:
+            calls["git"] += 1
+            return object()
+
+        def provider_factory(_: Path) -> object:
+            calls["provider"] += 1
+            return object()
+
+        def worktree_creator(_: Path, __: str) -> dict[str, str]:
+            calls["worktree"] += 1
+            return {}
+
+        coordinator = parallel_execute.Coordinator(
+            root,
+            "fixture",
+            adapter_factory=adapter_factory,
+            git_adapter_factory=git_factory,
+            provider_factory=provider_factory,
+            worktree_creator=worktree_creator,
+        )
+        result = coordinator.start()
+        assert result["fallback"] is True
+        assert result["reason"] == "plan-blocked"
+        assert result["lanes"] == []
+        assert result["actions"] == []
+        assert calls == {"adapter": 0, "git": 0, "provider": 0, "worktree": 0}
+    finally:
+        shutil.rmtree(root)
+
+
 class RecordingAdapter:
     def __init__(self) -> None:
         self.effects: list[tuple[str, str]] = []

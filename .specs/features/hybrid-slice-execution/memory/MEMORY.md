@@ -9,3 +9,7 @@
   lengths and writes redacted telemetry before rejecting an oversized packet.
 - Re-adoption removes both the obsolete `.agents/skills/tlc-spec-driven` tree and its managed
   `.claude/skills/tlc-spec-driven` pointer while leaving consumer-owned files untouched.
+- Public v3 readers must emit the same stale-snapshot `--refresh` instruction; blocked plans must
+  short-circuit the coordinator before constructing external adapters or effect handlers.
+- Planner output records that only concurrent implementer lanes use worktrees; planner, coordinator,
+  explorer, verifier, review, and QA roles remain on the integration checkout.

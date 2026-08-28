@@ -493,6 +493,8 @@ class Coordinator:
         path = self.root / ".specs" / "features" / self.feature / "workflow.json"
         try:
             snapshot = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(snapshot, dict) and snapshot.get("version") in (1, 2):
+                raise ExecutorError("workflow snapshot version is stale; rerun resolution with --refresh")
             if not isinstance(snapshot, dict) or snapshot.get("version") != 3 or snapshot.get("feature") != self.feature:
                 raise ValueError
             parallelization = snapshot["parallelization"]
@@ -513,6 +515,8 @@ class Coordinator:
             ):
                 raise ValueError
             return snapshot
+        except ExecutorError:
+            raise
         except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
             raise ExecutorError("invalid workflow snapshot") from exc
 
@@ -1208,6 +1212,8 @@ class Coordinator:
         self._prepare_repository()
         plan = self._plan()
         lanes = list(plan.get("lanes", []))
+        if plan.get("decision") == "blocked" and not lanes:
+            return _serial_result(self.feature, mode, "plan-blocked", lanes)
         if plan.get("fallback"):
             return _serial_result(self.feature, mode, "plan-fallback", lanes)
         try:

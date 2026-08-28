@@ -41,6 +41,8 @@ def _snapshot(root: Path, feature: str) -> dict[str, Any]:
     path = root / ".specs" / "features" / feature / "workflow.json"
     try:
         snapshot = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(snapshot, dict) and snapshot.get("version") in (1, 2):
+            raise ValueError("workflow snapshot version is stale; rerun resolution with --refresh")
         if (
             not isinstance(snapshot, dict)
             or type(snapshot.get("version")) is not int
@@ -276,6 +278,16 @@ def _base_plan(
         "blocked": [],
         "reasons": [],
         "compatibility": {"ready": [], "selected": [], "conflicts": []},
+        "role_worktrees": {
+            "planner": False,
+            "coordinator": False,
+            "implementer": False,
+            "explorer": False,
+            "verifier": False,
+            "deep_reviewer": False,
+            "qa_plan": False,
+            "qa_execute": False,
+        },
     }
 
 
@@ -441,6 +453,7 @@ def plan(
         selected[0]["worktree"] = False
     elif len(selected) > 1:
         plan_output["decision"] = "concurrent-writers"
+        plan_output["role_worktrees"]["implementer"] = True
     plan_output["lanes"] = selected
     plan_output["blocked"] = [
         {

@@ -198,6 +198,16 @@ def test_concurrent_writer_selection_is_capped_and_not_parity_bound() -> None:
         assert plan["compatibility"]["selected"] == ["T1", "T2"]
         assert [lane["task"] for lane in plan["lanes"]] == ["T1", "T2"]
         assert all(lane["worktree"] is True for lane in plan["lanes"])
+        assert plan["role_worktrees"] == {
+            "planner": False,
+            "coordinator": False,
+            "implementer": True,
+            "explorer": False,
+            "verifier": False,
+            "deep_reviewer": False,
+            "qa_plan": False,
+            "qa_execute": False,
+        }
         assert blocked_task(plan, "T3")["reasons"] == ["writer-cap:2"]
         assert blocked_task(plan, "T4")["reasons"] == ["writer-cap:2"]
     finally:
@@ -224,6 +234,21 @@ def test_dirty_integration_baseline_has_zero_writer_effect_intents() -> None:
         assert plan["lanes"] == []
         assert plan["reasons"] == ["dirty-baseline"]
         assert all(item["reasons"] == ["dirty-baseline"] for item in plan["blocked"])
+    finally:
+        shutil.rmtree(root)
+
+
+def test_fully_dependency_blocked_dag_selects_no_lane_and_names_blockers() -> None:
+    root = make_repo(
+        task("T1", "A", depends_on="T2")
+        + task("T2", "B", status="in_progress")
+    )
+    try:
+        plan = parallel_plan.plan(root=root, feature="fixture")
+        assert plan["lanes"] == []
+        assert plan["compatibility"]["ready"] == []
+        assert blocked_task(plan, "T1")["reasons"] == ["dependency-incomplete:T2"]
+        assert blocked_task(plan, "T2")["reasons"] == ["in-progress:T2"]
     finally:
         shutil.rmtree(root)
 
@@ -369,6 +394,12 @@ def test_snapshot_identity_and_version_are_validated_before_mode_and_head() -> N
                 "feature": "fixture",
                 "git_head": "head",
                 "parallelization": {"mode": "assisted", "max_workers": "auto", "automatic_baseline": 2, "automatic_ceiling": 4, "resource_provider": None},
+                "version": 1,
+            },
+            {
+                "feature": "fixture",
+                "git_head": "head",
+                "parallelization": {"mode": "assisted", "max_workers": "auto", "automatic_baseline": 2, "automatic_ceiling": 4, "resource_provider": None},
                 "version": 2,
             },
         ):
@@ -376,7 +407,26 @@ def test_snapshot_identity_and_version_are_validated_before_mode_and_head() -> N
             try:
                 parallel_plan.plan(root=root, feature="fixture")
             except ValueError as exc:
-                assert str(exc) == "invalid workflow snapshot"
+                expected = (
+                    "workflow snapshot version is stale; rerun resolution with --refresh"
+                    if snapshot["version"] in (1, 2)
+                    else "invalid workflow snapshot"
+                )
+                assert str(exc) == expected
+                if snapshot["version"] in (1, 2):
+                    resolver = ROOT / ".agents/skills/workflow-config/scripts/parallel_plan.py"
+                    result = subprocess.run(
+                        [sys.executable, str(resolver), "--root", str(root), "--feature", "fixture"],
+                        text=True,
+                        capture_output=True,
+                        check=False,
+                    )
+                    assert result.returncode == 1
+                    assert result.stdout == ""
+                    assert result.stderr == (
+                        "parallel plan: workflow snapshot version is stale; "
+                        "rerun resolution with --refresh\n"
+                    )
             else:
                 raise AssertionError("expected invalid workflow snapshot")
     finally:
@@ -393,7 +443,7 @@ def test_malformed_snapshot_modes_exit_with_invalid_snapshot_error() -> None:
                 "feature": "fixture",
                 "git_head": "head",
                 "parallelization": {"mode": mode},
-                "version": 1,
+                "version": 3,
             }
             path.write_text(json.dumps(snapshot), encoding="utf-8")
             result = subprocess.run(
@@ -449,6 +499,16 @@ def test_cli_emits_the_point_in_time_plan() -> None:
             "max_workers": "auto",
             "reasons": [],
             "source_git_head": head,
+            "role_worktrees": {
+                "planner": False,
+                "coordinator": False,
+                "implementer": False,
+                "explorer": False,
+                "verifier": False,
+                "deep_reviewer": False,
+                "qa_plan": False,
+                "qa_execute": False,
+            },
             "version": 1,
         }
     finally:
