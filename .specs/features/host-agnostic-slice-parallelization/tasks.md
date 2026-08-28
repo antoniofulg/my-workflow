@@ -378,6 +378,8 @@ T10 -> T11
 T11 -> T12
 
 T12 -> T13
+
+T13 -> T14
 ```
 
 ### T11: Enforce assisted effect and cleanup proofs
@@ -476,6 +478,32 @@ canonical contract suites; `validation.md` remains an uncommitted verifier artif
 **Tests:** IT-014, SEC-012 in `tools/test_orca_assisted_probe.py`
 **Gate:** Quick. Commit `fix(orca): discriminate assisted review remediation`.
 
+### T14: Close final assisted discrimination gaps
+
+**Status:** complete
+**Slice:** G
+**Resources:** none
+**Observable behaviour:** Effect reconciliation rejects a wrong expected commit identity directly,
+and cleanup rejects absent or non-ancestor receipt pre-heads before any destructive mutation.
+**Where:** `tools/test_orca_assisted_probe.py`
+**Files:** `tools/orca_assisted_probe.py`, `.specs/features/host-agnostic-slice-parallelization/review-fingerprints.json`
+**Depends on:** T13
+**Requirement:** AST-04, AST-06, SEC-008
+**Reuses:** Existing effect and fake cleanup fixtures plus exact historical fingerprint ledger.
+**Tools:** Skills `ponytail`, `tlc-spec-driven`; stdlib only.
+**Done when:**
+
+- [x] A wrong expected commit identity fails immediately while every other effect check passes.
+- [x] Absent and non-ancestor receipt pre-heads fail before stop, branch-delete, or worktree-rm.
+- [x] The historical 64-character `3de2…` fingerprint key and embedded value are restored exactly.
+- [x] Mutation checks kill both guards, and all probe, full, spec/task, diff, and commit gates pass.
+
+**Result:** Final Verifier discrimination gaps are closed; the verifier's uncommitted
+`validation.md` remains excluded from this commit.
+
+**Tests:** IT-015, SEC-013 in `tools/test_orca_assisted_probe.py`
+**Gate:** Quick. Commit `fix(orca): close final assisted proof gaps`.
+
 ## Task Granularity Check
 
 | Task | Scope | Status |
@@ -493,6 +521,7 @@ canonical contract suites; `validation.md` remains an uncommitted verifier artif
 | T11 | One resumed assisted effect and cleanup proof remediation plus its canonical fake-host checks | PASS |
 | T12 | Assisted capability, route, receipt, and cleanup fail-closed review remediation | PASS |
 | T13 | Final assisted review negative discrimination and late-cleanup reconciliation | PASS |
+| T14 | Final exact commit and immutable cleanup discrimination | PASS |
 
 ## Diagram-Definition Cross-Check
 
@@ -511,6 +540,7 @@ canonical contract suites; `validation.md` remains an uncommitted verifier artif
 | T11 | T10 | T10 -> T11 | PASS |
 | T12 | T11 | T11 -> T12 | PASS |
 | T13 | T12 | T12 -> T13 | PASS |
+| T14 | T13 | T13 -> T14 | PASS |
 
 ## Test Co-location Validation
 
@@ -529,6 +559,7 @@ canonical contract suites; `validation.md` remains an uncommitted verifier artif
 | T11 | Assisted coordinator probe | fake-host integration | IT-012 + SEC-010 in the owning probe suite | PASS |
 | T12 | Assisted coordinator and probe boundaries | unit + fake-host integration | IT-013 + SEC-011 in canonical executor/probe suites | PASS |
 | T13 | Assisted probe review boundaries | fake-host integration | IT-014 + SEC-012 in the owning probe suite | PASS |
+| T14 | Assisted effect and cleanup boundaries | fake-host integration | IT-015 + SEC-013 in the owning probe suite | PASS |
 
 ## Implementation Batch Recommendation
 
@@ -536,7 +567,8 @@ Phase 2 contains five tasks, within one task-budgeted batch. The coordinator sho
 implementer for Slice E and one implementer for Slice F concurrently, then dispatch one implementer
 for Slice G after T7 and T9 are green and committed. No phase split or front/back split is needed.
 
-Phase 3 contains three resumed remediation tasks: T11 follows T10 after the independent Verifier
-reported proof gaps, T12 closes the first final Deep Review defects, and T13 closes the remaining
-negative-discrimination and late-cleanup gaps. They own the probe, assisted executor boundary, and
-their runnable checks, and each closes with the Quick gate.
+Phase 3 contains four resumed remediation tasks: T11 follows T10 after the independent Verifier
+reported proof gaps, T12 closes the first final Deep Review defects, T13 closes the first remaining
+negative-discrimination and late-cleanup gaps, and T14 closes the final exact-identity gaps. They
+own the probe, assisted executor boundary, and their runnable checks, and each closes with the Quick
+gate.

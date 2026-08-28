@@ -490,7 +490,7 @@ def test_cleanup_stops_only_owned_handle_and_preserves_foreign_worktree() -> Non
 def _cleanup_failure_case(*, retain_owned: bool, remove_foreign: bool,
                           remove_foreign_ref: bool = False, fail_ref_audit: bool = False,
                           fail_ref_state: bool = False, moved_handle: bool = False,
-                          wrong_instance: bool = False) -> str:
+                          wrong_instance: bool = False, invalid_pre_head: str = "") -> str:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         common_git = root.parent / f"common-{root.name}.git"
@@ -502,9 +502,12 @@ def _cleanup_failure_case(*, retain_owned: bool, remove_foreign: bool,
         foreign_path = root.parent / f"foreign-{root.name}"
         foreign_path.write_text("foreign\n", encoding="utf-8")
         head = "a" * 40
+        receipt_pre_head = "b" * 40 if invalid_pre_head == "nonancestor" else head
+        if invalid_pre_head == "absent":
+            receipt_pre_head = "c" * 40
         receipt_path = root / "receipt.json"
         receipt_path.write_text(json.dumps({"repository": "repo", "id": "lane", "path": str(root), "branch": "refs/heads/lane",
-                                            "instance": "wrong" if wrong_instance else "instance", "pre_head": head,
+                                            "instance": "wrong" if wrong_instance else "instance", "pre_head": receipt_pre_head,
                                             "gitdir": str(common_git),
                                             "worktree_gitdir": str(admin),
                                             "startupTerminal": {"handle": "owned-terminal"},
@@ -539,6 +542,10 @@ def _cleanup_failure_case(*, retain_owned: bool, remove_foreign: bool,
             return {"ok": False}
 
         def fake_git(path: str | Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
+            if args[:2] == ("cat-file", "-e") and invalid_pre_head == "absent":
+                return subprocess.CompletedProcess([], 1, "", "missing object")
+            if args[:2] == ("merge-base", "--is-ancestor") and invalid_pre_head == "nonancestor" and args[2] == receipt_pre_head:
+                return subprocess.CompletedProcess([], 1, "", "not ancestor")
             if args[:2] == ("rev-parse", "--git-common-dir"):
                 return subprocess.CompletedProcess([], 0, str(common_git) + "\n", "")
             if "worktree" in args and "list" in args:
@@ -618,6 +625,22 @@ def test_cleanup_rejects_immutable_receipt_mismatch_before_mutation() -> None:
         retain_owned=False, remove_foreign=False, wrong_instance=True
     )
     assert "immutable ownership mismatch: instanceId" in result
+    assert "mutations=0" in result
+
+
+def test_cleanup_rejects_absent_receipt_pre_head_before_mutation() -> None:
+    result = _cleanup_failure_case(
+        retain_owned=False, remove_foreign=False, invalid_pre_head="absent"
+    )
+    assert "receipt pre_head is absent" in result
+    assert "mutations=0" in result
+
+
+def test_cleanup_rejects_non_ancestor_receipt_pre_head_before_mutation() -> None:
+    result = _cleanup_failure_case(
+        retain_owned=False, remove_foreign=False, invalid_pre_head="nonancestor"
+    )
+    assert "does not descend" in result
     assert "mutations=0" in result
 
 
@@ -755,20 +778,20 @@ def test_effect_reconciliation_accepts_one_same_handle_commit() -> None:
         configured.run = lambda argv, timeout=30.0: {"ok": True, "result": {"terminal": {"handle": argv[argv.index("--terminal") + 1]}}}  # type: ignore[method-assign]
         try:
             result = probe.effect(args, configured, receipt, {"ok": False})
+            assert result["checks"]["same_handle"] is True
+            assert result["checks"]["commit_subjects"] is True
+            assert result["checks"]["paths"] is True
+            assert result["checks"]["tasks"] is True
+            args.expected_commit = ["b" * 40]
+            try:
+                probe.effect(args, configured, receipt, {"ok": False})
+            except probe.ProbeError as error:
+                assert "incomplete or ambiguous effect" in str(error)
+            else:
+                raise AssertionError("wrong commit identity must fail reconciliation")
         finally:
             probe.marker_frame = original_marker_frame
             probe.worktree_comment = original_worktree_comment
-        assert result["checks"]["same_handle"] is True
-        assert result["checks"]["commit_subjects"] is True
-        assert result["checks"]["paths"] is True
-        assert result["checks"]["tasks"] is True
-        args.expected_commit = ["b" * 40]
-        try:
-            probe.effect(args, configured, receipt, {"ok": False})
-        except probe.ProbeError as error:
-            assert "effect timeout" in str(error)
-        else:
-            raise AssertionError("wrong commit identity must fail reconciliation")
 
 
 def test_effect_reconciliation_rejects_pending_expected_task() -> None:
