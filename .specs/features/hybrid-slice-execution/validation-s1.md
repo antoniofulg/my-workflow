@@ -1,76 +1,108 @@
-# S1 Lean Context Checkpoint Validation
+# S1 Lean Context Checkpoint Revalidation
 
 **Verdict:** FAIL
 **Date:** 2026-08-28
 **Spec:** `.specs/features/hybrid-slice-execution/spec.md`
-**Diff range:** `76f09e5..55fc323`
-**Author commits:** `42cc7a1`, `55fc323`
+**Diff range:** `76f09e5..ff7271c`
+**Author commits:** `42cc7a1`, `55fc323`, `ff7271c`
 **Verifier:** independent Technical Verifier (author != verifier)
+
+S1 behavior now meets all seven scoped requirements and all three former mutants are killed. CP-S1
+still cannot close because the canonical convergence CLI accepts `--gate-passed` but leaves every
+remediated fingerprint `open`.
 
 ## Task Completion
 
 | Task | Recorded state | Verification result |
 | --- | --- | --- |
-| T1 | Done | FAIL: HSE-01 and HSE-04 do not meet the spec outcome |
-| T2 | Done | FAIL: HSE-03, HSE-05, HSE-06, and HSE-42 lack discriminating proof or implementation |
+| T1 | Done | PASS: HSE-01, HSE-02, HSE-04 match the specified outcomes |
+| T2 | Done | PASS: HSE-03, HSE-05, HSE-06, HSE-42 match the specified outcomes |
 
 ## Spec-Anchored Acceptance Criteria
 
 | Requirement | Spec-defined outcome | `file:line` + assertion/evidence | Result |
 | --- | --- | --- | --- |
-| HSE-01 | Adoption installs `workflow-spec-driven` and leaves `tlc-spec-driven` absent. | `scripts/adopt.py:234` copies only current `COPY_PATHS`; `tools/shared/tests/qa-skills.test.ts:178` asserts absence only in the source checkout. `tmp_target=$(mktemp -d /tmp/hse-s1-adopt.XXXXXX); mkdir -p "$tmp_target/.agents/skills/tlc-spec-driven"; python3 scripts/adopt.py --skip-agents "$tmp_target"; find "$tmp_target/.agents/skills" -maxdepth 1 -type d -print` showed both skill directories after adoption. | FAIL |
-| HSE-02 | NOTICE identifies adaptation, original author/source, CC BY 4.0, and material changes. | `.agents/skills/workflow-spec-driven/NOTICE.md:3` identifies the original work and author; `NOTICE.md:6` gives the source; `NOTICE.md:8` gives the license; `NOTICE.md:9` names material changes. `tools/shared/tests/qa-skills.test.ts:179`-`183` assert author, license, and source. | PASS |
-| HSE-03 | A packet contains only its slice tasks, cited ACs, assigned tests, gate, design excerpt, and memory. | `.agents/skills/workflow-spec-driven/scripts/slice_packet.py:57`-`71` renders the fields, but `tools/test_workflow_spec_driven.py:58`-`65` only rejects one unknown key and `tools/test_workflow_spec_driven.py:92` only asserts one body marker. No assertion proves every required section or exclusion of whole-feature/unrelated-slice context. Evidence-or-zero applies. | FAIL |
-| HSE-04 | Guidelines load only on their trigger; no phase-batch or feature-only-Verifier instruction remains. | `.agents/skills/workflow-spec-driven/SKILL.md:114`-`128` provides on-demand loading and `SKILL.md:151` requires a per-slice verifier. However `.agents/skills/workflow-spec-driven/references/tasks.md:136`-`143` still groups sequential phases into whole-phase, task-budgeted worker dispatches. `tools/shared/tests/qa-skills.test.ts:184` checks only literal `phase[- ]batch`, so this legacy behavior escapes. | FAIL |
-| HSE-05 | More than 3,072 role bytes or 10,240 slice bytes reports the exact count and stops before dispatch. | `.agents/skills/workflow-spec-driven/scripts/slice_packet.py:108`-`120` contains the intended comparisons. `tools/test_workflow_spec_driven.py:70` checks role size 3,073, while `tools/test_workflow_spec_driven.py:77`-`83` uses a far-oversize packet and only asserts `>= 10,241`. No 3,072/10,240 accepted-boundary assertion exists; two threshold mutants survived. | FAIL |
-| HSE-06 | Telemetry reports component and total byte counts without bodies, secrets, home paths, or environment values. | `.agents/skills/workflow-spec-driven/scripts/slice_packet.py:77`-`85` emits component counts but no total byte count. `tools/test_workflow_spec_driven.py:95`-`99` does not assert `components` or a total. | FAIL |
-| HSE-42 | Every emitted diagnostic redacts secrets, environment values, packet/terminal text, and absolute home prefixes. | `tools/test_workflow_spec_driven.py:101`-`110` checks one marker in one unknown-field path only. Output write failures at `.agents/skills/workflow-spec-driven/scripts/slice_packet.py:122`-`125` escape the CLI's `PacketError` handler at `slice_packet.py:138`-`142`, allowing an absolute script path in a Python traceback. Failure-path coverage required by SEC-011 is absent. | FAIL |
+| HSE-01 | Adoption installs `workflow-spec-driven` and leaves `tlc-spec-driven` absent. | `scripts/adopt.py:76` defines both obsolete managed paths, `scripts/adopt.py:123` removes files, links, or trees, and `scripts/adopt.py:248` performs removal before copying. `scripts/test_adopt.py:373`-`385` seeds both old paths and asserts both absent after re-adoption. | PASS |
+| HSE-02 | NOTICE identifies adaptation, original author/source, CC BY 4.0, and material changes. | `.agents/skills/workflow-spec-driven/NOTICE.md:3`-`11` names the original work, author, source, license, and modifications. `tools/shared/tests/qa-skills.test.ts:180`-`184` asserts the author, license, and source. | PASS |
+| HSE-03 | A packet contains only its slice tasks, cited ACs, assigned tests, gate, design excerpt, and memory. | `.agents/skills/workflow-spec-driven/scripts/slice_packet.py:13`-`24` is the strict field allowlist and `slice_packet.py:57`-`71` renders only the scoped sections. `tools/test_workflow_spec_driven.py:82`-`108` rejects transcript/full-state/unrelated-slice fields and asserts every required rendered section. | PASS |
+| HSE-04 | Guidelines load only on their trigger; no phase-batch or feature-only-Verifier instruction remains. | `.agents/skills/workflow-spec-driven/SKILL.md:114`-`128` defines on-demand context loading and `SKILL.md:151` requires a fresh verifier per code-changing slice. `.agents/skills/workflow-spec-driven/references/tasks.md:136`-`137` makes dependencies, compatible slices, and sequential in-slice tasks explicit. `tools/shared/tests/qa-skills.test.ts:185`-`192` rejects semantic phase packing and feature-only verification wording. | PASS |
+| HSE-05 | More than 3,072 role bytes or 10,240 slice bytes reports the exact count and stops before materialization. | `.agents/skills/workflow-spec-driven/scripts/slice_packet.py:120`-`132` rejects only values above the exact budgets before output write. `tools/test_workflow_spec_driven.py:110`-`145` proves 3,072/10,240 accepted, 3,073/10,241 rejected, exact counts reported, and no output on rejection. | PASS |
+| HSE-06 | Telemetry reports component and total byte counts without bodies, secrets, home paths, or environment values. | `.agents/skills/workflow-spec-driven/scripts/slice_packet.py:74`-`89` emits only normalized counts, budgets, status, and reason. `tools/test_workflow_spec_driven.py:147`-`165` asserts exact components/total and absence of body fields and the unique body marker. | PASS |
+| HSE-42 | Every emitted diagnostic redacts secrets, environment values, packet text, and absolute home prefixes. | `.agents/skills/workflow-spec-driven/scripts/slice_packet.py:105`-`118` normalizes input errors and `slice_packet.py:134`-`140` normalizes output I/O errors. `tools/test_workflow_spec_driven.py:167`-`185` asserts marker-free unknown-input diagnostics and path-free JSON/stdout/stderr/telemetry for an output I/O failure. | PASS |
 
-**Spec-anchored result:** 1/7 requirements pass; 6/7 have implementation or proof gaps.
+**Spec-anchored result:** 7/7 scoped requirements match the specified outcome; 0 precision gaps.
+
+## Direct Checks
+
+- Adoption cleanup: `python3 -c 'import scripts.test_adopt as t; t.test_adoption_installs_parallel_pilot_and_preserves_consumer_config(); print("adoption cleanup: PASS")'` exited 0 and printed `adoption cleanup: PASS` after three adoption passes.
+- Slice-only guidance: `rg -n "compatible slices|tasks within each slice remain sequential|fresh Technical Verifier|On-demand load" .agents/skills/workflow-spec-driven/SKILL.md .agents/skills/workflow-spec-driven/references/tasks.md` found the on-demand strategy at `SKILL.md:116`, compatible/sequential slice routing at `tasks.md:136`-`137`, and fresh verification at `tasks.md:349`.
+- Redacted output I/O: `python3 -m unittest -v tools.test_workflow_spec_driven.WorkflowSpecDrivenTests.test_sec011_sensitive_unknown_input_never_enters_diagnostics` ran 1 test, 1 passed, 0 failed.
 
 ## Gate Check
 
-- Current command: `npm_config_offline=true npm run test:all`
-- Current result: exit 0; Vitest 8 files, 111/111 tests; every Python suite exited 0, including `tools/test_workflow_spec_driven.py` with 4/4 tests.
-- Baseline command: temporary detached worktree at `76f09e5`, local `node_modules` linked, then `npm_config_offline=true npm run test:all`.
-- Baseline result: exit 0; Vitest 8 files, 110/110 tests; every Python suite exited 0.
-- Added-case command: `git diff --unified=0 76f09e5..55fc323 -- tools scripts | rg --pcre2 '^\+(?!\+\+\+).*(?:def test_|\bit\()'`
-- Added-case result: 5 cases, one TypeScript and four Python; no test deletion was found.
+- Focused packet command: `python3 tools/test_workflow_spec_driven.py`
+- Focused packet result: 4/4 passed, 0 failed, 0 skipped.
+- Focused adoption command: `python3 scripts/test_adopt.py`
+- Focused adoption result: exit 0 and final `ok`.
+- Full command: `npm_config_offline=true npm run test:all`
+- Full result: exit 0; Vitest 8/8 files and 111/111 tests passed; every discovered Python suite exited 0; 0 reported failures or skips.
 - Python definition count command: `rg -n '^[[:space:]]*def test_' tools -g 'test_*.py' | wc -l`
-- Python definition count: 252 current versus 248 at `76f09e5` using `git grep -nE '^[[:space:]]*def test_' 76f09e5 -- tools | wc -l`.
-- Failed/skipped: 0/0 in the successful current gate.
+- Python definition count: 252 current.
+- Baseline definition count command: `git grep -nE '^[[:space:]]*def test_' 76f09e5 -- tools | wc -l`
+- Baseline definition count: 248; delta +4 definitions.
 
 ## Discrimination Sensor
 
-All mutations ran against detached temporary worktrees at `55fc323`. Each command was
-`python3 tools/test_workflow_spec_driven.py`; each scratch was removed afterward.
+Each mutation ran in its own detached temporary worktree at `ff7271c`. Command for each mutant:
+`python3 tools/test_workflow_spec_driven.py`. The real-tree porcelain was empty before and after;
+all three scratch worktrees were removed.
 
 | Mutation | Fault | Result |
 | --- | --- | --- |
-| M1 | `slice_packet.py:109`, `role_bytes > ROLE_BUDGET_BYTES` -> `>=` | SURVIVED: 4/4 tests passed |
-| M2 | `slice_packet.py:115`, permit 1,000 bytes above `SLICE_BUDGET_BYTES` | SURVIVED: 4/4 tests passed |
-| M3 | `slice_packet.py:84`, remove the `components` telemetry field | SURVIVED: 4/4 tests passed |
+| M1 | `slice_packet.py:121`, `role_bytes > ROLE_BUDGET_BYTES` to `>=` | KILLED: accepted 3,072-byte assertion failed; suite exit 1 |
+| M2 | `slice_packet.py:127`, permit 1,000 bytes above `SLICE_BUDGET_BYTES` | KILLED: rejected 10,241-byte assertion failed; suite exit 1 |
+| M3 | `slice_packet.py:84`, remove `components` telemetry | KILLED: exact telemetry assertion errored; suite exit 1 |
 
-**Sensor result:** 0/3 killed, 3/3 survived. FAIL.
+**Sensor result:** 3/3 killed, 0 survived.
 
-## Ranked Gaps
+## Convergence State
 
-1. **Major — legacy skill survives adoption.** Premise: `scripts/adopt.py:234` copies the new sibling but has no obsolete-skill removal. Path: a project adopting over the previous workflow retains both authorities, so agents can activate the obsolete contract. Verdict: FIX_BEFORE_SHIP. Fingerprint: `HSE-01 + no obsolete sibling removal + re-adoption retains tlc-spec-driven`.
-2. **Major — legacy phase-batch dispatch remains active.** Premise: `.agents/skills/workflow-spec-driven/references/tasks.md:136`-`143` assigns whole ordered phases to task-budgeted workers. Path: planner follows this reference, serializes phase groups, and reloads context contrary to slice-native execution. Verdict: FIX_BEFORE_SHIP. Fingerprint: `HSE-04 + semantic phase packing escaped literal regex + task planning dispatches whole phases`.
-3. **Major — exact packet budgets are not discriminated.** Premise: `tools/test_workflow_spec_driven.py:67`-`83` omits accepted-boundary checks and uses a far-oversize slice. Path: role size 3,072 can be wrongly rejected or slice limits can drift upward while the suite remains green. Verdict: FIX_BEFORE_SHIP. Fingerprint: `HSE-05 + missing exact accepted boundaries + role or slice admission threshold drifts`.
-4. **Major — telemetry omits required total bytes.** Premise: `.agents/skills/workflow-spec-driven/scripts/slice_packet.py:77`-`85` has no total field. Path: coordinator cannot compare total serialized packet cost to the contract from telemetry. Verdict: FIX_BEFORE_SHIP. Fingerprint: `HSE-06 + telemetry schema lacks total byte count + normal packet report is incomplete`.
-5. **Major — slice-only packet content has evidence zero.** Premise: `tools/test_workflow_spec_driven.py:58`-`65` proves one rejection but never asserts all required rendered sections. Path: required slice context can disappear or unrelated context can enter without failing the canonical suite. Verdict: FIX_BEFORE_SHIP. Fingerprint: `HSE-03 + incomplete render assertions + packet loses or gains slice context undetected`.
-6. **Major — diagnostic redaction does not cover failure paths.** Premise: output I/O errors at `slice_packet.py:122`-`125` are outside the caught error set, while SEC-011 exercises only unknown input. Path: a normal filesystem failure emits a traceback containing an absolute home path. Verdict: FIX_BEFORE_SHIP. Fingerprint: `HSE-42 + unhandled output IO and one-path redaction test + failure diagnostic leaks absolute path`.
+The six required `review_convergence.py` calls used each exact `--previous-fingerprint`, matching
+requirement/root-cause/failure-path, `--gate-passed`, and no `--verifier-failed`. Every call returned
+`"status": "open"`. Inspection found `review_convergence.py:71` accepts `gate_passed`, but
+`review_convergence.py:76`-`99` never reads it to close a fingerprint.
 
-## Isolation And Quality
+One new failed-verification fingerprint was recorded through the same script, with the green gate:
 
-- Real-tree porcelain before sensor: empty.
-- Real-tree porcelain after all scratch cleanup: empty before this report was written.
-- Scratch worktrees remaining after cleanup: zero.
-- No production file or test was modified by the Verifier.
-- Quality verdict: FAIL. The implementation is small and stdlib-only, but retained phase-batch prose, incomplete adoption cleanup, incomplete telemetry, and hollow boundary tests violate the approved contract and `docs/guidelines/TEST-CONTRACT.md:38`-`55`.
+- `14212a385ac954d4a741581971367ebdcf48aca3abed7acce5548da911aa738e`
+- requirement: `cp-s1`
+- root cause: `gate-passed flag is ignored`
+- failure path: `remediated fingerprints remain open`
+- failed remediations: 1
+- status: `open`
+
+**Fingerprint count command:** `python3 -c 'import json; p=json.load(open(".specs/features/hybrid-slice-execution/review-fingerprints.json")); from collections import Counter; print(len(p["fingerprints"]), Counter(v["status"] for v in p["fingerprints"].values()))'`
+
+**Fingerprint result:** 7 total; 7 open; 0 closed; 0 halted.
+
+## Ranked Gap
+
+1. **Major — successful re-verification cannot close blocker state.** Premise:
+   `.agents/skills/workflow-spec-driven/scripts/review_convergence.py:71` accepts `gate_passed`, but
+   the state transition at lines 76-99 ignores it. Failure path: all six corrected blockers remain
+   machine-readable as open, so CP-S1 cannot release without bypassing the canonical convergence
+   script. Verdict: FIX_BEFORE_SHIP. Fingerprint:
+   `CP-S1 + gate-passed flag is ignored + remediated fingerprints remain open`.
+
+## Quality And Isolation
+
+- The remediation is stdlib-only, surgical, and matches existing CLI/test patterns.
+- No existing assertion was weakened or deleted in the inspected diff.
+- Real-tree porcelain was unchanged by focused checks and mutation worktrees.
+- No live Orca command ran.
+- No lesson artifact was written because this verifier packet permits only the checkpoint report and convergence state.
 
 ## Next Step
 
-Route the six fingerprints to an Implementer, then run a fresh S1 Technical Verifier. CP-S1 must not
-release dependent slices until every blocker is fixed and the sensor kills the boundary/telemetry mutants.
+Route the convergence transition gap to an Implementer. A fresh verifier must then rerun the six
+successful closures and confirm 6 corrected fingerprints are closed before CP-S1 releases.
