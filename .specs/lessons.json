@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 26,
+  "next_id": 31,
   "lessons": [
     {
       "id": "L-001",
@@ -454,6 +454,96 @@
       ],
       "created": "2026-08-28T01:38:26Z",
       "last_seen": "2026-08-28T01:38:26Z"
+    },
+    {
+      "id": "L-026",
+      "key": "surviving_mutant::treat only the documented not found exit status as absence every command error must fail closed",
+      "text": "Treat only the documented not-found exit status as absence; every command error must fail closed",
+      "signal": "surviving_mutant",
+      "scope": "assisted-probe",
+      "status": "candidate",
+      "features": [
+        "host-agnostic-slice-parallelization"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/host-agnostic-slice-parallelization/validation.md:121 (assisted-probe)"
+      ],
+      "created": "2026-08-28T02:25:41Z",
+      "last_seen": "2026-08-28T02:25:41Z"
+    },
+    {
+      "id": "L-027",
+      "key": "ac_gap::cleanup proof must audit host inventory filesystem path branch ref and git worktree registration from the same ownership receipt",
+      "text": "Cleanup proof must audit host inventory, filesystem path, branch ref, and Git worktree registration from the same ownership receipt",
+      "signal": "ac_gap",
+      "scope": "assisted-probe",
+      "status": "candidate",
+      "features": [
+        "host-agnostic-slice-parallelization"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "AST-06 (assisted-probe)"
+      ],
+      "created": "2026-08-28T02:25:41Z",
+      "last_seen": "2026-08-28T02:25:41Z"
+    },
+    {
+      "id": "L-028",
+      "key": "surviving_mutant::inject retained cleanup residue so tests fail when final registration proof is removed",
+      "text": "Inject retained cleanup residue so tests fail when final registration proof is removed",
+      "signal": "surviving_mutant",
+      "scope": "assisted-cleanup",
+      "status": "candidate",
+      "features": [
+        "host-agnostic-slice-parallelization"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/host-agnostic-slice-parallelization/validation.md:AST-06 sensor (assisted-cleanup)"
+      ],
+      "created": "2026-08-28T02:52:19Z",
+      "last_seen": "2026-08-28T02:52:19Z"
+    },
+    {
+      "id": "L-029",
+      "key": "ac_gap::require every task effect to prove at least one packet declared atomic commit",
+      "text": "Require every task effect to prove at least one packet-declared atomic commit",
+      "signal": "ac_gap",
+      "scope": "assisted-reconciliation",
+      "status": "candidate",
+      "features": [
+        "host-agnostic-slice-parallelization"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "AST-04 (assisted-reconciliation)"
+      ],
+      "created": "2026-08-28T02:52:19Z",
+      "last_seen": "2026-08-28T02:52:19Z"
+    },
+    {
+      "id": "L-030",
+      "key": "surviving_mutant::exercise incomplete canonical task state at the effect reconciliation boundary",
+      "text": "Exercise incomplete canonical task state at the effect-reconciliation boundary",
+      "signal": "surviving_mutant",
+      "scope": "assisted-reconciliation",
+      "status": "candidate",
+      "features": [
+        "host-agnostic-slice-parallelization"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/host-agnostic-slice-parallelization/validation.md:AST-04 task-state sensor (assisted-reconciliation)"
+      ],
+      "created": "2026-08-28T02:52:19Z",
+      "last_seen": "2026-08-28T02:52:19Z"
     }
   ]
 }

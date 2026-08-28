@@ -164,6 +164,36 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: validation.md M4 (assisted-probe)
 - last seen: 2026-08-28T01:38:26Z
 
+### L-026 - Treat only the documented not-found exit status as absence; every command error must fail closed
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `assisted-probe` · harmful: 0
+- features: host-agnostic-slice-parallelization
+- evidence: .specs/features/host-agnostic-slice-parallelization/validation.md:121 (assisted-probe)
+- last seen: 2026-08-28T02:25:41Z
+
+### L-027 - Cleanup proof must audit host inventory, filesystem path, branch ref, and Git worktree registration from the same ownership receipt
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `assisted-probe` · harmful: 0
+- features: host-agnostic-slice-parallelization
+- evidence: AST-06 (assisted-probe)
+- last seen: 2026-08-28T02:25:41Z
+
+### L-028 - Inject retained cleanup residue so tests fail when final registration proof is removed
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `assisted-cleanup` · harmful: 0
+- features: host-agnostic-slice-parallelization
+- evidence: .specs/features/host-agnostic-slice-parallelization/validation.md:AST-06 sensor (assisted-cleanup)
+- last seen: 2026-08-28T02:52:19Z
+
+### L-029 - Require every task effect to prove at least one packet-declared atomic commit
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `assisted-reconciliation` · harmful: 0
+- features: host-agnostic-slice-parallelization
+- evidence: AST-04 (assisted-reconciliation)
+- last seen: 2026-08-28T02:52:19Z
+
+### L-030 - Exercise incomplete canonical task state at the effect-reconciliation boundary
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `assisted-reconciliation` · harmful: 0
+- features: host-agnostic-slice-parallelization
+- evidence: .specs/features/host-agnostic-slice-parallelization/validation.md:AST-04 task-state sensor (assisted-reconciliation)
+- last seen: 2026-08-28T02:52:19Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.
