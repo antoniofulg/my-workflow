@@ -134,7 +134,6 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: validation.md:Slice-C-R1-waiting-follow-up (workflow-executor)
 - last seen: 2026-08-24T18:42:24Z
 
-<<<<<<< HEAD
 ### L-021 - Exercise adapter compatibility through the executor boundary before accepting a host capability proof
 - signal: `ac_gap` · recurrence: 1 feature(s) · scope: `host-adapters` · harmful: 0
 - features: host-agnostic-slice-parallelization
