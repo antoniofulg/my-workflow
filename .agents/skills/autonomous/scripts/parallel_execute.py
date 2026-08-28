@@ -263,7 +263,7 @@ def validate_runtime_state(
         if not isinstance(key, str) or not _ID.fullmatch(key) or not isinstance(action, Mapping):
             raise StateError("invalid action receipt")
         if action.get("key") != key or action.get("action") not in {
-            "worktree", "worktree_cleanup", "worker", "follow_up", "acquire", "release", "worker_ack", "worker_release", "sync", "gate", "integrate", "technical_verifier"
+            "worktree", "worktree_cleanup", "worker", "follow_up", "acquire", "release", "gate_acquire", "gate_release", "worker_ack", "worker_release", "sync", "gate", "integrate", "technical_verifier"
         }:
             raise StateError("invalid action receipt")
         if action.get("status") not in {"pending", "accepted", "released", "failed"}:
@@ -274,7 +274,9 @@ def validate_runtime_state(
         if action.get("status") in {"accepted", "released"}:
             external_id = _require_text(action.get("external_id"), "action external id")
             previous_action = seen_action_external_ids.get(external_id)
-            if previous_action is not None and {previous_action, action["action"]} != {"acquire", "release"}:
+            if previous_action is not None and {
+                previous_action, action["action"]
+            } not in ({"acquire", "release"}, {"gate_acquire", "gate_release"}):
                 raise StateError("duplicate external receipt")
             seen_action_external_ids[external_id] = str(action["action"])
             receipt = action.get("receipt")
@@ -1341,6 +1343,133 @@ class Coordinator:
         action["status"] = "released"
         self._save(state)
         return {"released": True, "lease_id": lease_id, "idempotent": False}
+
+    def acquire_heavy_gate(
+        self,
+        snapshot: Mapping[str, Any],
+        state: dict[str, Any],
+        lane_id: str,
+        gate: str,
+        resources: Sequence[str],
+        provider: ResourceProvider | None,
+    ) -> dict[str, Any] | None:
+        """Acquire an exclusive gate through the existing provider, or park its claimant."""
+        if not _ID.fullmatch(gate) or not resources or any(not isinstance(item, str) or not item for item in resources):
+            raise ExecutorError("invalid heavy gate request")
+        lane = state.get("lanes", {}).get(lane_id)
+        if not isinstance(lane, Mapping):
+            raise ExecutorError("heavy gate references unknown lane")
+        gates = state.setdefault("heavy_gates", {})
+        if not isinstance(gates, dict):
+            raise StateError("invalid heavy gate state")
+        prior = gates.get(gate)
+        if isinstance(prior, Mapping):
+            if prior.get("lane") != lane_id or prior.get("resources") != list(resources):
+                raise ExecutorError("foreign or mismatched heavy gate lease")
+            if prior.get("released") is True:
+                return None
+            return dict(prior)
+        if any(
+            isinstance(value, Mapping)
+            and value.get("released") is not True
+            and set(value.get("resources", [])) & set(resources)
+            for value in gates.values()
+        ):
+            return None
+        if provider is None:
+            raise ExecutorError("missing resource provider")
+        key = idempotency_key(self.feature, str(lane["slice"]), str(lane["task"]), f"gate-acquire-{gate}", state["source_git_head"])
+        action = state["actions"].get(key)
+        created = action is None
+        if action is None:
+            action = {"key": key, "action": "gate_acquire", "status": "pending", "lane": lane_id}
+            state["actions"][key] = action
+        self._save(state)
+        request = {
+            "repository": str(self.root),
+            "feature": self.feature,
+            "slice": lane["slice"],
+            "task": lane["task"],
+            "gate": gate,
+            "worktree": lane.get("worktree_path", ""),
+            "idempotency_key": key,
+            "resources": list(resources),
+        }
+        try:
+            if action.get("status") in {"accepted", "released"}:
+                receipt = action.get("receipt")
+            elif created:
+                receipt = provider.acquire(request, set())
+            else:
+                receipt = self._reconcile_pending(provider, action)
+            if not isinstance(receipt, Mapping):
+                raise ExecutorError("heavy gate lease is unavailable")
+            if receipt.get("gate", gate) != gate:
+                raise ExecutorError("foreign heavy gate receipt")
+            lease = normalize_lease_receipt(receipt, request, set())
+        except ExecutorError:
+            action["status"] = "failed"
+            self._save(state)
+            raise
+        lease.update({"gate": gate, "lane": lane_id, "released": False})
+        gates[gate] = lease
+        self._accept(action, external_id=lease["lease_id"], receipt=lease)
+        self._save(state)
+        return dict(lease)
+
+    def release_heavy_gate(
+        self,
+        snapshot: Mapping[str, Any],
+        state: dict[str, Any],
+        lane_id: str,
+        gate: str,
+        provider: ResourceProvider | None,
+    ) -> dict[str, Any]:
+        gates = state.get("heavy_gates")
+        lease = gates.get(gate) if isinstance(gates, Mapping) else None
+        if not isinstance(lease, Mapping) or lease.get("lane") != lane_id:
+            raise ExecutorError("foreign or mismatched heavy gate lease")
+        lease_id = lease.get("lease_id")
+        resources = lease.get("resources")
+        if not isinstance(lease_id, str) or not isinstance(resources, list):
+            raise ExecutorError("malformed heavy gate lease")
+        if lease.get("released") is True:
+            return {"lease_id": lease_id, "released": True, "idempotent": True}
+        if provider is None:
+            raise ExecutorError("missing resource provider")
+        lane = state["lanes"].get(lane_id)
+        if not isinstance(lane, Mapping):
+            raise ExecutorError("heavy gate references unknown lane")
+        key = idempotency_key(self.feature, str(lane["slice"]), str(lane["task"]), f"gate-release-{gate}", state["source_git_head"])
+        action = state["actions"].get(key)
+        created = action is None
+        if action is None:
+            action = {"key": key, "action": "gate_release", "status": "pending", "lane": lane_id}
+            state["actions"][key] = action
+        self._save(state)
+        request = {
+            "repository": str(self.root), "feature": self.feature, "slice": lane["slice"],
+            "task": lane["task"], "gate": gate, "worktree": lane.get("worktree_path", ""),
+            "idempotency_key": key, "resources": resources,
+        }
+        receipt = action.get("receipt") if action.get("status") in {"accepted", "released"} else (
+            provider.release(request, lease_id) if created else self._reconcile_pending(provider, action)
+        )
+        if not isinstance(receipt, Mapping) or receipt.get("lease_id") != lease_id or receipt.get("released") is not True:
+            action["status"] = "failed"
+            self._save(state)
+            raise ExecutorError("heavy gate release is uncorrelated")
+        lease = dict(lease)
+        lease["released"] = True
+        gates[gate] = lease
+        self._accept(action, external_id=lease_id, receipt={"lease_id": lease_id, "released": True})
+        action["status"] = "released"
+        self._save(state)
+        return {"lease_id": lease_id, "released": True, "idempotent": False}
+
+    # Explicit names make the public executor surface easy for gate runners to discover.
+    acquire_gate_lease = acquire_heavy_gate
+    release_gate_lease = release_heavy_gate
 
     def start(
         self,

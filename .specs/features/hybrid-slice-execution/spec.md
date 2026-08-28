@@ -253,7 +253,7 @@ then import the installed probe with a call-counting fake Orca.
 | HSE-18 | Hybrid scheduler | S3 | Implemented in T9 |
 | HSE-19 | Hybrid scheduler | S3 | Implemented in T10 |
 | HSE-20 | Hybrid scheduler | S3 | Implemented in T10 |
-| HSE-21 | Hybrid scheduler | S3 | In Design |
+| HSE-21 | Hybrid scheduler | S3 | Implemented in T11 |
 | HSE-22 | Orca lifecycle | S4 | Implemented in T5 |
 | HSE-23 | Orca lifecycle | S4 | Implemented in T5 |
 | HSE-24 | Orca lifecycle | S4 | Remediation planned in T14 |
@@ -280,7 +280,7 @@ then import the installed probe with a call-counting fake Orca.
 | HSE-45 | Edge case | S3 | Implemented in T10 |
 | HSE-46 | Edge case | S3, S4 | Implemented in T4 |
 | HSE-47 | Edge case | S4 | Implemented in T6 |
-| HSE-48 | Edge case | S3 | In Design |
+| HSE-48 | Edge case | S3 | Implemented in T11 |
 | HSE-49 | Halt recovery | S4 | Implemented in T13 |
 | HSE-50 | Halt recovery | S4 | Implemented in T13 |
 | HSE-51 | Halt recovery | S4 | Implemented in T13 |

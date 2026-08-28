@@ -415,11 +415,11 @@ the same correlated acquire/release protocol, wait independently, and never star
 
 **Done when:**
 
-- [ ] Competing exclusive heavy gates serialize through the existing provider while light work proceeds.
-- [ ] Foreign/reused/mismatched leases authorize and release nothing.
-- [ ] No second lock file, daemon, service, or dependency exists.
-- [ ] Assigned 2 cases pass with no existing assertion weakened or deleted.
-- [ ] Full gate exits 0; CP-S3 is ready for a fresh Technical Verifier.
+- [x] Competing exclusive heavy gates serialize through the existing provider while light work proceeds.
+- [x] Foreign/reused/mismatched leases authorize and release nothing.
+- [x] No second lock file, daemon, service, or dependency exists.
+- [x] Assigned 2 cases pass with no existing assertion weakened or deleted.
+- [x] Full gate exits 0; CP-S3 is ready for a fresh Technical Verifier.
 
 **Tests:** integration + security — IT-004, SEC-004
 **Gate:** `python3 tools/test_parallel_executor.py && npm_config_offline=true npm run test:all`

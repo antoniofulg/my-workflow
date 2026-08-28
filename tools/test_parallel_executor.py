@@ -2342,6 +2342,77 @@ def test_lane_scheduler_refills_only_compatible_freed_slot() -> None:
     assert [lane["task"] for lane in selected] == ["T3"]
 
 
+def test_heavy_gates_serialize_on_existing_provider_while_light_work_remains_eligible() -> None:
+    root = make_repo()
+    try:
+        class GateProvider:
+            def __init__(self) -> None:
+                self.acquires = 0
+                self.releases = 0
+
+            def acquire(self, request: dict[str, object], _: set[str]) -> dict[str, object]:
+                self.acquires += 1
+                return {
+                    "lease_id": f"gate-lease-{self.acquires}", "idempotency_key": request["idempotency_key"],
+                    "resources": request["resources"], "prepared_worktree": True,
+                    "environment": {}, "released": False, "gate": request["gate"],
+                }
+
+            def release(self, _: dict[str, object], lease_id: str) -> dict[str, object]:
+                self.releases += 1
+                return {"lease_id": lease_id, "released": True}
+
+        provider = GateProvider()
+        coordinator = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter())
+        coordinator._prepare_repository()
+        source_head = json.loads((root / ".specs/features/fixture/workflow.json").read_text())["git_head"]
+        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "assisted", source_head)
+        state["lanes"]["lane-A"] = {"slice": "A", "task": "T1", "state": "running", "resources": [], "worktree": True}
+        state["lanes"]["lane-B"] = {"slice": "B", "task": "T2", "state": "ready", "resources": [], "worktree": True}
+        lease = coordinator.acquire_heavy_gate({}, state, "lane-A", "test-gate", ["exclusive"], provider)  # type: ignore[arg-type]
+        assert lease is not None and lease["gate"] == "test-gate"
+        assert coordinator.acquire_heavy_gate({}, state, "lane-B", "test-gate-2", ["exclusive"], provider) is None
+        assert provider.acquires == 1
+        released = coordinator.release_heavy_gate({}, state, "lane-A", "test-gate", provider)  # type: ignore[arg-type]
+        assert released["released"] is True
+        assert provider.releases == 1
+    finally:
+        shutil.rmtree(root)
+
+
+def test_heavy_gate_rejects_foreign_or_reused_lease_without_release() -> None:
+    root = make_repo()
+    try:
+        class Provider:
+            def __init__(self) -> None:
+                self.releases = 0
+
+            def acquire(self, request: dict[str, object], _: set[str]) -> dict[str, object]:
+                return {"lease_id": "lease-A", "idempotency_key": request["idempotency_key"], "resources": request["resources"], "prepared_worktree": True, "environment": {}, "released": False}
+
+            def release(self, _: dict[str, object], __: str) -> dict[str, object]:
+                self.releases += 1
+                return {"lease_id": "lease-A", "released": True}
+
+        provider = Provider()
+        coordinator = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter())
+        coordinator._prepare_repository()
+        head = json.loads((root / ".specs/features/fixture/workflow.json").read_text())["git_head"]
+        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "assisted", head)
+        state["lanes"]["lane-A"] = {"slice": "A", "task": "T1", "state": "running", "resources": [], "worktree": True}
+        state["lanes"]["lane-B"] = {"slice": "B", "task": "T2", "state": "running", "resources": [], "worktree": True}
+        coordinator.acquire_heavy_gate({}, state, "lane-A", "test-gate", ["exclusive"], provider)  # type: ignore[arg-type]
+        try:
+            coordinator.release_heavy_gate({}, state, "lane-B", "test-gate", provider)  # type: ignore[arg-type]
+        except parallel_execute.ExecutorError as exc:
+            assert "foreign" in str(exc)
+        else:
+            raise AssertionError("foreign gate lease must not be released")
+        assert provider.releases == 0
+    finally:
+        shutil.rmtree(root)
+
+
 if __name__ == "__main__":
     tests = [function for name, function in sorted(globals().items()) if name.startswith("test_")]
     for function in tests:
