@@ -543,3 +543,94 @@ an issue.
 
 **Verdict: PASS.** F2-F5 resolved, F1's observed failure path closed and its unpinnable remainder
 downgraded to a recorded Minor residual, no obligation weakened, no assertion loosened, gate green.
+
+---
+
+## Slice E Technical Verification — 2026-08-27
+
+**Spec:** `.specs/features/host-agnostic-slice-parallelization/spec.md`
+**Diff range:** `a627e28..35df588` (`T6` `431c7d3`; `T7` `35df588`)
+**Verifier:** independent sub-agent (author != verifier)
+**Verdict:** **FAIL**
+
+### Task completion
+
+| Task | Recorded state | Verification result |
+| --- | --- | --- |
+| T6 | complete | PASS — HST-05 is implemented and discriminated. |
+| T7 | complete | FAIL — AST-08 is not fully implemented or discriminated. |
+
+### Spec-anchored acceptance evidence
+
+| Requirement / test | Spec-defined outcome | `file:line` assertion evidence | Result |
+| --- | --- | --- | --- |
+| HST-05 / UT-007 | Missing mode freezes `assisted`; every explicit `disabled|assisted|safe|full` value survives unchanged. | `tools/test_workflow_config.py:107-113` asserts the exact default snapshot; `tools/test_workflow_config.py:121-152` iterates all four explicit modes and asserts both emitted and stored values. | PASS |
+| HST-06 / UT-008 | Assisted planning has `full` readiness and checkpoint-sync semantics. | `tools/test_parallel_plan.py:131-145` asserts exact lane and blocked equality with `full` and `sync_after == ["T1"]`; `tools/test_parallel_plan.py:151-174` asserts waiting, conflict serialization, and malformed-metadata serialization. | PASS |
+| HST-06 / IT-006 | Assisted `start` and `resume` expose a coordinator plan without automatic-adapter construction or invocation. | `tools/test_parallel_executor.py:209-240` asserts the assisted coordinator result and an unconstructed injected adapter; `tools/test_parallel_executor.py:246-273` asserts both CLI commands and `calls == []`. | PASS |
+| AST-08 / IT-006 — explicit disabled | Sequential result with zero planner, Git, or adapter effects. | `tools/test_parallel_executor.py:1663-1705` instruments the planner, repository preparation, Git adapter, and adapter factory and asserts zero calls. | PASS |
+| AST-08 / UT-008 — conflict/malformed DAG | Write conflicts and malformed metadata serialize. | `tools/test_parallel_plan.py:151-174` asserts `fallback is True`, serial lane identity, and exact reason. | PASS |
+| AST-08 / IT-006 — fewer than two ready slices | Sequential result; no assisted lane. | No assertion. Existing assisted executor tests provide exactly two ready lanes at `tools/test_parallel_executor.py:226-229,259-262`. Removing the production guard survived all 55 executor tests. | FAIL |
+| AST-08 / IT-006 — failed resource proof | Sequential result with zero host effect. | No assertion. Production returns an assisted coordinator plan at `.agents/skills/autonomous/scripts/parallel_execute.py:1278-1281` before resource/provider validation at `.agents/skills/autonomous/scripts/parallel_execute.py:1304-1313`. A real two-lane assisted plan containing `resources: ["gpu"]` and no configured provider returned `fallback: false`. | FAIL |
+
+### Gate evidence
+
+- `rtk proxy python3 tools/test_workflow_config.py` — exit 0, `44 passed, 0 failed`.
+- `rtk proxy python3 tools/test_parallel_plan.py` — exit 0, `20 passed, 0 failed`.
+- `rtk proxy python3 tools/test_parallel_executor.py` — exit 0, `55 passed, 0 failed`.
+- Slice E total: 119 passed, 0 failed, 0 skipped. Baseline command `rtk git show a627e28:<test-file> | rg -c '^def test_'` for the three owning suites returned 44, 18, and 53 test functions: 115 total; delta +4.
+- `rtk python3 .agents/skills/tlc-spec-driven/scripts/validate_spec.py .specs/features/host-agnostic-slice-parallelization/spec.md` — exit 0, 0 errors, 0 warnings.
+- `rtk python3 .agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/host-agnostic-slice-parallelization/tasks.md` — exit 0, 0 errors, 0 warnings.
+- `rtk git diff --check` — exit 0.
+
+### Discrimination sensor
+
+Each mutant ran in a detached temporary worktree at `35df588`; every scratch worktree was removed.
+
+| Mutant | Behavior fault | Targeted command | Result |
+| --- | --- | --- | --- |
+| M1 | Changed `PARALLELIZATION_DEFAULT` from `assisted` to `disabled`. | `rtk python3 tools/test_workflow_config.py` | KILLED — `test_defaults_and_native_routing` failed its exact snapshot assertion. |
+| M2 | Removed `assisted` from the completed cross-slice `sync_after` branch. | `rtk python3 tools/test_parallel_plan.py` | KILLED — `test_assisted_mode_matches_full_readiness_and_checkpoint_plan` failed lane equality. |
+| M3 | Disabled the `len(lanes) < 2` assisted serial guard. | `rtk python3 tools/test_parallel_executor.py` | **SURVIVED — 55 passed, 0 failed.** |
+
+**Sensor:** 3 mutations, 2 killed, 1 survived — FAIL. Real-tree porcelain after scratch cleanup matched the empty pre-sensor baseline before this report edit.
+
+### Ranked gaps and fix tasks
+
+1. **Major — assisted resource lanes bypass fail-closed resource proof (AST-08 / IT-006).** Premise: `.agents/skills/autonomous/scripts/parallel_execute.py:1278-1281` returns the coordinator plan before `.agents/skills/autonomous/scripts/parallel_execute.py:1304-1313` checks lane resource metadata and provider availability. Path: two otherwise-ready assisted slices, one declaring `gpu`, with no resource provider configured return `fallback: false`; the main agent receives a certified assisted plan instead of the required sequential result. Fix task: validate assisted isolation/resource prerequisites before returning the coordinator plan, then extend canonical IT-006 with the real resource-bearing plan and assert sequential output plus zero adapter/Git/host effects.
+2. **Major — IT-006 does not discriminate the no-ready-overlap fallback (AST-08).** Premise: both assisted fixtures at `tools/test_parallel_executor.py:226-229,259-262` contain two ready lanes. Path: deleting `.agents/skills/autonomous/scripts/parallel_execute.py:1279-1280` leaves all 55 executor tests green, so one ready lane can regress to an uncertified assisted result undetected. Fix task: extend IT-006 with `start` and `resume` plans containing zero and one ready lane; assert exact sequential fallback and zero automatic-adapter/Git/host effects.
+
+### Status
+
+HST-05 and HST-06 are verified for Slice E. AST-08 remains **Needs Fix**. Slice E is not ready to integrate.
+
+---
+
+## Slice E AST-08 Follow-up Remediation — 2026-08-27
+
+**Spec:** `.specs/features/host-agnostic-slice-parallelization/spec.md`
+**Scope:** Follow-up to the preceding Slice E technical verification
+**Verdict:** **PASS for AST-08**
+
+The assisted branch now performs the existing worktree/resource/provider preflight before it can
+return a coordinator plan. A real two-lane plan with `resources: ["gpu"]` and no configured
+provider returns `missing-resource-provider` with no adapter or host effect. IT-006 now covers
+zero and one ready lane for both `start` and `resume`; each returns `no-ready-overlap` serial
+fallback and no automatic effect.
+
+| Requirement | Evidence | Result |
+| --- | --- | --- |
+| AST-08 — fewer than two ready slices | `tools/test_parallel_executor.py:246-273` asserts exact sequential fallback for zero and one ready lane across both entry points, with empty effects. | PASS |
+| AST-08 — failed resource/provider proof | `tools/test_parallel_executor.py:276-313` uses a two-lane `gpu` plan without a provider and asserts `missing-resource-provider`, unchanged lanes, and no adapter effect. | PASS |
+| HST-06 — assisted plan boundary | `tools/test_parallel_executor.py:209-240,320-349` continues to assert coordinator planning without adapter construction/selection. | PASS |
+
+### Follow-up gate evidence
+
+- `python3 tools/test_parallel_executor.py` — exit 0; 57 passed, 0 failed, 0 skipped.
+- `python3 tools/test_parallel_plan.py` — exit 0; 20 passed, 0 failed, 0 skipped.
+- `python3 tools/test_workflow_config.py` — exit 0; 44 passed, 0 failed, 0 skipped.
+- `python3 .agents/skills/tlc-spec-driven/scripts/validate_spec.py .specs/features/host-agnostic-slice-parallelization/spec.md` — exit 0; 0 errors, 0 warnings.
+- `python3 .agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/host-agnostic-slice-parallelization/tasks.md` — exit 0; 0 errors, 0 warnings.
+- `git diff --check` — exit 0.
+
+Fingerprint `27e805c6f297d78d6b374eee5343c3d6347073c613a19b45a1ce76741ab9eea7` is resolved. T6
+and T7 remain complete in `tasks.md`; no spec requirement or historical QA evidence was changed.

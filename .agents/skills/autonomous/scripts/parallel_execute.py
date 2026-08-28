@@ -1275,10 +1275,6 @@ class Coordinator:
         lanes = list(plan.get("lanes", []))
         if plan.get("fallback"):
             return _serial_result(self.feature, mode, "plan-fallback", lanes)
-        if mode == "assisted":
-            if len(lanes) < 2:
-                return _serial_result(self.feature, mode, "no-ready-overlap", lanes)
-            return {**plan, "coordinator": "assisted", "actions": []}
         try:
             state = self._load_state(snapshot)
         except StateError as exc:
@@ -1311,6 +1307,10 @@ class Coordinator:
                     return _serial_result(self.feature, mode, "missing-resource-provider", lanes)
         if any(self._lane_resources(plan_lane) for plan_lane in lanes) and provider is None:
             return _serial_result(self.feature, mode, "missing-resource-provider", lanes)
+        if mode == "assisted":
+            if len(lanes) < 2:
+                return _serial_result(self.feature, mode, "no-ready-overlap", lanes)
+            return {**plan, "coordinator": "assisted", "actions": []}
         if self.adapter_factory is None:
             return _serial_result(self.feature, mode, "unsupported-adapter", lanes)
         try:

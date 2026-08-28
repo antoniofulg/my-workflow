@@ -243,6 +243,90 @@ def test_assisted_coordinator_returns_plan_without_constructing_adapter() -> Non
         shutil.rmtree(root)
 
 
+def test_assisted_zero_or_one_ready_lane_serializes_without_host_effect() -> None:
+    one_ready_lane = {
+        "id": "slice-A",
+        "slice": "A",
+        "task": "T1",
+        "status": "ready",
+        "sync_after": [],
+        "declared_paths": ["src/a.py"],
+        "resources": [],
+    }
+    for lanes, resume in (([], False), ([], True), ([one_ready_lane], False), ([one_ready_lane], True)):
+        root = make_repo(mode="assisted")
+        original_plan = parallel_execute.Coordinator._plan
+        effects: list[str] = []
+        try:
+            def factory() -> object:
+                effects.append("adapter")
+                return object()
+
+            parallel_execute.Coordinator._plan = lambda self, lanes=lanes: {
+                "version": 1,
+                "feature": "fixture",
+                "mode": "assisted",
+                "source_git_head": "head",
+                "fallback": False,
+                "lanes": lanes,
+                "blocked": [],
+                "reasons": [],
+            }  # type: ignore[method-assign]
+            result = parallel_execute.Coordinator(
+                root,
+                "fixture",
+                adapter_factory=factory,
+                git_adapter_factory=lambda: effects.append("git") or object(),
+                worktree_creator=lambda destination, source_head: effects.append("worktree") or {},
+            ).start(resume=resume)
+            assert result["fallback"] is True
+            assert result["reason"] == "no-ready-overlap"
+            assert result["lanes"] == lanes
+            assert effects == []
+        finally:
+            parallel_execute.Coordinator._plan = original_plan  # type: ignore[method-assign]
+            shutil.rmtree(root)
+
+
+def test_assisted_resource_lane_without_provider_serializes_before_host_effect() -> None:
+    root = make_repo(mode="assisted")
+    original_plan = parallel_execute.Coordinator._plan
+    effects: list[str] = []
+    lanes = [
+        {"id": "slice-A", "slice": "A", "task": "T1", "status": "ready", "sync_after": [], "declared_paths": ["src/a.py"], "resources": ["gpu"]},
+        {"id": "slice-B", "slice": "B", "task": "T2", "status": "ready", "sync_after": [], "declared_paths": ["src/b.py"], "resources": []},
+    ]
+    try:
+        def factory() -> object:
+            effects.append("adapter")
+            return object()
+
+        parallel_execute.Coordinator._plan = lambda self: {
+            "version": 1,
+            "feature": "fixture",
+            "mode": "assisted",
+            "source_git_head": "head",
+            "fallback": False,
+            "lanes": lanes,
+            "blocked": [],
+            "reasons": [],
+        }  # type: ignore[method-assign]
+        result = parallel_execute.Coordinator(
+            root,
+            "fixture",
+            adapter_factory=factory,
+            git_adapter_factory=lambda: effects.append("git") or object(),
+            worktree_creator=lambda destination, source_head: effects.append("worktree") or {},
+        ).start()
+        assert result["fallback"] is True
+        assert result["reason"] == "missing-resource-provider"
+        assert result["lanes"] == lanes
+        assert effects == []
+    finally:
+        parallel_execute.Coordinator._plan = original_plan  # type: ignore[method-assign]
+        shutil.rmtree(root)
+
+
 def test_assisted_cli_does_not_select_automatic_adapter() -> None:
     root = make_repo(mode="assisted")
     original_factory = parallel_execute._adapter_factory
