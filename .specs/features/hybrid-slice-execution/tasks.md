@@ -366,11 +366,11 @@ freshness validation, deterministic injected probes, and fail-closed lane-3 admi
 
 **Done when:**
 
-- [ ] Healthy windows permit one admission; missing/malformed/stale/pressured evidence denies it.
-- [ ] Explicit and automatic caps are inputs, never silently overridden.
-- [ ] Raw command, process, env, user, and path markers cannot enter output.
-- [ ] Assigned 4 cases pass with no existing assertion weakened or deleted.
-- [ ] Full gate exits 0 before commit.
+- [x] Healthy windows permit one admission; missing/malformed/stale/pressured evidence denies it.
+- [x] Explicit and automatic caps are inputs, never silently overridden.
+- [x] Raw command, process, env, user, and path markers cannot enter output.
+- [x] Assigned 4 cases pass with no existing assertion weakened or deleted.
+- [x] Full gate exits 0 before commit.
 
 **Tests:** unit + security — UT-012, UT-013, UT-014, SEC-003
 **Gate:** `python3 tools/test_machine_health.py && npm_config_offline=true npm run test:all`

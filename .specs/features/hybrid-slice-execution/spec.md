@@ -248,9 +248,9 @@ then import the installed probe with a call-counting fake Orca.
 | HSE-13 | Hybrid scheduler | S3 | Implemented in T4 |
 | HSE-14 | Hybrid scheduler | S3 | Implemented in T4 |
 | HSE-15 | Hybrid scheduler | S3 | Implemented in T4 |
-| HSE-16 | Hybrid scheduler | S3 | In Design |
-| HSE-17 | Hybrid scheduler | S3 | In Design |
-| HSE-18 | Hybrid scheduler | S3 | In Design |
+| HSE-16 | Hybrid scheduler | S3 | Implemented in T9 |
+| HSE-17 | Hybrid scheduler | S3 | Implemented in T9 |
+| HSE-18 | Hybrid scheduler | S3 | Implemented in T9 |
 | HSE-19 | Hybrid scheduler | S3 | Implemented in T4 |
 | HSE-20 | Hybrid scheduler | S3 | Implemented in T4 |
 | HSE-21 | Hybrid scheduler | S3 | In Design |
