@@ -468,6 +468,86 @@ def test_cleanup_refuses_show_ref_error() -> None:
     )
 
 
+def _cleanup_git_residue_case(*, retain_registration: bool, retain_gitdir: bool) -> str:
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        repo = root / "repo"
+        worktree = root / "lane"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+        subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo, check=True)
+        subprocess.run(["git", "config", "user.name", "Test"], cwd=repo, check=True)
+        (repo / "seed").write_text("seed\n", encoding="utf-8")
+        subprocess.run(["git", "add", "seed"], cwd=repo, check=True)
+        subprocess.run(["git", "commit", "-qm", "seed"], cwd=repo, check=True)
+        subprocess.run(["git", "branch", "-M", "main"], cwd=repo, check=True)
+        subprocess.run(["git", "worktree", "add", "-q", "-b", "lane", str(worktree), "HEAD"], cwd=repo, check=True)
+        common_git = Path(subprocess.check_output(
+            ["git", "-C", str(worktree), "rev-parse", "--git-common-dir"], text=True,
+        ).strip()).resolve()
+        worktree_gitdir = Path(subprocess.check_output(
+            ["git", "-C", str(worktree), "rev-parse", "--git-dir"], text=True,
+        ).strip()).resolve()
+        head = subprocess.check_output(["git", "-C", str(worktree), "rev-parse", "HEAD"], text=True).strip()
+        if retain_registration:
+            stale = common_git / "worktrees" / "stale"
+            shutil.copytree(worktree_gitdir, stale)
+            (stale / "HEAD").write_text(head + "\n", encoding="utf-8")
+        receipt_path = root / "receipt.json"
+        receipt_path.write_text(json.dumps({
+            "id": "lane", "path": str(worktree), "branch": "refs/heads/lane",
+            "instance": "instance", "pre_head": head, "gitdir": str(common_git),
+            "worktree_gitdir": str(worktree_gitdir),
+            "startupTerminal": {"handle": "owned-terminal"}, "before": {"terminals": {}},
+        }), encoding="utf-8")
+        before = {"worktrees": {"lane": {
+            "id": "lane", "repoId": "repo", "instanceId": "instance",
+            "path": str(worktree.resolve()), "branch": "refs/heads/lane",
+        }}, "terminals": {}}
+        after = {"worktrees": {}, "terminals": {}}
+        inventories = iter((before, after, after))
+        original_raw = probe.raw
+        original_inventory = probe.OrcaProbe.inventory
+        original_terminals = probe.OrcaProbe.worktree_terminals
+
+        def fake_raw(argv: list[str], timeout: float = 30.0) -> dict[str, object]:
+            if argv[1:3] == ["worktree", "rm"]:
+                shutil.rmtree(worktree)
+                if retain_registration:
+                    shutil.rmtree(worktree_gitdir)
+                elif not retain_gitdir:
+                    shutil.rmtree(worktree_gitdir)
+                else:
+                    (worktree_gitdir / "gitdir").unlink()
+            return {"ok": False}
+
+        probe.raw = fake_raw  # type: ignore[assignment]
+        probe.OrcaProbe.inventory = lambda self: next(inventories)  # type: ignore[assignment]
+        probe.OrcaProbe.worktree_terminals = lambda self, worktree_id: []  # type: ignore[assignment]
+        args = probe.parser().parse_args([
+            "--repo", "repo", "cleanup", "--receipt", str(receipt_path),
+            "--integration-head", head, "--settle-window", "1", "--interval", "0",
+        ])
+        try:
+            try:
+                probe.cleanup(args)
+            except probe.ProbeError as error:
+                return str(error)
+            raise AssertionError("cleanup unexpectedly accepted Git residue")
+        finally:
+            probe.raw = original_raw  # type: ignore[assignment]
+            probe.OrcaProbe.inventory = original_inventory  # type: ignore[assignment]
+            probe.OrcaProbe.worktree_terminals = original_terminals  # type: ignore[assignment]
+
+
+def test_cleanup_refuses_registration_residue_after_path_removal() -> None:
+    assert "owned residue" in _cleanup_git_residue_case(retain_registration=True, retain_gitdir=False)
+
+
+def test_cleanup_refuses_admin_gitdir_residue_after_registration_and_path_removal() -> None:
+    assert "owned residue" in _cleanup_git_residue_case(retain_registration=False, retain_gitdir=True)
+
+
 def test_task_states_reads_canonical_records_and_effect_requires_ids() -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
@@ -529,6 +609,72 @@ def test_effect_reconciliation_accepts_one_same_handle_commit() -> None:
         assert result["checks"]["commit_subjects"] is True
         assert result["checks"]["paths"] is True
         assert result["checks"]["tasks"] is True
+
+
+def test_effect_reconciliation_rejects_pending_expected_task() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        worktree = Path(directory)
+        subprocess.run(["git", "init", "-q"], cwd=worktree, check=True)
+        subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=worktree, check=True)
+        subprocess.run(["git", "config", "user.name", "Test"], cwd=worktree, check=True)
+        (worktree / "change.txt").write_text("before\n", encoding="utf-8")
+        (worktree / "tasks.md").write_text("### T1: one slice\n\n**Status:** pending\n", encoding="utf-8")
+        subprocess.run(["git", "add", "change.txt", "tasks.md"], cwd=worktree, check=True)
+        subprocess.run(["git", "commit", "-qm", "seed"], cwd=worktree, check=True)
+        pre_head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=worktree, text=True).strip()
+        (worktree / "change.txt").write_text("after\n", encoding="utf-8")
+        subprocess.run(["git", "add", "change.txt"], cwd=worktree, check=True)
+        subprocess.run(["git", "commit", "-qm", "feat: one slice"], cwd=worktree, check=True)
+        head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=worktree, text=True).strip()
+        receipt = {"id": "lane", "path": str(worktree), "startupTerminal": {"handle": "same-handle"}}
+        args = SimpleNamespace(
+            phase="A_FINAL", timeout=1.0, log=str(worktree.parent / "pending-effect-log"), pre_head=pre_head,
+            expected_count=1, expected_subject=["feat: one slice"], expected_task=["T1"],
+            allow_path=["change.txt"], task_file="tasks.md", gate=["true"], park_comment="",
+        )
+        original_marker_frame = probe.marker_frame
+        original_worktree_comment = probe.worktree_comment
+        probe.marker_frame = lambda _probe, handle, phase: (
+            head, None,
+            {"result": {"terminal": {"handle": handle, "connected": True}}},
+            {"result": {"terminal": {"handle": handle, "source": "screen"}}},
+            f"TURN_DONE {phase} head={head}",
+        )
+        probe.worktree_comment = lambda *_args: ""
+        configured = probe.OrcaProbe("repo")
+        configured.run = lambda _argv, timeout=30.0: {"ok": True}  # type: ignore[method-assign]
+        try:
+            try:
+                probe.effect(args, configured, receipt, {"ok": False})
+            except probe.ProbeError as error:
+                assert "incomplete or ambiguous effect" in str(error)
+            else:
+                raise AssertionError("pending expected task must fail reconciliation")
+        finally:
+            probe.marker_frame = original_marker_frame
+            probe.worktree_comment = original_worktree_comment
+
+
+def test_effect_requires_positive_count_and_matching_subjects() -> None:
+    for expected_count, expected_subject, message in (
+        (0, ["feat: slice"], "expected commit count must be positive"),
+        (1, [], "expected commit subjects must match expected commit count"),
+        (2, ["feat: slice"], "expected commit subjects must match expected commit count"),
+    ):
+        try:
+            probe.effect(
+                SimpleNamespace(
+                    expected_task=["T1"], expected_count=expected_count,
+                    expected_subject=expected_subject, timeout=1.0,
+                ),
+                probe.OrcaProbe("repo"),
+                {"startupTerminal": {"handle": "handle"}},
+                {"ok": False},
+            )
+        except probe.ProbeError as error:
+            assert message in str(error)
+        else:
+            raise AssertionError("invalid commit expectations must fail before reconciliation")
 
 
 def test_effect_reconciliation_rejects_foreign_second_frame_handle() -> None:

@@ -367,6 +367,47 @@ Slice G: T7 -> T10
          T9 -> T10
 ```
 
+## Phase 3: Resumed verifier remediation
+
+The first independent verification round found three proof gaps. T11 closes them without changing
+the assisted lifecycle contract or the historical evidence record.
+
+```text
+T10 -> T11
+```
+
+### T11: Enforce assisted effect and cleanup proofs
+
+**Status:** complete
+**Slice:** G
+**Resources:** none
+**Observable behaviour:** Effect reconciliation rejects zero or mismatched commit expectations and
+pending canonical tasks; cleanup rejects either surviving linked-worktree registration or surviving
+admin Git metadata after the owned path is removed.
+**Where:** `tools/orca_assisted_probe.py`
+**Files:** `tools/test_orca_assisted_probe.py`
+**Depends on:** T10
+**Requirement:** AST-04, AST-06, SEC-008
+**Reuses:** Existing effect reconciliation, canonical task parser, cleanup ownership receipt, and
+temporary Git worktree test helpers.
+**Tools:** Skills `ponytail`, `tlc-spec-driven`; stdlib only.
+**Done when:**
+
+- [x] `effect()` requires a positive expected commit count and a nonempty subject list whose length
+  matches that count, so a zero-commit effect cannot pass.
+- [x] A pending expected task raises `ProbeError`, and the canonical test fails if task completion
+  is replaced by an unconditional truthy predicate.
+- [x] Cleanup raises when the linked-worktree registration survives path removal.
+- [x] Cleanup raises when the admin linked-worktree Git directory survives registration/path removal.
+- [x] `python3 tools/test_orca_assisted_probe.py` passes with zero failures.
+
+**Result:** Effect checks reject invalid commit expectations and pending canonical tasks; independent
+temporary-Git cases reject surviving registration and admin Git directory residue. The probe check
+passes 20/20.
+
+**Tests:** IT-012, SEC-010 in `tools/test_orca_assisted_probe.py`
+**Gate:** Quick. Commit `fix(orca): enforce assisted effect and cleanup proofs`.
+
 ## Task Granularity Check
 
 | Task | Scope | Status |
@@ -381,6 +422,7 @@ Slice G: T7 -> T10
 | T8 | One self-contained coordinator probe plus its canonical fake-host check | PASS |
 | T9 | One adoption COPY_PATHS invariant plus its owning test | PASS |
 | T10 | One adopted agent dispatch contract plus its canonical contract test | PASS |
+| T11 | One resumed assisted effect and cleanup proof remediation plus its canonical fake-host checks | PASS |
 
 ## Diagram-Definition Cross-Check
 
@@ -396,6 +438,7 @@ Slice G: T7 -> T10
 | T8 | T5 | T5 -> T8 | PASS |
 | T9 | T8 | T8 -> T9 | PASS |
 | T10 | T7, T9 | T7 + T9 -> T10 | PASS |
+| T11 | T10 | T10 -> T11 | PASS |
 
 ## Test Co-location Validation
 
@@ -411,9 +454,13 @@ Slice G: T7 -> T10
 | T8 | Assisted coordinator probe | fake-host integration | IT-007–IT-009 + SEC-007 in one runnable stdlib check | PASS |
 | T9 | Adoption | integration | IT-011 in existing adoption suite | PASS |
 | T10 | Agent workflow contract | contract | IT-005 + IT-010 in canonical autonomous suite | PASS |
+| T11 | Assisted coordinator probe | fake-host integration | IT-012 + SEC-010 in the owning probe suite | PASS |
 
 ## Implementation Batch Recommendation
 
 Phase 2 contains five tasks, within one task-budgeted batch. The coordinator should dispatch one
 implementer for Slice E and one implementer for Slice F concurrently, then dispatch one implementer
 for Slice G after T7 and T9 are green and committed. No phase split or front/back split is needed.
+
+Phase 3 contains one resumed remediation task: T11 follows T10 after the independent Verifier
+reported proof gaps. It owns the probe and its runnable checks, and closes with the Quick gate.

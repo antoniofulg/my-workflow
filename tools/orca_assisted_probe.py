@@ -587,6 +587,12 @@ def effect(args: argparse.Namespace, probe: OrcaProbe, receipt: dict[str, Any], 
     expected_tasks = list(args.expected_task)
     if not expected_tasks:
         raise ProbeError("expected task ids are required")
+    expected_count = int(args.expected_count)
+    expected_subjects = list(args.expected_subject)
+    if expected_count <= 0:
+        raise ProbeError("expected commit count must be positive")
+    if not expected_subjects or len(expected_subjects) != expected_count:
+        raise ProbeError("expected commit subjects must match expected commit count")
     deadline = time.monotonic() + args.timeout
     sample = 0
     while time.monotonic() < deadline:
@@ -604,14 +610,13 @@ def effect(args: argparse.Namespace, probe: OrcaProbe, receipt: dict[str, Any], 
             rows = [line.split("\t", 1) for line in git(path, "log", "--reverse", "--format=%H%x09%s",
                                                           f"{args.pre_head}..{head}").stdout.splitlines()]
             changed = set(git(path, "diff", "--name-only", f"{args.pre_head}..{head}").stdout.splitlines())
-            expected_subjects = list(args.expected_subject)
             states = task_states(path, args.task_file)
             checks = {
                 "second_frame": second_error is None and second_head == head,
                 "idle": idle.get("ok") is not False,
                 "head": actual_head == head,
                 "descends": ancestry,
-                "commit_count": len(rows) == args.expected_count,
+                "commit_count": len(rows) == expected_count,
                 "commit_subjects": [row[1] for row in rows] == expected_subjects,
                 "paths": changed.issubset(set(args.allow_path)),
                 "tasks": all(states.get(task) == "complete" for task in expected_tasks),
