@@ -182,6 +182,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: validation-s3.md:HSE-40,HSE-48 (resource-leases)
 - last seen: 2026-08-28T22:58:24Z
 
+### L-029 - Preflight every adoption write target, including merge-generated files, before the first mutation.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `adoption` · harmful: 0
+- features: hybrid-slice-execution
+- evidence: .specs/features/hybrid-slice-execution/validation-s6.md:32 (adoption)
+- last seen: 2026-08-28T23:43:48Z
+
+### L-030 - The canonical full gate must execute the owner suite for every shipped adoption surface.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `adoption` · harmful: 0
+- features: hybrid-slice-execution
+- evidence: .specs/features/hybrid-slice-execution/validation-s6.md:30 (adoption)
+- last seen: 2026-08-28T23:43:48Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

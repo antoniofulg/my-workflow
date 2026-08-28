@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 29,
+  "next_id": 31,
   "lessons": [
     {
       "id": "L-001",
@@ -508,6 +508,42 @@
       ],
       "created": "2026-08-28T22:58:24Z",
       "last_seen": "2026-08-28T22:58:24Z"
+    },
+    {
+      "id": "L-029",
+      "key": "ac_gap::preflight every adoption write target including merge generated files before the first mutation",
+      "text": "Preflight every adoption write target, including merge-generated files, before the first mutation.",
+      "signal": "ac_gap",
+      "scope": "adoption",
+      "status": "candidate",
+      "features": [
+        "hybrid-slice-execution"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/hybrid-slice-execution/validation-s6.md:32 (adoption)"
+      ],
+      "created": "2026-08-28T23:43:48Z",
+      "last_seen": "2026-08-28T23:43:48Z"
+    },
+    {
+      "id": "L-030",
+      "key": "surviving_mutant::the canonical full gate must execute the owner suite for every shipped adoption surface",
+      "text": "The canonical full gate must execute the owner suite for every shipped adoption surface.",
+      "signal": "surviving_mutant",
+      "scope": "adoption",
+      "status": "candidate",
+      "features": [
+        "hybrid-slice-execution"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/hybrid-slice-execution/validation-s6.md:30 (adoption)"
+      ],
+      "created": "2026-08-28T23:43:48Z",
+      "last_seen": "2026-08-28T23:43:48Z"
     }
   ]
 }
