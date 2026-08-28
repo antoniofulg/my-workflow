@@ -21,10 +21,12 @@ No browser, API, or mobile surface exists in this repository.
 ## Runner and adapter
 
 - Existing runner or adapter: CLI/manual, using the public workflow resolver, adoption script,
-  parallel executor, and filesystem inspection. The parallel-slice journey uses the installed Orca
-  CLI only after its `orchestration.contract.v1` capability is proven; the disposable fixture and
-  lifecycle oracle are owned by
-  [`tools/qa_parallel_pilot.py`](../../tools/qa_parallel_pilot.py). Deep Review publication recipes
+  parallel executor, assisted pointer probe, and filesystem inspection. The parallel-slice journey
+  uses the installed Orca CLI only after its `orchestration.contract.v1` capability is proven; the
+  disposable fixture and lifecycle oracle are owned by
+  [`tools/qa_parallel_pilot.py`](../../tools/qa_parallel_pilot.py), while
+  [`tools/orca_assisted_probe.py`](../../tools/orca_assisted_probe.py) is the shipped pointer-only
+  lifecycle boundary. Deep Review publication recipes
   use a checkout-local fake `gh` that logs arguments;
   [`tools/test_deep_review_contract.py`](../../tools/test_deep_review_contract.py) owns that
   no-network adapter.
@@ -44,7 +46,9 @@ No browser, API, or mobile surface exists in this repository.
   [`tools/test_deep_review_contract.py`](../../tools/test_deep_review_contract.py); never contact
   GitHub during QA. For parallel execution, use the setup, dry-run, public executor
   `start`/`status`/`resume`, lifecycle-check, and cleanup sequence in
-  [the E2E-001 handoff](../../.specs/features/parallel-slice-executor/qa-pilot.md); do not replace a
+  [the E2E-001 handoff](../../.specs/features/parallel-slice-executor/qa-pilot.md); use the
+  assisted probe's `dispatch`, `inspect`, and `cleanup` commands with fake providers for offline
+  proof; do not replace a
   serial fallback or incomplete lifecycle with a simulated success.
 - Installed QA tooling discovered: Vitest is declared in [`package.json`](../../package.json) for
   structural checks; it is not a real-user runner. Python standard-library checks live in

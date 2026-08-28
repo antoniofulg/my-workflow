@@ -324,13 +324,13 @@ def test_runtime_edits_are_overwritten_from_templates_on_readopt() -> None:
         shutil.rmtree(tmp)
 
 
-def test_adoption_installs_v2_config_and_syncs_fifteen_packets() -> None:
+def test_adoption_installs_v3_config_and_syncs_fifteen_packets() -> None:
     tmp = Path(tempfile.mkdtemp())
     try:
         subprocess.run(["git", "init", "-q", str(tmp)], check=True)
         run(tmp)
         config = (tmp / ".my-workflow.toml").read_text(encoding="utf-8")
-        assert config.startswith("version = 2\n")
+        assert config.startswith("version = 3\n")
         assert (tmp / ".my-workflow.toml.example").is_file()
         assert (tmp / "templates/agents/claude/planner.md").is_file()
         assert not (tmp / ".my-workflow.toml.example").is_symlink()
@@ -359,15 +359,19 @@ def test_adoption_installs_v2_config_and_syncs_fifteen_packets() -> None:
         shutil.rmtree(tmp)
 
 
-def test_adoption_installs_parallel_pilot_and_preserves_consumer_config() -> None:
+def test_adoption_installs_hybrid_workflow_and_preserves_consumer_config() -> None:
     tmp = Path(tempfile.mkdtemp())
     try:
         subprocess.run(["git", "init", "-q", str(tmp)], check=True)
         source = ROOT / "tools/qa_parallel_pilot.py"
+        probe_source = ROOT / "tools/orca_assisted_probe.py"
         run(tmp)
         adopted = tmp / "tools/qa_parallel_pilot.py"
         assert adopted.is_file()
         assert adopted.read_bytes() == source.read_bytes()
+        probe = tmp / "tools/orca_assisted_probe.py"
+        assert probe.is_file()
+        assert probe.read_bytes() == probe_source.read_bytes()
 
         adopted.write_bytes(b"stale managed copy\n")
         legacy = tmp / ".agents/skills/tlc-spec-driven"
@@ -378,17 +382,121 @@ def test_adoption_installs_parallel_pilot_and_preserves_consumer_config() -> Non
         config = tmp / ".my-workflow.toml"
         config.write_bytes(config.read_bytes() + b"# consumer-owned\n")
         config_before = config.read_bytes()
+        profile = tmp / "docs/qa/README.md"
+        profile.write_bytes(b"consumer-owned QA profile\n")
+        profile_before = profile.read_bytes()
         run(tmp)
         assert adopted.read_bytes() == source.read_bytes()
         assert config.read_bytes() == config_before
+        assert profile.read_bytes() == profile_before
         assert not legacy.exists()
         assert not legacy_pointer.exists()
 
+        probe.write_bytes(b"stale managed probe\n")
         pilot_before = adopted.read_bytes()
         run(tmp)
         assert adopted.read_bytes() == pilot_before == source.read_bytes()
+        assert probe.read_bytes() == probe_source.read_bytes()
     finally:
         shutil.rmtree(tmp)
+
+
+def test_adoption_installs_only_new_authority_byte_identically() -> None:
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        subprocess.run(["git", "init", "-q", str(tmp)], check=True)
+        run(tmp)
+        for relative in (
+            ".agents/skills/workflow-spec-driven",
+            ".agents/skills/autonomous",
+            ".agents/skills/workflow-config",
+            "templates/agents",
+            "docs/guidelines",
+            "docs/qa/README.md",
+            "tools/orca_assisted_probe.py",
+            ".my-workflow.toml.example",
+        ):
+            source = ROOT / relative
+            installed = tmp / relative
+            assert installed.exists(), relative
+            if source.is_dir():
+                source_files = {
+                    path.relative_to(source)
+                    for path in source.rglob("*")
+                    if path.is_file() and "__pycache__" not in path.parts and not path.name.endswith(".pyc")
+                }
+                for child in source_files:
+                    assert (installed / child).read_bytes() == (source / child).read_bytes()
+            else:
+                assert installed.read_bytes() == source.read_bytes()
+        assert not (tmp / ".agents/skills/tlc-spec-driven").exists()
+        assert not (tmp / ".claude/skills/tlc-spec-driven").exists()
+    finally:
+        shutil.rmtree(tmp)
+
+
+def test_adoption_imports_probe_without_orca_effect() -> None:
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        run(tmp)
+        calls = tmp / "orca.calls"
+        fake = tmp / "orca"
+        fake.write_text(
+            f"#!/bin/sh\nprintf '%s\\n' called >> {calls}\nexit 99\n",
+            encoding="utf-8",
+        )
+        fake.chmod(0o755)
+        env = {**os.environ, "PATH": f"{tmp}:{os.environ.get('PATH', '')}"}
+        result = subprocess.run(
+            [sys.executable, "-c", "import tools.orca_assisted_probe"],
+            cwd=tmp,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        assert not calls.exists() or calls.read_text(encoding="utf-8") == ""
+    finally:
+        shutil.rmtree(tmp)
+
+
+def test_adoption_rejects_symlinked_managed_destination_without_mutation() -> None:
+    tmp = Path(tempfile.mkdtemp())
+    outside = Path(tempfile.mkdtemp())
+    try:
+        target = tmp / "tools/orca_assisted_probe.py"
+        target.parent.mkdir(parents=True)
+        target.symlink_to(outside / "probe.py")
+        (tmp / ".agents/skills/tlc-spec-driven").mkdir(parents=True)
+        before = snapshot_tree(tmp)
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            try:
+                run(tmp)
+            except SystemExit as exc:
+                assert exc.code == 1
+            else:
+                raise AssertionError("expected symlinked destination rejection")
+        assert snapshot_tree(tmp) == before
+        assert "managed destination" in stderr.getvalue()
+        assert "symlink" in stderr.getvalue()
+    finally:
+        shutil.rmtree(tmp)
+        shutil.rmtree(outside)
+
+
+def test_qa_registry_keeps_fake_proof_current_and_live_orca_blocked() -> None:
+    adoption = (ROOT / "docs/qa/scenarios/ADP-adopt-workflow-safely.md").read_text(encoding="utf-8")
+    fallback = (ROOT / "docs/qa/scenarios/CFG-fallback-unproven-parallel-execution.md").read_text(encoding="utf-8")
+    live = (ROOT / "docs/qa/scenarios/QAS-run-resource-free-parallel-orca-slices.md").read_text(encoding="utf-8")
+    assert "tools/orca_assisted_probe.py" in adoption
+    assert "qa_status: untested" in adoption
+    assert "qa_status: pass" in fallback
+    assert "qa_status: blocked-verify" in live
+    assert "upstream" in live.lower()
+    assert "Orca/Codex" in live
+    assert "fake" in live.lower()
 
 
 def test_adoption_rejects_invalid_template_before_runtime_writes() -> None:
@@ -451,7 +559,7 @@ def test_adoption_rejects_malformed_local_config_without_partial_writes() -> Non
         assert stdout.getvalue() == ""
         assert stderr.getvalue() == (
             "adoption could not synchronize agent metadata: "
-            "workflow-config: version must be integer 2\n"
+            "workflow-config: version must be integer 3; refresh the project configuration\n"
         )
         assert snapshot_tree(tmp) == before
         assert config.read_bytes() == b"version = 1\n"
@@ -681,8 +789,12 @@ TESTS = (
     "test_skip_agents_preserves_product_files_and_adopts_rest",
     "test_skip_agents_preserves_absent_claude_file",
     "test_runtime_edits_are_overwritten_from_templates_on_readopt",
-    "test_adoption_installs_v2_config_and_syncs_fifteen_packets",
-    "test_adoption_installs_parallel_pilot_and_preserves_consumer_config",
+    "test_adoption_installs_v3_config_and_syncs_fifteen_packets",
+    "test_adoption_installs_hybrid_workflow_and_preserves_consumer_config",
+    "test_adoption_installs_only_new_authority_byte_identically",
+    "test_adoption_imports_probe_without_orca_effect",
+    "test_adoption_rejects_symlinked_managed_destination_without_mutation",
+    "test_qa_registry_keeps_fake_proof_current_and_live_orca_blocked",
     "test_adoption_rejects_invalid_template_before_runtime_writes",
     "test_adoption_rejects_malformed_local_config_without_partial_writes",
     "test_existing_config_drives_all_native_values_and_preserves_non_model_bytes",

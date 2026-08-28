@@ -6,7 +6,7 @@ persona: Workflow adopter
 journey: J-configure-feature-workflow
 expected: Resolution and resume report the live remediation stall bound without persisting it, while model/effort routes, cadence, selected parallelization mode, and safe optional resource provider remain frozen until an explicit refresh; packet drift still requires explicit synchronization and refresh.
 entry_points: .my-workflow.toml.example; .my-workflow.toml; .claude/agents/; .codex/agents/; .cursor/agents/; .agents/skills/workflow-config/scripts/workflow_config.py; .specs/features/<slug>/workflow.json; .agents/skills/workflow-config/SKILL.md
-qa_status: pass
+qa_status: untested
 bug_ids:
 fix_status:
 retest_status:
@@ -26,6 +26,10 @@ resource-isolation claim is made.
 `SRH-02` adds a deliberate live-state exception: `remediation.stall_attempts` appears in current CLI
 JSON, never in `workflow.json`, and may change on resume without changing frozen route, cadence, or
 snapshot bytes.
+
+The hybrid-slice feature changes the public configuration to schema v3 with `assisted` and
+`disabled` modes and `max_workers`; this scenario is reset to `untested` pending fresh QA of the
+new surface.
 
 The 2026-08-24 evidence remains historical. The live-output and snapshot-boundary change at
 `cada159` was re-walked through the CLI/manual path on 2026-08-25. Resolution reported `4`, resume

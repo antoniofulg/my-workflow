@@ -6,7 +6,7 @@ persona: Workflow adopter
 journey: J-configure-feature-workflow
 expected: The read-only planner reports deterministic ready, blocked, checkpoint, or serial-fallback work while the installed orchestration contract keeps slice tasks sequential and preserves every delivery gate.
 entry_points: .agents/skills/workflow-config/scripts/parallel_plan.py; .agents/skills/autonomous/references/parallelization.md
-qa_status: pass
+qa_status: untested
 bug_ids:
 fix_status:
 retest_status:
@@ -23,6 +23,9 @@ evidence invalidation, and preservation of TLC, Verifier, deep-review, QA, and f
 The repository exposes no portable worker runtime. QA therefore walks the public CLI output and the
 installed agent-facing policy; provider-specific worktree creation and live model behavior remain
 outside this feature's public executable surface.
+
+The hybrid planner contract changes the public mode and writer-lane decisions, so this scenario is
+reset to `untested` until fresh QA rewalks the v3 surface.
 
 The planner walk passed on 2026-08-24, including deterministic ready/blocked/follow-up/checkpoint
 output and preservation of sequential delivery gates. R19's public resource plan adds the current

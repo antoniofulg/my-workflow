@@ -48,6 +48,7 @@ COPY_PATHS = [
     "knowledge/wiki",
     "tools/knowledge",
     "tools/qa_parallel_pilot.py",
+    "tools/orca_assisted_probe.py",
     "tools/shared/src/frontmatter.ts",
     "tools/shared/tests/frontmatter.test.ts",
     ".agents/skills/workflow-spec-driven",
@@ -127,6 +128,19 @@ def remove_obsolete_managed_paths(dest: Path) -> None:
             path.unlink()
         elif path.is_dir():
             shutil.rmtree(path)
+
+
+def reject_symlinked_destinations(dest: Path) -> None:
+    """Refuse managed destinations that could redirect an adoption write."""
+    managed = (*COPY_PATHS, *COPY_MISSING_PATHS, "AGENTS.md")
+    for relative in managed:
+        current = dest
+        for component in Path(relative).parts:
+            current /= component
+            if current.is_symlink():
+                die(
+                    f"refusing adoption: managed destination {current} is a symlink"
+                )
 
 
 def product_section(text: str) -> str:
@@ -243,6 +257,7 @@ def main(argv: list[str]) -> None:
     if not dest.is_dir():
         die(f"not a directory: {dest}")
     reject_global_tlc_paths(dest)
+    reject_symlinked_destinations(dest)
     if not skip_agents:
         adopt_agents(src, dest)
     remove_obsolete_managed_paths(dest)

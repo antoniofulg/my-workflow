@@ -440,12 +440,12 @@ and prove the disposable installed tree offline while keeping the live host jour
 
 **Done when:**
 
-- [ ] Dry-run installs every owned component byte-identically, imports probe with zero calls, and installs no TLC path.
-- [ ] Re-adoption preserves edited consumer config and product QA profile.
-- [ ] Canonical offline gate exercises all fake providers and invokes live Orca zero times.
-- [ ] Fake/adoption scenarios cite current evidence; live-host scenario remains truthfully `blocked-verify` with upstream limitation.
-- [ ] Assigned 5 cases pass with no existing assertion weakened or deleted.
-- [ ] Build gate exits 0; CP-S6 is ready for fresh Technical Verification, final Deep Review, QA Plan, and QA Execute.
+- [x] Dry-run installs every owned component byte-identically, imports probe with zero calls, and installs no TLC path.
+- [x] Re-adoption preserves edited consumer config and product QA profile.
+- [x] Canonical offline gate exercises all fake providers and invokes live Orca zero times.
+- [x] Fake/adoption scenarios cite current evidence; live-host scenario remains truthfully `blocked-verify` with upstream limitation.
+- [x] Assigned 5 cases pass with no existing assertion weakened or deleted.
+- [x] Build gate exits 0; CP-S6 is ready for fresh Technical Verification, final Deep Review, QA Plan, and QA Execute.
 
 **Tests:** integration + security — IT-013, IT-014, IT-015, IT-016, SEC-010
 **Gate:** `python3 scripts/test_adopt.py && python3 -m compileall -q .agents/skills tools scripts && npm_config_offline=true npm run test:all`

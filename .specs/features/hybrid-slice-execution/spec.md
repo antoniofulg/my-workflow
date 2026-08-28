@@ -267,11 +267,11 @@ then import the installed probe with a call-counting fake Orca.
 | HSE-32 | Independent proof | S5 | Implemented in T8 |
 | HSE-33 | Independent proof | S5 | Implemented in T8 |
 | HSE-34 | Independent proof | S5 | Implemented in T8 |
-| HSE-35 | Adoption | S6 | In Design |
-| HSE-36 | Adoption | S6 | In Design |
-| HSE-37 | Adoption | S6 | In Design |
-| HSE-38 | Adoption | S6 | In Design |
-| HSE-39 | Security | S1, S2, S4, S6 | In Design |
+| HSE-35 | Adoption | S6 | Implemented in T12 |
+| HSE-36 | Adoption | S6 | Implemented in T12 |
+| HSE-37 | Adoption | S6 | Implemented in T12 |
+| HSE-38 | Adoption | S6 | Implemented in T12 |
+| HSE-39 | Security | S1, S2, S4, S6 | Implemented in T12 |
 | HSE-40 | Security | S2, S3, S4 | In Design |
 | HSE-41 | Security | S4 | Implemented in T6 |
 | HSE-42 | Security | S1, S3, S4 | In Design |

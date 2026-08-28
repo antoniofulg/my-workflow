@@ -5,7 +5,7 @@ title: Run two resource-free Orca slices concurrently
 persona: Workflow operator
 journey: J-execute-parallel-slices
 expected: Two resource-free slices become active in distinct owned worktrees and terminals, then finish through correlated read, acknowledgement, release, and status receipts without changing TLC task or verification order.
-entry_points: tools/qa_parallel_pilot.py; .agents/skills/autonomous/scripts/parallel_execute.py start; .agents/skills/autonomous/scripts/parallel_execute.py status; .agents/skills/autonomous/scripts/parallel_execute.py resume
+entry_points: tools/orca_assisted_probe.py dispatch|inspect|cleanup; tools/qa_parallel_pilot.py; .agents/skills/autonomous/scripts/parallel_execute.py start; .agents/skills/autonomous/scripts/parallel_execute.py status; .agents/skills/autonomous/scripts/parallel_execute.py resume
 qa_status: blocked-verify
 bug_ids: BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree
 fix_status: fixed
@@ -17,10 +17,12 @@ overlaps: CFG-plan-parallel-slice-dispatch
 ---
 
 Covers the public E2E-001 resource-free path and observable portions of EXE-02, EXE-04,
-EXE-06–EXE-10, EXE-18, and EXE-22. The independent walk must use the real Orca capability and
+EXE-06–EXE-10, EXE-18, and EXE-22. The independent live walk must use the real Orca capability and
 public executor commands; a serial fallback or missing terminal receipt is not a pass.
 
-This scenario is terminal `blocked-verify`, not `pass`, `fail`, or `untested`. Product-side parsing,
+This scenario is terminal `blocked-verify`, not `pass`, `fail`, or `untested`. Offline fake-provider
+probe and adoption checks do not convert this live-host status. The limitation is the upstream
+Orca/Codex transport boundary. Product-side parsing,
 identity, terminal-ownership, recovery, and provider-preflight fixes are independently recorded by
 the fix commits above. The remaining live walk is blocked at an external Orca/Codex boundary.
 

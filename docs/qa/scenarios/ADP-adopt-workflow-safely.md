@@ -4,9 +4,9 @@ area: ADP
 title: Adopt the workflow without replacing consumer-owned state
 persona: Workflow adopter
 journey: J-adopt-workflow
-expected: A fresh target receives the workflow resolver, tracked example/templates, initialized local config, generated runtime packets, tools/ad-index.py, and a valid workflow tour; re-adoption preserves consumer-owned local state and feature workflow state remains visible to Git.
-entry_points: README.md#adopt-the-workflow; docs/guidelines/ARTIFACT-LIFECYCLE.md; scripts/adopt.py; .my-workflow.toml.example; .my-workflow.toml; templates/agents/
-qa_status: pass
+expected: A fresh target receives the v3 assisted workflow, pointer-only probe, tracked example/templates, initialized local config, generated runtime packets, and valid guidance; re-adoption preserves consumer-owned local state and feature workflow state remains visible to Git.
+entry_points: README.md#adopt-the-workflow; docs/guidelines/ARTIFACT-LIFECYCLE.md; scripts/adopt.py; tools/orca_assisted_probe.py; .my-workflow.toml.example; .my-workflow.toml; templates/agents/
+qa_status: untested
 bug_ids: BUG-20260822-deep-review-learnings-untrackable; BUG-20260822-feature-specs-ignored; BUG-20260822-feature-state-gate-conflicts; BUG-20260825-adoption-omits-parallel-pilot
 fix_status: fixed
 retest_status: pass
@@ -33,7 +33,7 @@ resolve, and re-adoption preserves a consumer-owned sentinel byte-for-byte.
 QA on 2026-08-22 confirmed fresh installation and identical SHA-256 before and after re-adoption of
 a consumer-modified `tools/ad-index.py`. The bundled-skill and release-contract canaries also passed.
 
-QA for issue #39 confirmed initial adoption and re-adoption install byte-identical TLC validator
+QA for issue #39 confirmed initial adoption and re-adoption install byte-identical workflow validator
 CLIs while preserving consumer-owned `.my-workflow.toml` and `docs/qa/README.md` byte-for-byte.
 
 For issue #41, adoption documents Ponytail activation at workflow start and points to `AGENTS.md`
@@ -77,3 +77,7 @@ Fresh QA after `816afd6` passed the affected adoption journey. The pilot install
 bytes, an intentionally stale managed copy was repaired, two re-adoptions preserved consumer-owned
 configuration byte-for-byte, and all 15 generated provider packets remained unchanged. The linked
 release/package canary also passed; see the current report.
+
+The hybrid-slice feature changes this public promise to v3 assisted-by-default adoption and adds
+the pointer-only `tools/orca_assisted_probe.py`. The implementation gate is not a user QA walk, so
+this scenario is reset to `untested` until fresh QA confirms the installed tree.
