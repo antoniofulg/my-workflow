@@ -2,10 +2,12 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, setDefaultTimeout } from "bun:test";
 
 const repositoryRoot = process.cwd();
 const createdRoots: string[] = [];
+
+setDefaultTimeout(30_000);
 
 function makeBundle(files: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), "okf-knowledge-cli-"));
@@ -32,16 +34,16 @@ afterEach(() => {
 });
 
 // Each dedicated knowledge case shells out to `npm run knowledge`, so it pays npm and tsx startup
-// on top of the check itself. That is a couple of seconds alone and more under vitest's parallel
+// on top of the check itself. That is a couple of seconds alone during parallel
 // load, well past the 5s default. The timeout is generous on purpose: a regression here should
 // read as a failed assertion, never as a flaky clock.
-describe("npm run knowledge", { timeout: 30_000 }, () => {
-  it("keeps repository-bundle validation out of the full Vitest gate", () => {
+describe("npm run knowledge", () => {
+  it("keeps repository-bundle validation out of the full structural gate", () => {
     const manifest = JSON.parse(
       readFileSync(join(repositoryRoot, "package.json"), "utf8"),
     ) as { scripts?: { test?: string } };
 
-    expect(manifest.scripts?.test).toContain("vitest");
+    expect(manifest.scripts?.test).toContain("bun test");
     expect(manifest.scripts?.test).not.toContain("knowledge");
   });
 

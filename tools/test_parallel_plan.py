@@ -14,6 +14,9 @@ import parallel_plan
 
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / ".agents/skills/tlc-spec-driven/scripts"))
+import validate_tasks  # noqa: E402
+import test_workflow_config as workflow_fixtures  # noqa: E402
 
 
 def make_repo(tasks: str, mode: str = "safe", feature: str = "fixture") -> Path:
@@ -66,6 +69,17 @@ def task(
     )
 
 
+def make_resolver_repo(tasks: str, feature: str = "fixture") -> Path:
+    root = workflow_fixtures.make_root()
+    workflow_fixtures.write_config(root)
+    workflow_fixtures.write_packets(root)
+    workflow_fixtures.write_tasks(root, tasks, feature)
+    workflow_fixtures.workflow_config.sync_agents(root)
+    workflow_fixtures.git_root(root)
+    workflow_fixtures.workflow_config.resolve(root=root, feature=feature, native_provider="codex")
+    return root
+
+
 def first_task(plan: dict[str, object], task_id: str) -> dict[str, object]:
     return next(item for item in plan["lanes"] if item["task"] == task_id)  # type: ignore[index]
 
@@ -80,6 +94,62 @@ def test_slice_order_exposes_only_first_incomplete_task() -> None:
         plan = parallel_plan.plan(root=root, feature="fixture")
         assert [item["task"] for item in plan["lanes"]] == ["T1", "T3"]
         assert blocked_task(plan, "T2")["reasons"] == ["slice-order:T1"]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_closure_table_does_not_change_declared_slice_membership() -> None:
+    closure = (
+        "## Vertical Slice Closure\n\n"
+        "| Slice | Observable outcome | Independent gate | Merge if later slices are cancelled? | Why |\n"
+        "| --- | --- | --- | --- | --- |\n"
+        "| A | First capability. | `gate-a` | yes | Independent value. |\n"
+        "| B | Second capability. | `gate-b` | yes | Independent value. |\n\n"
+    )
+    tasks = closure + "## Task Breakdown\n\n" + task("T1", "A") + task("T2", "A") + task("T3", "B") + task("T4", "B")
+    root = make_repo(tasks)
+    try:
+        contract = validate_tasks.validated_slice_contract(
+            str(root / ".specs/features/fixture/tasks.md")
+        )
+        plan = parallel_plan.plan(root=root, feature="fixture")
+        assert [item["slice"] for item in plan["lanes"]] == ["A", "B"]
+        assert [item["task"] for item in plan["lanes"]] == ["T1", "T3"]
+        planned_membership = {
+            item["task"]: item["slice"]
+            for item in [*plan["lanes"], *plan["blocked"]]
+        }
+        assert planned_membership == contract["task_slices"]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_resolver_v2_snapshot_preserves_validator_membership() -> None:
+    closure = (
+        "## Vertical Slice Closure\n\n"
+        "| Slice | Observable outcome | Independent gate | Merge if later slices are cancelled? | Why |\n"
+        "| --- | --- | --- | --- | --- |\n"
+        "| A | First capability. | `gate-a` | yes | Independent value. |\n"
+        "| B | Second capability. | `gate-b` | yes | Independent value. |\n\n"
+        "## Task Breakdown\n\n"
+    )
+    tasks = closure + task("T1", "A") + task("T2", "A") + task("T3", "B") + task("T4", "B")
+    root = make_resolver_repo(tasks)
+    try:
+        snapshot = json.loads(
+            (root / ".specs/features/fixture/workflow.json").read_text(encoding="utf-8")
+        )
+        assert snapshot["version"] == 2
+        contract = validate_tasks.validated_slice_contract(
+            str(root / ".specs/features/fixture/tasks.md")
+        )
+        plan = parallel_plan.plan(root=root, feature="fixture")
+        planned_membership = {
+            item["task"]: item["slice"]
+            for item in [*plan["lanes"], *plan["blocked"]]
+        }
+        assert planned_membership == contract["task_slices"]
+        assert plan["source_git_head"] == snapshot["git_head"]
     finally:
         shutil.rmtree(root)
 

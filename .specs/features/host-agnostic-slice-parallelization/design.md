@@ -174,5 +174,5 @@ Only `status=compatible` with `proof.cleanup=clean` is persisted or consumed by 
 | Mode separation | `assisted` defaults to direct coordination; `safe`/`full` stay automatic | Avoid coupling the temporary host workaround to future adapter semantics. |
 | Packet delivery | Pointer-only until upstream transport is proven | No host receipt currently distinguishes complete delivery from truncation. |
 
-AD-017 supersedes the opt-in/default parts of AD-011 and AD-015. AD-012 through AD-014 remain active,
-and AD-016 remains the packet transport rule until upstream support is proven.
+AD-019 supersedes the opt-in/default parts of AD-011 and AD-017. AD-012 through AD-014 remain active,
+and AD-018 remains the packet transport rule until upstream support is proven.

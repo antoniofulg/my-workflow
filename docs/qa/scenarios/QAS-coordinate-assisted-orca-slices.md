@@ -40,7 +40,7 @@ human direction, so neither closes anything; the history below is kept as memory
 One linked bug stays open by design:
 [`BUG-20260827-orca-terminal-send-truncates-claude-worker-packet`](../bugs/BUG-20260827-orca-terminal-send-truncates-claude-worker-packet.md)
 is an upstream host defect that no change in this repository can fix. `fix_status: fixed` and
-`retest_status: pass` describe the workflow-side remediation — AD-016 pointer delivery — which
+`retest_status: pass` describe the workflow-side remediation — AD-018 pointer delivery — which
 Retest 12 retested and passed. The host defect itself is unfixed and did not reproduce in Retest 12's
 single characterization, which is a fact about that attempt, not a clearance.
 

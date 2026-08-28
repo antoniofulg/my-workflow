@@ -1,0 +1,3 @@
+[test]
+root = "./tools"
+preload = ["./tools/shared/src/bun-version.ts"]

@@ -134,6 +134,7 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: validation.md:Slice-C-R1-waiting-follow-up (workflow-executor)
 - last seen: 2026-08-24T18:42:24Z
 
+<<<<<<< HEAD
 ### L-021 - Exercise adapter compatibility through the executor boundary before accepting a host capability proof
 - signal: `ac_gap` · recurrence: 1 feature(s) · scope: `host-adapters` · harmful: 0
 - features: host-agnostic-slice-parallelization
@@ -193,6 +194,35 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - features: host-agnostic-slice-parallelization
 - evidence: .specs/features/host-agnostic-slice-parallelization/validation.md:AST-04 task-state sensor (assisted-reconciliation)
 - last seen: 2026-08-28T02:52:19Z
+### L-031 - Failure-path tests assert the offending record identity, not only the error category
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `workflow-validation` · harmful: 0
+- features: merge-alone-slices
+- evidence: MAS-03/MAS-04 (workflow-validation)
+- last seen: 2026-08-27T09:08:50Z
+
+### L-032 - Failure atomicity tests assert pre-existing artifact bytes remain unchanged
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `workflow-resolution` · harmful: 0
+- features: merge-alone-slices
+- evidence: MAS-05/MAS-07 (workflow-resolution)
+- last seen: 2026-08-27T09:08:50Z
+
+### L-033 - Fixtures exercise every identifier shape named by the acceptance criterion
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `workflow-validation` · harmful: 0
+- features: merge-alone-slices
+- evidence: MAS-10 (workflow-validation)
+- last seen: 2026-08-27T09:08:50Z
+
+### L-034 - Cross-component contract tests compare producer output directly with consumer output
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `workflow-planning` · harmful: 0
+- features: merge-alone-slices
+- evidence: MAS-11 (workflow-planning)
+- last seen: 2026-08-27T09:08:50Z
+
+### L-035 - Boundary values named by the specification receive explicit regression assertions
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `workflow-resolution` · harmful: 0
+- features: merge-alone-slices
+- evidence: MAS-05 edge (workflow-resolution)
+- last seen: 2026-08-27T09:08:50Z
 
 ## Quarantined (failed when applied - ignore)
 

@@ -124,6 +124,27 @@ def test_state_validation_rejects_foreign_and_malformed_state() -> None:
             raise AssertionError("invalid state must be rejected")
 
 
+def test_executor_accepts_v2_snapshot_and_rejects_v1_without_fallback() -> None:
+    root = make_repo()
+    try:
+        coordinator = parallel_execute.Coordinator(
+            root, "fixture", adapter_factory=lambda: RecordingAdapter()
+        )
+        assert coordinator._workflow()["version"] == 2
+        path = root / ".specs/features/fixture/workflow.json"
+        workflow = json.loads(path.read_text(encoding="utf-8"))
+        workflow["version"] = 1
+        path.write_text(json.dumps(workflow), encoding="utf-8")
+        try:
+            coordinator.status()
+        except parallel_execute.ExecutorError as exc:
+            assert str(exc) == "invalid workflow snapshot"
+        else:
+            raise AssertionError("workflow snapshot version 1 must be rejected")
+    finally:
+        shutil.rmtree(root)
+
+
 def test_runtime_state_path_is_git_common_state_not_versioned_feature_state() -> None:
     root = make_repo()
     try:

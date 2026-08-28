@@ -864,7 +864,7 @@ This does **not** clear `BUG-20260827-orca-terminal-send-truncates-claude-worker
 timing-dependent by the record's own description; one clean sample no more disproves an intermittent
 defect than one dirty sample proves it, nothing in Orca changed, and `orca terminal send --text`
 still exposes no acknowledgement mode. The bug stays open; this run did not reproduce it and, under
-AD-016, never depended on the answer.
+AD-018, never depended on the answer.
 
 ### Final CLI persona QA — persona Workflow operator
 
@@ -912,5 +912,5 @@ Two pre-existing foreign artifacts were identified and deliberately left untouch
 | Bug | Disposition |
 | --- | --- |
 | `BUG-20260827-assisted-pilot-batch-cli-drops-final-newline` | **closed** — re-derived from scratch, not inherited; symptom absent, required assertion present and proven discriminating |
-| `BUG-20260827-orca-terminal-send-truncates-claude-worker-packet` | **open** against the host — AD-016 route-around retested and passed; the host defect is unfixed and did not reproduce in one characterization, which clears nothing |
+| `BUG-20260827-orca-terminal-send-truncates-claude-worker-packet` | **open** against the host — AD-018 route-around retested and passed; the host defect is unfixed and did not reproduce in one characterization, which clears nothing |
 | `BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree` | **open** against the automatic executor; not reachable through the assisted path, untouched by this cycle |

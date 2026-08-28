@@ -8,7 +8,8 @@ sequential. Explicit `disabled` is the sequential override.
 
 1. Resolve the feature workflow with `.agents/skills/workflow-config/SKILL.md`.
 2. Read the frozen `workflow.json` before planning. It must use schema version `2`. Never plan from
-   current configuration while resuming a feature.
+2. Read the frozen `workflow.json` before planning. It must use schema version `2`. Never plan from
+   current configuration while resuming a feature. Version 1 is rejected without migration.
 3. Run the read-only planner from the repository root:
 
    ```bash
@@ -32,7 +33,7 @@ sequential. Explicit `disabled` is the sequential override.
    remains serial; it never parses human output or creates a floor, agent, or Git worktree during
    preflight.
 
-6. A lane with `Resources: none` bypasses the consumer provider; any declared resource names
+7. A lane with `Resources: none` bypasses the consumer provider; any declared resource names
    require the frozen executable and a prepared correlated lease before worker start.
 
 `disabled`, an invalid or fallback plan, a missing frozen snapshot, or no capable isolated executor

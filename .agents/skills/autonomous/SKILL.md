@@ -1,6 +1,6 @@
 ---
 name: autonomous
-description: Ship work unattended through a proven-ready tree. Classifies the request as a feature or an issue batch and runs the matching loop; after readiness, the run may push its feature branch, create one pull request, and merge it. Other remote actions remain separately authorized.
+description: Ship work unattended through a proven-ready tree and its matching path. Credential-free declarative agent-tool configuration stops after its local commit; eligible remote work may push one feature branch, create one pull request, and merge it. Other remote actions remain separately authorized.
 disable-model-invocation: true
 argument-hint: "[the work, in your own words]"
 ---
@@ -32,7 +32,7 @@ A phase boundary is not a checkpoint. The run reaches the end of the work or it 
 
 ## Classify the run first
 
-The human describes the work in their own words. Decide which of two paths it takes, state the
+The human describes the work in their own words. Decide which path it takes, state the
 choice in one line with the reason, and proceed — this is a judgment to make, not a flag to be given.
 
 | The work is | Path |
@@ -40,6 +40,7 @@ choice in one line with the reason, and proceed — this is a judgment to make, 
 | **A direct correction** — an exact human-defined single invariant with no product ambiguity or implicit-requirement surface | The direct-correction path in `tlc-spec-driven` |
 | **A feature** — a capability or behaviour the product lacks | The full loop in `AGENTS.md` |
 | **An issue batch** — work already filed and reviewed | The filed-issue path in `docs/guidelines/REVIEW-ROUNDS.md` |
+| **Credential-free declarative agent-tool configuration** | The local light path in `docs/guidelines/GATES.md`; stop after its atomic commit |
 
 The test is whether the work was already read by a reviewer. A filed issue was — that is how it came
 to be filed — so it does not re-enter the feature loop. Running a verifier and two review rounds over
@@ -109,6 +110,10 @@ slices; its serial fallback remains the explicit `disabled` override and fail-cl
 run the scoped validation, and commit. Create no feature artifacts and skip fresh Verifier,
 deep-review, and QA.
 
+**Credential-free declarative agent-tool configuration:** follow `docs/guidelines/GATES.md`. The
+active agent edits and commits locally without delegation, then reports and stops before remote
+delivery.
+
 **An issue batch:** `implement → scoped gate → one commit per batch`. No spec, no verifier, no
 deep-review round. Three things still fire, because they are about the change rather than the review:
 a user-visible fix flags and walks its scenario, a fix touching a security surface reads
@@ -120,10 +125,13 @@ Close each issue in the commit that fixes it (`Closes #NN`), and leave open any 
 with a comment saying why.
 
 **Done when:** for a feature, every implementation slice has its Verifier result, every resolved
-deep-review group is complete, any flagged scenario is walked, and the final QA session is complete; for a batch, every
-selected issue is fixed and closed or explicitly left open with a reason.
+deep-review group is complete, any flagged scenario is walked, and the final QA session is complete;
+for a batch, every selected issue is fixed and closed or explicitly left open with a reason; for the
+light path, its gate passes and its local commit exists.
 
 ## 4. Prove readiness, then deliver within scope
+
+The credential-free declarative agent-tool path stops before this remote-delivery stage.
 
 The following conditions prove that a remote delivery would be safe to consider:
 
@@ -151,7 +159,7 @@ This authority excludes deploy or release, production mutations, force-push, dir
 and unrelated remote actions; those require explicit instruction. Readiness is evidence, not
 authorization for those actions.
 
-One pull request per run — a batch of issues ships together, the same way a feature's slices do.
+One pull request per remote-delivery run — a batch ships together, as do a feature's slices.
 
 **Done when:** readiness is proven and the scoped feature-branch push, one pull request, and merge
 are complete, or the run halted with the reason and the out-of-scope action awaiting instruction.
@@ -161,7 +169,7 @@ are complete, or the run halted with the reason and the out-of-scope action awai
 For feature work, write `.specs/features/<slug>/decisions.md` — everything the run chose while
 nobody was watching, in a form a stakeholder can review and reverse. It is the deliverable that
 makes an unattended run accountable, so it is written even when the run halts. Direct corrections
-have no feature artifact to report.
+and credential-free declarative agent-tool configuration have no feature artifact to report.
 
 Each decision carries: **what was chosen**, **why**, **the alternatives rejected and why**, **what it
 would cost to change now**, and **what it costs the user today**. Decisions weighty enough to outlive
@@ -170,8 +178,9 @@ the feature also go to `.specs/STATE.md` as an `AD-NNN` and are named here; the 
 Separate the decisions the human handed down from the ones the run made — a reviewer reading in the
 morning needs to know which are theirs.
 
-Then leave, in the pull request and in the final message: what shipped, the full-gate evidence, and
-— for a batch — which issues closed and which were left, with why.
+Then leave, in the pull request and final message: what shipped, gate evidence, and — for a batch —
+which issues closed and which were left, with why. The local light path reports changed files, gate
+commands, and commit hash without a pull request.
 
 **Done when:** every choice the run made that the documents did not dictate appears in
 `decisions.md`, including the ones that felt too small to mention, which are the ones a reader most

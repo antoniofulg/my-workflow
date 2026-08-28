@@ -63,7 +63,7 @@ before each task turn. No automatic Orca compatibility claim is made or implied 
 ## Resolution
 
 The contract owner took the third option above: a packet transport that does not cross the TUI
-input. `AD-016` removes the inline-payload path from
+input. `AD-018` removes the inline-payload path from
 `.agents/skills/autonomous/references/parallelization.md`. The coordinator now writes the complete
 slice packet — marker requirement included — to a coordinator-owned file outside every slice
 worktree, and the one mandated `orca terminal send` carries only a short fixed-shape pointer to that
@@ -86,7 +86,7 @@ silently half-executing. This record stays open against the host until
 
 The retest this record was waiting for has now happened, and it separates cleanly into two results.
 
-**The workflow-side remediation passes.** Under AD-016 every mandated packet crossed
+**The workflow-side remediation passes.** Under AD-018 every mandated packet crossed
 `orca terminal send` as a short pointer and none carried a body. Eight logical packets — bodies of
 1226, 1355, 1635, 1644, 1523, 1627, 1678 and 2077 characters — were delivered as **177-190 character
 pointers**, each sent exactly once, each `ok=true`, and each honoured packet-exactly. `A_FINAL` and

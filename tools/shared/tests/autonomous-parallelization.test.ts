@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 const repositoryRoot = process.cwd();
 
@@ -517,6 +517,14 @@ describe("autonomous parallel slice dispatch contract", () => {
       writeFileSync(
         join(featureDir, "tasks.md"),
         [
+          "## Vertical Slice Closure",
+          "| Slice | Observable outcome | Independent gate | Merge if later slices are cancelled? | Why |",
+          "| --- | --- | --- | --- | --- |",
+          "| A | first | true | yes | independent |",
+          "| B | second | true | yes | independent |",
+          "",
+          "## Tasks",
+          "",
           "### T1: first",
           "**Status:** pending",
           "**Slice:** A",
@@ -541,7 +549,7 @@ describe("autonomous parallel slice dispatch contract", () => {
       const explicit = JSON.parse(
         execFileSync(
           "python3",
-          [resolver, "--root", root, "--feature", "explicit", "--slices", "2", "--native-provider", "codex"],
+          [resolver, "--root", root, "--feature", "fixture", "--slices", "2", "--native-provider", "codex"],
           { encoding: "utf8" },
         ),
       ) as { parallelization: { mode: string } };

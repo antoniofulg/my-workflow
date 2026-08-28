@@ -14,14 +14,16 @@ When recording an `AD-NNN`, run `python3 tools/ad-index.py` in the same commit.
 | `AD-005` | active | Keep the optional, checkout-local Graft `0.10.1` integration as the deep-review context aid. |
 | `AD-006` | active | Keep the workflow stack- and tool-agnostic while allowing optional capability integrations. |
 | `AD-007` | active | `.specs/features/` is versioned, durable workflow state. |
-| `AD-008` | active | Adopt upstream ai-memory `1.31.0` only as an opt-in, transient handoff transport between Claude Code, Codex, and Cursor. |
+| `AD-008` | superseded by AD-015 | Adopt the upstream optional `1.31.0` integration only as an opt-in, transient handoff transport between Claude Code, Codex, and Cursor. |
 | `AD-009` | superseded by AD-010 | `.my-workflow.toml` is the single editable source for bundled Claude, Codex, and Cursor agent models and efforts. |
 | `AD-010` | active | Track `.my-workflow.toml.example` and provider packet templates, while keeping `.my-workflow.toml` and generated `.claude`, `.codex`, and `… |
-| `AD-011` | superseded by AD-017 | Parallelization is an opt-in inter-slice orchestration layer above unchanged TLC; `disabled` is the default, `safe` consumes independent or… |
+| `AD-011` | superseded by AD-019 | Parallelization is an opt-in inter-slice orchestration layer above unchanged TLC; `disabled` is the default, `safe` consumes independent or… |
 | `AD-012` | active | Parallel execution uses a provider-neutral deterministic coordinator whose adapters own external effects. |
 | `AD-013` | active | The provider-neutral coordinator derives and validates a deterministic sibling Git worktree destination, creates that checkout with fixed a… |
 | `AD-014` | active | Technical Verifier remediation is bounded per blocker fingerprint, defined by the requirement, root cause, and concrete failure path. |
-| `AD-015` | superseded by AD-017 | When automatic host orchestration is incompatible, explicit human authorization may enable coordinator-assisted inter-slice execution throu… |
-| `AD-016` | active | The assisted coordinator writes each complete slice packet to a coordinator-owned file outside every slice worktree and sends only a short… |
-| `AD-017` | active | `assisted` is the default inter-slice execution mode whenever the frozen task DAG exposes independent safe slices. |
-| `AD-018` | active | Merge the workflow-side assisted-parallelization remediation with the affected live QA scenario truthfully left `untested`; defer live Orca… |
+| `AD-015` | active | Cross-provider session continuation is owned by the host. |
+| `AD-016` | active | Vertical slice count is derived from validated task outcomes that remain worth merging if all later slices are cancelled. |
+| `AD-017` | superseded by AD-019 | When automatic host orchestration is incompatible, explicit human authorization may enable coordinator-assisted inter-slice execution throu… |
+| `AD-018` | active | The assisted coordinator writes each complete slice packet to a coordinator-owned file outside every slice worktree and sends only a short… |
+| `AD-019` | active | `assisted` is the default inter-slice execution mode whenever the frozen task DAG exposes independent safe slices. |
+| `AD-020` | active | Merge the workflow-side assisted-parallelization remediation with the affected live QA scenario truthfully left `untested`; defer live Orca… |

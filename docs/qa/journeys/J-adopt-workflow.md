@@ -8,13 +8,15 @@
 
 1. Review the target's clean state, managed paths, and existing operational capabilities.
 2. Confirm `.specs/features/` is versioned workflow state that travels through worktrees and CI;
-   task status commits with its task, while adoption removes exact legacy ignore entries and keeps
-   unrelated consumer rules intact.
+   task status and merge-alone closure commits travel with their tasks, while adoption removes exact
+   legacy ignore entries and keeps unrelated consumer rules intact.
 3. Adopt into a checkout-local disposable target through the documented CLI.
 4. Confirm bundled workflow assets are discoverable, the installed instructions activate Ponytail
    at workflow start and keep it active through the full cycle, the copied workflow tour omits the
-   source-only pack guide and its links, all three external security skills remain absent, and
-   adoption prints their separate authorized installation command.
+   source-only pack guide and its links, source-pack-only Bun tests/configuration/preload remain
+   absent from the target, no `bun.lock` is created, all three external security skills remain
+   absent, and adoption prints their separate authorized installation command without installing
+   Bun or editing host settings.
 5. Re-adopt a target with a consumer-owned `.my-workflow.toml`, QA profile, model settings,
    template bodies, `tools/ad-index.py`, and unrelated ignore entries.
 6. Confirm the local config and consumer-owned template/profile state survive byte-for-byte, runtime
@@ -33,7 +35,6 @@
 - [`QAS-discover-independent-qa-skills`](../scenarios/QAS-discover-independent-qa-skills.md)
 - [`QAS-enforce-spec-anchored-qa-contracts`](../scenarios/QAS-enforce-spec-anchored-qa-contracts.md)
 - [`CFG-keep-local-artifacts-out-of-git`](../scenarios/CFG-keep-local-artifacts-out-of-git.md)
-- [`WFL-ai-memory-handoff`](../scenarios/WFL-ai-memory-handoff.md)
 
 ## Adjacent canary
 

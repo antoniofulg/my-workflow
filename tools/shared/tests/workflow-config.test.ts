@@ -2,7 +2,7 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 const repositoryRoot = process.cwd();
 const skillPath = ".agents/skills/workflow-config/SKILL.md";
@@ -37,6 +37,39 @@ describe("workflow configuration skill", () => {
     expect(skill).toMatch(/Halt with the\s+provider and role named/);
     expect(skill).toContain("without merging definitions or silently");
     expect(skill).not.toContain("deep-review after every slice");
+  });
+
+  it("publishes the merge-alone slice planning contract", () => {
+    const template = readRepositoryFile(".agents/skills/tlc-spec-driven/references/tasks.md");
+    const skill = readRepositoryFile(skillPath);
+    const readme = readRepositoryFile("README.md");
+    const normalizedTemplate = template.replace(/\s+/g, " ");
+    const normalizedSkill = skill.replace(/\s+/g, " ");
+    const normalizedReadme = readme.replace(/\s+/g, " ");
+
+    expect(template).toContain("## Vertical Slice Closure");
+    expect(template).toContain("**Slice:** <slice-id>");
+    expect(normalizedTemplate).toContain("merge-alone observable outcome");
+    expect(normalizedTemplate).toContain("A phase or cohort describes technical ordering");
+    expect(normalizedTemplate).toContain("a batch describes worker capacity");
+    expect(normalizedSkill).toContain("validates the vertical-slice closure contract and derives the count");
+    expect(normalizedSkill).toContain("optional assertion");
+    expect(normalizedSkill).toContain("it never owns the count");
+    expect(normalizedReadme).toContain("validates its vertical-slice closure table and derives");
+    expect(normalizedReadme).toContain("`--slices` is an optional assertion");
+    expect(normalizedReadme).not.toContain("--feature register-user-native --slices 4");
+    expect(normalizedReadme).not.toContain("--feature register-user-profile --slices 4");
+    expect(normalizedReadme).not.toContain("--feature register-user-override --slices 4");
+
+    const taskBreakdown = template.slice(template.indexOf("## Task Breakdown"));
+    const taskExamples = [...taskBreakdown.matchAll(/^### (T\d+):/gm)];
+    expect(taskExamples.map(([_, taskId]) => taskId)).toEqual(["T1", "T2", "T3", "T4"]);
+    taskExamples.forEach((match, index) => {
+      const start = match.index ?? 0;
+      const end = taskExamples[index + 1]?.index ?? taskBreakdown.length;
+      const body = taskBreakdown.slice(start, end);
+      expect(body.match(/^\*\*Slice:\*\* \[id\]$/gm) ?? []).toHaveLength(1);
+    });
   });
 
   it("identifies a complete agent definition for every supported role and provider", () => {
@@ -82,6 +115,24 @@ describe("workflow configuration skill", () => {
     expect(packaged.some((path) => path.startsWith(".claude/agents/"))).toBe(false);
     expect(packaged.some((path) => path.startsWith(".codex/agents/"))).toBe(false);
     expect(packaged.some((path) => path.startsWith(".cursor/agents/"))).toBe(false);
+    const integrationName = ["ai", "memory"].join("-");
+    const integrationModule = ["ai", "memory"].join("_");
+    const removedPackagePaths = [
+      `scripts/${integrationName}.zsh`,
+      `scripts/test_${integrationModule}.py`,
+      `docs/workflow/${integrationName}.md`,
+      `docs/qa/scenarios/WFL-${integrationName}-handoff.md`,
+      `.specs/features/${integrationName}-handoff/`,
+    ];
+    expect(
+      packaged.filter((packagePath) =>
+        removedPackagePaths.some(
+          (removedPath) =>
+            packagePath === removedPath ||
+            (removedPath.endsWith("/") && packagePath.startsWith(removedPath)),
+        ),
+      ),
+    ).toEqual([]);
   }, 30_000);
 
   it("resolves the shipped mixed profile to its exact provider routes", () => {

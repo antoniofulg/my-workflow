@@ -45,9 +45,9 @@ feature snapshots freeze delegated settings. Cursor also sees `.claude/` and `.c
 
 ## How work happens
 
-Use the `tlc-spec-driven` skill and size the work before creating feature artifacts. An exact
-human-defined direct correction follows that skill's direct-correction path; only feature work
-uses the hierarchy below. At the start of workflow work, activate `ponytail`
+Use `tlc-spec-driven` and size work before feature artifacts. Exact human-defined corrections follow
+its direct-correction path; credential-free declarative agent-tool configuration follows
+`docs/guidelines/GATES.md`; only features use the hierarchy below. At the start of workflow work, activate `ponytail`
 at `full` and keep it active for the entire session; for direct corrections, this means through
 inspect, implement, validation, and commit. For feature work, it includes Specify, Design, Tasks, Execute, every
 subagent prompt, fix, and review, until the human explicitly says `stop ponytail` or `normal mode`.

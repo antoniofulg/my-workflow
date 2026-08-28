@@ -127,7 +127,7 @@ def _validate_fixture(value: str) -> tuple[Path, dict[str, object], dict[str, ob
     snapshot_path = root / ".specs/features" / FEATURE / "workflow.json"
     snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
     repository_head = git(root, "rev-parse", "HEAD")
-    if snapshot.get("feature") != FEATURE or snapshot.get("git_head") != repository_head:
+    if snapshot.get("version") != 2 or snapshot.get("feature") != FEATURE or snapshot.get("git_head") != repository_head:
         raise ValueError("pilot frozen workflow source HEAD does not match repository HEAD")
     if ownership.get("source_git_head") != repository_head:
         raise ValueError("pilot ownership source HEAD does not match repository HEAD")

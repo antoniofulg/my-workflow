@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+import json
 import os
 import re
 import shutil
@@ -183,6 +184,34 @@ def test_fresh_and_refuse() -> None:
         original_config = config.read_bytes()
         run(tmp)
         assert config.read_bytes() == original_config
+        assert (tmp / "tools/knowledge/src/check.ts").is_file()
+        assert not (tmp / "tools/knowledge/tests").exists()
+        assert not (tmp / "tools/shared/tests").exists()
+        assert not (tmp / "tools/shared/src/bun-version.ts").exists()
+        assert not (tmp / "bunfig.toml").exists()
+        assert not (tmp / "bun.lock").exists()
+        source_pack_paths = (
+            "tools/knowledge/tests/check.test.ts",
+            "tools/shared/tests/frontmatter.test.ts",
+        )
+        for relative_path in source_pack_paths:
+            assert subprocess.run(
+                ["git", "ls-files", "--error-unmatch", "--", relative_path],
+                cwd=ROOT,
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            ).returncode == 0
+        package_manifest = json.loads(
+            subprocess.check_output(
+                ["npm", "pack", "--dry-run", "--json"],
+                cwd=ROOT,
+                text=True,
+            )
+        )
+        packaged = {entry["path"] for entry in package_manifest[0]["files"]}
+        for relative_path in source_pack_paths:
+            assert relative_path in packaged, relative_path
         agents = (tmp / "AGENTS.md").read_text(encoding="utf-8")
         assert STENCIL in agents
         claude = tmp / "CLAUDE.md"
@@ -240,6 +269,79 @@ def test_fresh_and_refuse() -> None:
             raise AssertionError("expected refuse on non-stencil product paragraph")
     finally:
         shutil.rmtree(tmp)
+
+
+def test_host_owned_session_continuation_absence_and_idempotence() -> None:
+    project = Path(tempfile.mkdtemp())
+    host = Path(tempfile.mkdtemp())
+    try:
+        integration_name = "-".join(("ai", "memory"))
+        integration_module = "_".join(("ai", "memory"))
+        zsh_directory = host / ".config/zsh"
+        host_sentinels = {
+            host / ".zshrc": b"# disposable host shell sentinel\n",
+            zsh_directory / ".zshrc": b"# disposable ZDOTDIR sentinel\n",
+            host / ".config/operator/settings": b"operator-owned\n",
+            host / ".git/hooks/pre-commit": b"#!/bin/sh\n# disposable host hook sentinel\n",
+        }
+        for path, content in host_sentinels.items():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(content)
+        project_hook = project / ".git/hooks/pre-commit"
+        project_hook.parent.mkdir(parents=True, exist_ok=True)
+        project_hook.write_bytes(b"#!/bin/sh\n# project hook sentinel\n")
+        host_before = snapshot_tree(host)
+
+        previous_environment = {
+            key: os.environ.get(key) for key in ("HOME", "ZDOTDIR")
+        }
+        os.environ["HOME"] = str(host)
+        os.environ["ZDOTDIR"] = str(zsh_directory)
+        try:
+            run(project)
+            first = snapshot_tree(project)
+            assert project_hook.read_bytes() == b"#!/bin/sh\n# project hook sentinel\n"
+
+            forbidden_paths = (
+                f".{integration_name}.toml",
+                f".{integration_name}",
+                f".{integration_name}.sqlite",
+                f".{integration_name}.db",
+                f"{integration_name}.sqlite",
+                f"{integration_name}.db",
+                "handoff.json",
+                f"scripts/{integration_name}.zsh",
+                f"scripts/test_{integration_module}.py",
+                f"docs/workflow/{integration_name}.md",
+                f"docs/qa/scenarios/WFL-{integration_name}-handoff.md",
+                f".specs/features/{integration_name}-handoff",
+                "bun.lock",
+                "bunfig.toml",
+            )
+            for relative_path in forbidden_paths:
+                assert not (project / relative_path).exists(), relative_path
+
+            for path in project.rglob("*"):
+                relative = path.relative_to(project)
+                if ".git" in relative.parts or not path.is_file():
+                    continue
+                content = path.read_bytes().lower()
+                assert f"source scripts/{integration_name}.zsh".encode() not in content, relative
+
+            run(project)
+            assert snapshot_tree(project) == first
+            assert project_hook.read_bytes() == b"#!/bin/sh\n# project hook sentinel\n"
+        finally:
+            for key, value in previous_environment.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
+        assert snapshot_tree(host) == host_before
+    finally:
+        shutil.rmtree(project)
+        shutil.rmtree(host)
 
 
 def test_consumer_ad_index_is_preserved_on_readopt() -> None:
@@ -692,6 +794,7 @@ def test_graft_ignore_contract_and_search_visibility() -> None:
 
 TESTS = (
     "test_fresh_and_refuse",
+    "test_host_owned_session_continuation_absence_and_idempotence",
     "test_consumer_ad_index_is_preserved_on_readopt",
     "test_skip_agents_preserves_product_files_and_adopts_rest",
     "test_skip_agents_preserves_absent_claude_file",

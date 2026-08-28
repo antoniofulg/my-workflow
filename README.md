@@ -76,7 +76,8 @@ into `AGENTS.md` and update `CLAUDE.md` manually later.
 Prerequisites: the target directory must already exist, and `adopt.py` requires Python 3. Adoption
 does not require a Git `HEAD`. Before running the workflow-config resolver, the target must be a Git
 repository with at least one commit. Node.js and npm are needed only to validate this source pack's
-gates, not to adopt it.
+gates; Bun 1.4.x must also already be available for those gates, and adoption itself does not
+install them.
 
 Adoption is a review before it is a command. [`docs/adoption-prompt.md`](docs/adoption-prompt.md)
 carries the prompt for the read-only inspection, adoption command, and diff review.
@@ -130,20 +131,25 @@ never opens a third deep-review round.
 The resolver uses the native provider for every role unless a named profile or role override is
 selected. Precedence is `CLI override > profile > native provider`:
 
+When a feature has `tasks.md`, the resolver validates its vertical-slice closure table and derives
+the slice count from merge-alone outcomes. A feature without `tasks.md` uses one slice. `--slices`
+is an optional assertion against that derived count during initial resolution or refresh; it is not
+the source of truth.
+
 ```bash
 # Native route: all roles use Codex.
 python3 .agents/skills/workflow-config/scripts/workflow_config.py \
-  --root /path/to/target-project --feature register-user-native --slices 4 \
+  --root /path/to/target-project --feature register-user-native \
   --native-provider codex
 
 # Named profile: use the [profiles.mixed] routes from .my-workflow.toml.
 python3 .agents/skills/workflow-config/scripts/workflow_config.py \
-  --root /path/to/target-project --feature register-user-profile --slices 4 \
+  --root /path/to/target-project --feature register-user-profile \
   --native-provider codex --profile mixed
 
 # Role overrides win over both the selected profile and the native provider.
 python3 .agents/skills/workflow-config/scripts/workflow_config.py \
-  --root /path/to/target-project --feature register-user-override --slices 4 \
+  --root /path/to/target-project --feature register-user-override \
   --native-provider codex --profile mixed \
   --override deep_reviewer=cursor --override verifier=claude
 ```
@@ -156,7 +162,7 @@ effort. If it differs, synchronize packets and explicitly refresh; ordinary resu
 
 ```bash
 python3 .agents/skills/workflow-config/scripts/workflow_config.py \
-  --root /path/to/target-project --feature register-user-refresh --slices 4 \
+  --root /path/to/target-project --feature register-user-refresh \
   --native-provider codex --refresh
 ```
 
@@ -219,10 +225,8 @@ available:
 - **Graft** can enrich deep-review context; absence or failure falls back to repository inspection.
 - **OpenDesign** can support visual iteration; the repository stores only the approved handoff, and
   absence or failure falls back to normal repository artifacts.
-- **ai-memory** is opt-in, is not installed by `adopt.py`, and carries one operator handoff between
-  Claude Code, Codex, and Cursor. Use the [handoff guide](docs/workflow/ai-memory.md) to enable,
-  disable, re-enable, or purge it; after enabling, source the helper in a new shell and restart
-  agents. `handoff` remains the fallback, and internal reviewers use explicit role packets.
+- Cross-provider session continuation is owned by the host. Repository files, Git state, feature
+  artifacts, and explicit handoff prompts remain the durable semantic context.
 
 No integration is mandatory or installed by adoption. Keep daemon, port, CLI and version details in
 the relevant integration documentation.
@@ -259,6 +263,16 @@ running it. Until it succeeds, do not treat the security gate as covered.
 packet templates live under `templates/agents/{cursor,claude,codex}/`; generated implementer,
 explorer and verifier runtimes live under the ignored `.cursor/agents/`, `.claude/agents/` and
 `.codex/agents/` directories.
+
+## Structural test gate
+
+The structural TypeScript contracts run on Bun 1.4.x. The repository-local `bunfig.toml` limits
+discovery to `./tools`; `npm test` and `bun test` run the same canonical suite, while
+`npm run test:all` adds the registered Python checks. npm remains the package, lockfile, and
+publication owner, including `npm pack --dry-run --json`.
+
+The source-pack gates require Bun 1.4.x. Adoption requires Python 3 and does not install Bun, edit
+host settings, or create a Bun lockfile; adopted consumers retain their own runner and config.
 
 ## Knowledge checker
 

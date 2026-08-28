@@ -618,6 +618,31 @@ def _snapshot_path(root: Path, feature: str) -> Path:
     return root / ".specs" / "features" / feature / "workflow.json"
 
 
+def _derived_slice_count(root: Path, feature: str) -> int:
+    tasks_path = root / ".specs" / "features" / feature / "tasks.md"
+    if not tasks_path.is_file():
+        return 1
+    validator = Path(__file__).resolve().parents[2] / "tlc-spec-driven" / "scripts" / "validate_tasks.py"
+    result = subprocess.run(
+        [sys.executable, str(validator), str(tasks_path), "--slice-contract-json"],
+        cwd=root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        detail = result.stderr.strip() or "invalid slice contract"
+        raise _error(f"tasks closure validation failed: {detail}")
+    try:
+        contract = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise _error("tasks closure validator returned invalid JSON") from exc
+    slice_ids = contract.get("slice_ids") if isinstance(contract, dict) else None
+    if not isinstance(slice_ids, list) or not slice_ids:
+        raise _error("tasks closure validator returned no slices")
+    return len(slice_ids)
+
+
 def _validate_snapshot(root: Path, feature: str, snapshot: Any) -> dict[str, Any]:
     if not isinstance(snapshot, dict):
         raise _error("existing snapshot must be a JSON object")
@@ -735,7 +760,7 @@ def resolve(
     *,
     root: Path,
     feature: str,
-    slice_count: int,
+    slice_count: int | None = None,
     native_provider: str,
     profile: str | None = None,
     overrides: list[str] | None = None,
@@ -760,6 +785,15 @@ def resolve(
         resolved["remediation"] = remediation
         return resolved
 
+    derived_count = _derived_slice_count(root, feature)
+    if slice_count is not None:
+        if slice_count < 1:
+            raise _error("slice count must be at least 1")
+        if slice_count != derived_count:
+            raise _error(
+                f"slice count assertion {slice_count} does not match derived slice count {derived_count}"
+            )
+    slice_count = derived_count
     cadence = _cadence(config)
     parallelization = _parallelization(config, root)
     groups = balanced_groups(slice_count, cadence)
@@ -839,8 +873,8 @@ def main(argv: list[str] | None = None) -> int:
                 raise _error("--sync-agents cannot be combined with feature-resolution arguments")
             print(json.dumps(sync_agents(arguments.root), indent=2, sort_keys=True))
             return 0
-        if arguments.feature is None or arguments.slice_count is None or arguments.native_provider is None:
-            raise _error("--feature, --slices, and --native-provider are required unless --sync-agents is used")
+        if arguments.feature is None or arguments.native_provider is None:
+            raise _error("--feature and --native-provider are required unless --sync-agents is used")
         values = vars(arguments)
         values.pop("sync_agents")
         snapshot = resolve(**values)

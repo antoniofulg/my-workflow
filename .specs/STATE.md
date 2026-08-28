@@ -7,15 +7,19 @@
 - **Current delta**: T6–T15 make assisted execution the default and close the final capability, route,
   receipt, reconciliation, cleanup, and review-discrimination gaps; historical Retest 12 remains preserved
 - **Current policy**: frozen mode is `assisted`; direct Orca capability/resource/isolation proof is
-  required before dispatch, automatic Orca remains unsupported, and AD-016 pointer-only delivery remains mandatory
-- **Completed**: T1-T5; Technical Verifier PASS; Deep Review rounds 1-2; assisted Orca lifecycle hardened; QA Execute Retests 1-12. **Retest 12 is the terminal verdict.** It walked the `AD-016` pointer contract end to end on the re-frozen `claude` / `sonnet` / `medium` route at `b6bdcad`, prefix `qa-assisted-20260827-r13`, in 2845.447 s: pointer transport re-proved before any slice existed (2418-char body, 188-char pointer, `bytesWritten` 189, exact token and both positional bounds returned); rendered `Claude Code v2.1.247` + `Sonnet 5 with medium effort · Claude Max` on two consecutive `source=screen` frames for all six terminals; one create per slice; eight logical packets delivered as 177-190 char pointers with exactly one send each; **six task commits, packet-exact subjects and counts, green gate before every commit, zero corrective commits and zero amends** (the medium route's task integrity is now observed, not assumed, and Retest 7's low-effort violation did not recur); 58.536 s of A/B overlap at concurrency 2; exact parked comment; exact `A:T7` sync `2c1b1ab` with the affected gate `7/7`; same-handle `B_FINAL` continuation; fresh per-slice Technical Verifiers both `PASS` at 10/10; conflict-free deterministic A-then-B integration at `07540bc` with the fixture gate `12/12`; grouped Deep Review **`SHIP`** in one round (0 Critical, 0 Major, 3 Minor, 6 advisories, both lanes 359/359, R01-R14 accounted) read back from the generated artifacts; final CLI persona QA 10/10; exact cleanup 13/13 per worktree with a 39-sample audit returning the exact two-worktree baseline and zero owned residue
+  required before dispatch, automatic Orca remains unsupported, and AD-018 pointer-only delivery remains mandatory
+- **Completed**: T1-T5; Technical Verifier PASS; Deep Review rounds 1-2; assisted Orca lifecycle hardened; QA Execute Retests 1-12. **Retest 12 is the terminal verdict.** It walked the `AD-018` pointer contract end to end on the re-frozen `claude` / `sonnet` / `medium` route at `b6bdcad`, prefix `qa-assisted-20260827-r13`, in 2845.447 s: pointer transport re-proved before any slice existed (2418-char body, 188-char pointer, `bytesWritten` 189, exact token and both positional bounds returned); rendered `Claude Code v2.1.247` + `Sonnet 5 with medium effort · Claude Max` on two consecutive `source=screen` frames for all six terminals; one create per slice; eight logical packets delivered as 177-190 char pointers with exactly one send each; **six task commits, packet-exact subjects and counts, green gate before every commit, zero corrective commits and zero amends** (the medium route's task integrity is now observed, not assumed, and Retest 7's low-effort violation did not recur); 58.536 s of A/B overlap at concurrency 2; exact parked comment; exact `A:T7` sync `2c1b1ab` with the affected gate `7/7`; same-handle `B_FINAL` continuation; fresh per-slice Technical Verifiers both `PASS` at 10/10; conflict-free deterministic A-then-B integration at `07540bc` with the fixture gate `12/12`; grouped Deep Review **`SHIP`** in one round (0 Critical, 0 Major, 3 Minor, 6 advisories, both lanes 359/359, R01-R14 accounted) read back from the generated artifacts; final CLI persona QA 10/10; exact cleanup 13/13 per worktree with a 39-sample audit returning the exact two-worktree baseline and zero owned residue
 - **In-progress** (file:line): none
 - **Next step**: Commit and merge the validated feature branch; do not publish or deploy. Live QA remains
   untested and is explicitly waived for this merge until the upstream Orca transport support is corrected.
-- **Blockers**: `BUG-20260827-orca-terminal-send-truncates-claude-worker-packet` stays **open against the host** and cannot be closed from this repository: `orca terminal send --text` still exposes no acknowledgement mode, so a coordinator cannot tell a complete write from a lost one by its receipt. Retest 12 measured it once on a non-slice shell — a 2012-char inline payload arrived **complete**, where Retest 10's 2081-char payload lost 98.3 % — but the loss is timing-dependent, so that clears nothing; it only confirms the run never depended on the answer, because AD-016 keeps every mandated payload at ~180 characters. `BUG-20260827-assisted-pilot-batch-cli-drops-final-newline` is now **closed**: Retest 12 re-derived its disposition from scratch on a copy byte-identical to the reviewed tree — the terminal newline is preserved, the required focused subprocess assertion exists at `pilot/tests/test_batch.py:34-43`, and injecting the exact recorded symptom makes the canonical suite fail, so that assertion discriminates. `BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree` stays open against the **automatic** executor and is not reachable through the assisted path. Codex capacity remains exhausted until 2026-09-01, so every frozen role stays on `claude`. No compatibility PASS was written, no `preflight --canary` ran, and `parallelization.mode` is now `assisted`; automatic Orca execution remains unsupported and no compatibility PASS is fabricated.
+- **Blockers**: `BUG-20260827-orca-terminal-send-truncates-claude-worker-packet` stays **open against the host** and cannot be closed from this repository: `orca terminal send --text` still exposes no acknowledgement mode, so a coordinator cannot tell a complete write from a lost one by its receipt. Retest 12 measured it once on a non-slice shell — a 2012-char inline payload arrived **complete**, where Retest 10's 2081-char payload lost 98.3 % — but the loss is timing-dependent, so that clears nothing; it only confirms the run never depended on the answer, because AD-018 keeps every mandated payload at ~180 characters. `BUG-20260827-assisted-pilot-batch-cli-drops-final-newline` is now **closed**: Retest 12 re-derived its disposition from scratch on a copy byte-identical to the reviewed tree — the terminal newline is preserved, the required focused subprocess assertion exists at `pilot/tests/test_batch.py:34-43`, and injecting the exact recorded symptom makes the canonical suite fail, so that assertion discriminates. `BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree` stays open against the **automatic** executor and is not reachable through the assisted path. Codex capacity remains exhausted until 2026-09-01, so every frozen role stays on `claude`. No compatibility PASS was written, no `preflight --canary` ran, and `parallelization.mode` is now `assisted`; automatic Orca execution remains unsupported and no compatibility PASS is fabricated.
 - **Recorded coordinator fault (do not repeat)**: Retest 12 issued a **second `orca worktree create`** for the ground worktree's logical name — the same rule that invalidated Retest 11, from a different cause. `retest-11/orca_probe.py` dispatches its subcommand at module scope with no `__name__` guard, so importing it to inherit its hardening executes the command; `retest-12/orca_probe.py:37-60` imports it under a neutralised `sys.argv` and that fix was proved with a fake `orca` on `PATH` (exactly one `worktree create` across 421 recorded calls) before being trusted. Both erroneous worktrees were cleaned at 10/10 reconstructed ownership and ground was recreated once. **Any future probe that inherits an earlier retest's harness must neutralise argv across the import.** Slices A and B were each created exactly once (`create_result=1` in each create log), so the certified lanes are unaffected.
 - **Uncommitted files**: T15 remediation and delivery-state artifacts, to be committed atomically.
 - **Branch**: `feat/assisted-parallelization-default`
+
+- **Integrated local main workflows**: merge-alone-slices, host-owned-session-continuation, and
+  bun-test-runner are now present in this checkout; their current QA records remain authoritative
+  and separate from the assisted Orca journey.
 
 ## Decisions
 
@@ -124,8 +128,8 @@
 
 ### AD-008
 
-- **Decision**: Adopt upstream ai-memory `1.31.0` only as an opt-in, transient handoff transport
-  between Claude Code, Codex, and Cursor. Lifecycle hooks and the sourceable Codex helper may create
+- **Decision**: Adopt the upstream optional `1.31.0` integration only as an opt-in, transient
+  handoff transport between Claude Code, Codex, and Cursor. Lifecycle hooks and the sourceable Codex helper may create
   one pending baton, but MCP, briefing, routing skills, managed workstreams, LLMs, embeddings,
   consolidation, and auto-improvement remain disabled. Git, `.specs/`, tasks, architecture docs,
   and `knowledge/` remain the only project authority. Reviewer continuity is packet-defined: internal
@@ -137,11 +141,11 @@
   boundary. Codex requires a manual `handoff` fallback when its process exits abnormally. Dropping
   subagent captures reduces storage noise but does not protect a top-level reviewer; role isolation
   remains an explicit packet rule.
-- **Scope**: `scripts/ai-memory.zsh`, `scripts/test_ai_memory.py`, `docs/workflow/ai-memory.md`,
-  `README.md`, `docs/guidelines/REVIEW-ROUNDS.md`, `docs/qa/`, the ai-memory feature contracts and
-  threat model, and this decision record.
+- **Scope**: The repository helper, feature-specific test, workflow guide, `README.md`,
+  `docs/guidelines/REVIEW-ROUNDS.md`, `docs/qa/`, the integration contracts and threat model, and
+  this decision record.
 - **Date**: 2026-08-23
-- **Status**: active
+- **Status**: superseded by AD-015
 
 ### AD-009
 
@@ -187,7 +191,7 @@
 - **Scope**: `.my-workflow.toml`, frozen feature workflow snapshots, workflow-config planning,
   autonomous orchestration, and Verifier/deep-review/QA integration.
 - **Date**: 2026-08-24
-- **Status**: superseded by AD-017
+- **Status**: superseded by AD-019
 
 ### AD-012
 
@@ -229,6 +233,35 @@
 
 ### AD-015
 
+- **Decision**: Cross-provider session continuation is owned by the host. Repository files, Git
+  state, feature artifacts, and explicit handoff prompts remain the durable semantic context.
+- **Reason**: Host-native continuation now covers provider unavailability, instability, and token
+  exhaustion; Praxis CRM proved the approach with Orca's `Continue in New Session`, selectable
+  destination agents, focused handoffs, older transcript access, and unchanged original sessions.
+- **Trade-off**: Host capabilities vary, so the repository provides no replacement runtime,
+  wrapper, database, hook, protocol, or compatibility layer; operators use the host UI to continue.
+- **Scope**: Cross-provider continuation guidance, reviewer packets, adoption, QA, and release
+  contracts in this workflow pack.
+- **Date**: 2026-08-25
+- **Status**: active
+
+### AD-016
+
+- **Decision**: Vertical slice count is derived from validated task outcomes that remain worth
+  merging if all later slices are cancelled. Technical phases, cohorts, directories, runners, and
+  worker batches do not create slices without an independently mergeable outcome.
+- **Reason**: A manual count froze technical organization as delivery structure and multiplied
+  Verifier, gate, and review cost before Tasks proved the cut.
+- **Trade-off**: Every planned primary task must declare slice membership and every slice needs an
+  explicit closure row; old task documents require the new contract before refresh, while normal
+  resume keeps its frozen snapshot.
+- **Scope**: TLC task templates and validation, workflow configuration, parallel task planning,
+  feature snapshots, adoption, tests, and workflow documentation.
+- **Date**: 2026-08-27
+- **Status**: active
+
+### AD-017
+
 - **Decision**: When automatic host orchestration is incompatible, explicit human authorization may
   enable coordinator-assisted inter-slice execution through the host's direct worktree and terminal
   primitives. The coordinator owns worker launch, dependency checkpoints, same-terminal follow-up,
@@ -243,9 +276,9 @@
 - **Scope**: Autonomous inter-slice coordination, Orca direct worktree/terminal handoffs, dependency
   checkpoints, follow-up, integration, and exact owned-resource cleanup.
 - **Date**: 2026-08-26
-- **Status**: superseded by AD-017
+- **Status**: superseded by AD-019
 
-### AD-016
+### AD-018
 
 - **Decision**: The assisted coordinator writes each complete slice packet to a coordinator-owned
   file outside every slice worktree and sends only a short fixed-shape pointer to that file through
@@ -266,7 +299,7 @@
 - **Date**: 2026-08-27
 - **Status**: active
 
-### AD-017
+### AD-019
 
 - **Decision**: `assisted` is the default inter-slice execution mode whenever the frozen task DAG
   exposes independent safe slices. The main agent owns direct worktree and terminal creation,
@@ -274,7 +307,7 @@
   affected-gate rerun, same-handle continuation, deterministic integration, and cleanup. `disabled`
   is the explicit sequential override; `safe` and `full` retain their automatic-adapter semantics.
   Fewer than two ready slices or any isolation, resource, ownership, or reconciliation uncertainty
-  falls back to sequential execution. AD-016 remains active until upstream transport is proven.
+  falls back to sequential execution. AD-018 remains active until upstream transport is proven.
 - **Reason**: Retest 12 proved useful overlap and exact cleanup under supervised coordination, while
   the upstream Orca transport and lifecycle gaps still prevent trustworthy automatic orchestration.
 - **Trade-off**: Default development can consume more local CPU and memory, and the main coordinator
@@ -286,7 +319,7 @@
 - **Date**: 2026-08-27
 - **Status**: active
 
-### AD-018
+### AD-020
 
 - **Decision**: Merge the workflow-side assisted-parallelization remediation with the affected live
   QA scenario truthfully left `untested`; defer live Orca QA until the upstream `orca terminal send

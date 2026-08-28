@@ -43,7 +43,7 @@ Read `.specs/features/[feature]/design.md` before creating tasks.
 
 ### 1.5. Generate the Test Coverage Matrix (ALWAYS)
 
-This step ALWAYS runs - there is no precondition. Decide which of two paths to take, then generate the three sections below.
+This step ALWAYS runs - there is no precondition. Decide which applicable path to take, then generate the three sections below.
 
 **Step 0 - Read project quality/testing guidelines (ALWAYS, before anything else).**
 
@@ -199,6 +199,19 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 
 ---
 
+## Vertical Slice Closure
+
+Before Task Breakdown, define each vertical slice as a merge-alone observable outcome. Every
+primary `T<number>` task carries exactly one `**Slice:** <slice-id>` field, and every used slice
+appears once in this closure table:
+
+| Slice | Observable outcome | Independent gate | Merge if later slices are cancelled? | Why |
+| --- | --- | --- | --- | --- |
+| [id] | [complete user-valuable outcome] | `[exact gate command]` | yes | [concrete reason] |
+
+`yes` is the only merge-alone value. A phase or cohort describes technical ordering; a batch
+describes worker capacity. Neither creates a vertical slice or owns its count.
+
 ## Execution Plan
 
 Phases are ordered and run sequentially - each phase completes before the next begins, and tasks within a phase execute in order.
@@ -233,6 +246,7 @@ T8 → T9
 
 ### T1: [Create X Interface]
 
+**Slice:** [id]
 **What**: [One sentence: exact deliverable]
 **Where**: `src/path/to/file.ts`
 **Depends on**: None
@@ -257,6 +271,7 @@ T8 → T9
 
 ### T2: [Implement Y Service]
 
+**Slice:** [id]
 **What**: [Exact deliverable]
 **Where**: `src/services/YService.ts`
 **Depends on**: T1
@@ -281,6 +296,7 @@ T8 → T9
 
 ### T3: [Create Z Component]
 
+**Slice:** [id]
 **What**: [Exact deliverable]
 **Where**: `src/components/ZComponent.tsx`
 **Depends on**: T1
@@ -306,6 +322,7 @@ T8 → T9
 
 ### T4: [Add A Feature to Y]
 
+**Slice:** [id]
 **What**: [Exact deliverable]
 **Where**: `src/services/YService.ts` (modify)
 **Depends on**: T2, T3

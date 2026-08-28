@@ -6,6 +6,13 @@ protects, and which trade-off it encodes.
 
 These pages do not restate the rules. The guidelines remain the source of truth for behaviour.
 
+Cross-provider session continuation is owned by the host. Repository files, Git state, feature
+artifacts, and explicit handoff prompts remain the durable semantic context.
+
+Structural TypeScript checks for this source pack run on Bun 1.4 from the repository-local `./tools`
+discovery root; npm remains the package and lockfile owner. Adopted consumers retain their own
+runner and configuration.
+
 ## Walk this in order
 
 1. [Purpose — delivery and reliability](purpose.md)
@@ -46,3 +53,5 @@ Repeated review blockers use the immutable fingerprint and independent counter i
 [`REVIEW-ROUNDS.md`](../guidelines/REVIEW-ROUNDS.md); this guide does not duplicate that protocol.
 
 A filed issue skips the ceremony: `implement → scoped gate → one commit`.
+Credential-free declarative agent-tool configuration uses the local light path in
+[`GATES.md`](../guidelines/GATES.md).

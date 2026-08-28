@@ -13,7 +13,6 @@ For consuming projects, those authorities are their executable manifests or CI j
 | `QAS` | Manual agent-file inspection, checkout-local CLI recipes, and host-gated workflow execution | `.agents/skills/qa-plan/`, `.agents/skills/qa-execute/`, `.agents/skills/autonomous/scripts/parallel_execute.py`, `.agents/skills/deep-review/references/publish-github.md`, provider Verifier packets | [Skills contract](../../README.md#skills), [parallel executor contract](../../.agents/skills/autonomous/references/parallelization.md), [Deep Review publication recipe](../../.agents/skills/deep-review/references/publish-github.md) |
 | `DOC` | Documentation | `README.md` | [`README.md`](../../README.md) |
 | `CFG` | Workflow configuration, generated state, and Git visibility | `.my-workflow.toml.example`; `.my-workflow.toml`; `templates/agents/`; `.agents/skills/workflow-config/scripts/workflow_config.py`; `.gitignore`; `.specs/` | [README configuration contract](../../README.md#adopt-the-workflow), [`workflow-config` skill](../../.agents/skills/workflow-config/SKILL.md), [artifact lifecycle](../guidelines/ARTIFACT-LIFECYCLE.md) |
-| `WFL` | Cross-provider workflow handoff | `docs/workflow/ai-memory.md`; `scripts/ai-memory.zsh`; Claude Code, Codex, and Cursor lifecycle hooks | [ai-memory handoff contract](../workflow/ai-memory.md), [`scripts/ai-memory.zsh`](../../scripts/ai-memory.zsh) |
 | `REL` | Package metadata | `package.json`, `package-lock.json` | [`package.json`](../../package.json) |
 
 No browser, API, or mobile surface exists in this repository.
@@ -58,11 +57,15 @@ No browser, API, or mobile surface exists in this repository.
   [parallelization contract](../../.agents/skills/autonomous/references/parallelization.md), using
   the frozen role tuple from the selected feature's frozen `workflow.json`; do not route it through the automatic
   executor or write a compatibility PASS.
-- Installed QA tooling discovered: Vitest is declared in [`package.json`](../../package.json) for
-  structural checks; it is not a real-user runner. Python standard-library checks live in
-  [`scripts/test_adopt.py`](../../scripts/test_adopt.py).
+- Installed QA tooling discovered: Bun 1.4.x is required for this source pack's structural test
+  runtime, with [`bunfig.toml`](../../bunfig.toml) limiting discovery to `./tools` and
+  [`package.json`](../../package.json) delegating `npm test` to Bun. npm remains the package and
+  lockfile owner; adopted consumers retain their own runner and config. Python standard-library
+  checks live in [`scripts/test_adopt.py`](../../scripts/test_adopt.py).
 
-The workflow does not install a framework or invent commands when a runner is absent.
+The workflow does not install a framework or invent commands when a runner is absent; it does not
+install Bun, edit host settings, or create a Bun lockfile. Bun 1.4.x must already be available for
+the source-pack gate.
 
 ## Build, start, and health
 

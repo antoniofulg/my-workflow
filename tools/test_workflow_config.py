@@ -91,6 +91,54 @@ def write_parallelization(root: Path, content: str, *, encoding: str = "utf-8") 
     write_config(root, extra="\n" + content)
 
 
+def write_tasks(root: Path, content: str, feature: str = "fixture") -> Path:
+    path = root / ".specs" / "features" / feature / "tasks.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    return path
+
+
+def task_contract(*rows: str, feature_count: int = 1) -> str:
+    closures = [
+        "| Slice | Observable outcome | Independent gate | Merge if later slices are cancelled? | Why |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for index in range(feature_count):
+        slice_id = chr(ord("A") + index)
+        closures.append(
+            f"| {slice_id} | Capability {slice_id} works alone. | `python3 -m unittest` | yes | Independent value. |"
+        )
+    return "\n".join(
+        [
+            "# Fixture tasks",
+            "",
+            "## Vertical Slice Closure",
+            "",
+            *closures,
+            "",
+            "## Task Breakdown",
+            "",
+            *rows,
+            "",
+        ]
+    )
+
+
+def task_row(task_id: str, slice_id: str, depends_on: str = "None") -> str:
+    return "\n".join(
+        [
+            f"### {task_id}: Fixture task",
+            "",
+            f"**Slice:** {slice_id}",
+            f"**Depends on:** {depends_on}",
+            f"**Where:** src/{task_id.lower()}.py",
+            "**Tests:** unit",
+            "**Gate:** quick",
+            "",
+        ]
+    )
+
+
 def frozen_snapshot(snapshot: dict) -> dict:
     return {key: value for key, value in snapshot.items() if key != "remediation"}
 
@@ -107,6 +155,11 @@ def make_provider(root: Path, relative: str = "tools/workflow_resources", *, exe
 def test_defaults_and_native_routing() -> None:
     root = make_repo()
     try:
+        rows = "".join(
+            task_row(f"T{task_number}", chr(ord("A") + task_number - 1))
+            for task_number in range(1, 5)
+        )
+        write_tasks(root, task_contract(rows, feature_count=4), "default")
         snapshot = workflow_config.resolve(
             root=root, feature="default", slice_count=4, native_provider="codex"
         )
@@ -114,6 +167,184 @@ def test_defaults_and_native_routing() -> None:
         assert snapshot["deep_review"] == {"cadence": "grouped.3", "groups": [[1, 2], [3, 4]]}
         assert all(value["provider"] == "codex" for value in snapshot["roles"].values())
         assert snapshot["roles"]["verifier"]["agent_file"] == ".codex/agents/verifier.toml"
+    finally:
+        shutil.rmtree(root)
+
+
+def test_initial_resolution_derives_one_slice_from_tasks() -> None:
+    root = make_repo()
+    try:
+        fixture = ROOT / "tools/fixtures/tlc-validator/merge-alone-one-slice.md"
+        write_tasks(root, fixture.read_text(encoding="utf-8"))
+        snapshot = workflow_config.resolve(root=root, feature="fixture", native_provider="codex")
+        assert snapshot["deep_review"]["groups"] == [[1]]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_initial_resolution_derives_two_independent_slices_from_tasks() -> None:
+    root = make_repo()
+    try:
+        write_tasks(root, task_contract(task_row("T1", "A") + task_row("T2", "B"), feature_count=2))
+        snapshot = workflow_config.resolve(root=root, feature="fixture", native_provider="codex")
+        assert snapshot["deep_review"]["groups"] == [[1, 2]]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_slice_assertion_mismatch_fails_before_snapshot_write() -> None:
+    root = make_repo()
+    try:
+        write_tasks(root, task_contract(task_row("T1", "A")))
+        try:
+            workflow_config.resolve(root=root, feature="fixture", slice_count=2, native_provider="codex")
+        except workflow_config.ConfigError as exc:
+            assert "does not match derived slice count 1" in str(exc)
+        else:
+            raise AssertionError("expected slice assertion mismatch")
+        assert not (root / ".specs/features/fixture/workflow.json").exists()
+    finally:
+        shutil.rmtree(root)
+
+
+def test_non_positive_slice_assertions_fail_before_snapshot_write() -> None:
+    for supplied in (0, -1):
+        root = make_repo()
+        try:
+            write_tasks(root, task_contract(task_row("T1", "A")))
+            try:
+                workflow_config.resolve(
+                    root=root,
+                    feature="fixture",
+                    slice_count=supplied,
+                    native_provider="codex",
+                )
+            except workflow_config.ConfigError as exc:
+                assert "slice count must be at least 1" in str(exc)
+            else:
+                raise AssertionError(f"expected non-positive slice assertion rejection: {supplied}")
+            assert not (root / ".specs/features/fixture/workflow.json").exists()
+        finally:
+            shutil.rmtree(root)
+
+
+def test_refresh_slice_assertion_mismatch_preserves_snapshot_bytes() -> None:
+    root = make_repo()
+    try:
+        write_tasks(root, task_contract(task_row("T1", "A")))
+        workflow_config.resolve(root=root, feature="fixture", native_provider="codex")
+        snapshot_path = root / ".specs/features/fixture/workflow.json"
+        before = snapshot_path.read_bytes()
+        write_tasks(
+            root,
+            task_contract(task_row("T1", "A") + task_row("T2", "B"), feature_count=2),
+        )
+        try:
+            workflow_config.resolve(
+                root=root,
+                feature="fixture",
+                slice_count=1,
+                native_provider="codex",
+                refresh=True,
+            )
+        except workflow_config.ConfigError as exc:
+            assert "does not match derived slice count 2" in str(exc)
+        else:
+            raise AssertionError("expected refresh slice assertion mismatch")
+        assert snapshot_path.read_bytes() == before
+    finally:
+        shutil.rmtree(root)
+
+
+def test_malformed_refresh_preserves_snapshot_bytes() -> None:
+    root = make_repo()
+    try:
+        write_tasks(root, task_contract(task_row("T1", "A")))
+        workflow_config.resolve(root=root, feature="fixture", native_provider="codex")
+        snapshot_path = root / ".specs/features/fixture/workflow.json"
+        before = snapshot_path.read_bytes()
+        write_tasks(root, task_row("T1", "A"))
+        try:
+            workflow_config.resolve(
+                root=root,
+                feature="fixture",
+                native_provider="codex",
+                refresh=True,
+            )
+        except workflow_config.ConfigError as exc:
+            assert "tasks closure validation failed" in str(exc)
+            assert "Vertical Slice Closure" in str(exc)
+        else:
+            raise AssertionError("expected malformed refresh failure")
+        assert snapshot_path.read_bytes() == before
+    finally:
+        shutil.rmtree(root)
+
+
+def test_missing_tasks_defaults_to_one_slice_without_manual_count() -> None:
+    root = make_repo()
+    try:
+        snapshot = workflow_config.resolve(root=root, feature="no-tasks", native_provider="codex")
+        assert snapshot["deep_review"]["groups"] == [[1]]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_malformed_tasks_fails_before_snapshot_write() -> None:
+    root = make_repo()
+    try:
+        write_tasks(root, task_row("T1", "A"))
+        try:
+            workflow_config.resolve(root=root, feature="fixture", native_provider="codex")
+        except workflow_config.ConfigError as exc:
+            assert "tasks closure validation failed" in str(exc)
+            assert "Vertical Slice Closure" in str(exc)
+        else:
+            raise AssertionError("expected malformed tasks failure")
+        assert not (root / ".specs/features/fixture/workflow.json").exists()
+    finally:
+        shutil.rmtree(root)
+
+
+def test_resume_returns_frozen_snapshot_without_reading_changed_tasks() -> None:
+    for current_tasks in (
+        task_contract(task_row("T1", "A") + task_row("T2", "B"), feature_count=2),
+        task_row("T1", "A"),
+    ):
+        root = make_repo()
+        try:
+            write_tasks(root, task_contract(task_row("T1", "A")), "frozen")
+            first = workflow_config.resolve(root=root, feature="frozen", native_provider="codex")
+            snapshot_path = root / ".specs/features/frozen/workflow.json"
+            before = snapshot_path.read_bytes()
+            write_tasks(root, current_tasks, "frozen")
+            resumed = workflow_config.resolve(
+                root=root, feature="frozen", slice_count=8, native_provider="cursor"
+            )
+            assert resumed == first
+            assert snapshot_path.read_bytes() == before
+        finally:
+            shutil.rmtree(root)
+
+
+def test_refresh_rederives_current_slices_without_changing_snapshot_schema() -> None:
+    root = make_repo()
+    try:
+        write_tasks(root, task_contract(task_row("T1", "A")), "refreshable")
+        first = workflow_config.resolve(root=root, feature="refreshable", native_provider="codex")
+        write_tasks(
+            root,
+            task_contract(task_row("T1", "A") + task_row("T2", "B"), feature_count=2),
+            "refreshable",
+        )
+        refreshed = workflow_config.resolve(root=root, feature="refreshable", native_provider="codex", refresh=True)
+        assert refreshed["deep_review"]["groups"] == [[1, 2]]
+        persisted = json.loads(
+            (root / ".specs/features/refreshable/workflow.json").read_text(encoding="utf-8")
+        )
+        assert set(persisted) == set(frozen_snapshot(first))
+        assert persisted["version"] == 2
+        assert persisted["deep_review"]["groups"] == [[1, 2]]
     finally:
         shutil.rmtree(root)
 
@@ -981,6 +1212,11 @@ def test_resolve_freezes_delegated_settings_and_omits_planner() -> None:
     try:
         workflow_config.sync_agents(root)
         git_root(root)
+        rows = "".join(
+            task_row(f"T{task_number}", chr(ord("A") + task_number - 1))
+            for task_number in range(1, 3)
+        )
+        write_tasks(root, task_contract(rows, feature_count=2), "freeze")
         snapshot = workflow_config.resolve(root=root, feature="freeze", slice_count=2, native_provider="codex")
         assert snapshot["version"] == 2
         assert set(snapshot["roles"]) == set(workflow_config.DELEGATED_ROLES)
@@ -1223,6 +1459,11 @@ def test_snapshot_write_failure_preserves_previous_snapshot() -> None:
     try:
         workflow_config.sync_agents(root)
         git_root(root)
+        rows = "".join(
+            task_row(f"T{task_number}", chr(ord("A") + task_number - 1))
+            for task_number in range(1, 3)
+        )
+        write_tasks(root, task_contract(rows, feature_count=2), "atomic")
         first = workflow_config.resolve(root=root, feature="atomic", slice_count=2, native_provider="codex")
         path = root / ".specs/features/atomic/workflow.json"
         original = path.read_text(encoding="utf-8")
@@ -1230,7 +1471,7 @@ def test_snapshot_write_failure_preserves_previous_snapshot() -> None:
         workflow_config.os.replace = lambda *_args: (_ for _ in ()).throw(OSError("injected"))
         try:
             try:
-                workflow_config.resolve(root=root, feature="atomic", slice_count=3, native_provider="codex", refresh=True)
+                workflow_config.resolve(root=root, feature="atomic", slice_count=2, native_provider="codex", refresh=True)
             except OSError as exc:
                 assert str(exc) == "injected"
             else:
@@ -1268,7 +1509,7 @@ def test_cli_adapter_and_invalid_slice_count() -> None:
         git_root(root)
         resolver = Path(__file__).resolve().parent.parent / ".agents/skills/workflow-config/scripts/workflow_config.py"
         result = subprocess.run(
-            [sys.executable, str(resolver), "--root", str(root), "--feature", "cli", "--slices", "2", "--native-provider", "codex", "--override", "verifier=claude"],
+            [sys.executable, str(resolver), "--root", str(root), "--feature", "cli", "--slices", "1", "--native-provider", "codex", "--override", "verifier=claude"],
             text=True, capture_output=True, check=False,
         )
         assert result.returncode == 0
@@ -1302,6 +1543,11 @@ def test_cli_loads_configured_cadence_into_json_and_snapshot() -> None:
         for index, (cadence, slice_count, groups, remediation_extra, stall_attempts) in enumerate(cases):
             write_config(root, cadence=cadence, extra=remediation_extra)
             feature = f"configured-cadence-{index}"
+            rows = "".join(
+                task_row(f"T{task_number}", chr(ord("A") + task_number - 1))
+                for task_number in range(1, slice_count + 1)
+            )
+            write_tasks(root, task_contract(rows, feature_count=slice_count), feature)
             result = subprocess.run(
                 [sys.executable, str(resolver), "--root", str(root), "--feature", feature, "--slices", str(slice_count), "--native-provider", "codex"],
                 text=True, capture_output=True, check=False,
@@ -1318,6 +1564,11 @@ def test_cli_loads_configured_cadence_into_json_and_snapshot() -> None:
 
         feature = "configured-cadence-resume"
         write_config(root, cadence="grouped.2", extra="\n[remediation]\nstall_attempts = 5\n")
+        resume_rows = "".join(
+            task_row(f"T{task_number}", chr(ord("A") + task_number - 1))
+            for task_number in range(1, 7)
+        )
+        write_tasks(root, task_contract(resume_rows, feature_count=6), feature)
         command = [
             sys.executable, str(resolver), "--root", str(root), "--feature", feature,
             "--slices", "6", "--native-provider", "codex",
