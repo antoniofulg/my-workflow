@@ -2,14 +2,14 @@
 
 ## Handoff
 
-- **Feature**: `.specs/features/parallel-slice-executor`
-- **Phase / Task**: Complete / release v0.6.0
-- **Completed**: T1, T2, T2R1-T2R5, T3, T3R1, T3R2, TDR1, TDR2, T4, T4R1, T4R2, T5, T6, T7, T7R1-T7R5; grouped C-D round 1 and post-cap round 2 remediation; Slice A-C Technical Verifiers PASS; grouped deep-review A-B closed
+- **Feature**: `.specs/features/hybrid-slice-execution`
+- **Phase / Task**: Execute ready / T1
+- **Completed**: Specify, Design, Test Contract, Threat Model, DX Contract, Tasks; human decisions recorded in AD-015 and `decisions.md`
 - **In-progress** (file:line): none
-- **Next step**: Deliver v0.6.0 locally; remote publication remains separately authorized.
-- **Blockers**: External Orca/Codex lifecycle remains terminal `BLOCKED-VERIFY`; this is non-blocking for local release readiness, and no author-run Orca pilot is claimed.
-- **Uncommitted files**: none.
-- **Branch**: `feat/parallel-slice-executor`
+- **Next step**: Dispatch T1 to bootstrap `workflow-spec-driven`, then follow CP-S1 through the approved assisted checkpoint DAG in `tasks.md`.
+- **Blockers**: Live Orca host verification remains `blocked-verify`; fake providers and adoption dry-run own automated evidence, so implementation is not blocked.
+- **Uncommitted files**: planning package until commit `docs(workflow): plan hybrid slice execution`.
+- **Branch**: `feat/hybrid-slice-execution`
 
 ## Decisions
 
@@ -181,7 +181,7 @@
 - **Scope**: `.my-workflow.toml`, frozen feature workflow snapshots, workflow-config planning,
   autonomous orchestration, and Verifier/deep-review/QA integration.
 - **Date**: 2026-08-24
-- **Status**: active
+- **Status**: superseded by AD-015
 
 ### AD-012
 
@@ -229,7 +229,8 @@
   fresh Verifier, Deep Review, and QA sessions remain independent. Adaptive concurrency starts at
   two workers and may scale one lane at a time to a default ceiling of four when a machine-only
   health proof and resource leases permit it. Context cleanup and slice-scoped packets are part of
-  the foundation, not a later optimization.
+  the foundation, not a later optimization. This decision supersedes AD-011's opt-in modes,
+  unchanged-TLC premise, and default-disabled policy; AD-012 through AD-014 remain active.
 - **Reason**: The current TLC skill teaches sequential phase batches, while the approved workflow
   uses safe vertical slices as the unit of concurrent delivery. A single, lean contract removes
   contradictory scheduling instructions and reduces repeated context.
