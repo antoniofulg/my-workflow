@@ -1,119 +1,111 @@
 # Hybrid Slice Execution S4 Validation
 
-**Verdict:** FAIL
+**Verdict:** PASS
 **Date:** 2026-08-28
 **Phase:** Technical
 **Spec:** `.specs/features/hybrid-slice-execution/spec.md`
-**Diff range:** `2cb70ba..91b185a`
+**Diff range:** `2cb70ba..d75a188`
 **Verifier:** independent session, author != verifier
 
-CP-S4 remains blocked. The focused and full gates are green, PATH-backed cleanup proves each
-physical mutation once, and nine high-risk mutants die. One structural mutant calls
-`MutationRunner._sink` directly from public `dispatch`; the HSE-54 test stays green. The canonical
-suite therefore still permits an alternate mutation path around `MutationRunner.issue`.
+## PASS
+
+CP-S4 is releasable. All 21 scoped requirements match exact spec outcomes. The focused probe,
+convergence suite, full offline gate, and ten historical discrimination mutants pass. No live Orca
+command ran.
 
 ## Task completion
 
 | Task | Status | Notes |
 | --- | --- | --- |
-| T5-T7 | Done, checkpoint blocked | Pointer, identity, reconciliation, and cleanup behavior remain present. |
-| T13 | Done | Generation-aware resume contract is green. |
-| T14 | Needs fix | Physical ledgers pass; structural exclusivity still permits direct private-sink entry. |
+| T5-T7 | Done | Pointer delivery, effect identity, bounded reconciliation, and owned cleanup pass. |
+| T13 | Done | Append-only audit generation and bypass rejection pass. |
+| T14 | Done | `MutationRunner.issue` is the sole reachable mutation boundary. |
 
 ## Spec-anchored acceptance criteria
 
 | Requirement | Spec-defined outcome | `file:line` + assertion/evidence | Result |
 | --- | --- | --- | --- |
-| HSE-22, HSE-23 | Persist the full packet and transport only its pointer. | `tools/test_orca_assisted_probe.py:96` asserts persisted state, one send, packet path, and absent body at `:104`-`:112`. | PASS |
-| HSE-24, HSE-25 | Issue each logical mutation once; reconcile ambiguity only with bounded reads. | `tools/test_orca_assisted_probe.py:325` asserts one physical call after repeated post-effect failure; `:370` asserts one mutation and bounded reads. Duplicate Git/provider mutants die. | PASS |
-| HSE-26, HSE-27, HSE-41, HSE-47 | Prove every persisted identity independently and reject contradictions before cleanup. | `tools/test_orca_assisted_probe.py:389` rejects every observation field; `:429` rejects every receipt/state contradiction; `:444` stops public cleanup before Orca. Both identity-bypass mutants die. | PASS |
-| HSE-28, HSE-43 | Remove only proven owned effects, stop before unsafe destruction, and report residue zero. | `tools/test_orca_assisted_probe.py:186` asserts the public cleanup lifecycle; `:229` asserts PATH-backed cleanup and `residue == []`; `:464` asserts zero destructive effects for five unsafe states. | PASS |
-| HSE-29 | Import performs zero external or filesystem mutation calls. | `tools/test_orca_assisted_probe.py:178` imports with fake executables and asserts no ledger at `:183`. | PASS |
-| HSE-39 | Writable and executable paths remain repository-owned and non-symlinked before effects. | `tools/test_orca_assisted_probe.py:115` rejects outside state and symlinked packet paths; `:505` rejects a symlinked repository with zero calls/state. | PASS |
-| HSE-49, HSE-50 | Authorized resume appends generation 2 while preserving generation 1 and cumulative history. | `tools/test_review_convergence.py:139` asserts generation 2 open/local 0, cumulative 3, generation 1 halted/3, and exact authorization. | PASS |
-| HSE-51 | Unknown, non-halted, unauthorized, reworded, replacement, and reset bypasses fail before write. | `tools/test_review_convergence.py:162` exercises every bypass and asserts original bytes unchanged. | PASS |
-| HSE-52 | Only fresh independent PASS plus green gate closes the current generation. | `tools/test_review_convergence.py:198` rejects non-qualifying results, closes qualifying PASS, and proves generation-local halt accounting. | PASS |
-| HSE-53, HSE-57 | Persist `in_flight`, immutable identity, and attempt 1 before sink; persistence failure performs no sink and preserves bytes. | `tools/test_orca_assisted_probe.py:625` asserts the pre-sink record and unchanged bytes after injected atomic-write failure. The sink-before-ledger mutant dies. | PASS |
-| HSE-54 | Every reachable Orca, Git, and provider mutation uses `MutationRunner.issue`; structural checks reject every alternate sink. | `tools/test_orca_assisted_probe.py:548` walks public lifecycle helpers and rejects direct raw, subprocess, and mutating Git calls. A direct `runner._sink({...})` call inserted after `tools/orca_assisted_probe.py:1711` leaves `test_UT020_public_lifecycle_has_one_mutation_issuer` green. | FAIL |
-| HSE-55 | Existing `in_flight` or `unknown` effects perform zero mutations and use bounded same-identity reads. | `tools/test_orca_assisted_probe.py:662` replays both states and asserts unchanged external ledgers plus exactly two reads at `:697`-`:703`. The reissue mutant dies. | PASS |
-| HSE-56 | Happy, timeout, and cleanup paths record one physical mutation per logical effect; transport excludes packet body. | `tools/test_orca_assisted_probe.py:229` asserts PATH ledgers: stop 1, release 1, detach 1, branch-delete 1, worktree-remove 1, rm 1, no send/body, and `residue == []` at `:302`-`:322`; `:662` proves dispatch ledgers. | PASS |
+| HSE-22, HSE-23 | Persist the packet and send only its pointer. | `tools/test_orca_assisted_probe.py:96` dispatches through fake Orca; `:104`-`:112` assert success, full state, exactly one send, absent body, and exact packet path. | PASS |
+| HSE-24, HSE-25 | Issue each logical mutation once and reconcile ambiguity only through bounded reads. | `tools/test_orca_assisted_probe.py:148` asserts attempts `1` and exact create/send/set/stop/rm counts at `:160`-`:162`; `:165`-`:175` assert one create after two failed dispatches; `:370` proves read-only settle. | PASS |
+| HSE-26, HSE-27, HSE-41, HSE-47 | Prove all persisted identities and reject contradictions before destructive cleanup. | `tools/test_orca_assisted_probe.py:401` rejects every independent observation mismatch; `:429` rejects every receipt/state mismatch; `:444` asserts zero Orca calls for public cleanup contradictions. | PASS |
+| HSE-28, HSE-43 | Remove only correlated owned effects and report residue zero. | `tools/test_orca_assisted_probe.py:229` executes PATH-backed cleanup; `:308` asserts `residue == []`; `:310`-`:322` assert exact Orca/provider/Git mutations and absent worktree/ref. `:464` rejects unsafe cleanup states. | PASS |
+| HSE-29 | Import performs zero external or filesystem-mutation calls. | `tools/test_orca_assisted_probe.py:178` imports under call-counting PATH fakes and asserts no ledger at `:183`. | PASS |
+| HSE-39 | Control paths remain repository-owned and non-symlinked before effects. | `tools/test_orca_assisted_probe.py:115` asserts outside/symlinked paths fail with zero calls; `:505` asserts a symlinked repository fails before state or calls. | PASS |
+| HSE-49, HSE-50 | Authorized resume appends generation 2 without rewriting generation 1 or cumulative history. | `tools/test_review_convergence.py:139` asserts generation 2, cumulative `3`, generation 1 halted at `3`, local `0`, and the exact authorization at `:147`-`:157`. | PASS |
+| HSE-51 | Resume bypasses and manual counter resets fail before write. | `tools/test_review_convergence.py:162` exercises unauthorized, unknown, ordinary-record, reworded, replacement, and reset attempts; `:182` and `:193` assert unchanged bytes. | PASS |
+| HSE-52 | Only a fresh independent PASS with a green gate closes generation 2. | `tools/test_review_convergence.py:198` leaves non-independent/red-gate results open and asserts qualified closure while generation 1 stays halted at `:204`-`:212`. | PASS |
+| HSE-53, HSE-57 | Persist immutable `in_flight`, attempt `1` before the sink; atomic failure calls no sink and preserves bytes. | `tools/test_orca_assisted_probe.py:639` asserts pre-sink state at `:652`-`:654`, duplicate suppression at `:656`-`:657`, and unchanged prior bytes after injected write failure at `:659`-`:673`. | PASS |
+| HSE-54 | Every reachable mutation uses `MutationRunner.issue`; alternate raw, subprocess, Git, and private sinks are rejected. | `tools/test_orca_assisted_probe.py:548` traverses public lifecycle reachability; `:593` classifies sinks; `:600` rejects private sinks; `:608` validates the real source; `:626`-`:636` inject and kill exact `runner._sink(...)`. Source inspection finds no `_sink` or `_physical_sink` method. | PASS |
+| HSE-55 | Existing `in_flight` and `unknown` effects perform zero mutations and use bounded same-identity reads. | `tools/test_orca_assisted_probe.py:676` replays both states; `:710`-`:717` assert unchanged Orca/Git ledgers and exactly two reads. | PASS |
+| HSE-56 | Independent physical Orca, Git, and provider ledgers each record one mutation; terminal receives pointer, never body. | `tools/test_orca_assisted_probe.py:676` dispatches PATH fakes; `:693`-`:702` assert one create, one send, one Git row, one provider row, absent body, settled state. Cleanup exact counts and residue are asserted at `:308`-`:322`. | PASS |
 
-**Spec result:** 20/21 scoped requirements match exact outcomes. HSE-54 fails. There are 0
-spec-precision gaps.
+**Spec result:** 21/21 scoped requirements match exact outcomes. There are 0 spec-precision gaps.
 
 ## Gates
 
-- `python3 tools/test_review_convergence.py` -> exit 0, 10/10 passed.
-- `python3 tools/test_orca_assisted_probe.py` -> exit 0, 19/19 passed; AST count command reports 19
-  test functions and 76 assertions.
+- `python3 tools/test_orca_assisted_probe.py` -> exit 0, 19/19 passed. AST count command reports
+  19 test functions and 77 assertions.
+- `python3 tools/test_review_convergence.py` -> exit 0, 10/10 passed. AST count command reports
+  10 test functions and 39 assertions.
 - `npm_config_offline=true npm run test:all` -> exit 0. Vitest reports 8/8 files and 111/111 tests;
-  Python discovery completes every suite with no reported failure or skip; focused probe remains
-  19/19.
-- `git diff --check 2cb70ba..91b185a` -> exit 0.
-- `git diff --shortstat 2cb70ba..91b185a` -> 23 files changed, 3,464 insertions, 120 deletions.
+  Python discovery runs 14 suites with no failure or skip; the probe remains 19/19.
+- `python3 -m compileall -q tools/orca_assisted_probe.py tools/test_orca_assisted_probe.py .agents/skills/workflow-spec-driven/scripts/review_convergence.py tools/test_review_convergence.py` -> exit 0.
+- `git diff --check 2cb70ba..d75a188` -> exit 0.
+- `git diff --shortstat 2cb70ba..d75a188` -> 23 files changed, 3,509 insertions, 120 deletions.
 - No live Orca command ran.
 
-## PATH-backed cleanup inspection
+## PATH-backed lifecycle proof
 
-The independent disposable run prints these normalized physical results before its temporary files
-are deleted:
-
-- Orca mutation ledger: `stop`, `rm`, each exactly once.
-- Provider ledger: `release` once, followed by read-only `inspect` once.
-- Git mutation ledger: `switch --detach`, `branch --delete lane`, and `worktree remove --force`, each
-  exactly once. Other Git rows are read-only inspection verbs.
-- First cleanup returns fail-closed after the stop post-effect timeout. The second cleanup reconciles
-  the same stopped handle by reads and does not issue stop again.
-- Result has `residue: []`; terminal ledger contains neither `terminal send` nor packet body.
+- Dispatch physical ledgers record Orca create `1`, pointer send `1`, Git mutation `1`, provider
+  mutation `1`; packet body marker is absent.
+- Cleanup physical ledgers record Orca stop `1`, Orca rm `1`, provider release `1`, Git detach `1`,
+  branch delete `1`, and worktree remove `1`; read-only observations may repeat.
+- Restart from `unknown` and `in_flight` records zero new mutations and exactly two bounded reads.
+- Cleanup returns `residue: []`; owned worktree and branch are absent.
+- Import with call-counting executables records zero calls.
 
 ## Discrimination sensor
 
-All mutations ran at `91b185a` in detached disposable worktrees.
+All mutations ran at `d75a188` in one detached disposable worktree. The real checkout remained clean.
 
 | Mutation | Fault | Result |
 | --- | --- | --- |
-| M1 | Duplicate a successful Git sink call. | KILLED: focused suite exits 1 on duplicate cleanup Git mutation. |
-| M2 | Duplicate a provider sink call. | KILLED: focused suite exits 1 with two lease ledger rows. |
-| M3 | Call `raw` directly from public `dispatch`. | KILLED: structural test rejects the direct sink. |
-| M4 | Call `subprocess.run` directly from public `dispatch`. | KILLED: structural test rejects the direct subprocess sink. |
-| M5 | Call mutating `git(..., "add", ...)` directly from public `dispatch`. | KILLED: focused and isolated structural checks both exit 1. |
-| M6 | Invoke the sink before persisting the `in_flight` record. | KILLED: focused suite observes duplicate physical create after restart. |
-| M7 | Reissue existing `in_flight` and `unknown` records. | KILLED: focused suite records two physical create calls. |
-| M8 | Bypass cleanup receipt/state identity conjunction. | KILLED: public cleanup accepts a forged repository and the focused suite exits 1. |
-| M9 | Call `MutationRunner._sink` directly from public `dispatch`. | SURVIVED: isolated HSE-54 structural test exits 0 and prints `AST_SURVIVED_DIRECT_PRIVATE_SINK`. |
-| M10 | Disable independent provider observation identity validation. | KILLED: contradictory repository observation is accepted and the focused suite exits 1. |
+| M1 | Duplicate a successful Git sink call. | KILLED: focused suite exits 1 on the second cleanup Git mutation. |
+| M2 | Duplicate a provider sink call. | KILLED: focused suite exits 1 with `['lease', 'lease']`. |
+| M3 | Call `raw` directly from public `dispatch`. | KILLED: structural sensor reports `direct mutable sink`. |
+| M4 | Call `subprocess.run` directly from public `dispatch`. | KILLED: structural sensor reports `direct provider/orca subprocess`. |
+| M5 | Call mutating `git(..., "add", ...)` directly from public `dispatch`. | KILLED: structural sensor reports `direct mutating git call`. |
+| M6 | Invoke the sink before persisting `in_flight`. | KILLED: focused suite detects duplicate terminal send. |
+| M7 | Reissue persisted `in_flight`/`unknown` effects. | KILLED: focused suite records two physical create calls. |
+| M8 | Bypass cleanup receipt/state identity conjunction. | KILLED: focused suite accepts contradictory repository and exits 1. |
+| M9 | Insert exact `runner._sink({...})` after public dispatch constructs its runner. | KILLED: structural sensor reports `private mutation sink bypass`. |
+| M10 | Disable independent observation identity validation. | KILLED: focused suite accepts contradictory repository observation and exits 1. |
 
-**Sensor result:** 9/10 killed, 1 survived. Real porcelain returned to its empty baseline. Worktree
-count returned from 2 to 2.
+The same structural sensor permits direct read-only `git(..., "rev-parse", "HEAD")`. Baseline PATH
+tests permit repeated read-only Orca/provider/Git inspections while keeping mutation counts at one.
+
+**Sensor result:** 10/10 historical mutants killed, 0 survived. Worktree count returned from 2 to 2.
 
 ## Fingerprint accounting
 
-- `a83ca4d68afa5e45916eae7606c22e6dd57444470bea7b13cfb916684e98bbfd` keeps generation 1
-  field-for-field halted at 3. Generation 2 records failure 2 and remains open; cumulative failures
-  become 5. The authorization reference remains unchanged.
-- `49092771bac5f9461878129cc1518db120787ec6944d2f7d3abf81e2258fab0b`
-  closes after the current independent identity proof and green gate.
-- `d11da16b460c9514ef870fea56f469cb35ea657f77cdd7a9bbfd3d2eafb6b9f0` closes after the current
-  public cleanup, correlated release, physical ledger, and residue-zero proof.
-
-## Ranked gaps
-
-1. **Blocker, HSE-54:** `tools/test_orca_assisted_probe.py:593` rejects direct helper names and
-   subprocess attributes, but permits a reachable direct call to `MutationRunner._sink`. Reject any
-   `_sink` call whose owner is outside `MutationRunner.issue`, while retaining required read-only Git
-   and provider inspections.
+- Fingerprint `a83ca4d68afa5e45916eae7606c22e6dd57444470bea7b13cfb916684e98bbfd`
+  retains generation 1 halted at 3 and generation 2's two failed remediations. Qualified independent
+  PASS closes generation 2 and the fingerprint; cumulative failures remain 5.
+- Fingerprint `49092771bac5f9461878129cc1518db120787ec6944d2f7d3abf81e2258fab0b`
+  remains closed.
+- Fingerprint `d11da16b460c9514ef870fea56f469cb35ea657f77cdd7a9bbfd3d2eafb6b9f0`
+  remains closed.
 
 ## Code quality
 
-The module stays stdlib-only, import-safe, and uses explicit Git verb semantics that permit required
-reads. The physical lifecycle proof is now complete. Structural ownership is still hollow at the
-private sink boundary, so the checkpoint is not releasable.
+The probe remains stdlib-only, import-safe, and guarded by `if __name__ == "__main__"`. The final
+change deletes the alternate private sink instead of adding another control layer. Mutating Git,
+provider, and Orca operations share one durable issuer; required read-only inspections remain legal.
+No scope creep or unrelated refactor was found.
 
-No new lesson was added. The surviving structural-boundary mutant is the same grounded guidance
-already tracked by L-024; duplicating it would split one lesson into two exact-match candidates.
+No new lesson is recorded. This clean PASS adds no new failure signal; the prior structural lesson
+L-024 remains the grounded reusable guidance.
 
 ## Summary
 
-**Overall:** FAIL. CP-S4 cannot close. Generation 2 is not halted, so one targeted remediation may
-continue autonomously. The next verifier must kill a direct `MutationRunner._sink` bypass without
-banning the read-only reconciliation paths.
+**Overall:** PASS. CP-S4 may release S3 and S6.
