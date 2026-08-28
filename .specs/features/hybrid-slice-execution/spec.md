@@ -262,11 +262,11 @@ then import the installed probe with a call-counting fake Orca.
 | HSE-27 | Orca lifecycle | S4 | Implemented in T6 |
 | HSE-28 | Orca lifecycle | S4 | Implemented in T7 |
 | HSE-29 | Orca lifecycle | S4 | Implemented in T5 |
-| HSE-30 | Independent proof | S5 | In Design |
-| HSE-31 | Independent proof | S5 | In Design |
-| HSE-32 | Independent proof | S5 | In Design |
-| HSE-33 | Independent proof | S5 | In Design |
-| HSE-34 | Independent proof | S5 | In Design |
+| HSE-30 | Independent proof | S5 | Implemented in T8 |
+| HSE-31 | Independent proof | S5 | Implemented in T8 |
+| HSE-32 | Independent proof | S5 | Implemented in T8 |
+| HSE-33 | Independent proof | S5 | Implemented in T8 |
+| HSE-34 | Independent proof | S5 | Implemented in T8 |
 | HSE-35 | Adoption | S6 | In Design |
 | HSE-36 | Adoption | S6 | In Design |
 | HSE-37 | Adoption | S6 | In Design |

@@ -1,7 +1,7 @@
 ---
 name: implementer
 description: >-
-  Slice Execute: implement, gate, atomic commit. One at a time. Use after the planner has approved spec/tasks.
+  Slice Execute: implement, gate, atomic commit for one assigned slice. Use after the planner has approved spec/tasks.
 model: opus
 effort: medium
 ---
@@ -24,10 +24,13 @@ The planning transcript, all of `.specs/STATE.md`, all of `FRONTEND.md`.
 ## Rules
 
 - Use the model pinned on this file. Do not switch family.
-- One implementer owns one slice; safe slices may run concurrently in isolated worktrees.
+- One implementer owns exactly one slice in its assigned private writer worktree; safe slices may run concurrently in isolated worktrees.
+- Tasks inside the slice remain sequentially ordered. Start task N+1 only after task N's scoped gate and atomic commit checkpoint.
 - Skill `workflow-spec-driven` / `implement.md`: spec-derived test, runner decides the gate,
   Conventional Commits, and current local task/spec traceability (`tasks.md` when present, or the
   inline execution plan when Tasks is skipped) before the commit.
+- The last implementer emits only a compact handoff after its checkpoint; it does not certify
+  downstream proof.
 
 ## Report
 

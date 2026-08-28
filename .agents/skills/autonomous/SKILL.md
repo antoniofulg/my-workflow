@@ -97,9 +97,9 @@ When the frozen workflow opts into inter-slice dispatch, read
 planning. It is an optional orchestration layer above TLC; its serial fallback remains the default.
 
 - **Every implementation slice closes its technical review before the next opens** — implement,
-  scoped gate, commit, Verifier, and a QA walk when it puts something in front of a user. Deep-review
-  runs at the resolved review groups, before final QA, so a feature can balance reading cost without
-  changing the slice contract.
+  scoped gate, commit, and a fresh Verifier on the private writer checkpoint. Deep-review runs at
+  the resolved groups on the integrated tree, before fresh final QA, so a feature can balance
+  reading cost without changing the slice contract. Author and proof identities stay distinct.
 - **One pull request for the feature**, with the slices as atomic commits inside it.
 - **The feature-closing step is the QA session** and writes no product code, so it takes no Verifier
   and no deep-review.

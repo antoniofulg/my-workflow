@@ -56,6 +56,16 @@ or cleanup failure returns serial recovery without creating a replacement effect
   available.
 - A worker does not create another worker and does not edit another slice's worktree.
 
+## Proof boundary
+
+The coordinator records each Implementer's author identity with its slice and
+checkpoint. Technical Verification is a fresh session with a different
+identity and reads the exact private writer worktree at that checkpoint.
+After verified checkpoints are integrated, Deep Review receives the integrated
+commit range on the clean integration checkout. Fresh QA Plan and QA Execute
+sessions receive that integrated final tree. No proof role reuses the author
+identity or certifies a private tree as the final result.
+
 The plan's `ready` lane is permission to start the named task, not permission to skip a gate. A
 `waiting` or `in_progress` task is never a fresh worker; the planner's state transition is part of
 the dispatch decision.
