@@ -152,6 +152,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: .specs/features/hybrid-slice-execution/validation-s4.md:47 (security)
 - last seen: 2026-08-28T18:16:51Z
 
+### L-024 - Structural mutation-boundary checks must classify mutating helper verbs, not only direct subprocess sinks.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `lifecycle` · harmful: 0
+- features: hybrid-slice-execution
+- evidence: .specs/features/hybrid-slice-execution/validation-s4.md:M3b (lifecycle)
+- last seen: 2026-08-28T21:01:28Z
+
+### L-025 - Prove cleanup exactly-once behavior with independent executable ledgers for every destructive sink.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `lifecycle` · harmful: 0
+- features: hybrid-slice-execution
+- evidence: .specs/features/hybrid-slice-execution/validation-s4.md:HSE-56 (lifecycle)
+- last seen: 2026-08-28T21:01:28Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

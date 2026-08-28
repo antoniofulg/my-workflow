@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 24,
+  "next_id": 26,
   "lessons": [
     {
       "id": "L-001",
@@ -418,6 +418,42 @@
       ],
       "created": "2026-08-28T18:16:51Z",
       "last_seen": "2026-08-28T18:16:51Z"
+    },
+    {
+      "id": "L-024",
+      "key": "surviving_mutant::structural mutation boundary checks must classify mutating helper verbs not only direct subprocess sinks",
+      "text": "Structural mutation-boundary checks must classify mutating helper verbs, not only direct subprocess sinks.",
+      "signal": "surviving_mutant",
+      "scope": "lifecycle",
+      "status": "candidate",
+      "features": [
+        "hybrid-slice-execution"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/hybrid-slice-execution/validation-s4.md:M3b (lifecycle)"
+      ],
+      "created": "2026-08-28T21:01:28Z",
+      "last_seen": "2026-08-28T21:01:28Z"
+    },
+    {
+      "id": "L-025",
+      "key": "ac_gap::prove cleanup exactly once behavior with independent executable ledgers for every destructive sink",
+      "text": "Prove cleanup exactly-once behavior with independent executable ledgers for every destructive sink.",
+      "signal": "ac_gap",
+      "scope": "lifecycle",
+      "status": "candidate",
+      "features": [
+        "hybrid-slice-execution"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/hybrid-slice-execution/validation-s4.md:HSE-56 (lifecycle)"
+      ],
+      "created": "2026-08-28T21:01:28Z",
+      "last_seen": "2026-08-28T21:01:28Z"
     }
   ]
 }
