@@ -226,6 +226,102 @@ def test_IT010_HSE028_public_cleanup_consumes_dispatch_state_and_releases_owned_
         }
 
 
+def test_IT017_IT018_IT019_SEC013_path_backed_cleanup_ledgers_reconcile_once() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        container = Path(directory); root = container / "repo"; root.mkdir(); head = _repo(root)
+        lane = container / "lane"; subprocess.run(["git", "worktree", "add", "-q", "-b", "lane", str(lane), "HEAD"], cwd=root, check=True)
+        common = Path(subprocess.check_output(["git", "-C", str(lane), "rev-parse", "--git-common-dir"], text=True).strip()).resolve()
+        linked = Path(subprocess.check_output(["git", "-C", str(lane), "rev-parse", "--absolute-git-dir"], text=True).strip()).resolve()
+
+        orca_ledger, orca_state, fake_orca = container / "orca.ledger", container / "orca-state.json", container / "orca"
+        orca_state.write_text(json.dumps({"stopped": False, "removed": False, "stop_failed": False}), encoding="utf-8")
+        fake_orca.write_text(
+            "#!/usr/bin/env python3\n"
+            "import json, subprocess, sys\n"
+            f"LEDGER = {str(orca_ledger)!r}; STATE = {str(orca_state)!r}; REPO = {str(root.resolve())!r}; LANE = {str(lane.resolve())!r}\n"
+            "def load():\n"
+            "    with open(STATE, encoding='utf-8') as stream: return json.load(stream)\n"
+            "def save(value):\n"
+            "    with open(STATE, 'w', encoding='utf-8') as stream: json.dump(value, stream)\n"
+            "def log(value):\n"
+            "    with open(LEDGER, 'a', encoding='utf-8') as stream: stream.write(value + '\\n')\n"
+            "state = load(); command = sys.argv[1:]\n"
+            "if command[:2] == ['worktree', 'list']:\n"
+            "    values = [] if state['removed'] else [{'id': 'lane', 'repoId': 'repo', 'instanceId': 'instance-S4', 'path': LANE, 'branch': 'refs/heads/lane'}]\n"
+            "    print(json.dumps({'worktrees': values})); raise SystemExit\n"
+            "if command[:2] == ['terminal', 'list']:\n"
+            "    values = [] if state['stopped'] else [{'handle': 'owned-terminal'}]\n"
+            "    print(json.dumps({'terminals': values})); raise SystemExit\n"
+            "if command[:2] == ['terminal', 'stop']:\n"
+            "    log('stop'); state['stopped'] = True\n"
+            "    if not state['stop_failed']:\n"
+            "        state['stop_failed'] = True; save(state); raise SystemExit('post-effect timeout')\n"
+            "    save(state); print(json.dumps({'ok': True})); raise SystemExit\n"
+            "if command[:2] == ['worktree', 'rm']:\n"
+            "    log('rm'); subprocess.run(['git', '-C', REPO, 'worktree', 'remove', '--force', LANE], check=True)\n"
+            "    state['removed'] = True; save(state); print(json.dumps({'ok': True})); raise SystemExit\n"
+            "print(json.dumps({'ok': True}))\n",
+            encoding="utf-8",
+        ); fake_orca.chmod(0o755)
+
+        provider_ledger, provider, provider_state = container / "provider.ledger", container / "provider", container / "provider-state.json"
+        provider_state.write_text(json.dumps({"released": False}), encoding="utf-8")
+        provider.write_text(
+            "#!/usr/bin/env python3\n"
+            "import json, sys\n"
+            f"LEDGER = {str(provider_ledger)!r}; STATE = {str(provider_state)!r}\n"
+            "payload = json.load(sys.stdin)\n"
+            "with open(LEDGER, 'a', encoding='utf-8') as stream: stream.write(payload['operation'] + '\\n')\n"
+            "with open(STATE, encoding='utf-8') as stream: state = json.load(stream)\n"
+            "if payload['operation'] == 'release': state['released'] = True\n"
+            "with open(STATE, 'w', encoding='utf-8') as stream: json.dump(state, stream)\n"
+            "print(json.dumps({'lease_id': 'lease-S4', 'released': state['released']}))\n",
+            encoding="utf-8",
+        ); provider.chmod(0o755)
+
+        git_ledger, fake_git = container / "git.ledger", container / "git"
+        real_git = subprocess.check_output(["/usr/bin/env", "sh", "-c", "command -v git"], text=True).strip()
+        fake_git.write_text(
+            "#!/bin/sh\n"
+            f"printf '%s\\n' \"$*\" >> {str(git_ledger)!s}\n"
+            f"exec {real_git} \"$@\"\n",
+            encoding="utf-8",
+        ); fake_git.chmod(0o755)
+
+        state = _request(root, head)
+        state.update({"repository_root": str(container.resolve()), "worktree_id": "lane", "worktree_path": str(lane.resolve()),
+                      "branch": "refs/heads/lane", "gitdir": str(common), "worktree_gitdir": str(linked),
+                      "terminal_handle": "owned-terminal", "receipt_path": str(root / "receipt.json"),
+                      "resource_provider": str(provider)})
+        state["receipt"] = _receipt(state)
+        state_path, receipt_path = root / "state.json", root / "receipt.json"
+        state_path.write_text(json.dumps(state), encoding="utf-8"); receipt_path.write_text(json.dumps(state["receipt"]), encoding="utf-8")
+        env = {**os.environ, "PATH": f"{container}:{os.environ.get('PATH', '')}"}
+        command = [sys.executable, str(ROOT / "orca_assisted_probe.py"), "--repo", "repo", "--orca", str(fake_orca),
+                   "cleanup", "--state", str(state_path), "--integration-head", head, "--settle-window", "0.1", "--interval", "0.01"]
+        first = subprocess.run(command, env=env, capture_output=True, text=True, check=False)
+        assert first.returncode != 0 and "FAIL_CLOSED" in first.stderr
+        assert json.loads(subprocess.check_output([str(fake_orca), "worktree", "list", "--repo", "id:repo", "--json"], env=env, text=True))["worktrees"][0]["path"] == str(lane.resolve())
+        second = subprocess.run(command, env=env, capture_output=True, text=True, check=False)
+        assert second.returncode == 0, second.stderr
+        result = json.loads(second.stdout)
+        assert result["status"] == "cleaned" and result["residue"] == []
+
+        assert orca_ledger.read_text(encoding="utf-8").splitlines() == ["stop", "rm"]
+        assert provider_ledger.read_text(encoding="utf-8").splitlines().count("release") == 1
+        assert "inspect" in provider_ledger.read_text(encoding="utf-8").splitlines()
+        git_lines = git_ledger.read_text(encoding="utf-8").splitlines()
+        assert sum(" switch --detach " in line for line in git_lines) == 1
+        assert sum(" branch --delete lane" in line for line in git_lines) == 1
+        assert sum(" worktree remove --force " in line for line in git_lines) == 1
+        assert all("terminal send" not in line and "SECRET_PACKET_BODY" not in line for line in orca_ledger.read_text(encoding="utf-8").splitlines())
+        assert not lane.exists()
+        assert subprocess.run(["git", "show-ref", "--verify", "--quiet", "refs/heads/lane"], cwd=root, check=False).returncode == 1
+        assert "lane" not in subprocess.check_output(["git", "worktree", "list", "--porcelain"], cwd=root, text=True)
+        saved = json.loads(state_path.read_text(encoding="utf-8"))
+        assert {effect["status"] for effect in saved["effects"]} == {"settled"}
+
+
 def test_IT007_SEC006_each_mutator_has_one_actual_call_after_post_effect_failure() -> None:
     mutators = (
         ("create", "orca", ["worktree", "create"]),
@@ -416,18 +512,114 @@ def test_SEC001_dispatch_rejects_repository_symlink_before_any_effect() -> None:
         assert completed.returncode != 0 and not calls.exists() and not state_path.exists()
 
 
-def test_UT020_public_lifecycle_has_one_mutation_issuer() -> None:
-    tree = ast.parse((ROOT / "orca_assisted_probe.py").read_text(encoding="utf-8"))
-    public = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in {"dispatch", "cleanup"}]
-    assert {node.name for node in public} == {"dispatch", "cleanup"}
-    for node in public:
-        for call in ast.walk(node):
-            if not isinstance(call, ast.Call):
+MUTATING_GIT_VERBS = {"add", "commit", "checkout", "switch", "update-ref"}
+MUTATING_WORKTREE_VERBS = {"add", "remove", "move", "prune", "lock", "unlock"}
+READ_ONLY_GIT_VERBS = {
+    "cat-file", "diff", "for-each-ref", "log", "merge-base", "rev-parse", "show-ref",
+    "status", "symbolic-ref", "worktree",
+}
+
+
+def _function_index(tree: ast.Module) -> dict[str, ast.FunctionDef | ast.AsyncFunctionDef]:
+    result: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            result[node.name] = node
+        if isinstance(node, ast.ClassDef):
+            for child in node.body:
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    result[f"{node.name}.{child.name}"] = child
+    return result
+
+
+def _git_mutates(call: ast.Call) -> bool:
+    arguments = call.args[1:]
+    values = [argument.value for argument in arguments if isinstance(argument, ast.Constant) and isinstance(argument.value, str)]
+    verbs = set(values)
+    if verbs & MUTATING_GIT_VERBS:
+        return True
+    if "branch" in verbs and any(flag in values for flag in ("--delete", "-d", "-D")):
+        return True
+    if "worktree" in verbs and verbs & MUTATING_WORKTREE_VERBS:
+        return True
+    return not (verbs & READ_ONLY_GIT_VERBS)
+
+
+def _assert_public_mutation_boundary(source: str) -> None:
+    """Check the reachable public lifecycle, not just its two entrypoint bodies."""
+    tree = ast.parse(source)
+    functions = _function_index(tree)
+    allowed = {
+        "raw", "git", "resilient_run", "_send_pointer_once", "_provider_read",
+        "MutationRunner._sink", "MutationRunner.issue", "OrcaProbe.run",
+    }
+    pending = ["dispatch", "cleanup"]
+    visited: set[str] = set()
+    while pending:
+        name = pending.pop()
+        if name in visited or name in allowed:
+            continue
+        node = functions.get(name)
+        if node is None:
+            continue
+        visited.add(name)
+        for child in ast.walk(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)) and child is not node:
+                # Nested callbacks are part of the public lifecycle too.
+                for nested in ast.walk(child):
+                    if isinstance(nested, ast.Call):
+                        _check_public_call(nested, name)
                 continue
-            if isinstance(call.func, ast.Name):
-                assert call.func.id not in {"raw", "subprocess"}, f"direct sink in {node.name}"
-    runner = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "MutationRunner")
+            if not isinstance(child, ast.Call):
+                continue
+            _check_public_call(child, name)
+            target: str | None = None
+            if isinstance(child.func, ast.Name):
+                target = child.func.id
+            elif isinstance(child.func, ast.Attribute):
+                target = child.func.attr
+            targets = [target] if target in functions else [key for key in functions if key.endswith(f".{target}")]
+            for resolved in targets:
+                if resolved in {"raw", "git"}:
+                    continue
+                if target == "issue":
+                    pending.append("MutationRunner.issue")
+                elif target == "run":
+                    pending.append("OrcaProbe.run")
+                else:
+                    pending.append(resolved)
+
+
+def _check_public_call(call: ast.Call, owner: str) -> None:
+    if isinstance(call.func, ast.Name):
+        if call.func.id in {"raw", "subprocess"}:
+            raise AssertionError(f"direct mutable sink in reachable {owner}: {call.func.id}")
+        if call.func.id == "git" and _git_mutates(call):
+            raise AssertionError(f"direct mutating git call in reachable {owner}")
+    if isinstance(call.func, ast.Attribute) and isinstance(call.func.value, ast.Name):
+        if call.func.value.id == "subprocess" and call.func.attr in {
+            "run", "Popen", "call", "check_call", "check_output"
+        }:
+            raise AssertionError(f"direct provider/orca subprocess in reachable {owner}")
+
+
+def test_UT020_public_lifecycle_has_one_mutation_issuer() -> None:
+    source = (ROOT / "orca_assisted_probe.py").read_text(encoding="utf-8")
+    _assert_public_mutation_boundary(source)
+    runner = next(node for node in ast.parse(source).body if isinstance(node, ast.ClassDef) and node.name == "MutationRunner")
     assert any(isinstance(node, ast.FunctionDef) and node.name == "issue" for node in runner.body)
+
+    survivor = source.replace(
+        '    request_path = Path(args.request)\n',
+        '    git(root, "add", "seed")\n    request_path = Path(args.request)\n',
+        1,
+    )
+    try:
+        _assert_public_mutation_boundary(survivor)
+    except AssertionError as error:
+        assert "mutating git" in str(error)
+    else:
+        raise AssertionError("direct mutating git survivor passed the structural guard")
 
 
 def test_IT017_SEC013_issue_persists_in_flight_before_sink_and_rejects_duplicate_success() -> None:

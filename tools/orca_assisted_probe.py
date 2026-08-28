@@ -1044,10 +1044,12 @@ def cleanup(args: argparse.Namespace) -> None:
         raise ProbeError("cleanup requires persisted state")
     runner = MutationRunner(args, state_payload, effect_state_path)
 
-    if owned:
+    stop_effect = {"effect_id": f"{receipt['operation_id']}:cleanup-stop", "kind": "orca",
+                   "argv": ["terminal", "stop", "--terminal", known, "--json"]}
+    existing_stop = _effect_record(state_payload, str(stop_effect["effect_id"]))
+    if owned or (existing_stop is not None and existing_stop.get("status") != "settled"):
         stopped_result = runner.issue(
-            {"effect_id": f"{receipt['operation_id']}:cleanup-stop", "kind": "orca",
-             "argv": ["terminal", "stop", "--terminal", known, "--json"]},
+            stop_effect,
             observe=lambda: all(value.get("handle") != known for value in probe.worktree_terminals(worktree_id)),
         )
         stopped = True
@@ -1055,11 +1057,11 @@ def cleanup(args: argparse.Namespace) -> None:
         provider_root = Path(state_payload["repository_root"]).resolve() if isinstance(state_payload, dict) else path.parent
         provider = _owned_path(provider_value, provider_root, "lease provider")
         def lease_reconciled() -> bool:
-            result = subprocess.run(
-                [str(provider)], cwd=str(provider_root),
-                input=json.dumps({"operation": "inspect", "lease_id": lease_id,
-                                  "repository": receipt["repository"], "worktree": receipt["id"]}),
-                capture_output=True, text=True, shell=False, timeout=args.timeout, check=False,
+            result = _provider_read(
+                provider, provider_root,
+                {"operation": "inspect", "lease_id": lease_id,
+                 "repository": receipt["repository"], "worktree": receipt["id"]},
+                args.timeout,
             )
             if result.returncode != 0:
                 return False
@@ -1390,6 +1392,14 @@ def _write_json(path: Path, value: dict[str, Any]) -> None:
             pass
 
 
+def _provider_read(provider: Path, root: str | Path, payload: dict[str, Any], timeout: float) -> subprocess.CompletedProcess[str]:
+    """Run one provider inspection; mutation requests stay inside MutationRunner._sink."""
+    return subprocess.run(
+        [str(provider)], cwd=str(root), input=json.dumps(payload),
+        capture_output=True, text=True, shell=False, timeout=timeout, check=False,
+    )
+
+
 def _effect_record(state: dict[str, Any], effect_id: str) -> dict[str, Any] | None:
     return next((item for item in state.get("effects", []) if item.get("effect_id") == effect_id), None)
 
@@ -1420,13 +1430,12 @@ def _reconcile_effect(
                 complete = git(state["repository_root"], *observe, check=False).returncode == 0
             elif kind == "lease":
                 provider = _owned_path(effect.get("provider"), Path(state["repository_root"]), "lease provider")
-                result = subprocess.run(
-                    [str(provider)], cwd=state["repository_root"],
-                    input=json.dumps({"operation": effect.get("observe_operation", "inspect"),
-                                      "lease_id": state["lease_id"], "repository": state["repository"],
-                                      "slice": state["slice_id"], "task": state["task_id"],
-                                      "operation_id": state["operation_id"]}),
-                    capture_output=True, text=True, shell=False, timeout=30, check=False,
+                result = _provider_read(
+                    provider, state["repository_root"],
+                    {"operation": effect.get("observe_operation", "inspect"),
+                     "lease_id": state["lease_id"], "repository": state["repository"],
+                     "slice": state["slice_id"], "task": state["task_id"],
+                     "operation_id": state["operation_id"]}, 30,
                 )
                 if result.returncode:
                     complete = False
