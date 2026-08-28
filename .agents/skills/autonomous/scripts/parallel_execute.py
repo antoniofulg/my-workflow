@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 
-MODES = {"disabled", "safe", "full"}
+MODES = {"disabled", "assisted"}
 LANE_STATES = {"ready", "needs_resources", "running", "waiting", "needs_sync", "invalidated", "gate_required", "complete", "failed", "serial"}
 TRANSITIONS: dict[str, set[str]] = {
     "ready": {"needs_resources", "running", "invalidated", "serial", "failed"},
@@ -493,11 +493,24 @@ class Coordinator:
         path = self.root / ".specs" / "features" / self.feature / "workflow.json"
         try:
             snapshot = json.loads(path.read_text(encoding="utf-8"))
-            if not isinstance(snapshot, dict) or snapshot.get("version") != 1 or snapshot.get("feature") != self.feature:
+            if not isinstance(snapshot, dict) or snapshot.get("version") != 3 or snapshot.get("feature") != self.feature:
                 raise ValueError
-            mode = snapshot["parallelization"]["mode"]
+            parallelization = snapshot["parallelization"]
+            if not isinstance(parallelization, dict) or set(parallelization) != {
+                "mode", "max_workers", "automatic_baseline", "automatic_ceiling", "resource_provider"
+            }:
+                raise ValueError
+            mode = parallelization["mode"]
             head = snapshot["git_head"]
-            if mode not in MODES or not isinstance(head, str) or not head:
+            max_workers = parallelization["max_workers"]
+            if (
+                mode not in MODES
+                or (max_workers != "auto" and (type(max_workers) is not int or max_workers < 1))
+                or parallelization["automatic_baseline"] != 2
+                or parallelization["automatic_ceiling"] != 4
+                or not isinstance(head, str)
+                or not head
+            ):
                 raise ValueError
             return snapshot
         except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
@@ -844,9 +857,12 @@ class Coordinator:
             self._save(state)
 
     def _integrate_verified_slices(self, state: dict[str, Any], plan: Mapping[str, Any]) -> str:
-        if state.get("mode") != "full":
+        if state.get("mode") != "assisted":
             return "not-applicable"
-        plan_lanes = [lane for lane in plan.get("lanes", []) if isinstance(lane, Mapping) and lane.get("id") != "serial"]
+        plan_lanes = [
+            lane for lane in plan.get("lanes", [])
+            if isinstance(lane, Mapping) and lane.get("id") != "serial" and lane.get("worktree") is True
+        ]
         if not plan_lanes:
             return "not-applicable"
         entries: list[dict[str, Any]] = []
@@ -1249,7 +1265,13 @@ class Coordinator:
                     continue
             prior_lane_ids.append(lane_id)
             if existing is None:
-                state["lanes"][lane_id] = {"slice": slice_id, "task": task_id, "state": "ready", "resources": resources}
+                state["lanes"][lane_id] = {
+                    "slice": slice_id,
+                    "task": task_id,
+                    "state": "ready",
+                    "resources": resources,
+                    "worktree": plan_lane.get("worktree") is True,
+                }
                 existing = state["lanes"][lane_id]
             elif existing.get("slice") != slice_id or existing.get("task") != task_id:
                 return _serial_result(self.feature, mode, "mismatched-lane-receipt", lanes)
@@ -1468,7 +1490,11 @@ class Coordinator:
                     except ExecutorError:
                         return _serial_result(self.feature, mode, "cleanup-failed", lanes)
                 if terminal and existing["state"] == "running":
-                    if mode == "full" and not isinstance(existing.get("current_head"), str):
+                    if (
+                        mode == "assisted"
+                        and existing.get("worktree") is True
+                        and not isinstance(existing.get("current_head"), str)
+                    ):
                         try:
                             self._record_producer_head(state, lane_id, existing)
                         except ExecutorError as exc:

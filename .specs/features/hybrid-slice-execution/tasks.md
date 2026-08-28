@@ -143,11 +143,11 @@ align all resolver readers and canonical tests.
 
 **Done when:**
 
-- [ ] Config and snapshot share version 3 and exact errors from `dx.md`.
-- [ ] Defaults are `assisted` and `auto`; old modes and v1/v2 artifacts produce zero dispatch plans.
-- [ ] Planner and executor accept the newly frozen snapshot without a version mismatch.
-- [ ] Assigned 5 cases pass with no existing assertion weakened or deleted.
-- [ ] Quick and full gates exit 0 before commit.
+- [x] Config and snapshot share version 3 and exact errors from `dx.md`.
+- [x] Defaults are `assisted` and `auto`; old modes and v1/v2 artifacts produce zero dispatch plans.
+- [x] Planner and executor accept the newly frozen snapshot without a version mismatch.
+- [x] Assigned 5 cases pass with no existing assertion weakened or deleted.
+- [x] Quick and full gates exit 0 before commit.
 
 **Tests:** unit + integration + security — UT-005, UT-006, UT-007, IT-001, SEC-002
 **Gate:** `python3 tools/test_workflow_config.py && python3 tools/test_parallel_plan.py && npm_config_offline=true npm run test:all`

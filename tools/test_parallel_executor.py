@@ -56,7 +56,7 @@ class TestCoordinator(_RealCoordinator):
 parallel_execute.Coordinator = TestCoordinator  # type: ignore[assignment]
 
 
-def make_repo(*, mode: str = "safe", feature: str = "fixture") -> Path:
+def make_repo(*, mode: str = "assisted", feature: str = "fixture") -> Path:
     root = Path(tempfile.mkdtemp())
     feature_dir = root / ".specs" / "features" / feature
     feature_dir.mkdir(parents=True)
@@ -77,8 +77,14 @@ def make_repo(*, mode: str = "safe", feature: str = "fixture") -> Path:
             {
                 "feature": feature,
                 "git_head": head,
-                "parallelization": {"mode": mode},
-                "version": 1,
+                "parallelization": {
+                    "mode": mode,
+                    "max_workers": "auto",
+                    "automatic_baseline": 2,
+                    "automatic_ceiling": 4,
+                    "resource_provider": None,
+                },
+                "version": 3,
             },
             sort_keys=True,
         )
@@ -89,7 +95,7 @@ def make_repo(*, mode: str = "safe", feature: str = "fixture") -> Path:
 
 
 def test_state_rejects_out_of_order_and_duplicate_lane_transition() -> None:
-    state = parallel_execute.new_runtime_state("repo", "fixture", "safe", "head")
+    state = parallel_execute.new_runtime_state("repo", "fixture", "assisted", "head")
     state["lanes"]["slice-A"] = {"slice": "A", "task": "T1", "state": "ready"}
     parallel_execute.transition_lane(state, "slice-A", "running", expected="ready")
     assert state["lanes"]["slice-A"]["state"] == "running"
@@ -102,7 +108,7 @@ def test_state_rejects_out_of_order_and_duplicate_lane_transition() -> None:
 
 
 def test_state_validation_rejects_foreign_and_malformed_state() -> None:
-    state = parallel_execute.new_runtime_state("repo", "fixture", "safe", "head")
+    state = parallel_execute.new_runtime_state("repo", "fixture", "assisted", "head")
     for foreign in (
         {**state, "repository_id": "other"},
         {**state, "feature": "other"},
@@ -1012,7 +1018,7 @@ def test_executor_cli_safe_resume_reconciles_pending_worker_through_injected_ada
         worker_key = parallel_execute.idempotency_key("fixture", "A", "T1", "worker", source_head)
         worktree_key = parallel_execute.idempotency_key("fixture", "A", "T1", "worktree", source_head)
         destination = parallel_execute.derive_worktree_destination(root, "fixture", "A", "T1")
-        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "safe", source_head)
+        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "assisted", source_head)
         state["lanes"]["slice-A"] = {
             "slice": "A",
             "task": "T1",
@@ -1099,7 +1105,7 @@ def test_executor_resume_consumes_run_delivery_reads_accepts_then_releases_worke
         worker_key = parallel_execute.idempotency_key("fixture", "A", "T1", "worker", source_head)
         worktree_key = parallel_execute.idempotency_key("fixture", "A", "T1", "worktree", source_head)
         destination = parallel_execute.derive_worktree_destination(root, "fixture", "A", "T1")
-        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "safe", source_head)
+        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "assisted", source_head)
         state["lanes"]["slice-A"] = {
             "slice": "A", "task": "T1", "state": "running", "resources": [],
             "worktree_id": "wt-A", "worktree_path": str(destination), "branch": "slice/A", "pre_head": source_head,
@@ -1490,7 +1496,7 @@ def test_malformed_checkpoint_receipt_serializes_with_named_receipt_and_cleanup(
         probe = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter())
         probe._prepare_repository()
         workflow = json.loads((root / ".specs/features/fixture/workflow.json").read_text(encoding="utf-8"))
-        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "full", workflow["git_head"])
+        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "assisted", workflow["git_head"])
         state["lanes"]["producer"] = {"slice": "P", "task": "T0", "state": "complete", "resources": [], "current_head": workflow["git_head"]}
         parallel_execute.atomic_write_json(probe.state_path, state)
 
@@ -1519,7 +1525,7 @@ def test_checkpoint_invalidation_blocks_worker_and_persists_exact_receipt_across
         probe = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter())
         probe._prepare_repository()
         workflow = json.loads((root / ".specs/features/fixture/workflow.json").read_text(encoding="utf-8"))
-        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "full", workflow["git_head"])
+        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "assisted", workflow["git_head"])
         state["lanes"]["producer"] = {"slice": "P", "task": "T0", "state": "complete", "resources": [], "current_head": workflow["git_head"]}
         parallel_execute.atomic_write_json(probe.state_path, state)
         adapter = CheckpointReceiptAdapter(probe.state_path)
@@ -1571,7 +1577,7 @@ def test_gate_receipt_requires_exact_identity_and_removes_only_gate_invalidation
         probe = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter())
         probe._prepare_repository()
         workflow = json.loads((root / ".specs/features/fixture/workflow.json").read_text(encoding="utf-8"))
-        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "full", workflow["git_head"])
+        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "assisted", workflow["git_head"])
         state["lanes"]["slice-A"] = {
             "slice": "A", "task": "T1", "state": "gate_required", "resources": [],
             "current_head": "checkpoint-head", "invalidated_evidence": ["gate", "technical_verifier", "deep_review"],
@@ -1617,7 +1623,7 @@ def test_pending_crash_receipt_is_reconciled_without_repeating_external_effect()
     try:
         probe = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter())
         probe._prepare_repository()
-        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "safe", json.loads((root / ".specs/features/fixture/workflow.json").read_text())["git_head"])
+        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "assisted", json.loads((root / ".specs/features/fixture/workflow.json").read_text())["git_head"])
         state["lanes"]["slice-A"] = {"slice": "A", "task": "T1", "state": "ready", "resources": []}
         key = parallel_execute.idempotency_key("fixture", "A", "T1", "worktree", state["source_git_head"])
         state["actions"][key] = {"key": key, "action": "worktree", "status": "pending", "lane": "slice-A"}
@@ -1643,7 +1649,7 @@ def test_unreconcilable_pending_or_foreign_state_selects_serial_without_adapter_
     try:
         probe = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter())
         probe._prepare_repository()
-        state = parallel_execute.new_runtime_state(str(root.resolve()), "other-feature", "safe", "head")
+        state = parallel_execute.new_runtime_state(str(root.resolve()), "other-feature", "assisted", "head")
         parallel_execute.atomic_write_json(probe.state_path, state)
         adapter = RecordingAdapter()
         coordinator = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: adapter)
@@ -1653,7 +1659,7 @@ def test_unreconcilable_pending_or_foreign_state_selects_serial_without_adapter_
         assert result["reason"].startswith("state:")
         assert adapter.effects == []
         valid = parallel_execute.new_runtime_state(
-            str(root.resolve()), "fixture", "safe", json.loads((root / ".specs/features/fixture/workflow.json").read_text())["git_head"]
+            str(root.resolve()), "fixture", "assisted", json.loads((root / ".specs/features/fixture/workflow.json").read_text())["git_head"]
         )
         valid["lanes"]["slice-A"] = {"slice": "A", "task": "T1", "state": "ready", "resources": []}
         key = parallel_execute.idempotency_key("fixture", "A", "T1", "worktree", valid["source_git_head"])
@@ -1676,7 +1682,7 @@ def test_nested_malformed_lease_state_is_rejected_before_adapter_effect() -> Non
         probe = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter())
         probe._prepare_repository()
         source_head = json.loads((root / ".specs/features/fixture/workflow.json").read_text())["git_head"]
-        malformed = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "safe", source_head)
+        malformed = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "assisted", source_head)
         malformed["lanes"]["slice-A"] = {
             "slice": "A",
             "task": "T1",
@@ -1920,7 +1926,7 @@ def test_pending_acquire_worker_and_release_reconcile_without_repeating_effects(
         probe = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter())
         probe._prepare_repository()
         source_head = json.loads((root / ".specs/features/fixture/workflow.json").read_text())["git_head"]
-        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "safe", source_head)
+        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "assisted", source_head)
         worktree = str(parallel_execute.derive_worktree_destination(root, "fixture", "A", "T1"))
         acquire_key = parallel_execute.idempotency_key("fixture", "A", "T1", "acquire", source_head)
         state["lanes"]["slice-A"] = {
@@ -2026,7 +2032,7 @@ def test_real_git_worktree_creation_and_cleanup_use_unpatched_argv_path() -> Non
 
 def test_integration_requires_fresh_external_technical_verifier_and_frozen_root_head() -> None:
     for verifier in (None, {"current_head": "stale"}, {"current_head": "head-A", "author": "worker-A"}, {"malformed": True}):
-        root = make_repo(mode="full")
+        root = make_repo(mode="assisted")
         try:
             probe = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter())
             probe._prepare_repository()
@@ -2035,7 +2041,7 @@ def test_integration_requires_fresh_external_technical_verifier_and_frozen_root_
                 "slice": "A", "task": "T1", "state": "complete", "resources": [], "current_head": "head-A",
                 "worktree_id": "wt-A", "worktree_path": str(root / "A-worktree"), "branch": "(detached)", "pre_head": source_head,
             }
-            state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "full", source_head)
+            state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "assisted", source_head)
             state["lanes"]["slice-A"] = lane
             worker_key = parallel_execute.idempotency_key("fixture", "A", "T1", "worker", source_head)
             state["actions"][worker_key] = {
@@ -2044,7 +2050,7 @@ def test_integration_requires_fresh_external_technical_verifier_and_frozen_root_
                 "delivery": {"event": "worker_done", "payload": {"outcome": "succeeded"}},
             }
             parallel_execute.atomic_write_json(probe.state_path, state)
-            plan = {"fallback": False, "lanes": [{"id": "slice-A", "slice": "A", "task": "T1", "status": "ready", "sync_after": [], "declared_paths": ["src/a.py"], "resources": []}]}
+            plan = {"fallback": False, "lanes": [{"id": "slice-A", "slice": "A", "task": "T1", "status": "ready", "worktree": True, "sync_after": [], "declared_paths": ["src/a.py"], "resources": []}]}
 
             class GuardGit:
                 def __init__(self, moved: bool = False) -> None:
@@ -2077,17 +2083,17 @@ def test_integration_requires_fresh_external_technical_verifier_and_frozen_root_
         finally:
             shutil.rmtree(root)
 
-    root = make_repo(mode="full")
+    root = make_repo(mode="assisted")
     try:
         probe = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter())
         probe._prepare_repository()
         source_head = json.loads((root / ".specs/features/fixture/workflow.json").read_text(encoding="utf-8"))["git_head"]
-        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "full", source_head)
+        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "assisted", source_head)
         state["lanes"]["slice-A"] = {"slice": "A", "task": "T1", "state": "complete", "resources": [], "current_head": "head-A", "worktree_id": "wt-A", "worktree_path": str(root / "A-worktree"), "branch": "(detached)", "pre_head": source_head}
         worker_key = parallel_execute.idempotency_key("fixture", "A", "T1", "worker", source_head)
         state["actions"][worker_key] = {"key": worker_key, "action": "worker", "status": "accepted", "lane": "slice-A", "external_id": "dispatch-A", "receipt": {"dispatch_id": "dispatch-A"}, "completion": {"delivery_id": "delivery-A", "outcome": "succeeded"}, "delivery": {"event": "worker_done", "payload": {"outcome": "succeeded"}}}
         parallel_execute.atomic_write_json(probe.state_path, state)
-        plan = {"fallback": False, "lanes": [{"id": "slice-A", "slice": "A", "task": "T1", "status": "ready", "sync_after": [], "declared_paths": ["src/a.py"], "resources": []}]}
+        plan = {"fallback": False, "lanes": [{"id": "slice-A", "slice": "A", "task": "T1", "status": "ready", "worktree": True, "sync_after": [], "declared_paths": ["src/a.py"], "resources": []}]}
         receipt = {"receipt_id": "verifier-A", "feature": "fixture", "slice": "A", "task": "T1", "worktree_id": "wt-A", "worktree_path": str(root / "A-worktree"), "current_head": "head-A", "author": "verifier-A", "implementer": "worker-A", "verdict": "passed"}
 
         class MovedGit:
@@ -2108,12 +2114,12 @@ def test_integration_requires_fresh_external_technical_verifier_and_frozen_root_
 
 
 def test_full_coordinator_integrates_only_all_verified_complete_lanes_once() -> None:
-    root = make_repo(mode="full")
+    root = make_repo(mode="assisted")
     try:
         probe = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter())
         probe._prepare_repository()
         source_head = json.loads((root / ".specs/features/fixture/workflow.json").read_text(encoding="utf-8"))["git_head"]
-        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "full", source_head)
+        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "assisted", source_head)
         verifier_receipts: list[dict[str, str]] = []
         for lane_id, slice_id, task_id, current_head in (
             ("slice-A", "A", "T1", "head-A"),
@@ -2142,8 +2148,8 @@ def test_full_coordinator_integrates_only_all_verified_complete_lanes_once() -> 
         plan = {
             "fallback": False,
             "lanes": [
-                {"id": "slice-A", "slice": "A", "task": "T1", "status": "ready", "sync_after": [], "declared_paths": ["src/a.py"], "resources": []},
-                {"id": "slice-B", "slice": "B", "task": "T2", "status": "ready", "sync_after": [], "declared_paths": ["src/b.py"], "resources": []},
+                {"id": "slice-A", "slice": "A", "task": "T1", "status": "ready", "worktree": True, "sync_after": [], "declared_paths": ["src/a.py"], "resources": []},
+                {"id": "slice-B", "slice": "B", "task": "T2", "status": "ready", "worktree": True, "sync_after": [], "declared_paths": ["src/b.py"], "resources": []},
             ],
         }
 

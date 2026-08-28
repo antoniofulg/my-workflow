@@ -15,9 +15,12 @@
     ]
   },
   "feature": "hybrid-slice-execution",
-  "git_head": "137f1293a90b6066203c4aa2e9f855de32acb054",
+  "git_head": "d484be1b95d22d01497ee4c7e791e99445210c5d",
   "overrides": {},
   "parallelization": {
+    "automatic_baseline": 2,
+    "automatic_ceiling": 4,
+    "max_workers": "auto",
     "mode": "disabled",
     "resource_provider": null
   },
@@ -48,5 +51,5 @@
       "provider": "codex"
     }
   },
-  "version": 2
+  "version": 3
 }

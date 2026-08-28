@@ -1,7 +1,8 @@
-version = 2
+version = 3
 
 [parallelization]
-mode = "disabled" # disabled, safe, or full
+mode = "assisted" # assisted or disabled
+max_workers = "auto" # auto starts at 2 and scales to 4 when healthy
 # Optional repository-relative executable for resource-bearing lanes.
 # resource_provider = "tools/workflow_resources"
 

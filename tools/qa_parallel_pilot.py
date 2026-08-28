@@ -69,10 +69,16 @@ def setup() -> dict[str, str]:
         (feature_dir / "workflow.json").write_text(
             json.dumps(
                 {
-                    "version": 1,
+                    "version": 3,
                     "feature": FEATURE,
                     "git_head": head,
-                    "parallelization": {"mode": "safe", "resource_provider": None},
+                    "parallelization": {
+                        "mode": "assisted",
+                        "max_workers": "auto",
+                        "automatic_baseline": 2,
+                        "automatic_ceiling": 4,
+                        "resource_provider": None,
+                    },
                 },
                 sort_keys=True,
             )
@@ -216,7 +222,10 @@ def _validate_tombstone(root: Path, record: dict[str, object]) -> Path:
 
 
 def _executor_status(root: Path) -> dict[str, object]:
-    executor = root / ".agents/skills/autonomous/scripts/parallel_execute.py"
+    # The disposable checkout is created at the frozen source head. Resolve the
+    # coordinator from this source tree so an in-flight schema hard cut is
+    # exercised by the same reader that owns the fixture contract.
+    executor = ROOT / ".agents/skills/autonomous/scripts/parallel_execute.py"
     result = subprocess.run(
         [sys.executable, str(executor), "status", "--root", str(root), "--feature", FEATURE],
         text=True, capture_output=True, check=False,
@@ -396,15 +405,15 @@ def dry_run(root_value: str) -> dict[str, object]:
     )
     plan = json.loads(result.stdout)
     lanes = plan.get("lanes")
-    if plan.get("mode") != "safe" or plan.get("fallback") is not False or not isinstance(lanes, list) or len(lanes) != 2:
-        raise ValueError("pilot fixture must expose exactly two safe lanes")
+    if plan.get("mode") != "assisted" or plan.get("fallback") is not False or not isinstance(lanes, list) or len(lanes) != 2:
+        raise ValueError("pilot fixture must expose exactly two assisted lanes")
     if any(lane.get("status") != "ready" or lane.get("resources") != [] for lane in lanes):
         raise ValueError("pilot fixture lanes must be ready and resource-free")
     return {
         "validated": True,
         "root": str(root),
         "feature": FEATURE,
-        "mode": "safe",
+        "mode": "assisted",
         "source_git_head": snapshot["git_head"],
         "repository_head": repository_head,
         "lanes": lanes,
