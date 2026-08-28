@@ -316,7 +316,7 @@ def make_receipt(
     gitdir = ""
     if path.is_dir():
         result = subprocess.run(
-            ["git", "-C", str(path), "rev-parse", "--absolute-git-dir"],
+            ["git", "-C", str(path), "rev-parse", "--git-common-dir"],
             capture_output=True,
             text=True,
             shell=False,
@@ -324,7 +324,10 @@ def make_receipt(
             check=False,
         )
         if result.returncode == 0:
-            gitdir = result.stdout.strip()
+            common = Path(result.stdout.strip())
+            if not common.is_absolute():
+                common = path / common
+            gitdir = str(common.resolve())
     return {
         "repository": probe.repo,
         "id": worktree_id,
@@ -512,10 +515,17 @@ def task_states(path: str | Path, task_file: str = "tasks.md") -> dict[str, str]
     if not file.is_file():
         return {}
     result: dict[str, str] = {}
+    current: str | None = None
     for line in file.read_text(encoding="utf-8").splitlines():
-        match = re.match(r"\s*- \[([ xX])\]\s+([^ —–]+)", line)
-        if match:
-            result[match.group(2)] = "complete" if match.group(1).lower() == "x" else "pending"
+        heading = re.match(r"\s*###\s+(T\d+)\b", line)
+        if heading:
+            current = heading.group(1)
+            result[current] = "pending"
+            continue
+        if current:
+            status = re.match(r"\s*\*\*Status:\*\*\s*(\S+)", line)
+            if status:
+                result[current] = status.group(1).lower()
     return result
 
 
@@ -535,6 +545,9 @@ def worktree_comment(probe: OrcaProbe, worktree_id: str) -> str:
 
 def effect(args: argparse.Namespace, probe: OrcaProbe, receipt: dict[str, Any], sent: dict[str, Any]) -> dict[str, Any]:
     handle = receipt["startupTerminal"]["handle"]
+    expected_tasks = list(args.expected_task)
+    if not expected_tasks:
+        raise ProbeError("expected task ids are required")
     deadline = time.monotonic() + args.timeout
     sample = 0
     while time.monotonic() < deadline:
@@ -553,6 +566,7 @@ def effect(args: argparse.Namespace, probe: OrcaProbe, receipt: dict[str, Any], 
                                                           f"{args.pre_head}..{head}").stdout.splitlines()]
             changed = set(git(path, "diff", "--name-only", f"{args.pre_head}..{head}").stdout.splitlines())
             expected_subjects = list(args.expected_subject)
+            states = task_states(path, args.task_file)
             checks = {
                 "second_frame": second_error is None and second_head == head,
                 "idle": idle.get("ok") is not False,
@@ -561,7 +575,7 @@ def effect(args: argparse.Namespace, probe: OrcaProbe, receipt: dict[str, Any], 
                 "commit_count": len(rows) == args.expected_count,
                 "commit_subjects": [row[1] for row in rows] == expected_subjects,
                 "paths": changed.issubset(set(args.allow_path)),
-                "tasks": all(task_states(path, args.task_file).get(task) == "complete" for task in args.expected_task),
+                "tasks": all(states.get(task) == "complete" for task in expected_tasks),
                 "gate": gate(path, args.gate).get("passed") is True,
                 "clean": git(path, "status", "--porcelain").stdout == "",
                 "same_handle": terminal(second_show).get("handle") == handle,
@@ -713,7 +727,24 @@ def cleanup(args: argparse.Namespace) -> None:
         raise ProbeError("integration head is required for cleanup proof")
     if git(path, "merge-base", "--is-ancestor", current_head, integration_head, check=False).returncode != 0:
         raise ProbeError("owned slice head is not integrated")
-    refs_before = set(git(path, "for-each-ref", "--format=%(refname)", "refs/heads/").stdout.splitlines())
+    stored_gitdir = str(receipt.get("gitdir") or "")
+    if not stored_gitdir:
+        raise ProbeError("receipt common Git directory is required")
+    common_git_dir = Path(stored_gitdir).resolve()
+    if not common_git_dir.is_dir():
+        raise ProbeError("common Git directory is unavailable")
+    discovered_gitdir = git(path, "rev-parse", "--git-common-dir").stdout.strip()
+    discovered_gitdir_path = Path(discovered_gitdir)
+    if not discovered_gitdir_path.is_absolute():
+        discovered_gitdir_path = path / discovered_gitdir_path
+    discovered_gitdir_path = discovered_gitdir_path.resolve()
+    if discovered_gitdir_path != common_git_dir:
+        raise ProbeError("receipt common Git directory does not match checkout")
+    refs_before_result = git(common_git_dir.parent, "--git-dir", str(common_git_dir), "for-each-ref",
+                             "--format=%(refname)", "refs/heads/", check=False)
+    if refs_before_result.returncode != 0:
+        raise ProbeError("could not enumerate repository refs before cleanup")
+    refs_before = set(refs_before_result.stdout.splitlines())
     foreign_paths_before = {str(Path(value).resolve()): Path(value).exists() for value in args.foreign_path}
     listed = probe.worktree_terminals(str(receipt["id"]))
     owned = [value for value in listed if value.get("handle") == known]
@@ -750,8 +781,11 @@ def cleanup(args: argparse.Namespace) -> None:
     foreign_after = set(after["worktrees"]) - {worktree_id}
     foreign_terminals_before = set(before["terminals"]) - {known}
     foreign_terminals_after = set(after["terminals"]) - {known}
-    refs_anchor = git(path.parent, "for-each-ref", "--format=%(refname)", "refs/heads/", check=False)
-    refs_after = set(refs_anchor.stdout.splitlines()) if refs_anchor.returncode == 0 else refs_before - {ref}
+    refs_after_result = git(common_git_dir.parent, "--git-dir", str(common_git_dir), "for-each-ref",
+                            "--format=%(refname)", "refs/heads/", check=False)
+    if refs_after_result.returncode != 0:
+        raise ProbeError("could not enumerate repository refs after cleanup")
+    refs_after = set(refs_after_result.stdout.splitlines())
     foreign_refs_before = refs_before - {ref}
     foreign_refs_after = refs_after - {ref}
     foreign_paths_after = {key: Path(key).exists() for key in foreign_paths_before}
@@ -760,7 +794,8 @@ def cleanup(args: argparse.Namespace) -> None:
         raise ProbeError("cleanup changed a foreign resource")
     if worktree_id in after["worktrees"] or known in after["terminals"] or path.exists():
         raise ProbeError("owned residue remains after cleanup")
-    if git(path.parent, "show-ref", "--verify", "--quiet", ref, check=False).returncode == 0:
+    ref_after_result = git(common_git_dir.parent, "--git-dir", str(common_git_dir), "show-ref", "--verify", "--quiet", ref, check=False)
+    if ref_after_result.returncode == 0:
         raise ProbeError("owned branch ref remains after cleanup")
     print(json.dumps({"status": "cleaned", "worktree": worktree_id, "handle": known,
                       "stopped": stopped, "foreign_preserved": True,

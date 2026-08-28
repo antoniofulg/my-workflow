@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 24,
+  "next_id": 26,
   "lessons": [
     {
       "id": "L-001",
@@ -418,6 +418,42 @@
       ],
       "created": "2026-08-26T16:20:33Z",
       "last_seen": "2026-08-26T16:20:33Z"
+    },
+    {
+      "id": "L-024",
+      "key": "ac_gap::parse task status from canonical task records before reconciling expected task ids",
+      "text": "Parse task status from canonical task records before reconciling expected task IDs",
+      "signal": "ac_gap",
+      "scope": "assisted-probe",
+      "status": "candidate",
+      "features": [
+        "host-agnostic-slice-parallelization"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md AST-04 (assisted-probe)"
+      ],
+      "created": "2026-08-28T01:38:26Z",
+      "last_seen": "2026-08-28T01:38:26Z"
+    },
+    {
+      "id": "L-025",
+      "key": "surviving_mutant::cleanup tests must fail when any foreign branch reference changes",
+      "text": "Cleanup tests must fail when any foreign branch reference changes",
+      "signal": "surviving_mutant",
+      "scope": "assisted-probe",
+      "status": "candidate",
+      "features": [
+        "host-agnostic-slice-parallelization"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md M4 (assisted-probe)"
+      ],
+      "created": "2026-08-28T01:38:26Z",
+      "last_seen": "2026-08-28T01:38:26Z"
     }
   ]
 }

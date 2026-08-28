@@ -1,5 +1,127 @@
 # Host-Agnostic Slice Parallelization Validation
 
+**Verdict**: FAIL
+**Date**: 2026-08-27
+**Spec**: `.specs/features/host-agnostic-slice-parallelization/spec.md`
+**Diff range**: `836f9d3..176aa8f`
+**Verifier**: independent Technical Verifier (author != verifier)
+
+## Integrated Technical Verification
+
+Full gate is green, but the adopted probe cannot reconcile canonical TLC task status and its cleanup
+suite does not discriminate foreign branch-ref preservation. This technical verdict does not run or
+claim the real Orca E2E; `QAS-coordinate-assisted-orca-slices` correctly remains `qa_status: untested`.
+
+### Ranked gaps
+
+1. **Blocker — AST-04/IT-009 cannot prove any declared task complete.** Premise:
+   `tools/orca_assisted_probe.py:510-519` parses every Markdown checkbox label but never parses the
+   repository's canonical `### Tn` plus `**Status:** complete` task record. Path: effect proof at
+   `tools/orca_assisted_probe.py:564` looks up each `--expected-task` ID in that map; on the actual
+   `tasks.md`, `task_states(...)` returns checklist prose keys and no `T1`-`T10`, so every real packet
+   with required expected task IDs fails reconciliation and serializes even after correct work.
+   The two effect tests evade this path with `expected_task=[]` at
+   `tools/test_orca_assisted_probe.py:410,449`; no fake two-slice park/resume check exercises a
+   canonical task record. Fix task: parse the canonical task heading/status pair and make IT-009 run
+   a real fake two-slice park, sync, same-handle resume, and cleanup with non-empty expected task IDs.
+2. **Major — AST-06/SEC-008 foreign branch preservation is not proven.** Premise:
+   `tools/orca_assisted_probe.py:753-755` queries refs from `path.parent` after the owned worktree is
+   removed; if that directory is not a Git checkout, command failure is converted into the assumed
+   set `refs_before - {owned_ref}`. Path: cleanup may report `foreign_preserved: true` without
+   observing repository refs, so a lost foreign ref is indistinguishable from success. Sensor M4
+   removed the foreign-ref comparison at `tools/orca_assisted_probe.py:758-760`; all 11 probe checks
+   still passed. Fix task: persist an independently usable repository/common-Git anchor before
+   removal, require successful post-removal ref enumeration, and add a fake cleanup that deletes a
+   foreign ref and must fail.
+
+### Spec-anchored requirement evidence
+
+| Requirement | Spec-defined outcome | Current assertion evidence | Result |
+| --- | --- | --- | --- |
+| HST-01 | Disabled is effect-free; preflight remains diagnostic; only schema v2 is accepted. | `tools/test_parallel_executor.py:190-204,435-466,1175-1205,1747-1789` assert serial output, zero adapter/planner/Git effects, diagnostic preflight, and v1 rejection. | PASS |
+| HST-02 | Auto in Maestri never falls through to Orca. | `tools/test_parallel_executor.py:1221-1250` makes Orca import fail and asserts Maestri-only selection. | PASS |
+| HST-03 | Explicit incompatible adapter serializes before effects. | `tools/test_parallel_executor.py:364-402` asserts exact fallback reason and no worktree effect. | PASS |
+| HST-04 | Existing scheduler/evidence stages remain unchanged. | `tools/test_parallel_executor.py:2363-2440` asserts fresh external Technical Verifier and integration; `tools/shared/tests/autonomous-parallelization.test.ts:55-103,460-472` pins existing evidence stages. | PASS |
+| HST-05 | Missing mode freezes assisted; explicit modes remain unchanged. | `tools/test_workflow_config.py:107-152` asserts exact default and iterates `disabled|assisted|safe|full`. | PASS |
+| HST-06 | Assisted uses full readiness/sync and no automatic adapter. | `tools/test_parallel_plan.py:131-174` asserts equality with full and failure cases; `tools/test_parallel_executor.py:209-240,330-360` asserts coordinator output and zero adapter selection. | PASS |
+| ORC-01 | Ready runtime, appVersion, and contract capability required. | `tools/test_orca_adapter.py:237-256` asserts each missing field is unsupported. | PASS |
+| ORC-02 | Known-bad version is read-only unsupported. | `tools/test_orca_adapter.py:225-235` asserts exact reason and sole status call. | PASS |
+| ORC-03 | Candidate canary creates one checkout and correlated worker. | `tools/test_orca_adapter.py:383-460` counts the canary lifecycle and correlation. | PASS |
+| ORC-04 | PASS follows read/ack/release/removal/zero residue. | `tools/test_orca_adapter.py:383-460,1666-1728,1872-1907` asserts order, positive receipts, cleanup, and cache write. | PASS |
+| ORC-05 | Any stage/cleanup failure records no PASS and retained IDs. | `tools/test_orca_adapter.py:258-278` iterates failed stages and asserts absent cache plus retained ownership. | PASS |
+| ORC-06 | Matching identity cache prevents another canary. | `tools/test_orca_adapter.py:355-381` forbids canary execution and asserts cached compatible proof. | PASS |
+| ORC-07 | Any identity change invalidates cache. | `tools/test_orca_adapter.py:280-353` mutates repository/runtime/capability/executable identity and asserts candidate. | PASS |
+| MAE-01 | Machine lifecycle/cleanup required; current implementation never compatible. | `tools/test_maestri_adapter.py:33-75` rejects current and complete-looking manifests. | PASS |
+| MAE-02 | Missing capability is unsupported with zero mutation. | `tools/test_maestri_adapter.py:17-31,77-117` asserts missing names and no floor/agent/Git effects. | PASS |
+| MAE-03 | Capability names cannot authorize generic Git execution. | `tools/test_maestri_adapter.py:56-75,77-117` asserts host-owned implementation remains unavailable. | PASS |
+| MAE-04 | Human text is never parsed as receipt. | `tools/test_maestri_adapter.py:119-127` asserts malformed text remains unsupported. | PASS |
+| AST-01 | Default assisted launch proves unique shell and two rendered route frames. | `tools/test_orca_assisted_probe.py:125-223` asserts one reconciled create and two consecutive route frames after reset; canonical contract assertions are at `tools/shared/tests/autonomous-parallelization.test.ts:140-277`. | PASS (fake/contract) |
+| AST-02 | One worker starts per ready slice and runs sequentially to dependency. | `tools/shared/tests/autonomous-parallelization.test.ts:300-321,563-597` pins sequential slice ownership and adopted two-lane coordinator plan. | PASS (contract) |
+| AST-03 | Worker parks a clean exact checkpoint without polling. | `tools/shared/tests/autonomous-parallelization.test.ts:322-340` pins checkpoint/comment/no-poll semantics, but no probe test exercises the parked task record. | PASS (contract only) |
+| AST-04 | Exact producer sync, affected gate, same-handle packet/effect proof, and task statuses agree. | `tools/test_orca_assisted_probe.py:393-473,475-496` proves commit/same-handle/sync pieces, but both effect fixtures set `expected_task=[]`; production cannot read canonical task IDs. | **FAIL** |
+| AST-05 | Dirty/conflicting/ambiguous effect serializes. | `tools/test_orca_assisted_probe.py:432-473` rejects a foreign second-frame handle; `tools/shared/tests/autonomous-parallelization.test.ts:350-459` pins remaining fail-closed conditions. | PASS (fake/contract) |
+| AST-06 | Integrated owned cleanup proves zero residue and preserves foreign resources. | `tools/test_orca_assisted_probe.py:225-390` covers owned/ref/residue/foreign path cases, but M4 survived and post-removal foreign refs can be assumed rather than observed. | **FAIL** |
+| AST-07 | Atomic gates, Verifier, grouped review, QA, and full gate remain mandatory. | `tools/shared/tests/autonomous-parallelization.test.ts:460-472` asserts every readiness stage; full gate below is green. | PASS |
+| AST-08 | Disabled/no-overlap/conflict/resource/ownership ambiguity serializes. | `tools/test_parallel_plan.py:151-174`; `tools/test_parallel_executor.py:246-327,1747-1789` assert exact fallback and zero automatic effects. | PASS |
+| AST-09 | Main coordinator owns cross-slice effects; workers remain slice-local. | `AGENTS.md:64-69` is the adopted directive; `tools/shared/tests/autonomous-parallelization.test.ts:563-597` asserts its installed text and coordinator result. | PASS (contract) |
+| AST-10 | Every assisted mutation is one-shot; only reads reconcile. | `tools/test_orca_assisted_probe.py:23-58,61-122,125-162,264-317` counts create/send/set/stop/rm once under induced failures. | PASS |
+| AST-11 | Only pointer crosses send; packet body stays outside worktree. | `tools/test_orca_assisted_probe.py:61-100` asserts exact pointer, absent secret body, and shorter payload. | PASS |
+| AST-12 | Adoption installs an import-safe self-contained probe with zero Orca calls on import. | `scripts/test_adopt.py:362-404` asserts byte-identical installed/re-adopted copy and inert import; `scripts/adopt.py:43-66` owns COPY_PATHS. | PASS |
+| SEC-001 | Disabled probes/mutates nothing. | `tools/test_parallel_executor.py:190-204,1175-1187,1747-1789` asserts zero construction/resolution/effects. | PASS |
+| SEC-002 | Receipt state is atomic, repo-scoped, outside `.specs`. | `tools/test_parallel_executor.py:121-150` asserts Git-common placement and atomic preservation. | PASS |
+| SEC-003 | Commands use fixed argv/no shell/bounds/validated paths. | `tools/test_parallel_executor.py:153-188`; `tools/test_orca_adapter.py:2049-2077` assert `shell=False`, timeout, and path rejection. | PASS |
+| SEC-004 | Only structured correlated host responses are accepted. | `tools/test_orca_adapter.py:201-223,1729-1767`; `tools/test_maestri_adapter.py:119-127` assert identity/schema correlation and text rejection. | PASS |
+| SEC-005 | Credential-shaped diagnostics are redacted. | `tools/test_orca_adapter.py:1769-1837` asserts nested and free-form secrets are absent. | PASS |
+| SEC-006 | Compatibility PASS requires settled worker and zero checkout residue. | `tools/test_orca_adapter.py:258-278,383-460` asserts failed cleanup blocks PASS and clean lifecycle permits it. | PASS |
+| SEC-007 | Automatic adapter removes only exact-owned resources. | `tools/test_orca_adapter.py:1889-1931,2001-2047` asserts ownership fields before cleanup. | PASS |
+| SEC-008 | Assisted cleanup targets only clean integrated owned resources and proves absence. | `tools/orca_assisted_probe.py:676-768` enforces pre-removal ownership/integration, but post-removal foreign-ref proof is not reliable and M4 survives. | **FAIL** |
+| SEC-009 | Assisted mutations never retry; reads reconcile within bounds. | `tools/test_orca_assisted_probe.py:23-58,125-162` asserts one mutation call and repeated read-only inspection. | PASS |
+
+**Coverage disposition:** 35/38 requirements pass; AST-04, AST-06, and SEC-008 fail from two root
+causes. No spec-precision gaps. Prior resolved fingerprints were not re-raised.
+
+### Full gate
+
+- `npm_config_offline=true rtk npm run test:all` — exit 0; Vitest 8 files / 113 tests passed;
+  Python lanes green, including `orca assisted probe contract: 11/11 passed`, executor 57/57,
+  planner 20/20, workflow config 44/44; zero reported failures or skips.
+- `python3 -c 'import sys; sys.path.insert(0,"tools"); import orca_assisted_probe as p;
+  s=p.task_states(".specs/features/host-agnostic-slice-parallelization");
+  assert all(f"T{i}" not in s for i in range(1,11)); print("canonical task ids found: 0/10")'`
+  — exit 0; `canonical task ids found: 0/10`, directly reproducing the AST-04 parser gap on this
+  feature's canonical `tasks.md`.
+- Test count before delta at the latest preserved full-gate record: 112 Vitest tests. Current: 113;
+  delta +1. No weakened/skipped assertion found in the delta.
+
+### Integrated discrimination sensor
+
+Detached scratch worktree at `176aa8f`; no live Orca, sibling checkout, stash, or real-tree mutation.
+
+| Mutation | Focused command | Result |
+| --- | --- | --- |
+| M1: default `assisted` -> `disabled`. | `python3 tools/test_workflow_config.py` | KILLED: exact default assertion failed. |
+| M2: bypass both assisted resource-provider guards. | `python3 tools/test_parallel_executor.py` | KILLED: resource lane no longer serialized. |
+| M3: send packet body instead of pointer. | `python3 tools/test_orca_assisted_probe.py` | KILLED: pointer/secret-body assertion failed. |
+| M4: remove foreign branch-ref equality from cleanup. | `python3 tools/test_orca_assisted_probe.py` | **SURVIVED: 11/11 passed.** |
+
+**Sensor:** 4 mutations, 3 killed, 1 survived — FAIL. Scratch removed; real-tree porcelain returned
+to the empty pre-sensor baseline before this report edit.
+
+### QA and evidence disposition
+
+- `docs/qa/scenarios/QAS-coordinate-assisted-orca-slices.md:7-15` describes the changed default and
+  remains `qa_status: untested`; no real Orca claim is made.
+- `git diff --name-only 836f9d3..176aa8f -- docs/qa/evidence` returned no path. Historical evidence
+  was not modified; this checkout contains references to the external evidence tree, not the tree itself.
+
+### Summary
+
+**Overall:** FAIL. Full gate green, but adopted probe cannot satisfy AST-04 on canonical task files,
+and cleanup does not independently prove foreign branch preservation. Route fixes to an Implementer,
+then require a fresh Technical Verifier. QA Execute remains a separate fresh session after technical PASS.
+
+## Prior validation record (preserved below)
+
 **Verdict**: PASS
 **Date**: 2026-08-27
 **Spec**: `.specs/features/host-agnostic-slice-parallelization/spec.md`

@@ -152,6 +152,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: validation.md:gate-check (workflow-contracts)
 - last seen: 2026-08-26T16:20:33Z
 
+### L-024 - Parse task status from canonical task records before reconciling expected task IDs
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `assisted-probe` · harmful: 0
+- features: host-agnostic-slice-parallelization
+- evidence: validation.md AST-04 (assisted-probe)
+- last seen: 2026-08-28T01:38:26Z
+
+### L-025 - Cleanup tests must fail when any foreign branch reference changes
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `assisted-probe` · harmful: 0
+- features: host-agnostic-slice-parallelization
+- evidence: validation.md M4 (assisted-probe)
+- last seen: 2026-08-28T01:38:26Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.
