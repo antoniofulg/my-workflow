@@ -281,10 +281,10 @@ then import the installed probe with a call-counting fake Orca.
 | HSE-46 | Edge case | S3, S4 | Implemented in T4 |
 | HSE-47 | Edge case | S4 | Implemented in T6 |
 | HSE-48 | Edge case | S3 | In Design |
-| HSE-49 | Halt recovery | S4 | In Tasks |
-| HSE-50 | Halt recovery | S4 | In Tasks |
-| HSE-51 | Halt recovery | S4 | In Tasks |
-| HSE-52 | Halt recovery | S4 | In Tasks |
+| HSE-49 | Halt recovery | S4 | Implemented in T13 |
+| HSE-50 | Halt recovery | S4 | Implemented in T13 |
+| HSE-51 | Halt recovery | S4 | Implemented in T13 |
+| HSE-52 | Halt recovery | S4 | Implemented in T13 |
 | HSE-53 | Mutation issue guard | S4 | In Tasks |
 | HSE-54 | Mutation issue guard | S4 | In Tasks |
 | HSE-55 | Mutation issue guard | S4 | In Tasks |

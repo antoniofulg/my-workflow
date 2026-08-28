@@ -6,6 +6,7 @@ import shutil
 import json
 import sys
 import tempfile
+from copy import deepcopy
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / ".agents/skills/workflow-spec-driven/scripts"))
@@ -116,6 +117,110 @@ def test_reopen_with_rewording_preserves_identity_and_count_after_restart() -> N
         assert reopened["fingerprint"] == first["fingerprint"]
         assert reopened["failed_remediations"] == 3
         assert reopened["status"] == "halted"
+    finally:
+        shutil.rmtree(root)
+
+
+def _halted(root: Path) -> dict[str, object]:
+    entry: dict[str, object] = {}
+    for _ in range(3):
+        entry = review_convergence.record_failure(
+            root, "hybrid-slice-execution", "HSE-24,HSE-25,HSE-39",
+            "repository-owned request writes state outside repository while canonical exact-once ledger omits git and lease mutations",
+            "a83ca4d68afa5e45916eae7606c22e6dd57444470bea7b13cfb916684e98bbfd",
+            gate_passed=True,
+        )
+    return entry
+
+
+AUTHORIZATION = ".specs/features/hybrid-slice-execution/decisions.md#authorized-cp-s4-resume--2026-08-28"
+
+
+def test_UT017_authorized_resume_appends_generation_and_preserves_halt_history() -> None:
+    root = Path(tempfile.mkdtemp())
+    try:
+        halted = _halted(root)
+        path = review_convergence.state_path(root, "hybrid-slice-execution")
+        before = json.loads(path.read_text(encoding="utf-8"))
+        entry_before = deepcopy(before["fingerprints"][halted["fingerprint"]])
+        resumed = review_convergence.resume(root, "hybrid-slice-execution", str(halted["fingerprint"]), AUTHORIZATION)
+        assert resumed["current_generation"] == 2
+        assert resumed["failed_remediations"] == 3
+        assert resumed["status"] == "open"
+        generation_one = resumed["generations"][0]
+        assert generation_one["failed_remediations"] == entry_before["failed_remediations"]
+        assert generation_one["status"] == entry_before["status"]
+        assert resumed["generations"][0]["failed_remediations"] == 3
+        assert resumed["generations"][0]["status"] == "halted"
+        assert resumed["generations"][0]["halt_event"]["status"] == "halted"
+        assert resumed["generations"][1]["failed_remediations"] == 0
+        assert resumed["generations"][1]["authorization_ref"] == AUTHORIZATION
+    finally:
+        shutil.rmtree(root)
+
+
+def test_UT018_SEC012_resume_rejects_every_bypass_before_writing() -> None:
+    root = Path(tempfile.mkdtemp())
+    try:
+        halted = _halted(root)
+        path = review_convergence.state_path(root, "hybrid-slice-execution")
+        original = path.read_bytes()
+        attempts = (
+            lambda: review_convergence.resume(root, "hybrid-slice-execution", str(halted["fingerprint"]), ""),
+            lambda: review_convergence.resume(root, "hybrid-slice-execution", "f" * 64, AUTHORIZATION),
+            lambda: review_convergence.record_result(root, "hybrid-slice-execution", "HSE-24,HSE-25,HSE-39", "root", "path", verifier_failed=False, gate_passed=True, previous_fingerprint=str(halted["fingerprint"])),
+            lambda: review_convergence.record_failure(root, "hybrid-slice-execution", "HSE-24,HSE-25,HSE-39", "reworded root", "path", previous_fingerprint=str(halted["fingerprint"])),
+            lambda: review_convergence.record_failure(root, "hybrid-slice-execution", "HSE-24,HSE-25,HSE-39", "replacement root", "replacement path"),
+        )
+        for attempt in attempts:
+            try:
+                attempt()
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("halt bypass unexpectedly succeeded")
+            assert path.read_bytes() == original
+        altered = json.loads(original)
+        altered["fingerprints"][halted["fingerprint"]]["failed_remediations"] = 0
+        path.write_text(json.dumps(altered), encoding="utf-8")
+        reset_bytes = path.read_bytes()
+        try:
+            review_convergence.resume(root, "hybrid-slice-execution", str(halted["fingerprint"]), AUTHORIZATION)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("inconsistent manually reset state was accepted")
+        assert path.read_bytes() == reset_bytes
+    finally:
+        shutil.rmtree(root)
+
+
+def test_UT019_resumed_generation_closes_only_on_fresh_independent_pass() -> None:
+    root = Path(tempfile.mkdtemp())
+    try:
+        halted = _halted(root)
+        review_convergence.resume(root, "hybrid-slice-execution", str(halted["fingerprint"]), AUTHORIZATION)
+        args = (root, "hybrid-slice-execution", "HSE-24,HSE-25,HSE-39", "repository-owned request writes state outside repository while canonical exact-once ledger omits git and lease mutations", "a83ca4d68afa5e45916eae7606c22e6dd57444470bea7b13cfb916684e98bbfd")
+        open_result = review_convergence.record_result(*args, verifier_failed=False, gate_passed=True, previous_fingerprint=str(halted["fingerprint"]))
+        assert open_result["status"] == "open"
+        red_gate = review_convergence.record_result(*args, verifier_failed=False, gate_passed=False, previous_fingerprint=str(halted["fingerprint"]), independent=True, evidence_ref=".specs/features/hybrid-slice-execution/validation-s4.md#pass")
+        assert red_gate["status"] == "open"
+        closed = review_convergence.record_result(*args, verifier_failed=False, gate_passed=True, previous_fingerprint=str(halted["fingerprint"]), independent=True, evidence_ref=".specs/features/hybrid-slice-execution/validation-s4.md#pass")
+        assert closed["status"] == "closed"
+        assert closed["generations"][0]["status"] == "halted"
+        assert closed["generations"][0]["failed_remediations"] == 3
+        assert closed["generations"][1]["status"] == "closed"
+
+        second_root = Path(tempfile.mkdtemp())
+        try:
+            second = _halted(second_root)
+            review_convergence.resume(second_root, "hybrid-slice-execution", str(second["fingerprint"]), AUTHORIZATION)
+            for _ in range(3):
+                result = review_convergence.record_failure(second_root, "hybrid-slice-execution", "HSE-24,HSE-25,HSE-39", "repository-owned request writes state outside repository while canonical exact-once ledger omits git and lease mutations", "a83ca4d68afa5e45916eae7606c22e6dd57444470bea7b13cfb916684e98bbfd", previous_fingerprint=str(second["fingerprint"]), gate_passed=True)
+            assert result["generations"][1]["failed_remediations"] == 3
+            assert result["generations"][1]["status"] == "halted"
+        finally:
+            shutil.rmtree(second_root)
     finally:
         shutil.rmtree(root)
 

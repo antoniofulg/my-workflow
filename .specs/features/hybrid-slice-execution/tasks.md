@@ -277,17 +277,17 @@ open generation 2 under the existing halted CP-S4 fingerprint without changing i
 
 **Done when:**
 
-- [ ] Resume accepts only an existing halted fingerprint plus a non-empty exact authorization
+- [x] Resume accepts only an existing halted fingerprint plus a non-empty exact authorization
   reference and appends generation 2 with local count 0.
-- [ ] Generation 1 remains halted at 3, cumulative failures remain 3, and its halt event is retained.
-- [ ] Unknown/non-halted resume, ordinary-record bypass, same-requirement rewording, replacement
+- [x] Generation 1 remains halted at 3, cumulative failures remain 3, and its halt event is retained.
+- [x] Unknown/non-halted resume, ordinary-record bypass, same-requirement rewording, replacement
   fingerprint, and inconsistent manually reset state fail before write.
-- [ ] Only a fresh independent PASS with a green gate closes generation 2 and the fingerprint;
+- [x] Only a fresh independent PASS with a green gate closes generation 2 and the fingerprint;
   generation 2 halts independently on its third failed remediation.
-- [ ] The resume command updates `review-fingerprints.json` using authorization reference
+- [x] The resume command updates `review-fingerprints.json` using authorization reference
   `.specs/features/hybrid-slice-execution/decisions.md#authorized-cp-s4-resume--2026-08-28`;
   no manual JSON edit or new fingerprint is used.
-- [ ] Assigned 4 cases and full gate exit 0 before commit.
+- [x] Assigned 4 cases and full gate exit 0 before commit.
 
 **Tests:** unit + security — UT-017, UT-018, UT-019, SEC-012
 **Gate:** `python3 tools/test_review_convergence.py && npm_config_offline=true npm run test:all`
