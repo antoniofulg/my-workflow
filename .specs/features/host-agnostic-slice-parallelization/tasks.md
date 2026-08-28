@@ -374,6 +374,8 @@ the assisted lifecycle contract or the historical evidence record.
 
 ```text
 T10 -> T11
+
+T11 -> T12
 ```
 
 ### T11: Enforce assisted effect and cleanup proofs
@@ -408,6 +410,38 @@ passes 20/20.
 **Tests:** IT-012, SEC-010 in `tools/test_orca_assisted_probe.py`
 **Gate:** Quick. Commit `fix(orca): enforce assisted effect and cleanup proofs`.
 
+### T12: Close assisted capability, route, receipt, and cleanup review gaps
+
+**Status:** complete
+**Slice:** G
+**Resources:** none
+**Observable behaviour:** Assisted execution fails closed when direct Orca capability, resource,
+route, receipt, handle, timing, or immutable cleanup proof is unavailable or ambiguous; every
+mutating operation remains exactly once and only correlated same-handle read-only reconciliation
+may continue.
+**Where:** `tools/orca_assisted_probe.py`
+**Files:** `tools/test_parallel_executor.py`, `tools/test_orca_assisted_probe.py`,
+`tools/shared/tests/autonomous-parallelization.test.ts`
+**Depends on:** T11
+**Requirement:** AST-01, AST-04, AST-06, AST-08, SEC-007, SEC-008
+**Reuses:** Existing fixed-argv probe, canonical task reconciliation, resource-provider boundary,
+and fake-Orca lifecycle tests.
+**Tools:** Skills `ponytail`, `tlc-spec-driven`; stdlib only.
+**Done when:**
+
+- [x] Assisted capability/isolation and resource-provider proofs fail closed before host effects.
+- [x] Pointer paths, repository receipts, Git checkout identity, route tuples, terminal handles,
+  tui-idle receipts, commit identities, and cleanup identity are exact and correlated.
+- [x] Ambiguous create effects and moved handles fail closed before destructive cleanup.
+- [x] Route timing is finite and bounded to the contract's 60-second window.
+- [x] `python3 tools/test_orca_assisted_probe.py`, executor tests, and canonical Vitest pass.
+
+**Result:** Review remediation closes all 19 canonical defects with 22 fake-Orca checks and
+58 executor checks; no live Orca run was used.
+
+**Tests:** IT-013, SEC-011 in `tools/test_orca_assisted_probe.py` and executor suites
+**Gate:** Quick. Commit `fix(orca): close assisted probe review gaps`.
+
 ## Task Granularity Check
 
 | Task | Scope | Status |
@@ -423,6 +457,7 @@ passes 20/20.
 | T9 | One adoption COPY_PATHS invariant plus its owning test | PASS |
 | T10 | One adopted agent dispatch contract plus its canonical contract test | PASS |
 | T11 | One resumed assisted effect and cleanup proof remediation plus its canonical fake-host checks | PASS |
+| T12 | Assisted capability, route, receipt, and cleanup fail-closed review remediation | PASS |
 
 ## Diagram-Definition Cross-Check
 
@@ -439,6 +474,7 @@ passes 20/20.
 | T9 | T8 | T8 -> T9 | PASS |
 | T10 | T7, T9 | T7 + T9 -> T10 | PASS |
 | T11 | T10 | T10 -> T11 | PASS |
+| T12 | T11 | T11 -> T12 | PASS |
 
 ## Test Co-location Validation
 
@@ -455,6 +491,7 @@ passes 20/20.
 | T9 | Adoption | integration | IT-011 in existing adoption suite | PASS |
 | T10 | Agent workflow contract | contract | IT-005 + IT-010 in canonical autonomous suite | PASS |
 | T11 | Assisted coordinator probe | fake-host integration | IT-012 + SEC-010 in the owning probe suite | PASS |
+| T12 | Assisted coordinator and probe boundaries | unit + fake-host integration | IT-013 + SEC-011 in canonical executor/probe suites | PASS |
 
 ## Implementation Batch Recommendation
 
@@ -462,5 +499,6 @@ Phase 2 contains five tasks, within one task-budgeted batch. The coordinator sho
 implementer for Slice E and one implementer for Slice F concurrently, then dispatch one implementer
 for Slice G after T7 and T9 are green and committed. No phase split or front/back split is needed.
 
-Phase 3 contains one resumed remediation task: T11 follows T10 after the independent Verifier
-reported proof gaps. It owns the probe and its runnable checks, and closes with the Quick gate.
+Phase 3 contains two resumed remediation tasks: T11 follows T10 after the independent Verifier
+reported proof gaps, and T12 closes the final Deep Review defects. They own the probe, assisted
+executor boundary, and their runnable checks, and each closes with the Quick gate.

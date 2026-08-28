@@ -159,8 +159,9 @@ python3 tools/orca_assisted_probe.py create|route|turn|verify-effect|audit|clean
 ```
 
 Each subcommand emits one JSON object. Inputs name the repository, exact owned worktree/branch and
-terminal identities, frozen provider/model/effort, packet file, turn marker, expected task commits,
-allowed paths, gate, and bounded timing values. No task ID, commit subject, packet filename, session
+terminal identities, frozen provider/model/effort, packet file, turn marker, expected task commits
+and their exact 40-hex identities, allowed paths, gate, and bounded timing values. No task ID, commit
+subject, packet filename, session
 prefix, or QA evidence path is implicit.
 
 `create`, `turn`/send, worktree comment `set`, terminal `stop`, and worktree `rm` are one-shot logical

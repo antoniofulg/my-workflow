@@ -430,6 +430,30 @@ def _serial_result(feature: str, mode: str, reason: str, lanes: list[dict[str, A
     }
 
 
+def _assisted_capability() -> Mapping[str, Any]:
+    """Read-only direct Orca capability proof; no compatibility cache or canary effects."""
+    executable = shutil.which("orca")
+    if executable is None:
+        return {"status": "unsupported", "reason": "orca-unavailable"}
+    try:
+        result = run_argv([executable, "status", "--json"], timeout=10, check=True)
+        payload = json.loads(result.stdout)
+    except (OSError, subprocess.SubprocessError, ExecutorError, json.JSONDecodeError):
+        return {"status": "unsupported", "reason": "orca-status-unavailable"}
+    if not isinstance(payload, Mapping):
+        return {"status": "unsupported", "reason": "orca-status-malformed"}
+    status = payload.get("result", payload)
+    if not isinstance(status, Mapping):
+        return {"status": "unsupported", "reason": "orca-status-malformed"}
+    capabilities = status.get("capabilities")
+    if isinstance(capabilities, Mapping):
+        capabilities = [key for key, enabled in capabilities.items() if enabled is True]
+    ready = status.get("ready", status.get("connected", status.get("reachable")))
+    if ready is not True or not isinstance(capabilities, list) or "orchestration.contract.v1" not in capabilities:
+        return {"status": "unsupported", "reason": "orca-required-capability-unavailable"}
+    return {"status": "compatible", "capabilities": capabilities, "proof": {"isolation": "worktree-terminal"}}
+
+
 def _compatibility_is_usable(result: Mapping[str, Any]) -> bool:
     """Only an explicit, clean compatibility result may authorize host effects."""
     proof = result.get("proof")
@@ -500,6 +524,7 @@ class Coordinator:
         gate_receipt_factory: Callable[[Mapping[str, Any]], Mapping[str, Any] | None] | None = None,
         provider_factory: Callable[[Path], ResourceProvider] | None = None,
         worktree_creator: Callable[[Path, str], Mapping[str, Any]] | None = None,
+        assisted_capability_factory: Callable[[], Mapping[str, Any]] | None = None,
     ):
         self.root = Path(root).resolve()
         self.feature = canonical_feature_slug(feature)
@@ -508,6 +533,7 @@ class Coordinator:
         self.gate_receipt_factory = gate_receipt_factory
         self.provider_factory = provider_factory
         self.worktree_creator = worktree_creator
+        self.assisted_capability_factory = assisted_capability_factory
         self.state_path: Path | None = None
 
     def _prepare_repository(self) -> None:
@@ -1310,6 +1336,22 @@ class Coordinator:
         if mode == "assisted":
             if len(lanes) < 2:
                 return _serial_result(self.feature, mode, "no-ready-overlap", lanes)
+            try:
+                capability = (
+                    self.assisted_capability_factory()
+                    if self.assisted_capability_factory is not None
+                    else _assisted_capability()
+                )
+            except Exception as exc:  # noqa: BLE001 - capability failure serializes safely
+                return _serial_result(self.feature, mode, "assisted-capability:" + str(exc), lanes)
+            if not isinstance(capability, Mapping) or capability.get("status") != "compatible":
+                reason = capability.get("reason", "unavailable") if isinstance(capability, Mapping) else "malformed"
+                return _serial_result(self.feature, mode, "assisted-capability:" + str(reason), lanes)
+            proof = capability.get("proof")
+            if not isinstance(proof, Mapping) or proof.get("isolation") != "worktree-terminal":
+                return _serial_result(self.feature, mode, "assisted-capability:isolation-unproven", lanes)
+            if any(self._lane_resources(plan_lane) for plan_lane in lanes):
+                return _serial_result(self.feature, mode, "assisted-resource-provider-unsupported", lanes)
             return {**plan, "coordinator": "assisted", "actions": []}
         if self.adapter_factory is None:
             return _serial_result(self.feature, mode, "unsupported-adapter", lanes)
@@ -1668,6 +1710,7 @@ def main(
     *,
     adapter_factory: Callable[[], Any] | None = None,
     git_adapter_factory: Callable[[], Any] | None = None,
+    assisted_capability_factory: Callable[[], Mapping[str, Any]] | None = None,
 ) -> int:
     args = _parser().parse_args(argv)
     try:
@@ -1682,6 +1725,7 @@ def main(
             args.feature,
             adapter_factory=None if args.command == "status" else selected_adapter_factory,
             git_adapter_factory=git_adapter_factory,
+            assisted_capability_factory=assisted_capability_factory,
         )
         if args.command == "status":
             result = coordinator.status()

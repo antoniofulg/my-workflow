@@ -24,3 +24,4 @@ When recording an `AD-NNN`, run `python3 tools/ad-index.py` in the same commit.
 | `AD-015` | superseded by AD-017 | When automatic host orchestration is incompatible, explicit human authorization may enable coordinator-assisted inter-slice execution throu… |
 | `AD-016` | active | The assisted coordinator writes each complete slice packet to a coordinator-owned file outside every slice worktree and sends only a short… |
 | `AD-017` | active | `assisted` is the default inter-slice execution mode whenever the frozen task DAG exposes independent safe slices. |
+| `AD-018` | active | Merge the workflow-side assisted-parallelization remediation with the affected live QA scenario truthfully left `untested`; defer live Orca… |

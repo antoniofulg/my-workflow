@@ -3,15 +3,18 @@
 ## Handoff
 
 - **Feature**: `.specs/features/host-agnostic-slice-parallelization`
-- **Phase / Task**: Tasks delta planned; awaiting approval before T6
-- **Current delta**: T6–T10 make assisted execution the default; historical T1–T5 and Retest 12 remain complete
-- **Current policy**: frozen mode is `assisted`; automatic Orca remains unsupported and AD-016 pointer-only delivery remains mandatory
+- **Phase / Task**: T12 review remediation complete; delivery is ready for the authorized commit/merge
+- **Current delta**: T6–T12 make assisted execution the default and close the final capability, route,
+  receipt, reconciliation, and cleanup proof gaps; historical Retest 12 remains preserved
+- **Current policy**: frozen mode is `assisted`; direct Orca capability/resource/isolation proof is
+  required before dispatch, automatic Orca remains unsupported, and AD-016 pointer-only delivery remains mandatory
 - **Completed**: T1-T5; Technical Verifier PASS; Deep Review rounds 1-2; assisted Orca lifecycle hardened; QA Execute Retests 1-12. **Retest 12 is the terminal verdict.** It walked the `AD-016` pointer contract end to end on the re-frozen `claude` / `sonnet` / `medium` route at `b6bdcad`, prefix `qa-assisted-20260827-r13`, in 2845.447 s: pointer transport re-proved before any slice existed (2418-char body, 188-char pointer, `bytesWritten` 189, exact token and both positional bounds returned); rendered `Claude Code v2.1.247` + `Sonnet 5 with medium effort · Claude Max` on two consecutive `source=screen` frames for all six terminals; one create per slice; eight logical packets delivered as 177-190 char pointers with exactly one send each; **six task commits, packet-exact subjects and counts, green gate before every commit, zero corrective commits and zero amends** (the medium route's task integrity is now observed, not assumed, and Retest 7's low-effort violation did not recur); 58.536 s of A/B overlap at concurrency 2; exact parked comment; exact `A:T7` sync `2c1b1ab` with the affected gate `7/7`; same-handle `B_FINAL` continuation; fresh per-slice Technical Verifiers both `PASS` at 10/10; conflict-free deterministic A-then-B integration at `07540bc` with the fixture gate `12/12`; grouped Deep Review **`SHIP`** in one round (0 Critical, 0 Major, 3 Minor, 6 advisories, both lanes 359/359, R01-R14 accounted) read back from the generated artifacts; final CLI persona QA 10/10; exact cleanup 13/13 per worktree with a 39-sample audit returning the exact two-worktree baseline and zero owned residue
 - **In-progress** (file:line): none
-- **Next step**: Approve the updated spec, test contract, and T6–T10 plan; then dispatch Slice E and Slice F implementers concurrently.
+- **Next step**: Commit and merge the validated feature branch; do not publish or deploy. Live QA remains
+  untested and is explicitly waived for this merge until the upstream Orca transport support is corrected.
 - **Blockers**: `BUG-20260827-orca-terminal-send-truncates-claude-worker-packet` stays **open against the host** and cannot be closed from this repository: `orca terminal send --text` still exposes no acknowledgement mode, so a coordinator cannot tell a complete write from a lost one by its receipt. Retest 12 measured it once on a non-slice shell — a 2012-char inline payload arrived **complete**, where Retest 10's 2081-char payload lost 98.3 % — but the loss is timing-dependent, so that clears nothing; it only confirms the run never depended on the answer, because AD-016 keeps every mandated payload at ~180 characters. `BUG-20260827-assisted-pilot-batch-cli-drops-final-newline` is now **closed**: Retest 12 re-derived its disposition from scratch on a copy byte-identical to the reviewed tree — the terminal newline is preserved, the required focused subprocess assertion exists at `pilot/tests/test_batch.py:34-43`, and injecting the exact recorded symptom makes the canonical suite fail, so that assertion discriminates. `BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree` stays open against the **automatic** executor and is not reachable through the assisted path. Codex capacity remains exhausted until 2026-09-01, so every frozen role stays on `claude`. No compatibility PASS was written, no `preflight --canary` ran, and `parallelization.mode` is now `assisted`; automatic Orca execution remains unsupported and no compatibility PASS is fabricated.
 - **Recorded coordinator fault (do not repeat)**: Retest 12 issued a **second `orca worktree create`** for the ground worktree's logical name — the same rule that invalidated Retest 11, from a different cause. `retest-11/orca_probe.py` dispatches its subcommand at module scope with no `__name__` guard, so importing it to inherit its hardening executes the command; `retest-12/orca_probe.py:37-60` imports it under a neutralised `sys.argv` and that fix was proved with a fake `orca` on `PATH` (exactly one `worktree create` across 421 recorded calls) before being trusted. Both erroneous worktrees were cleaned at 10/10 reconstructed ownership and ground was recreated once. **Any future probe that inherits an earlier retest's harness must neutralise argv across the import.** Slices A and B were each created exactly once (`create_result=1` in each create log), so the certified lanes are unaffected.
-- **Uncommitted files**: planning artifacts only.
+- **Uncommitted files**: T12 remediation and delivery-state artifacts, to be committed atomically.
 - **Branch**: `feat/assisted-parallelization-default`
 
 ## Decisions
@@ -281,4 +284,21 @@
   agent instructions and probe tooling, pointer delivery, checkpoint continuation, integration, and
   exact owned-resource cleanup.
 - **Date**: 2026-08-27
+- **Status**: active
+
+### AD-018
+
+- **Decision**: Merge the workflow-side assisted-parallelization remediation with the affected live
+  QA scenario truthfully left `untested`; defer live Orca QA until the upstream `orca terminal send
+  --text` transport support is corrected. The pointer-only workaround and all technical fake-Orca
+  evidence remain required, and no live run is claimed by this waiver.
+- **Reason**: The human authorized commit and merge without publishing while explicitly choosing to
+  wait for the Orca team to fix the host transport. Holding the workflow-side fail-closed and
+  pointer-only delivery improvements would delay usable intermediate parallelization without making
+  live QA possible in this repository.
+- **Trade-off**: Autonomous readiness accepts technical/fake-host evidence for this merge, while
+  the changed user journey remains visibly untested and must be walked after upstream support lands.
+- **Scope**: This feature merge only: assisted default dispatch, adopted probe, pointer delivery,
+  direct capability/resource proof, same-handle reconciliation, and cleanup.
+- **Date**: 2026-08-28
 - **Status**: active

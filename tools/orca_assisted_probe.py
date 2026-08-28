@@ -13,6 +13,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import time
@@ -195,7 +196,7 @@ def pointer(packet_file: Path, *, worktree: Path | None = None) -> str:
             pass
         else:
             raise ProbeError("packet_file must be outside the slice worktree")
-    return f"read {packet} and execute it as your packet"
+    return f"read {shlex.quote(str(packet))} and execute it as your packet"
 
 
 def send_pointer(
@@ -283,19 +284,27 @@ def route_command(provider: str, model: str, effort: str) -> str:
     raise ProbeError(f"unsupported provider route: {provider}")
 
 
-def _receipt(path: Path) -> dict[str, Any]:
+def _receipt(path: Path, *, repository: str | None = None) -> dict[str, Any]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise ProbeError(f"invalid receipt: {path}") from error
     if not isinstance(value, dict):
         raise ProbeError("receipt must be an object")
-    for key in ("id", "path", "branch", "pre_head", "gitdir", "worktree_gitdir", "startupTerminal", "before"):
+    for key in ("repository", "id", "instance", "path", "branch", "pre_head", "gitdir", "worktree_gitdir", "startupTerminal", "before"):
         if key not in value:
             raise ProbeError(f"receipt missing {key}")
+    if not isinstance(value["repository"], str) or not value["repository"]:
+        raise ProbeError("receipt repository is required")
+    if repository is not None and value["repository"] != repository:
+        raise ProbeError("receipt repository does not match requested repository")
+    if not isinstance(value["instance"], str) or not value["instance"]:
+        raise ProbeError("receipt instance is required")
     handle = value["startupTerminal"].get("handle") if isinstance(value["startupTerminal"], dict) else None
     if not isinstance(handle, str) or not handle:
         raise ProbeError("receipt startupTerminal.handle is required")
+    if not isinstance(value["pre_head"], str) or not SHA40.fullmatch(value["pre_head"]):
+        raise ProbeError("receipt pre_head must be a 40-hex SHA")
     return value
 
 
@@ -306,44 +315,50 @@ def make_receipt(
     startup: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     worktree_id = str(candidate.get("id", ""))
+    instance = candidate.get("instanceId")
+    if not worktree_id or not isinstance(instance, str) or not instance:
+        raise ProbeError("create candidate lacks immutable Orca identity")
     listed = probe.worktree_terminals(worktree_id)
     previous = set(before.get("terminals", {}))
     new = [value for value in listed if value.get("handle") not in previous]
     selected = startup or (new[0] if len(new) == 1 else None)
     if len(new) != 1 or not isinstance(selected, dict) or selected.get("handle") != new[0].get("handle"):
         raise ProbeError(f"startup handle ambiguous: {len(new)}")
-    path = Path(str(candidate.get("path", ""))).resolve()
-    gitdir = ""
-    worktree_gitdir = ""
-    if path.is_dir():
-        for option, target in (("--git-common-dir", "common"), ("--absolute-git-dir", "linked")):
-            result = subprocess.run(
-                ["git", "-C", str(path), "rev-parse", option],
-                capture_output=True,
-                text=True,
-                shell=False,
-                timeout=10,
-                check=False,
-            )
-            if result.returncode != 0 or not result.stdout.strip():
-                continue
-            metadata = Path(result.stdout.strip())
-            if not metadata.is_absolute():
-                metadata = path / metadata
-            if target == "common":
-                gitdir = str(metadata.resolve())
-            else:
-                worktree_gitdir = str(metadata.resolve())
+    candidate_path = Path(str(candidate.get("path", "")))
+    if not candidate_path.is_dir() or candidate_path.is_symlink():
+        raise ProbeError("create candidate path is unavailable or symlinked")
+    path = candidate_path.resolve()
+    try:
+        gitdir = git(path, "rev-parse", "--git-common-dir").stdout.strip()
+        worktree_gitdir = git(path, "rev-parse", "--absolute-git-dir").stdout.strip()
+    except ProbeError as error:
+        raise ProbeError("create candidate lacks complete Git checkout identity") from error
+    common = Path(gitdir)
+    if not common.is_absolute():
+        common = path / common
+    common = common.resolve()
+    linked = Path(worktree_gitdir).resolve()
+    if not common.is_dir() or not linked.is_dir():
+        raise ProbeError("create candidate Git directories are unavailable")
+    gitdir = str(common)
+    worktree_gitdir = str(linked)
+    branch = candidate.get("branch")
+    head = candidate.get("head")
+    if not isinstance(branch, str) or not branch or not isinstance(head, str) or not SHA40.fullmatch(head):
+        raise ProbeError("create candidate lacks complete branch and HEAD identity")
+    actual_head = git(path, "rev-parse", "HEAD").stdout.strip()
+    if actual_head != head:
+        raise ProbeError("create candidate HEAD does not match Orca inventory")
     return {
         "repository": probe.repo,
         "id": worktree_id,
-        "instance": candidate.get("instanceId"),
+        "instance": instance,
         "name": candidate.get("displayName"),
         "path": str(path),
         "gitdir": gitdir,
         "worktree_gitdir": worktree_gitdir,
-        "branch": candidate.get("branch"),
-        "pre_head": candidate.get("head"),
+        "branch": branch,
+        "pre_head": head,
         "startupTerminal": selected,
         "before": before,
         "created_at": now(),
@@ -410,13 +425,18 @@ def create(args: argparse.Namespace) -> None:
     append(log, {"event": "deadline_audit", "at": now(), "matching": [value.get("id") for value in matches],
                  "foreign_new": [value.get("id") for value in cumulative.values() if value not in matches]})
     if len(matches) != 1:
+        _cleanup_late_candidates(probe, matches, before, log, args)
         raise ProbeError(f"matching candidates={len(matches)}")
     startup = None
     if result:
         nested = result.get("result", result)
         if isinstance(nested, dict) and isinstance(nested.get("startupTerminal"), dict):
             startup = nested["startupTerminal"]
-    receipt = make_receipt(probe, matches[0], before, startup)
+    try:
+        receipt = make_receipt(probe, matches[0], before, startup)
+    except ProbeError:
+        _cleanup_late_candidates(probe, matches, before, log, args)
+        raise
     receipt["create_receipt_present"] = result is not None
     Path(args.receipt).write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps({"status": "created", "id": receipt["id"], "path": receipt["path"],
@@ -425,18 +445,53 @@ def create(args: argparse.Namespace) -> None:
                       "create_receipt_present": result is not None}, sort_keys=True))
 
 
+def _cleanup_late_candidates(
+    probe: OrcaProbe,
+    candidates: list[dict[str, Any]],
+    before: dict[str, Any],
+    log: Path,
+    args: argparse.Namespace,
+) -> None:
+    """Remove only exact, newly observed create candidates before serial fallback."""
+    prior_handles = set(before.get("terminals", {}))
+    for candidate in candidates:
+        worktree_id = str(candidate.get("id", ""))
+        if not worktree_id:
+            continue
+        listed = probe.worktree_terminals(worktree_id)
+        for value in listed:
+            handle = value.get("handle")
+            if not isinstance(handle, str) or not handle or handle in prior_handles:
+                continue
+            try:
+                raw([probe.orca, "terminal", "stop", "--terminal", handle, "--json"], timeout=args.create_timeout)
+                append(log, {"event": "late_stop_once", "at": now(), "worktree": worktree_id, "handle": handle})
+            except Exception as error:  # noqa: BLE001 - preserve the original fail-closed error
+                append(log, {"event": "late_stop_failed", "at": now(), "worktree": worktree_id,
+                             "handle": handle, "error": str(error)})
+        try:
+            raw([probe.orca, "worktree", "rm", "--worktree", f"id:{worktree_id}", "--json"], timeout=args.create_timeout)
+            append(log, {"event": "late_rm_once", "at": now(), "worktree": worktree_id})
+        except Exception as error:  # noqa: BLE001 - preserve the original fail-closed error
+            append(log, {"event": "late_rm_failed", "at": now(), "worktree": worktree_id, "error": str(error)})
+
+
 def ownership(probe: OrcaProbe, receipt: dict[str, Any], log: Path) -> str:
     handle = receipt["startupTerminal"]["handle"]
     listed = probe.worktree_terminals(str(receipt["id"]))
     shown = probe.run([probe.orca, "terminal", "show", "--terminal", handle, "--json"])
     current = terminal(shown)
     preview = str(current.get("preview") or "")
+    activity = re.compile(
+        r"(?i)(ask\s+\w+\s+to do anything|working|processing|running|executing|thinking|loading|queued|busy|in progress|esc to interrupt|default task|agent)"
+    )
     proof = {
         "new": handle not in receipt["before"].get("terminals", {}),
         "sole": len(listed) == 1 and listed[0].get("handle") == handle,
+        "same_handle": current.get("handle") == handle,
         "unused": current.get("connected") is True and current.get("writable") is True
-        and current.get("agentWait") is None and preview.rstrip().endswith("❯")
-        and re.search(r"(?i)(ask\s+\w+\s+to do anything|working|processing)", preview) is None,
+        and current.get("agentWait") in (None, False) and preview.rstrip().endswith("❯")
+        and activity.search(preview) is None,
     }
     append(log, {"event": "startup_proof", "at": now(), **proof, "shown": shown})
     if not all(proof.values()):
@@ -447,11 +502,24 @@ def ownership(probe: OrcaProbe, receipt: dict[str, Any], log: Path) -> str:
 def route(args: argparse.Namespace) -> None:
     probe = OrcaProbe(args.repo, orca=args.orca, interval=args.interval)
     log = Path(args.log)
-    receipt = _receipt(Path(args.receipt))
+    _validate_timing(args.timeout, args.interval, maximum=DEFAULT_SETTLE_WINDOW)
+    receipt = _receipt(Path(args.receipt), repository=args.repo)
     handle = ownership(probe, receipt, log)
     route_cmd = route_command(args.provider, args.model, args.effort)
-    sent = raw([probe.orca, "terminal", "send", "--terminal", handle, "--text", route_cmd,
-                "--enter", "--json"], timeout=args.send_timeout)
+    executable = {"codex": "codex", "claude": "claude", "cursor": "cursor"}[args.provider]
+    if shutil.which(executable) is None:
+        raise ProbeError(f"provider executable unavailable: {executable}")
+    try:
+        availability = subprocess.run([executable, "--help"], capture_output=True, text=True, shell=False, timeout=5, check=False)
+    except (OSError, subprocess.SubprocessError) as error:
+        raise ProbeError(f"provider availability check failed: {executable}") from error
+    if availability.returncode != 0:
+        raise ProbeError(f"provider availability check failed: {executable}")
+    try:
+        sent = raw([probe.orca, "terminal", "send", "--terminal", handle, "--text", route_cmd,
+                    "--enter", "--json"], timeout=args.send_timeout)
+    except Exception as error:  # noqa: BLE001 - one-shot mutation; reconcile its effect
+        sent = {"ok": False, "error": str(error)}
     append(log, {"event": "route_sent_once", "at": now(), "handle": handle, "route": route_cmd, "receipt": sent})
     consecutive = 0
     deadline = time.monotonic() + args.timeout
@@ -464,10 +532,9 @@ def route(args: argparse.Namespace) -> None:
         lowered = text.lower()
         current = terminal(shown)
         rendered = terminal(read)
-        match = (current.get("connected") is True and rendered.get("source") == "screen"
-                 and args.provider.lower() in lowered and args.model.lower() in lowered
-                 and f"with {args.effort.lower()} effort" in lowered
-                 and all(f"with {effort} effort" not in lowered for effort in EFFORTS if effort != args.effort))
+        match = (current.get("handle") == handle and rendered.get("handle") == handle
+                 and current.get("connected") is True and rendered.get("source") == "screen"
+                 and rendered_route_matches(text, args.provider, args.model, args.effort))
         consecutive = consecutive + 1 if match else 0
         append(log, {"event": "route_sample", "at": now(), "sample": sample, "match": match,
                      "consecutive": consecutive, "connected": current.get("connected"),
@@ -491,6 +558,40 @@ def is_working(text: str) -> bool:
     return bool(re.search(r"(?i)(esc to interrupt|working|processing)", text))
 
 
+def rendered_route_matches(text: str, provider: str, model: str, effort: str) -> bool:
+    """Accept only exact token-bounded provider/model/effort values from the screen."""
+    if not provider or not model or effort not in EFFORTS:
+        return False
+    def token(value: str) -> str:
+        return rf"(?<![A-Za-z0-9_.-]){re.escape(value)}(?![A-Za-z0-9_.-])"
+    lines = text.lower().splitlines()
+    for line in lines:
+        if not re.search(token(provider.lower()), line) or not re.search(token(model.lower()), line):
+            continue
+        if not (re.search(rf"\bwith\s+{re.escape(effort.lower())}\s+effort\b", line)
+                or re.search(rf"\beffort\s*[=:]\s*{re.escape(effort.lower())}\b", line)):
+            continue
+        if any(
+            re.search(rf"\bwith\s+{re.escape(other)}\s+effort\b", line)
+            or re.search(rf"\beffort\s*[=:]\s*{re.escape(other)}\b", line)
+            for other in EFFORTS if other != effort
+        ):
+            continue
+        return True
+    return False
+
+
+def _validate_timing(timeout: Any, interval: Any, *, maximum: float) -> None:
+    if not isinstance(timeout, (int, float)) or not isinstance(interval, (int, float)):
+        raise ProbeError("timing values must be numeric")
+    if not (0 < timeout <= maximum) or not (0 <= interval <= timeout) or not (timeout == timeout and interval == interval):
+        raise ProbeError("timing values are outside the bounded probe window")
+
+
+def _idle_receipt(payload: dict[str, Any], handle: str) -> bool:
+    return payload.get("ok") is True and terminal(payload).get("handle") == handle
+
+
 def marker_frame(probe: OrcaProbe, handle: str, phase: str) -> tuple[str | None, str | None, dict[str, Any], dict[str, Any], str]:
     shown = probe.run([probe.orca, "terminal", "show", "--terminal", handle, "--json"])
     read = probe.run([probe.orca, "terminal", "read", "--terminal", handle, "--screen", "--json"])
@@ -500,6 +601,8 @@ def marker_frame(probe: OrcaProbe, handle: str, phase: str) -> tuple[str | None,
     matches = re.findall(rf"TURN_DONE\s+{re.escape(phase)}\s+head=([0-9a-f]{{40}})", text)
     if current.get("connected") is not True:
         return None, "disconnected", shown, read, text
+    if current.get("handle") != handle or rendered.get("handle") != handle:
+        return None, "handle-mismatch", shown, read, text
     if rendered.get("source") != "screen":
         return None, "source-not-screen", shown, read, text
     if len(matches) != 1:
@@ -593,6 +696,9 @@ def effect(args: argparse.Namespace, probe: OrcaProbe, receipt: dict[str, Any], 
         raise ProbeError("expected commit count must be positive")
     if not expected_subjects or len(expected_subjects) != expected_count:
         raise ProbeError("expected commit subjects must match expected commit count")
+    expected_commits = list(getattr(args, "expected_commit", []))
+    if len(expected_commits) != expected_count or any(not SHA40.fullmatch(value) for value in expected_commits):
+        raise ProbeError("expected commit identities must match expected commit count")
     deadline = time.monotonic() + args.timeout
     sample = 0
     while time.monotonic() < deadline:
@@ -613,11 +719,12 @@ def effect(args: argparse.Namespace, probe: OrcaProbe, receipt: dict[str, Any], 
             states = task_states(path, args.task_file)
             checks = {
                 "second_frame": second_error is None and second_head == head,
-                "idle": idle.get("ok") is not False,
+                "idle": idle.get("ok") is True and terminal(idle).get("handle") == handle,
                 "head": actual_head == head,
                 "descends": ancestry,
                 "commit_count": len(rows) == expected_count,
                 "commit_subjects": [row[1] for row in rows] == expected_subjects,
+                "commit_identities": [row[0] for row in rows] == expected_commits,
                 "paths": changed.issubset(set(args.allow_path)),
                 "tasks": all(states.get(task) == "complete" for task in expected_tasks),
                 "gate": gate(path, args.gate).get("passed") is True,
@@ -643,7 +750,7 @@ def effect(args: argparse.Namespace, probe: OrcaProbe, receipt: dict[str, Any], 
 
 def turn(args: argparse.Namespace) -> None:
     probe = OrcaProbe(args.repo, orca=args.orca, interval=args.interval)
-    receipt = _receipt(Path(args.receipt))
+    receipt = _receipt(Path(args.receipt), repository=args.repo)
     path = Path(receipt["path"])
     actual_pre = git(path, "rev-parse", "HEAD").stdout.strip()
     packet = Path(args.packet)
@@ -734,24 +841,27 @@ def remove(args: argparse.Namespace) -> None:
 def cleanup(args: argparse.Namespace) -> None:
     """Stop and remove only a clean, integrated, exactly-owned worktree."""
     probe = OrcaProbe(args.repo, orca=args.orca)
-    receipt = _receipt(Path(args.receipt))
+    receipt = _receipt(Path(args.receipt), repository=args.repo)
     before = probe.inventory()
     worktree_id = str(receipt["id"])
     known = receipt["startupTerminal"]["handle"]
     entry = before["worktrees"].get(worktree_id)
     if not isinstance(entry, dict):
         raise ProbeError("owned worktree is absent from the inventory")
+    raw_path = Path(str(receipt["path"]))
+    if raw_path.is_symlink():
+        raise ProbeError("owned worktree path is unavailable or symlinked")
+    path = raw_path.resolve()
     expected = {
         "repoId": probe.repo,
-        "instanceId": receipt.get("instance"),
-        "path": str(Path(receipt["path"]).resolve()),
+        "instanceId": receipt["instance"],
+        "path": str(path),
         "branch": receipt.get("branch"),
     }
     for key, value in expected.items():
-        if value is not None and entry.get(key) not in (value, str(value)):
+        if entry.get(key) not in (value, str(value)):
             raise ProbeError(f"immutable ownership mismatch: {key}")
-    path = Path(receipt["path"]).resolve()
-    if path.is_symlink() or not path.is_dir():
+    if not path.is_dir():
         raise ProbeError("owned worktree path is unavailable or symlinked")
     if git(path, "status", "--porcelain").stdout:
         raise ProbeError("owned worktree is dirty")
@@ -761,6 +871,10 @@ def cleanup(args: argparse.Namespace) -> None:
     current_head = git(path, "rev-parse", "HEAD").stdout.strip()
     if not SHA40.fullmatch(current_head):
         raise ProbeError("owned worktree HEAD is malformed")
+    if git(path, "cat-file", "-e", receipt["pre_head"], check=False).returncode != 0:
+        raise ProbeError("receipt pre_head is absent from owned checkout")
+    if git(path, "merge-base", "--is-ancestor", receipt["pre_head"], current_head, check=False).returncode != 0:
+        raise ProbeError("owned HEAD does not descend from receipt pre_head")
     branch = str(receipt["branch"] or "")
     ref = branch if branch.startswith("refs/heads/") else f"refs/heads/{branch}"
     branch_tip = git(path, "rev-parse", ref, check=False)
@@ -812,8 +926,11 @@ def cleanup(args: argparse.Namespace) -> None:
     foreign_paths_before = {str(Path(value).resolve()): Path(value).exists() for value in args.foreign_path}
     listed = probe.worktree_terminals(str(receipt["id"]))
     owned = [value for value in listed if value.get("handle") == known]
-    if len(owned) > 1:
-        raise ProbeError("ambiguous owned terminal")
+    globally_known = before["terminals"].get(known)
+    if globally_known is not None and (len(owned) != 1 or len(listed) != 1):
+        raise ProbeError("owned terminal handle is missing, moved, or ambiguous")
+    if known not in before["terminals"] and listed:
+        raise ProbeError("unexpected terminal remains on owned worktree")
     stopped = False
     if owned:
         stopped_result = mutate_once(
@@ -881,7 +998,8 @@ def transport(args: argparse.Namespace) -> None:
         shown = probe.run([probe.orca, "terminal", "show", "--terminal", args.handle, "--json"])
         read = probe.run([probe.orca, "terminal", "read", "--terminal", args.handle, "--screen", "--json"])
         text = screen_text(read)
-        if terminal(shown).get("connected") is True and terminal(read).get("source") == "screen" \
+        if terminal(shown).get("handle") == args.handle and terminal(read).get("handle") == args.handle \
+                and terminal(shown).get("connected") is True and terminal(read).get("source") == "screen" \
                 and args.marker in text and not is_working(text):
             print(json.dumps({"status": "delivered", "send_receipt_ok": sent.get("ok")}, sort_keys=True))
             return
@@ -914,8 +1032,14 @@ def verifier_route(args: argparse.Namespace) -> None:
     """Prove a verifier's rendered provider/model/effort route on its exact handle."""
     probe = OrcaProbe(args.repo, orca=args.orca, interval=args.interval)
     route_cmd = route_command(args.provider, args.model, args.effort)
-    sent = raw([probe.orca, "terminal", "send", "--terminal", args.handle, "--text", route_cmd,
-                "--enter", "--json"], timeout=args.send_timeout)
+    _validate_timing(args.timeout, args.interval, maximum=DEFAULT_SETTLE_WINDOW)
+    if shutil.which(args.provider) is None:
+        raise ProbeError(f"provider executable unavailable: {args.provider}")
+    try:
+        sent = raw([probe.orca, "terminal", "send", "--terminal", args.handle, "--text", route_cmd,
+                    "--enter", "--json"], timeout=args.send_timeout)
+    except Exception as error:  # noqa: BLE001 - one-shot mutation; caller reconciles route
+        sent = {"ok": False, "error": str(error)}
     consecutive = 0
     deadline = time.monotonic() + args.timeout
     while time.monotonic() < deadline:
@@ -923,10 +1047,9 @@ def verifier_route(args: argparse.Namespace) -> None:
         read = probe.run([probe.orca, "terminal", "read", "--terminal", args.handle, "--screen", "--json"])
         current, rendered = terminal(shown), terminal(read)
         text = screen_text(read)
-        lowered = text.lower()
-        match = (current.get("connected") is True and rendered.get("source") == "screen"
-                 and args.provider.lower() in lowered and args.model.lower() in lowered
-                 and f"with {args.effort.lower()} effort" in lowered)
+        match = (current.get("handle") == args.handle and rendered.get("handle") == args.handle
+                 and current.get("connected") is True and rendered.get("source") == "screen"
+                 and rendered_route_matches(text, args.provider, args.model, args.effort))
         consecutive = consecutive + 1 if match else 0
         if consecutive >= 2:
             print(json.dumps({"status": "accepted", "handle": args.handle, "route": route_cmd,
@@ -950,11 +1073,14 @@ def wait_text(args: argparse.Namespace) -> None:
         shown = probe.run([probe.orca, "terminal", "show", "--terminal", args.handle, "--json"])
         read = probe.run([probe.orca, "terminal", "read", "--terminal", args.handle, "--screen", "--json"])
         text = screen_text(read)
-        found = (terminal(shown).get("connected") is True and terminal(read).get("source") == "screen"
+        found = (terminal(shown).get("handle") == args.handle and terminal(read).get("handle") == args.handle
+                 and terminal(shown).get("connected") is True and terminal(read).get("source") == "screen"
                  and text.count(args.marker) == 1 and not is_working(text))
         if found:
-            probe.run([probe.orca, "terminal", "wait", "--terminal", args.handle,
-                       "--for", "tui-idle", "--timeout-ms", "300000", "--json"], timeout=305)
+            idle = probe.run([probe.orca, "terminal", "wait", "--terminal", args.handle,
+                              "--for", "tui-idle", "--timeout-ms", "300000", "--json"], timeout=305)
+            if not _idle_receipt(idle, args.handle):
+                raise ProbeError("tui-idle receipt is malformed or uncorrelated")
             second = probe.run([probe.orca, "terminal", "read", "--terminal", args.handle,
                                 "--screen", "--json"])
             second_text = screen_text(second)
@@ -973,14 +1099,14 @@ def wait_text(args: argparse.Namespace) -> None:
 def verify_effect(args: argparse.Namespace) -> None:
     """Reconcile a previously sent packet without issuing another mutation."""
     probe = OrcaProbe(args.repo, orca=args.orca, interval=args.interval)
-    receipt = _receipt(Path(args.receipt))
+    receipt = _receipt(Path(args.receipt), repository=args.repo)
     effect(args, probe, receipt, {"ok": False, "reconciled_only": True})
 
 
 def audit(args: argparse.Namespace) -> None:
     """Prove one receipt's owned resources are absent without touching foreign resources."""
     probe = OrcaProbe(args.repo, orca=args.orca)
-    receipt = _receipt(Path(args.receipt))
+    receipt = _receipt(Path(args.receipt), repository=args.repo)
     inventory = probe.inventory()
     worktree_id = str(receipt["id"])
     handle = str(receipt["startupTerminal"]["handle"])
@@ -1002,6 +1128,33 @@ def audit(args: argparse.Namespace) -> None:
     print(json.dumps({"status": "clean", "residue": residue}, sort_keys=True))
 
 
+def _positive_float(value: str) -> float:
+    try:
+        parsed = float(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("value must be numeric") from error
+    if not (0 < parsed < float("inf")):
+        raise argparse.ArgumentTypeError("value must be finite and positive")
+    return parsed
+
+
+def _interval_float(value: str) -> float:
+    parsed = _positive_float(value)
+    if parsed > DEFAULT_SETTLE_WINDOW:
+        raise argparse.ArgumentTypeError("interval exceeds bounded probe window")
+    return parsed
+
+
+def _route_timeout(value: str) -> float:
+    try:
+        parsed = float(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("timeout must be numeric") from error
+    if not (0 < parsed <= DEFAULT_SETTLE_WINDOW):
+        raise argparse.ArgumentTypeError("timeout must be within 60 seconds")
+    return parsed
+
+
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(description=__doc__)
     root.add_argument("--orca", default=ORCA)
@@ -1018,14 +1171,14 @@ def parser() -> argparse.ArgumentParser:
     route_parser = sub.add_parser("route")
     route_parser.add_argument("--receipt", required=True); route_parser.add_argument("--log", required=True)
     route_parser.add_argument("--provider", required=True); route_parser.add_argument("--model", required=True)
-    route_parser.add_argument("--effort", required=True, choices=EFFORTS); route_parser.add_argument("--timeout", type=float, default=90.0)
-    route_parser.add_argument("--send-timeout", type=float, default=20.0); route_parser.add_argument("--interval", type=float, default=DEFAULT_INTERVAL); route_parser.set_defaults(function=route)
+    route_parser.add_argument("--effort", required=True, choices=EFFORTS); route_parser.add_argument("--timeout", type=_route_timeout, default=DEFAULT_SETTLE_WINDOW)
+    route_parser.add_argument("--send-timeout", type=_positive_float, default=20.0); route_parser.add_argument("--interval", type=_interval_float, default=DEFAULT_INTERVAL); route_parser.set_defaults(function=route)
 
     turn_parser = sub.add_parser("turn")
     for name in ("receipt", "packet", "phase", "log", "pre-head", "turn-id"):
         turn_parser.add_argument(f"--{name}", required=True)
     turn_parser.add_argument("--expected-task", action="append", default=[]); turn_parser.add_argument("--expected-count", type=int, required=True)
-    turn_parser.add_argument("--expected-subject", action="append", default=[]); turn_parser.add_argument("--allow-path", action="append", default=[])
+    turn_parser.add_argument("--expected-subject", action="append", default=[]); turn_parser.add_argument("--expected-commit", action="append", default=[]); turn_parser.add_argument("--allow-path", action="append", default=[])
     turn_parser.add_argument("--task-file", default="tasks.md"); turn_parser.add_argument("--gate", nargs="+", required=True)
     turn_parser.add_argument("--park-comment", default=""); turn_parser.add_argument("--timeout", type=float, default=DEFAULT_TURN_WINDOW)
     turn_parser.add_argument("--interval", type=float, default=DEFAULT_INTERVAL); turn_parser.set_defaults(function=turn)
@@ -1046,7 +1199,7 @@ def parser() -> argparse.ArgumentParser:
     verifier_route_parser = sub.add_parser("verifier-route")
     verifier_route_parser.add_argument("--handle", required=True); verifier_route_parser.add_argument("--provider", required=True)
     verifier_route_parser.add_argument("--model", required=True); verifier_route_parser.add_argument("--effort", required=True, choices=EFFORTS)
-    verifier_route_parser.add_argument("--timeout", type=float, default=90.0); verifier_route_parser.add_argument("--send-timeout", type=float, default=20.0); verifier_route_parser.add_argument("--interval", type=float, default=DEFAULT_INTERVAL); verifier_route_parser.set_defaults(function=verifier_route)
+    verifier_route_parser.add_argument("--timeout", type=_route_timeout, default=DEFAULT_SETTLE_WINDOW); verifier_route_parser.add_argument("--send-timeout", type=_positive_float, default=20.0); verifier_route_parser.add_argument("--interval", type=_interval_float, default=DEFAULT_INTERVAL); verifier_route_parser.set_defaults(function=verifier_route)
 
     verifier_send_parser = sub.add_parser("verifier-send")
     verifier_send_parser.add_argument("--handle", required=True); verifier_send_parser.add_argument("--packet", required=True); verifier_send_parser.add_argument("--worktree", required=True); verifier_send_parser.add_argument("--slice", required=True); verifier_send_parser.add_argument("--log", required=True); verifier_send_parser.set_defaults(function=verifier_send)
@@ -1058,7 +1211,7 @@ def parser() -> argparse.ArgumentParser:
     for name in ("receipt", "phase", "log", "pre-head"):
         verify_parser.add_argument(f"--{name}", required=True)
     verify_parser.add_argument("--expected-task", action="append", default=[]); verify_parser.add_argument("--expected-count", type=int, required=True)
-    verify_parser.add_argument("--expected-subject", action="append", default=[]); verify_parser.add_argument("--allow-path", action="append", default=[])
+    verify_parser.add_argument("--expected-subject", action="append", default=[]); verify_parser.add_argument("--expected-commit", action="append", default=[]); verify_parser.add_argument("--allow-path", action="append", default=[])
     verify_parser.add_argument("--task-file", default="tasks.md"); verify_parser.add_argument("--gate", nargs="+", required=True); verify_parser.add_argument("--park-comment", default="")
     verify_parser.add_argument("--timeout", type=float, default=DEFAULT_TURN_WINDOW); verify_parser.add_argument("--interval", type=float, default=DEFAULT_INTERVAL); verify_parser.set_defaults(function=verify_effect)
 

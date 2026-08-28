@@ -6,6 +6,7 @@ import contextlib
 import io
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -94,7 +95,7 @@ def test_pointer_transport_excludes_packet_body_and_import_is_inert() -> None:
         assert completed.returncode == 0, completed.stderr
         sent = calls.read_text(encoding="utf-8")
         assert sent.count("terminal send") == 1
-        assert f"read {packet.resolve()} and execute it as your packet" in sent
+        assert f"read {shlex.quote(str(packet.resolve()))} and execute it as your packet" in sent
         assert "SECRET_PACKET_BODY" not in sent
         records = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
         assert records[0]["pointer_chars"] < records[0]["packet_body_chars"]
@@ -175,15 +176,15 @@ def test_route_requires_two_consecutive_screen_frames_after_reset() -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         receipt = root / "receipt.json"
-        receipt.write_text(json.dumps({"id": "lane", "path": str(root), "branch": "branch",
+        receipt.write_text(json.dumps({"repository": "repo", "instance": "instance", "id": "lane", "path": str(root), "branch": "branch",
                                        "pre_head": "a" * 40, "startupTerminal": {"handle": "h"},
                                        "gitdir": "", "worktree_gitdir": "",
                                        "before": {"terminals": {}}}), encoding="utf-8")
         reads = [
-            {"source": "screen", "text": "Claude Code Sonnet 5 with low effort"},
-            {"source": "ansi", "text": "Claude Code Sonnet 5 with low effort"},
-            {"source": "screen", "text": "Claude Code Sonnet 5 with low effort"},
-            {"source": "screen", "text": "Claude Code Sonnet 5 with low effort"},
+            {"handle": "h", "source": "screen", "text": "Claude Code Sonnet 5 with low effort"},
+            {"handle": "h", "source": "ansi", "text": "Claude Code Sonnet 5 with low effort"},
+            {"handle": "h", "source": "screen", "text": "Claude Code Sonnet 5 with low effort"},
+            {"handle": "h", "source": "screen", "text": "Claude Code Sonnet 5 with low effort"},
         ]
         read_index = 0
         sends: list[list[str]] = []
@@ -199,7 +200,7 @@ def test_route_requires_two_consecutive_screen_frames_after_reset() -> None:
             if "list" in argv:
                 return {"result": {"terminals": [{"handle": "h"}]}}
             if "wait" in argv:
-                return {"ok": True}
+                return {"ok": True, "result": {"terminal": {"handle": "h"}}}
             if "read" in argv:
                 value = reads[min(read_index, len(reads) - 1)]
                 read_index += 1
@@ -223,6 +224,26 @@ def test_route_requires_two_consecutive_screen_frames_after_reset() -> None:
         assert output.getvalue().count('"status": "accepted"') == 1
 
 
+def test_route_and_receipts_require_exact_correlated_identity() -> None:
+    assert probe.rendered_route_matches("claude sonnet with low effort", "claude", "sonnet", "low")
+    assert not probe.rendered_route_matches("claude sonnet-5 with low effort", "claude", "sonnet", "low")
+    assert not probe.rendered_route_matches("claude sonnet with medium effort and low effort", "claude", "sonnet", "low")
+    assert not probe._idle_receipt({"ok": True}, "handle")
+    assert probe._idle_receipt({"ok": True, "result": {"terminal": {"handle": "handle"}}}, "handle")
+
+
+def test_marker_frame_rejects_foreign_first_frame_handle() -> None:
+    responses = iter((
+        {"result": {"terminal": {"handle": "foreign", "connected": True}}},
+        {"result": {"terminal": {"handle": "handle", "source": "screen", "text": "TURN_DONE A_FINAL head=" + "a" * 40}}},
+    ))
+    configured = probe.OrcaProbe("repo")
+    configured.run = lambda _argv, timeout=30.0: next(responses)  # type: ignore[method-assign]
+    head, reason, *_ = probe.marker_frame(configured, "handle", "A_FINAL")
+    assert head is None
+    assert reason == "handle-mismatch"
+
+
 def test_cleanup_refuses_when_owned_branch_ref_remains() -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
@@ -232,7 +253,7 @@ def test_cleanup_refuses_when_owned_branch_ref_remains() -> None:
         admin.mkdir(parents=True)
         (admin / "gitdir").write_text(str(root / ".git") + "\n", encoding="utf-8")
         head = "a" * 40
-        receipt.write_text(json.dumps({"id": "lane", "path": str(root), "branch": "refs/heads/lane",
+        receipt.write_text(json.dumps({"repository": "repo", "id": "lane", "path": str(root), "branch": "refs/heads/lane",
                                        "instance": "instance", "pre_head": head, "gitdir": str(common_git),
                                        "worktree_gitdir": str(admin),
                                        "startupTerminal": {"handle": "h"}, "before": {"terminals": {}}}), encoding="utf-8")
@@ -293,7 +314,7 @@ def test_cleanup_stops_only_owned_handle_and_preserves_foreign_worktree() -> Non
         receipt_path = root / "receipt.json"
         receipt_path.write_text(
             json.dumps({
-                "id": "owned-worktree", "path": str(worktree), "branch": "refs/heads/owned",
+                "repository": "repo", "id": "owned-worktree", "path": str(worktree), "branch": "refs/heads/owned",
                 "instance": "owned-instance", "pre_head": head, "gitdir": str(common_git),
                 "worktree_gitdir": str(admin),
                 "startupTerminal": {"handle": "owned-terminal"},
@@ -368,7 +389,7 @@ def _cleanup_failure_case(*, retain_owned: bool, remove_foreign: bool,
         foreign_path.write_text("foreign\n", encoding="utf-8")
         head = "a" * 40
         receipt_path = root / "receipt.json"
-        receipt_path.write_text(json.dumps({"id": "lane", "path": str(root), "branch": "refs/heads/lane",
+        receipt_path.write_text(json.dumps({"repository": "repo", "id": "lane", "path": str(root), "branch": "refs/heads/lane",
                                             "instance": "instance", "pre_head": head,
                                             "gitdir": str(common_git),
                                             "worktree_gitdir": str(admin),
@@ -495,7 +516,7 @@ def _cleanup_git_residue_case(*, retain_registration: bool, retain_gitdir: bool)
             (stale / "HEAD").write_text(head + "\n", encoding="utf-8")
         receipt_path = root / "receipt.json"
         receipt_path.write_text(json.dumps({
-            "id": "lane", "path": str(worktree), "branch": "refs/heads/lane",
+            "repository": "repo", "id": "lane", "path": str(worktree), "branch": "refs/heads/lane",
             "instance": "instance", "pre_head": head, "gitdir": str(common_git),
             "worktree_gitdir": str(worktree_gitdir),
             "startupTerminal": {"handle": "owned-terminal"}, "before": {"terminals": {}},
@@ -588,7 +609,7 @@ def test_effect_reconciliation_accepts_one_same_handle_commit() -> None:
         receipt = {"id": "lane", "path": str(worktree), "startupTerminal": {"handle": "same-handle"}}
         args = SimpleNamespace(
             phase="A_FINAL", timeout=1.0, log=str(worktree.parent / "effect-log"), pre_head=pre_head,
-            expected_count=1, expected_subject=["feat: one slice"], expected_task=["T1"],
+            expected_count=1, expected_subject=["feat: one slice"], expected_commit=[head], expected_task=["T1"],
             allow_path=["change.txt"], task_file="tasks.md", gate=["true"], park_comment="",
         )
         original_marker_frame = probe.marker_frame
@@ -599,7 +620,7 @@ def test_effect_reconciliation_accepts_one_same_handle_commit() -> None:
             f"TURN_DONE {phase} head={head}")
         probe.worktree_comment = lambda *_args: ""
         configured = probe.OrcaProbe("repo")
-        configured.run = lambda _argv, timeout=30.0: {"ok": True}  # type: ignore[method-assign]
+        configured.run = lambda argv, timeout=30.0: {"ok": True, "result": {"terminal": {"handle": argv[argv.index("--terminal") + 1]}}}  # type: ignore[method-assign]
         try:
             result = probe.effect(args, configured, receipt, {"ok": False})
         finally:
@@ -629,7 +650,7 @@ def test_effect_reconciliation_rejects_pending_expected_task() -> None:
         receipt = {"id": "lane", "path": str(worktree), "startupTerminal": {"handle": "same-handle"}}
         args = SimpleNamespace(
             phase="A_FINAL", timeout=1.0, log=str(worktree.parent / "pending-effect-log"), pre_head=pre_head,
-            expected_count=1, expected_subject=["feat: one slice"], expected_task=["T1"],
+            expected_count=1, expected_subject=["feat: one slice"], expected_commit=[head], expected_task=["T1"],
             allow_path=["change.txt"], task_file="tasks.md", gate=["true"], park_comment="",
         )
         original_marker_frame = probe.marker_frame
@@ -642,7 +663,7 @@ def test_effect_reconciliation_rejects_pending_expected_task() -> None:
         )
         probe.worktree_comment = lambda *_args: ""
         configured = probe.OrcaProbe("repo")
-        configured.run = lambda _argv, timeout=30.0: {"ok": True}  # type: ignore[method-assign]
+        configured.run = lambda argv, timeout=30.0: {"ok": True, "result": {"terminal": {"handle": argv[argv.index("--terminal") + 1]}}}  # type: ignore[method-assign]
         try:
             try:
                 probe.effect(args, configured, receipt, {"ok": False})
@@ -694,7 +715,7 @@ def test_effect_reconciliation_rejects_foreign_second_frame_handle() -> None:
         head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=worktree, text=True).strip()
         receipt = {"id": "lane", "path": str(worktree), "startupTerminal": {"handle": "same-handle"}}
         args = SimpleNamespace(phase="A_FINAL", timeout=1.0, log=str(worktree.parent / "foreign-log"),
-                              pre_head=pre_head, expected_count=1, expected_subject=["feat: one slice"],
+                              pre_head=pre_head, expected_count=1, expected_subject=["feat: one slice"], expected_commit=[head],
                               expected_task=["T1"], allow_path=["change.txt"], task_file="tasks.md",
                               gate=["true"], park_comment="")
         frames = iter(("same-handle", "foreign-handle"))
@@ -708,7 +729,7 @@ def test_effect_reconciliation_rejects_foreign_second_frame_handle() -> None:
         )
         probe.worktree_comment = lambda *_args: ""
         configured = probe.OrcaProbe("repo")
-        configured.run = lambda _argv, timeout=30.0: {"ok": True}  # type: ignore[method-assign]
+        configured.run = lambda argv, timeout=30.0: {"ok": True, "result": {"terminal": {"handle": argv[argv.index("--terminal") + 1]}}}  # type: ignore[method-assign]
         try:
             try:
                 probe.effect(args, configured, receipt, {"ok": False})
@@ -792,7 +813,7 @@ def test_fake_two_slice_lifecycle_parks_syncs_resumes_integrates_and_cleans() ->
             receipts[name] = probe.make_receipt(
                 receipt_probe,
                 {"id": worktree_id, "instanceId": instance, "path": str(worktree_path),
-                 "branch": branch, "head": seed},
+                 "branch": branch, "head": subprocess.check_output(["git", "-C", str(worktree_path), "rev-parse", "HEAD"], text=True).strip()},
                 {"terminals": {}, "worktrees": {}},
                 {"handle": handles[name]},
             )
@@ -817,11 +838,11 @@ def test_fake_two_slice_lifecycle_parks_syncs_resumes_integrates_and_cleans() ->
         )
         probe.worktree_comment = lambda _probe, worktree_id: comments.get(worktree_id, "")
         configured = probe.OrcaProbe("repo", interval=0)
-        configured.run = lambda _argv, timeout=30.0: {"ok": True}  # type: ignore[method-assign]
+        configured.run = lambda argv, timeout=30.0: {"ok": True, "result": {"terminal": {"handle": argv[argv.index("--terminal") + 1]}}}  # type: ignore[method-assign]
         try:
             producer_args = SimpleNamespace(
                 phase="A_FINAL", timeout=1.0, log=str(root / "producer-effect.log"), pre_head=seed,
-                expected_count=1, expected_subject=["feat: producer slice"], expected_task=["T1"],
+                expected_count=1, expected_subject=["feat: producer slice"], expected_commit=[producer_head], expected_task=["T1"],
                 allow_path=["tasks.md", "producer.txt"], task_file="tasks.md", gate=["true"], park_comment="",
             )
             producer_effect = probe.effect(producer_args, configured, receipts["producer"], {"ok": False})
@@ -896,7 +917,7 @@ def test_fake_two_slice_lifecycle_parks_syncs_resumes_integrates_and_cleans() ->
             heads[handles["dependent"]] = dependent_head
             dependent_effect = probe.effect(SimpleNamespace(
                 phase="B_FINAL", timeout=1.0, log=str(root / "dependent-effect.log"), pre_head=producer_head,
-                expected_count=1, expected_subject=["feat: dependent slice"], expected_task=["T2"],
+                expected_count=1, expected_subject=["feat: dependent slice"], expected_commit=[dependent_head], expected_task=["T2"],
                 allow_path=["tasks.md", "dependent.txt"], task_file="tasks.md", gate=gate_command, park_comment="",
             ), configured, receipts["dependent"], {"ok": False})
             assert dependent_effect["checks"]["tasks"] is True
@@ -920,7 +941,7 @@ def test_fake_two_slice_lifecycle_parks_syncs_resumes_integrates_and_cleans() ->
             assert [call[2] for call in calls if len(call) > 2 and call[2] in {"stop", "rm"}] == ["stop", "rm", "stop", "rm"]
             sends = [call for call in calls if len(call) > 2 and call[2] == "send"]
             assert len(sends) == 1
-            assert sends[0][sends[0].index("--text") + 1] == f"read {packet.resolve()} and execute it as your packet"
+            assert sends[0][sends[0].index("--text") + 1] == f"read {shlex.quote(str(packet.resolve()))} and execute it as your packet"
             assert "DEPENDENT_PACKET_SECRET" not in " ".join(sends[0])
             assert "foreign" in worktrees
             assert "foreign-terminal" in terminals

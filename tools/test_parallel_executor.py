@@ -30,6 +30,10 @@ def fake_git_worktree(destination: Path, source_head: str) -> dict[str, str]:
 _RealCoordinator = parallel_execute.Coordinator
 
 
+def assisted_capability() -> dict[str, object]:
+    return {"status": "compatible", "proof": {"isolation": "worktree-terminal"}}
+
+
 class TestCoordinator(_RealCoordinator):
     def __init__(self, *args: object, **kwargs: object) -> None:
         original_factory = kwargs.get("adapter_factory")
@@ -41,6 +45,8 @@ class TestCoordinator(_RealCoordinator):
 
             kwargs["adapter_factory"] = remember_adapter
         kwargs.setdefault("worktree_creator", self._test_worktree_creator)
+        if kwargs.get("assisted_capability_factory") is None:
+            kwargs["assisted_capability_factory"] = assisted_capability
         super().__init__(*args, **kwargs)  # type: ignore[arg-type]
 
     def _test_worktree_creator(self, destination: Path, source_head: str) -> dict[str, str]:
@@ -322,6 +328,29 @@ def test_assisted_resource_lane_without_provider_serializes_before_host_effect()
         assert result["reason"] == "missing-resource-provider"
         assert result["lanes"] == lanes
         assert effects == []
+    finally:
+        parallel_execute.Coordinator._plan = original_plan  # type: ignore[method-assign]
+        shutil.rmtree(root)
+
+
+def test_assisted_unavailable_capability_serializes_before_host_effect() -> None:
+    root = make_repo(mode="assisted")
+    original_plan = parallel_execute.Coordinator._plan
+    lanes = [
+        {"id": "slice-A", "slice": "A", "task": "T1", "status": "ready", "sync_after": [], "declared_paths": ["src/a.py"], "resources": []},
+        {"id": "slice-B", "slice": "B", "task": "T2", "status": "ready", "sync_after": [], "declared_paths": ["src/b.py"], "resources": []},
+    ]
+    try:
+        parallel_execute.Coordinator._plan = lambda self: {
+            "version": 1, "feature": "fixture", "mode": "assisted", "source_git_head": "head",
+            "fallback": False, "lanes": lanes, "blocked": [], "reasons": [],
+        }  # type: ignore[method-assign]
+        result = parallel_execute.Coordinator(
+            root, "fixture", assisted_capability_factory=lambda: {"status": "unsupported", "reason": "missing"},
+            adapter_factory=lambda: (_ for _ in ()).throw(AssertionError("automatic adapter must not construct")),
+        ).start()
+        assert result["fallback"] is True
+        assert result["reason"] == "assisted-capability:missing"
     finally:
         parallel_execute.Coordinator._plan = original_plan  # type: ignore[method-assign]
         shutil.rmtree(root)

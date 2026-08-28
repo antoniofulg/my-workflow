@@ -589,12 +589,10 @@ describe("autonomous parallel slice dispatch contract", () => {
         execFileSync("python3", [executor, "start", "--root", root, "--feature", "fixture"], {
           encoding: "utf8",
         }),
-      ) as { mode: string; fallback: boolean; coordinator: string; actions: unknown[]; lanes: Array<{ id: string }> };
+      ) as { mode: string; fallback: boolean; reason: string; lanes: Array<{ id: string }> };
       expect(assisted.mode).toBe("assisted");
-      expect(assisted.fallback).toBe(false);
-      expect(assisted.coordinator).toBe("assisted");
-      expect(assisted.actions).toEqual([]);
-      expect(assisted.lanes.map((lane) => lane.id)).toEqual(["slice-A", "slice-B"]);
+      expect(assisted.fallback).toBe(true);
+      expect(assisted.reason).toMatch(/^assisted-capability:/);
 
       const workflowPath = join(featureDir, "workflow.json");
       const workflow = JSON.parse(readFileSync(workflowPath, "utf8")) as Record<string, unknown>;
