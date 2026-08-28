@@ -170,6 +170,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: validation-s5.md#M4 (role-routing)
 - last seen: 2026-08-28T22:13:06Z
 
+### L-027 - Clamp restored runtime limits against current resolved policy before scheduling effects.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `scheduler` · harmful: 0
+- features: hybrid-slice-execution
+- evidence: validation-s3.md:HSE-18 (scheduler)
+- last seen: 2026-08-28T22:58:24Z
+
+### L-028 - Validate persisted external-resource ownership against its originating action before authorization or release.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `resource-leases` · harmful: 0
+- features: hybrid-slice-execution
+- evidence: validation-s3.md:HSE-40,HSE-48 (resource-leases)
+- last seen: 2026-08-28T22:58:24Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

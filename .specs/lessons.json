@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 27,
+  "next_id": 29,
   "lessons": [
     {
       "id": "L-001",
@@ -472,6 +472,42 @@
       ],
       "created": "2026-08-28T22:13:06Z",
       "last_seen": "2026-08-28T22:13:06Z"
+    },
+    {
+      "id": "L-027",
+      "key": "ac_gap::clamp restored runtime limits against current resolved policy before scheduling effects",
+      "text": "Clamp restored runtime limits against current resolved policy before scheduling effects.",
+      "signal": "ac_gap",
+      "scope": "scheduler",
+      "status": "candidate",
+      "features": [
+        "hybrid-slice-execution"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s3.md:HSE-18 (scheduler)"
+      ],
+      "created": "2026-08-28T22:58:24Z",
+      "last_seen": "2026-08-28T22:58:24Z"
+    },
+    {
+      "id": "L-028",
+      "key": "ac_gap::validate persisted external resource ownership against its originating action before authorization or release",
+      "text": "Validate persisted external-resource ownership against its originating action before authorization or release.",
+      "signal": "ac_gap",
+      "scope": "resource-leases",
+      "status": "candidate",
+      "features": [
+        "hybrid-slice-execution"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s3.md:HSE-40,HSE-48 (resource-leases)"
+      ],
+      "created": "2026-08-28T22:58:24Z",
+      "last_seen": "2026-08-28T22:58:24Z"
     }
   ]
 }
