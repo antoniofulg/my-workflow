@@ -210,15 +210,15 @@ then import the installed probe with a call-counting fake Orca.
 | HSE-09 | Config contract | S2 | Implemented in T3 |
 | HSE-10 | Config contract | S2 | Implemented in T3 |
 | HSE-11 | Config contract | S2 | Implemented in T3 |
-| HSE-12 | Config contract | S2 | In Design |
-| HSE-13 | Hybrid scheduler | S3 | In Design |
-| HSE-14 | Hybrid scheduler | S3 | In Design |
-| HSE-15 | Hybrid scheduler | S3 | In Design |
+| HSE-12 | Config contract | S2 | Implemented in T4 |
+| HSE-13 | Hybrid scheduler | S3 | Implemented in T4 |
+| HSE-14 | Hybrid scheduler | S3 | Implemented in T4 |
+| HSE-15 | Hybrid scheduler | S3 | Implemented in T4 |
 | HSE-16 | Hybrid scheduler | S3 | In Design |
 | HSE-17 | Hybrid scheduler | S3 | In Design |
 | HSE-18 | Hybrid scheduler | S3 | In Design |
-| HSE-19 | Hybrid scheduler | S3 | In Design |
-| HSE-20 | Hybrid scheduler | S3 | In Design |
+| HSE-19 | Hybrid scheduler | S3 | Implemented in T4 |
+| HSE-20 | Hybrid scheduler | S3 | Implemented in T4 |
 | HSE-21 | Hybrid scheduler | S3 | In Design |
 | HSE-22 | Orca lifecycle | S4 | In Design |
 | HSE-23 | Orca lifecycle | S4 | In Design |
@@ -242,9 +242,9 @@ then import the installed probe with a call-counting fake Orca.
 | HSE-41 | Security | S4 | In Design |
 | HSE-42 | Security | S1, S3, S4 | In Design |
 | HSE-43 | Security | S4 | In Design |
-| HSE-44 | Edge case | S3 | In Design |
+| HSE-44 | Edge case | S3 | Implemented in T4 |
 | HSE-45 | Edge case | S3 | In Design |
-| HSE-46 | Edge case | S3, S4 | In Design |
+| HSE-46 | Edge case | S3, S4 | Implemented in T4 |
 | HSE-47 | Edge case | S4 | In Design |
 | HSE-48 | Edge case | S3 | In Design |
 

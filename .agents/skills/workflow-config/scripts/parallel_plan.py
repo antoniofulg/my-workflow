@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,7 +14,7 @@ from pathlib import PurePosixPath
 from typing import Any
 
 
-MODES = {"disabled", "safe", "full"}
+MODES = {"assisted", "disabled"}
 STATUS_VALUES = {"pending", "in_progress", "waiting", "complete"}
 TASK_HEADING = re.compile(r"^###\s+(T\d+)\s*:")
 FIELD = re.compile(r"^\*\*([^*]+):\*\*\s*(.*?)\s*$")
@@ -43,11 +44,24 @@ def _snapshot(root: Path, feature: str) -> dict[str, Any]:
         if (
             not isinstance(snapshot, dict)
             or type(snapshot.get("version")) is not int
-            or snapshot["version"] != 1
+            or snapshot["version"] != 3
             or snapshot.get("feature") != feature
         ):
             raise ValueError("invalid workflow snapshot")
-        mode = snapshot["parallelization"]["mode"]
+        parallelization = snapshot["parallelization"]
+        if not isinstance(parallelization, dict) or set(parallelization) != {
+            "mode", "max_workers", "automatic_baseline", "automatic_ceiling", "resource_provider"
+        }:
+            raise ValueError("invalid workflow snapshot")
+        mode = parallelization["mode"]
+        max_workers = parallelization["max_workers"]
+        if (
+            mode not in MODES
+            or (max_workers != "auto" and (type(max_workers) is not int or max_workers < 1))
+            or parallelization["automatic_baseline"] != 2
+            or parallelization["automatic_ceiling"] != 4
+        ):
+            raise ValueError("invalid workflow snapshot")
         source_git_head = snapshot["git_head"]
     except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
         raise ValueError("invalid workflow snapshot") from exc
@@ -55,7 +69,14 @@ def _snapshot(root: Path, feature: str) -> dict[str, Any]:
         raise ValueError("invalid workflow snapshot")
     if not isinstance(source_git_head, str) or not source_git_head:
         raise ValueError("invalid workflow snapshot")
-    return {"mode": mode, "source_git_head": source_git_head}
+    return {
+        "mode": mode,
+        "max_workers": max_workers,
+        "automatic_baseline": 2,
+        "automatic_ceiling": 4,
+        "resource_provider": parallelization["resource_provider"],
+        "source_git_head": source_git_head,
+    }
 
 
 def _dependencies(value: str | None) -> tuple[str, ...]:
@@ -200,8 +221,21 @@ def _write_conflicts(candidates: list[Task]) -> list[str]:
     reasons: list[str] = []
     for index, left in enumerate(candidates):
         for right in candidates[index + 1 :]:
-            if left.where == right.where:
-                reasons.append(f"write-conflict:{left.id}:{right.id}:{left.where}")
+            for left_path in left.declared_paths or ():
+                for right_path in right.declared_paths or ():
+                    left_parts = PurePosixPath(left_path).parts
+                    right_parts = PurePosixPath(right_path).parts
+                    if left_parts[: len(right_parts)] == right_parts or right_parts[: len(left_parts)] == left_parts:
+                        reasons.append(f"write-conflict:{left.id}:{right.id}:{left_path}:{right_path}")
+    return reasons
+
+
+def _resource_conflicts(candidates: list[Task]) -> list[str]:
+    reasons: list[str] = []
+    for index, left in enumerate(candidates):
+        for right in candidates[index + 1 :]:
+            for resource in sorted(set(left.resources or ()) & set(right.resources or ())):
+                reasons.append(f"resource-conflict:{left.id}:{right.id}:{resource}")
     return reasons
 
 
@@ -214,6 +248,8 @@ def _serial_lane(task: Task | None) -> list[dict[str, Any]]:
             "slice": task.slice_id,
             "task": task.id,
             "status": "ready",
+            "execution": "serial-integration",
+            "worktree": False,
             "sync_after": [],
             "declared_paths": list(task.declared_paths or []),
             "resources": list(task.resources or []),
@@ -221,16 +257,25 @@ def _serial_lane(task: Task | None) -> list[dict[str, Any]]:
     ]
 
 
-def _base_plan(feature: str, mode: str, source_git_head: str) -> dict[str, Any]:
+def _base_plan(
+    feature: str,
+    mode: str,
+    source_git_head: str,
+    *,
+    max_workers: str | int,
+) -> dict[str, Any]:
     return {
         "version": 1,
         "feature": feature,
         "mode": mode,
+        "max_workers": max_workers,
         "source_git_head": source_git_head,
         "fallback": False,
+        "decision": "blocked",
         "lanes": [],
         "blocked": [],
         "reasons": [],
+        "compatibility": {"ready": [], "selected": [], "conflicts": []},
     }
 
 
@@ -243,13 +288,35 @@ def plan(
     root = root.resolve()
     snapshot = _snapshot(root, feature)
     mode = snapshot["mode"]
-    plan_output = _base_plan(feature, mode, snapshot["source_git_head"])
+    plan_output = _base_plan(
+        feature, mode, snapshot["source_git_head"], max_workers=snapshot["max_workers"]
+    )
     tasks_path = root / ".specs" / "features" / feature / "tasks.md"
     try:
         tasks, reasons = _parse_tasks(tasks_path)
     except OSError as exc:
         raise ValueError("tasks file is missing or unreadable") from exc
-
+    try:
+        dirty = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=all"],
+            cwd=root,
+            text=True,
+            capture_output=True,
+            check=True,
+        ).stdout.splitlines()
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise ValueError("repository status is unavailable") from exc
+    snapshot_relative = f".specs/features/{feature}/workflow.json"
+    fixture_metadata = {".parallel-slice-qa-fixture", ".parallel-slice-qa-ownership.json"}
+    dirty = [line for line in dirty if line[3:] not in {snapshot_relative, *fixture_metadata}]
+    if dirty:
+        plan_output["reasons"] = ["dirty-baseline"]
+        plan_output["blocked"] = [
+            {"task": task.id, "slice": task.slice_id, "reasons": ["dirty-baseline"]}
+            for task in tasks
+            if not task.complete
+        ]
+        return plan_output
     by_id = {task.id: task for task in tasks}
     for task in tasks:
         for dependency in task.depends_on:
@@ -274,6 +341,7 @@ def plan(
     if reasons:
         plan_output["fallback"] = True
         plan_output["reasons"] = reasons
+        plan_output["decision"] = "serial-integration"
         plan_output["lanes"] = _serial_lane(candidates[0] if candidates else None)
         plan_output["blocked"] = [
             {
@@ -305,9 +373,9 @@ def plan(
                 reason = "waiting-on-dependency" if task.status == "waiting" else "dependency-incomplete"
                 task_reasons.append(f"{reason}:{dependency_id}")
             elif dependency.slice_id != task.slice_id:
-                if mode == "safe" and dependency.slice_id not in verified:
+                if dependency.slice_id not in verified:
                     task_reasons.append(f"awaiting-verified-slice:{dependency.slice_id}")
-                elif mode == "full":
+                else:
                     sync_after.append(dependency.id)
         if task_reasons:
             blocked[task.id] = list(dict.fromkeys(task_reasons))
@@ -326,36 +394,54 @@ def plan(
                 "slice": task.slice_id,
                 "task": task.id,
                 "status": "follow_up" if task.status == "waiting" else "ready",
+                "execution": "serial-integration" if mode == "disabled" else "concurrent-writer",
+                "worktree": mode != "disabled",
                 "sync_after": sync_after,
                 "declared_paths": producer_paths if sync_after else list(task.declared_paths or []),
                 "resources": list(task.resources or []),
             }
         )
 
-    conflict_reasons = _write_conflicts(ready_tasks)
-    if conflict_reasons:
+    plan_output["compatibility"]["ready"] = [task.id for task in ready_tasks]
+    selected: list[dict[str, Any]] = []
+    selected_tasks: list[Task] = []
+    conflict_reasons: list[str] = []
+    if mode == "disabled":
+        selected = ready[:1]
+        selected_tasks = ready_tasks[:1]
         for lane in ready[1:]:
-            blocked[lane["task"]] = ["serial-fallback"]
-        plan_output["fallback"] = True
-        plan_output["reasons"] = conflict_reasons
-        if ready:
-            serial_lane = dict(ready[0])
-            serial_lane["id"] = "serial"
-            plan_output["lanes"] = [serial_lane]
-        else:
-            plan_output["lanes"] = []
-        plan_output["blocked"] = [
-            {
-                "task": task.id,
-                "slice": task.slice_id,
-                "reasons": blocked[task.id],
-            }
-            for task in tasks
-            if task.id in blocked
-        ]
-        return plan_output
+            blocked[lane["task"]] = ["disabled-mode"]
+    else:
+        initial_cap = 2 if snapshot["max_workers"] == "auto" else snapshot["max_workers"]
+        for lane, task in zip(ready, ready_tasks):
+            if len(selected) >= initial_cap:
+                blocked[task.id] = [f"writer-cap:{initial_cap}"]
+                continue
+            candidate = selected_tasks + [task]
+            conflicts = _write_conflicts(candidate) + _resource_conflicts(candidate)
+            task_conflicts = [
+                reason for reason in conflicts
+                if reason.split(":")[1] == task.id or reason.split(":")[2] == task.id
+            ]
+            if task_conflicts:
+                blockers = list(dict.fromkeys(task_conflicts))
+                blocked[task.id] = blockers
+                conflict_reasons.extend(blockers)
+                continue
+            selected.append(lane)
+            selected_tasks.append(task)
 
-    plan_output["lanes"] = ready
+    plan_output["compatibility"]["selected"] = [task.id for task in selected_tasks]
+    plan_output["compatibility"]["conflicts"] = list(dict.fromkeys(conflict_reasons))
+    plan_output["reasons"] = list(dict.fromkeys(conflict_reasons))
+    if len(selected) == 1:
+        plan_output["decision"] = "serial-integration"
+        selected[0]["id"] = "serial"
+        selected[0]["execution"] = "serial-integration"
+        selected[0]["worktree"] = False
+    elif len(selected) > 1:
+        plan_output["decision"] = "concurrent-writers"
+    plan_output["lanes"] = selected
     plan_output["blocked"] = [
         {
             "task": task.id,

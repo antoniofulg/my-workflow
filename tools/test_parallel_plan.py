@@ -16,7 +16,7 @@ import parallel_plan
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def make_repo(tasks: str, mode: str = "safe", feature: str = "fixture") -> Path:
+def make_repo(tasks: str, mode: str = "assisted", feature: str = "fixture") -> Path:
     root = Path(tempfile.mkdtemp())
     feature_dir = root / ".specs/features" / feature
     feature_dir.mkdir(parents=True)
@@ -33,8 +33,14 @@ def make_repo(tasks: str, mode: str = "safe", feature: str = "fixture") -> Path:
             {
                 "feature": feature,
                 "git_head": head,
-                "parallelization": {"mode": mode},
-                "version": 1,
+                "parallelization": {
+                    "mode": mode,
+                    "max_workers": "auto",
+                    "automatic_baseline": 2,
+                    "automatic_ceiling": 4,
+                    "resource_provider": None,
+                },
+                "version": 3,
             },
             indent=2,
             sort_keys=True,
@@ -42,6 +48,8 @@ def make_repo(tasks: str, mode: str = "safe", feature: str = "fixture") -> Path:
         + "\n",
         encoding="utf-8",
     )
+    subprocess.run(["git", "add", ".specs/features"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "freeze workflow"], cwd=root, check=True)
     return root
 
 
@@ -90,7 +98,9 @@ def test_disabled_mode_returns_one_serial_lane_in_declared_order() -> None:
         plan = parallel_plan.plan(root=root, feature="fixture")
         assert plan["fallback"] is False
         assert plan["lanes"] == [
-            {"id": "serial", "slice": "A", "task": "T1", "status": "ready", "sync_after": [], "declared_paths": ["src/t1.py"], "resources": []}
+            {"id": "serial", "slice": "A", "task": "T1", "status": "ready",
+             "execution": "serial-integration", "worktree": False,
+             "sync_after": [], "declared_paths": ["src/t1.py"], "resources": []}
         ]
         assert blocked_task(plan, "T2")["reasons"] == ["disabled-mode"]
     finally:
@@ -116,10 +126,10 @@ def test_safe_mode_requires_verified_cross_slice_producers() -> None:
 
 def test_full_mode_records_completed_cross_slice_dependency_checkpoint() -> None:
     root = make_repo(
-        task("T1", "A", status="complete") + task("T2", "B", depends_on="T1"), mode="full"
+        task("T1", "A", status="complete") + task("T2", "B", depends_on="T1"), mode="assisted"
     )
     try:
-        plan = parallel_plan.plan(root=root, feature="fixture")
+        plan = parallel_plan.plan(root=root, feature="fixture", verified_slices={"A"})
         lane = first_task(plan, "T2")
         assert lane["sync_after"] == ["T1"]
         assert lane["status"] == "ready"
@@ -133,10 +143,12 @@ def test_full_mode_declares_sorted_union_of_producer_paths_for_checkpoint() -> N
         task("T1", "A", status="complete", where="src/z.py")
         + task("T2", "B", status="complete", where="src/a.py")
         + task("T3", "C", depends_on="T1, T2", where="src/consumer.py"),
-        mode="full",
+        mode="assisted",
     )
     try:
-        lane = first_task(parallel_plan.plan(root=root, feature="fixture"), "T3")
+        lane = first_task(
+            parallel_plan.plan(root=root, feature="fixture", verified_slices={"A", "B"}), "T3"
+        )
         assert lane["sync_after"] == ["T1", "T2"]
         assert lane["declared_paths"] == ["src/a.py", "src/z.py"]
     finally:
@@ -164,12 +176,54 @@ def test_graph_failures_fall_back_with_decisive_reasons() -> None:
             shutil.rmtree(root)
 
 
-def test_write_collision_falls_back_and_names_both_tasks() -> None:
+def test_write_collision_serializes_with_exact_paths() -> None:
     root = make_repo(task("T1", "A", where="src/shared.py") + task("T2", "B", where="src/shared.py"))
     try:
         plan = parallel_plan.plan(root=root, feature="fixture")
-        assert plan["fallback"] is True
-        assert "write-conflict:T1:T2:src/shared.py" in plan["reasons"]
+        assert plan["fallback"] is False
+        assert plan["decision"] == "serial-integration"
+        assert plan["lanes"][0]["task"] == "T1"
+        assert blocked_task(plan, "T2")["reasons"] == [
+            "write-conflict:T1:T2:src/shared.py:src/shared.py"
+        ]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_concurrent_writer_selection_is_capped_and_not_parity_bound() -> None:
+    root = make_repo(task("T1", "A") + task("T2", "B") + task("T3", "C") + task("T4", "D"))
+    try:
+        plan = parallel_plan.plan(root=root, feature="fixture")
+        assert plan["decision"] == "concurrent-writers"
+        assert plan["compatibility"]["selected"] == ["T1", "T2"]
+        assert [lane["task"] for lane in plan["lanes"]] == ["T1", "T2"]
+        assert all(lane["worktree"] is True for lane in plan["lanes"])
+        assert blocked_task(plan, "T3")["reasons"] == ["writer-cap:2"]
+        assert blocked_task(plan, "T4")["reasons"] == ["writer-cap:2"]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_resource_collision_blocks_only_the_conflicting_ready_writer() -> None:
+    root = make_repo(task("T1", "A", resources="port") + task("T2", "B", resources="port") + task("T3", "C"))
+    try:
+        plan = parallel_plan.plan(root=root, feature="fixture")
+        assert plan["decision"] == "concurrent-writers"
+        assert [lane["task"] for lane in plan["lanes"]] == ["T1", "T3"]
+        assert blocked_task(plan, "T2")["reasons"] == ["resource-conflict:T1:T2:port"]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_dirty_integration_baseline_has_zero_writer_effect_intents() -> None:
+    root = make_repo(task("T1", "A") + task("T2", "B"))
+    try:
+        (root / "dirty.txt").write_text("uncommitted\n", encoding="utf-8")
+        plan = parallel_plan.plan(root=root, feature="fixture")
+        assert plan["decision"] == "blocked"
+        assert plan["lanes"] == []
+        assert plan["reasons"] == ["dirty-baseline"]
+        assert all(item["reasons"] == ["dirty-baseline"] for item in plan["blocked"])
     finally:
         shutil.rmtree(root)
 
@@ -226,7 +280,7 @@ def test_fallback_reasons_are_complete_and_ordered() -> None:
 
 def test_in_progress_is_blocked_and_waiting_follows_up_after_dependencies() -> None:
     root = make_repo(
-        task("T1", "A", status="in_progress") + task("T2", "B"), mode="safe"
+        task("T1", "A", status="in_progress") + task("T2", "B"), mode="assisted"
     )
     try:
         plan = parallel_plan.plan(root=root, feature="fixture")
@@ -236,7 +290,7 @@ def test_in_progress_is_blocked_and_waiting_follows_up_after_dependencies() -> N
         shutil.rmtree(root)
 
     root = make_repo(
-        task("T1", "A", status="waiting", depends_on="T2") + task("T2", "B"), mode="full"
+        task("T1", "A", status="waiting", depends_on="T2") + task("T2", "B"), mode="assisted"
     )
     try:
         plan = parallel_plan.plan(root=root, feature="fixture")
@@ -248,16 +302,18 @@ def test_in_progress_is_blocked_and_waiting_follows_up_after_dependencies() -> N
     root = make_repo(
         task("T1", "A", status="waiting", depends_on="T2")
         + task("T2", "B", status="complete"),
-        mode="full",
+        mode="assisted",
     )
     try:
-        plan = parallel_plan.plan(root=root, feature="fixture")
+        plan = parallel_plan.plan(root=root, feature="fixture", verified_slices={"B"})
         assert plan["lanes"] == [
             {
-                "id": "slice-A",
+                "id": "serial",
                 "slice": "A",
                 "task": "T1",
                 "status": "follow_up",
+                "execution": "serial-integration",
+                "worktree": False,
                 "sync_after": ["T2"],
                 "declared_paths": ["src/t2.py"],
                 "resources": [],
@@ -285,7 +341,8 @@ def test_missing_tasks_file_exits_nonzero_without_a_successful_plan() -> None:
         (root / ".specs/features/fixture/tasks.md").unlink()
         resolver = ROOT / ".agents/skills/workflow-config/scripts/parallel_plan.py"
         result = subprocess.run(
-            [sys.executable, str(resolver), "--root", str(root), "--feature", "fixture"],
+            [sys.executable, str(resolver), "--root", str(root), "--feature", "fixture",
+             "--verified-slice", "A"],
             text=True,
             capture_output=True,
             check=False,
@@ -305,13 +362,13 @@ def test_snapshot_identity_and_version_are_validated_before_mode_and_head() -> N
             {
                 "feature": "other-feature",
                 "git_head": "head",
-                "parallelization": {"mode": "safe"},
-                "version": 1,
+                "parallelization": {"mode": "assisted", "max_workers": "auto", "automatic_baseline": 2, "automatic_ceiling": 4, "resource_provider": None},
+                "version": 3,
             },
             {
                 "feature": "fixture",
                 "git_head": "head",
-                "parallelization": {"mode": "safe"},
+                "parallelization": {"mode": "assisted", "max_workers": "auto", "automatic_baseline": 2, "automatic_ceiling": 4, "resource_provider": None},
                 "version": 2,
             },
         ):
@@ -354,12 +411,13 @@ def test_malformed_snapshot_modes_exit_with_invalid_snapshot_error() -> None:
 
 def test_cli_emits_the_point_in_time_plan() -> None:
     root = make_repo(
-        task("T1", "A", status="complete") + task("T2", "B", depends_on="T1"), mode="full"
+        task("T1", "A", status="complete") + task("T2", "B", depends_on="T1"), mode="assisted"
     )
     try:
         resolver = ROOT / ".agents/skills/workflow-config/scripts/parallel_plan.py"
         result = subprocess.run(
-            [sys.executable, str(resolver), "--root", str(root), "--feature", "fixture"],
+            [sys.executable, str(resolver), "--root", str(root), "--feature", "fixture",
+             "--verified-slice", "A"],
             text=True,
             capture_output=True,
             check=True,
@@ -370,20 +428,25 @@ def test_cli_emits_the_point_in_time_plan() -> None:
         )["git_head"]
         assert payload == {
             "blocked": [],
+            "compatibility": {"conflicts": [], "ready": ["T2"], "selected": ["T2"]},
+            "decision": "serial-integration",
             "fallback": False,
             "feature": "fixture",
             "lanes": [
                 {
-                    "id": "slice-B",
+                    "id": "serial",
                     "slice": "B",
                     "status": "ready",
+                    "execution": "serial-integration",
+                    "worktree": False,
                     "sync_after": ["T1"],
                     "declared_paths": ["src/t1.py"],
                     "resources": [],
                     "task": "T2",
                 }
             ],
-            "mode": "full",
+            "mode": "assisted",
+            "max_workers": "auto",
             "reasons": [],
             "source_git_head": head,
             "version": 1,

@@ -167,11 +167,11 @@ dynamic compatibility metadata, exact blockers/conflicts, and zero-effect dirty-
 
 **Done when:**
 
-- [ ] Zero/one/two-ready outcomes match the spec and only concurrent writers receive worktree plans.
-- [ ] Fixed odd/even ownership is impossible; ready compatibility is recomputed from DAG/path/resource data.
-- [ ] Overlap names exact paths and dirty baseline yields zero effect intents.
-- [ ] Assigned 5 cases pass with no existing assertion weakened or deleted.
-- [ ] Full gate exits 0; CP-S2 is ready for a fresh Technical Verifier.
+- [x] Zero/one/two-ready outcomes match the spec and only concurrent writers receive worktree plans.
+- [x] Fixed odd/even ownership is impossible; ready compatibility is recomputed from DAG/path/resource data.
+- [x] Overlap names exact paths and dirty baseline yields zero effect intents.
+- [x] Assigned 5 cases pass with no existing assertion weakened or deleted.
+- [x] Full gate exits 0; CP-S2 is ready for a fresh Technical Verifier.
 
 **Tests:** unit + security — UT-008, UT-009, UT-010, UT-011, SEC-009
 **Gate:** `npm_config_offline=true npm run test:all`
