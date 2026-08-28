@@ -3,140 +3,135 @@
 **Verdict**: PASS
 **Date:** 2026-08-28
 **Spec:** `.specs/features/host-agnostic-slice-parallelization/spec.md`
-**Integrated diff range:** `836f9d3..35f0c23`
-**T11 remediation diff:** `c508c4e..35f0c23`
-**Verified HEAD:** `35f0c23`
-**Verifier:** independent Verifier, author != verifier
+**Integrated diff range:** `836f9d3..f9c8ada5bad67a9ef94b2ac4ff94adf3146b5f52`
+**Final remediation:** `df1cefc..f9c8ada5bad67a9ef94b2ac4ff94adf3146b5f52`
+**Verified HEAD:** `f9c8ada5bad67a9ef94b2ac4ff94adf3146b5f52`
+**Verifier:** independent Verifier; author != verifier
 
 ## Result
 
-All 38 requirements have spec-anchored evidence. T11 closes the three prior gaps: effect
-reconciliation rejects zero and mismatched commit expectations, a pending canonical task cannot
-reconcile, and cleanup independently rejects linked-worktree registration and admin-gitdir residue.
-Five scratch mutations were killed. The historical halted fingerprint and lessons remain recorded;
-this report does not erase or reset them.
+PASS. Both repeatedly failing proof gaps now discriminate: bypassing exact commit identity fails the
+owning probe suite, and bypassing cleanup receipt `pre_head` existence plus ancestry fails before any
+destructive mutation. Baseline probe is 31/31, full gate is green, adoption is byte-identical and
+import-inert, and all 13 convergence fingerprints retain valid 64-character key/field identities.
+
+No live Orca run was performed. `validation.md` is the only file written by this verifier.
 
 ## Task Completion
 
-`tools/orca_assisted_probe.py:552-568` parses canonical task headings and status records. T11 is
-complete in `.specs/features/host-agnostic-slice-parallelization/tasks.md:379`.
-
-| Task | Status |
-| --- | --- |
-| T1-T11 | complete |
+| Task | Status | Evidence |
+| --- | --- | --- |
+| T1-T11 | PASS | Prior independently verified feature scope retained |
+| T12 | PASS | Final exact-commit, immutable `pre_head`, and ledger integrity gaps closed |
 
 ## Spec-Anchored Acceptance Criteria
 
-| Requirement | Spec-defined outcome and assertion evidence | Result |
-| --- | --- | --- |
-| HST-01 | Disabled start/resume constructs no adapter and v1 snapshots fail: `tools/test_parallel_executor.py:190-207`, `tools/test_parallel_executor.py:435-462`, `tools/test_parallel_executor.py:1189-1203` | PASS |
-| HST-02 | Auto in Maestri does not fall through to Orca: `tools/test_parallel_executor.py:1221-1245` | PASS |
-| HST-03 | Incompatible explicit adapters serialize before effects: `tools/test_parallel_executor.py:364-402`, `tools/test_parallel_executor.py:1317-1335` | PASS |
-| HST-04 | Scheduler, readiness, review, gate, and QA stages remain pinned: `tools/shared/tests/autonomous-parallelization.test.ts:55-105` | PASS |
-| HST-05 | Default is `assisted`; explicit modes are preserved: `tools/test_workflow_config.py:107-152` | PASS |
-| HST-06 | Assisted planning matches full readiness/sync and bypasses automatic adapters: `tools/test_parallel_plan.py:131-176`, `tools/test_parallel_executor.py:209-362` | PASS |
-| ORC-01 | Ready runtime, contract capability, and nonempty version are required: `tools/test_orca_adapter.py:237-255` | PASS |
-| ORC-02 | Known-bad Orca stops before mutation: `tools/test_orca_adapter.py:225-234` | PASS |
-| ORC-03 | Candidate canary creates one correlated supervised lifecycle: `tools/test_orca_adapter.py:383-459` | PASS |
-| ORC-04 | Result, acknowledgement, release, removal, and zero residue precede PASS: `tools/test_orca_adapter.py:383-459` | PASS |
-| ORC-05 | Every failed stage records no PASS and retains identifiers: `tools/test_orca_adapter.py:258-277` | PASS |
-| ORC-06 | Matching repository/runtime/executable receipts are reused: `tools/test_orca_adapter.py:280-310`, `tools/test_orca_adapter.py:355-380` | PASS |
-| ORC-07 | Any identity change invalidates cache reuse: `tools/test_orca_adapter.py:313-352` | PASS |
-| MAE-01 | Structured lifecycle capabilities are required and no current claim becomes compatible: `tools/test_maestri_adapter.py:33-74` | PASS |
-| MAE-02 | Missing Maestri capability returns unsupported with zero effects: `tools/test_maestri_adapter.py:17-30` | PASS |
-| MAE-03 | Complete-looking capabilities still cannot reach generic Git execution: `tools/test_maestri_adapter.py:77-116` | PASS |
-| MAE-04 | Human-readable output is rejected as a receipt: `tools/test_maestri_adapter.py:119-129` | PASS |
-| AST-01 | Unique startup ownership and two consecutive exact screen frames are asserted: `tools/orca_assisted_probe.py:302-519`; `tools/test_orca_assisted_probe.py:125-223` | PASS |
-| AST-02 | One ready worker per slice and sequential task ownership are exercised by the two-slice lifecycle: `tools/test_orca_assisted_probe.py:748-926` | PASS |
-| AST-03 | B parks with exact checkpoint/comment and resumes without polling: `tools/test_orca_assisted_probe.py:748-926`, `tools/shared/tests/autonomous-parallelization.test.ts:318-325` | PASS |
-| AST-04 | Exact commit count/subjects, canonical tasks, same handle, ancestry, paths, gate, clean state, and packet marker must agree: `tools/orca_assisted_probe.py:585-639`; positive, pending-task, and foreign-handle cases: `tools/test_orca_assisted_probe.py:573-722` | PASS |
-| AST-05 | Dirty, conflicting, or unproved checkpoints serialize: `tools/shared/tests/autonomous-parallelization.test.ts:330-333` | PASS |
-| AST-06 | Cleanup proves exact ownership, integration, branch-ref absence, registration absence, and admin-gitdir absence: `tools/orca_assisted_probe.py:734-868`; independent residue cases: `tools/test_orca_assisted_probe.py:471-548`; real linked-worktree lifecycle: `tools/test_orca_assisted_probe.py:748-926` | PASS |
-| AST-07 | Atomic task gates, Verifier, review, QA, and final gate remain explicit: `tools/shared/tests/autonomous-parallelization.test.ts:468-472` | PASS |
-| AST-08 | Disabled, insufficient-ready, conflicts, missing isolation, and missing resource proof serialize: `tools/test_parallel_plan.py:151-225`, `tools/test_parallel_executor.py:246-402` | PASS |
-| AST-09 | Main coordinator owns cross-slice lifecycle and workers cannot spawn siblings: `tools/shared/tests/autonomous-parallelization.test.ts:318-350`, `tools/shared/tests/autonomous-parallelization.test.ts:500-615` | PASS |
-| AST-10 | Create/send/set/stop/rm are one-shot under transient receipts: `tools/test_orca_assisted_probe.py:23-59`, `tools/test_orca_assisted_probe.py:125-163`, `tools/test_orca_assisted_probe.py:274-353` | PASS |
-| AST-11 | Only the fixed pointer crosses `terminal send`; body and import dispatch do not: `tools/test_orca_assisted_probe.py:61-123`, `tools/test_orca_assisted_probe.py:879-924` | PASS |
-| AST-12 | Adoption copies the self-contained import-inert probe: `scripts/test_adopt.py:362-388` | PASS |
-| SEC-001 | Disabled execution has zero adapter construction or mutation: `tools/test_parallel_executor.py:190-207`, `tools/test_parallel_executor.py:435-462` | PASS |
-| SEC-002 | Runtime state and receipts are repository/identity scoped: `tools/test_parallel_executor.py:121-152`, `tools/test_orca_adapter.py:280-352` | PASS |
-| SEC-003 | Host/Git calls use fixed argv, no shell, timeouts, and bounded paths: `tools/test_parallel_executor.py:153-188`, `tools/test_orca_adapter.py:2049-2075` | PASS |
-| SEC-004 | Only correlated structured machine responses are accepted: `tools/test_maestri_adapter.py:119-129`, `tools/test_orca_adapter.py:486-781` | PASS |
-| SEC-005 | Credential-shaped diagnostics are redacted: `tools/test_orca_adapter.py:1666-1800` | PASS |
-| SEC-006 | PASS requires settled worker and zero disposable canary residue: `tools/test_orca_adapter.py:383-459` | PASS |
-| SEC-007 | Cleanup requires exact ownership and preserves foreign worktree, terminal, ref, registration, and admin-gitdir state: `tools/orca_assisted_probe.py:734-868`, `tools/test_orca_assisted_probe.py:274-468` | PASS |
-| SEC-008 | Missing ownership or any owned path/ref/registration/admin-gitdir residue stops deletion: `tools/orca_assisted_probe.py:734-868`; both independent Git residue assertions: `tools/test_orca_assisted_probe.py:471-548` | PASS |
-| SEC-009 | Mutating Orca calls are one-shot; only reads reconcile: `tools/orca_assisted_probe.py:61-80`, `tools/orca_assisted_probe.py:201-270`; `tools/test_orca_assisted_probe.py:23-59` | PASS |
+Automatic host requirements remain covered by canonical assertions: HST-01–HST-04 at
+`tools/test_parallel_executor.py:196`, `tools/test_parallel_executor.py:393`,
+`tools/test_parallel_executor.py:1204`, and `tools/test_parallel_executor.py:1250`; ORC-01–ORC-07
+at `tools/test_orca_adapter.py:225`, `tools/test_orca_adapter.py:237`,
+`tools/test_orca_adapter.py:258`, `tools/test_orca_adapter.py:280`,
+`tools/test_orca_adapter.py:313`, `tools/test_orca_adapter.py:355`, and
+`tools/test_orca_adapter.py:383`; MAE-01–MAE-04 at `tools/test_maestri_adapter.py:17`,
+`tools/test_maestri_adapter.py:33`, `tools/test_maestri_adapter.py:77`, and
+`tools/test_maestri_adapter.py:119`.
 
-**Status:** 38/38 matched with discriminating evidence; 0 spec-precision gaps.
+Assisted resolution, capability, resource, and planning outcomes remain asserted at
+`tools/test_workflow_config.py:107`, `tools/test_workflow_config.py:121`,
+`tools/test_parallel_plan.py:131`, `tools/test_parallel_plan.py:151`,
+`tools/test_parallel_executor.py:252`, `tools/test_parallel_executor.py:297`, and
+`tools/test_parallel_executor.py:336`. Pointer, exactly-once, route, lifecycle, task-state, sync,
+and cleanup outcomes are asserted at `tools/test_orca_assisted_probe.py:24`,
+`tools/test_orca_assisted_probe.py:62`, `tools/test_orca_assisted_probe.py:126`,
+`tools/test_orca_assisted_probe.py:186`, `tools/test_orca_assisted_probe.py:230`,
+`tools/test_orca_assisted_probe.py:704`, `tools/test_orca_assisted_probe.py:726`,
+`tools/test_orca_assisted_probe.py:797`, and `tools/test_orca_assisted_probe.py:931`.
+Adoption is asserted at `scripts/test_adopt.py:362`.
+
+| Requirement | Required result | Final assertion evidence | Result |
+| --- | --- | --- | --- |
+| AST-04 | Reconciliation accepts only packet-declared exact commit identities | Wrong expected SHA is exercised while marker frames remain available at `tools/test_orca_assisted_probe.py:778`; replacing `commit_identities` with true now fails | PASS |
+| AST-06 | Cleanup rejects absent or non-ancestor immutable `pre_head` before deletion | Absent and non-ancestor cases at `tools/test_orca_assisted_probe.py:631` and `tools/test_orca_assisted_probe.py:639` both assert `mutations=0` | PASS |
+| SEC-008 | Missing immutable ownership proof stops destructive cleanup | Same two zero-mutation cases discriminate both existence and ancestry guards | PASS |
+
+**Requirement count:** 38 total; 38 pass with spec-anchored evidence.
+**Spec-precision gaps:** 0.
+
+## Canonical Deep Review Findings
+
+All 19 canonical defects from `.deep-review/assisted-default-final/findings.json` are closed with
+implementation plus discriminating evidence or the scoped AD-018 QA waiver. The convergence ledger
+check reported:
+
+- `FINGERPRINT_COUNT 13`
+- `INVALID_FINGERPRINTS 0 []`
+- `0fcc…`: `resolved`, historical `failed_remediations=1` preserved.
+- `7ca…`: `resolved`, historical `failed_remediations=1` preserved.
+- `fa97…`: `halted`, historical `failed_remediations=3` preserved.
+
+Every ledger key has length 64 and equals its embedded `fingerprint` field. Status/history was not
+globally reset.
 
 ## Discrimination Sensor
 
-Scratch checkout: detached worktree at exact `35f0c23`. Each mutation changed only the scratch,
-the canonical 20-check probe suite killed it, and the scratch was removed. Real-tree porcelain
-before and after retained exactly the same four historical Verifier artifacts.
+Each fault ran independently in a detached temporary worktree at exact HEAD. Scratch was recreated
+between mutations and removed afterward; real-tree porcelain returned to its baseline of only this
+validation report.
 
-| Mutation | Requirement | Decisive failure | Result |
+| Mutation | Focused command | Decisive failure | Result |
 | --- | --- | --- | --- |
-| Change `expected_count <= 0` to `< 0` | AST-04 | `test_effect_requires_positive_count_and_matching_subjects` assertion failed | KILLED |
-| Remove subject-count equality from the guard | AST-04 | invalid mismatch reached reconciliation and raised `AttributeError` instead of required `ProbeError` | KILLED |
-| Replace canonical task predicate with `True` | AST-04 | `pending expected task must fail reconciliation` | KILLED |
-| Remove only `path in registrations_after` | AST-06, SEC-008 | `cleanup unexpectedly accepted Git residue` in registration case | KILLED |
-| Remove only `worktree_gitdir.exists()` | AST-06, SEC-008 | `cleanup unexpectedly accepted Git residue` in admin-gitdir case | KILLED |
+| Replace exact commit identity predicate with constant true | `python3 tools/test_orca_assisted_probe.py` | `wrong commit identity must fail reconciliation` | KILLED |
+| Disable both receipt `pre_head` existence and ancestry guards | `python3 tools/test_orca_assisted_probe.py` | absent receipt case reached `cleanup unexpectedly reported success` | KILLED |
 
-**Sensor depth:** focused high-risk remediation, 5 behavior mutations.
-**Result:** 5/5 killed, PASS.
+Direct unmutated check of the shared cleanup helper printed:
 
-## Integration, Pointer, and Adoption Evidence
+- `absent receipt pre_head is absent from owned checkout|mutations=0`
+- `nonancestor owned HEAD does not descend from receipt pre_head|mutations=0`
 
-- Real two-slice fake-host lifecycle parks, syncs, resumes same handle, integrates, and cleans:
-  `tools/test_orca_assisted_probe.py:748-926`.
-- Exactly-once assertions require one send, stop, and rm per lane while preserving foreign resources:
-  `tools/test_orca_assisted_probe.py:920-926`; mutation checks: `tools/test_orca_assisted_probe.py:23-59`.
-- Real adoption installed `/tmp/my-workflow-t11-adopt.AZrZ4p/tools/orca_assisted_probe.py`
-  byte-identically at 54,676 bytes. Import with `ORCA=/bin/echo` returned
-  `IMPORT_OK ORCA_CALLS=0`. Disposable directory removed.
-- No live Orca run was performed.
+**Sensor result:** 2/2 killed; 0 survived — PASS.
+
+## Fake-Orca, Exactly-Once, and Pointer Evidence
+
+- `python3 tools/test_orca_assisted_probe.py`: exit 0, 31/31.
+- Exactly-once assertions cover create/send/set/stop/rm at
+  `tools/test_orca_assisted_probe.py:56`, `tools/test_orca_assisted_probe.py:97`, and
+  `tools/test_orca_assisted_probe.py:162`.
+- Late-create stop/rm failures reconcile through bounded reads at
+  `tools/test_orca_assisted_probe.py:186` and retain the candidate when stop is unproved at
+  `tools/test_orca_assisted_probe.py:213`.
+- Pointer payload equals the quoted pointer and excludes packet body at
+  `tools/test_orca_assisted_probe.py:98`; the complete fake two-slice lifecycle repeats the invariant.
+
+## Adoption Evidence
+
+Command: create disposable Git target, run `python3 scripts/adopt.py --skip-agents <target>`, compare
+bytes, import installed module through `runpy`, then move target to Trash.
+
+- Installed path: `/tmp/my-workflow-t12-final.ek9IfI/tools/orca_assisted_probe.py`.
+- Source and installed copy: 64,624 bytes each; `BYTE_IDENTICAL=yes`.
+- Import with `ORCA=/bin/false`: `IMPORT_OK ORCA_CALLS=0`.
+- Disposable target removed: `ADOPTION_TEMP_REMOVED=yes`.
 
 ## Gate Check
 
-- `npm_config_offline=true rtk npm run test:all`: exit 0. Vitest 8/8 files and 113/113 tests;
-  every package-discovered Python suite passed; probe lane reported 20/20.
-- `rtk python3 tools/test_orca_assisted_probe.py`: exit 0, 20/20 passed.
-- `rtk python3 /Users/antoniofulg/Projects/my-workflow/.agents/skills/tlc-spec-driven/scripts/validate_spec.py .specs/features/host-agnostic-slice-parallelization/spec.md`: exit 0, 0 errors, 0 warnings.
-- `rtk python3 /Users/antoniofulg/Projects/my-workflow/.agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/host-agnostic-slice-parallelization/tasks.md`: exit 0, 0 errors, 0 warnings.
-- `rtk git diff --check`: exit 0 before this report.
-- Baseline at `c508c4e`: Vitest 113 and probe 16. Current: Vitest 113 and probe 20; T11 adds four
-  canonical probe checks and removes none. Skipped tests: none observed. Failures: none.
+- `python3 tools/test_orca_assisted_probe.py`: exit 0, 31/31.
+- `npm_config_offline=true rtk npm run test:all`: exit 0; Vitest 8/8 files and 113/113 tests;
+  all Python lanes green, including probe 31/31, executor 58/58, and Orca adapter 28/28. No skips
+  or failures reported.
+- `python3 /Users/antoniofulg/Projects/my-workflow/.agents/skills/tlc-spec-driven/scripts/validate_spec.py .specs/features/host-agnostic-slice-parallelization/spec.md`:
+  exit 0, 0 errors, 0 warnings.
+- `python3 /Users/antoniofulg/Projects/my-workflow/.agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/host-agnostic-slice-parallelization/tasks.md`:
+  exit 0, 0 errors, 0 warnings.
+- `git diff --check`: exit 0 before this report.
 
-## Code Quality and Edge Cases
+## QA and Limitations
 
-- Minimum/surgical change: PASS. No new dependency, abstraction, compatibility layer, live-host
-  requirement, or scope expansion.
-- Zero/mismatched commit expectations fail before reconciliation; pending canonical tasks fail at
-  normal reconciliation boundary.
-- Cleanup tests distinguish registration residue from admin-gitdir residue.
-- Default assisted selection, explicit disabled fallback, pointer-only transport, import safety,
-  exactly-once mutations, foreign-resource preservation, and same-handle continuation remain green.
-- Guidelines followed: `docs/guidelines/TEST-CONTRACT.md`, `docs/guidelines/GATES.md`,
-  `docs/guidelines/VERIFICATION-EVIDENCE.md`, `docs/guidelines/REVIEW-ROUNDS.md`.
-
-## Historical Convergence and Lessons
-
-`review-fingerprints.json` retains historical `fa97ec...` halted record and earlier fingerprints.
-`.specs/lessons.json` and `.specs/LESSONS.md` retain L-026 through L-030. Clean PASS adds no lesson
-and resets no historical counter.
-
-## QA Disposition
-
-This packet is technical-only. Integrated feature changes public adoption, configuration, CLI, and
-docs-as-interface, so its existing QA Plan/QA Execute records remain separate from this verdict.
-T11 strengthens fail-closed internals and tests without changing the public contract.
+`docs/qa/scenarios/QAS-coordinate-assisted-orca-slices.md:9` remains truthfully
+`qa_status: untested`. AD-018 at `.specs/STATE.md:289` is scoped to this feature merge, explicitly
+defers live Orca QA, preserves pointer-only/fake-host evidence, and claims no false live PASS.
+This audit ran no live Orca and does not change that status.
 
 ## Summary
 
-**Overall:** PASS; technical requirements ready.
-**Spec-anchored check:** 38/38 requirements passed; 0 spec-precision gaps.
-**Gate:** full gate green.
-**Sensor:** 5/5 mutations killed.
-**Ranked gaps:** none.
+**Overall:** PASS. All 38 requirements have evidence; both final mutants are killed; full gate,
+adoption, import safety, and convergence-ledger integrity are green. Ready for validation commit.
