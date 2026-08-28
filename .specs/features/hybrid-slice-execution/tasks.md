@@ -240,10 +240,10 @@ repository-contained fixed paths, fail-closed foreign-state handling, and normal
 
 **Done when:**
 
-- [ ] Proven clean integrated run removes only owned effects and reports residue zero.
-- [ ] Escaping/symlinked paths, reused handles, dirty trees, unmerged commits, running workers, live leases, or extra refs stop before destruction.
-- [ ] Failure reports exact logical residue without home paths or raw payloads.
-- [ ] Assigned 3 cases pass with no existing assertion weakened or deleted.
+- [x] Proven clean integrated run removes only owned effects and reports residue zero.
+- [x] Escaping/symlinked paths, reused handles, dirty trees, unmerged commits, running workers, live leases, or extra refs stop before destruction.
+- [x] Failure reports exact logical residue without home paths or raw payloads.
+- [x] Assigned 3 cases pass with no existing assertion weakened or deleted.
 - [ ] Full gate exits 0; CP-S4 is ready for a fresh Technical Verifier.
 
 **Tests:** integration + security — IT-010, SEC-001, SEC-008
