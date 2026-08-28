@@ -201,10 +201,10 @@ then import the installed probe with a call-counting fake Orca.
 | --- | --- | --- | --- |
 | HSE-01 | Lean skill | S1 | Implemented in T1 |
 | HSE-02 | Lean skill | S1 | Implemented in T1 |
-| HSE-03 | Lean skill | S1 | In Design |
+| HSE-03 | Lean skill | S1 | Implemented in T2 |
 | HSE-04 | Lean skill | S1 | Implemented in T1 |
-| HSE-05 | Lean skill | S1 | In Design |
-| HSE-06 | Lean skill | S1 | In Design |
+| HSE-05 | Lean skill | S1 | Implemented in T2 |
+| HSE-06 | Lean skill | S1 | Implemented in T2 |
 | HSE-07 | Config contract | S2 | In Design |
 | HSE-08 | Config contract | S2 | In Design |
 | HSE-09 | Config contract | S2 | In Design |

@@ -118,11 +118,11 @@ skill tree and every old-name/phase-batch reference, and extend the canonical sk
 
 **Done when:**
 
-- [ ] Builder accepts exactly the contract fields and rejects transcript/full-state/unrelated-slice fields.
-- [ ] Boundary byte counts and pre-dispatch failure are exact.
-- [ ] Telemetry contains no packet or injected sensitive marker.
-- [ ] Assigned 4 cases pass with no existing assertion weakened or deleted.
-- [ ] Full gate exits 0; CP-S1 is ready for a fresh Technical Verifier.
+- [x] Builder accepts exactly the contract fields and rejects transcript/full-state/unrelated-slice fields.
+- [x] Boundary byte counts and pre-dispatch failure are exact.
+- [x] Telemetry contains no packet or injected sensitive marker.
+- [x] Assigned 4 cases pass with no existing assertion weakened or deleted.
+- [x] Full gate exits 0; CP-S1 is ready for a fresh Technical Verifier.
 
 **Tests:** unit + security — UT-002, UT-003, UT-004, SEC-011
 **Gate:** `npm_config_offline=true npm run test:all`
