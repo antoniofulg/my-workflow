@@ -1,6 +1,6 @@
 # The loop
 
-`tlc-spec-driven` owns four phases: Specify, Design, Tasks, Execute. This pack **increments** that
+`workflow-spec-driven` owns four phases: Specify, Design, Tasks, Execute. This pack **increments** that
 loop. It does not replace it. Auto-size still holds: a one-line change gets no spec; a
 multi-component feature gets full planning.
 
@@ -18,7 +18,7 @@ last column.
 
 | # | Stage | What it is for | Skip when | Rule |
 | --- | --- | --- | --- | --- |
-| 1 | **Specify / Design / Tasks** | Name the behaviour, freeze surfaces, enumerate test ids | Auto-sized skip (tiny, obvious change) | `tlc-spec-driven` |
+| 1 | **Specify / Design / Tasks** | Name the behaviour, freeze surfaces, enumerate test ids | Auto-sized skip (tiny, obvious change) | `workflow-spec-driven` |
 | 2 | **Slice** | One observable behaviour plus the tests that prove it | — | `AGENTS.md` |
 | 3 | **Implement** | The cheapest code that makes the slice true | — | `ponytail` |
 | 4 | **Scoped gate** | Prove *this* diff, not the whole product | Escalate if the selector cannot scope it | [GATES.md](../guidelines/GATES.md) |

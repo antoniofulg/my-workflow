@@ -1,10 +1,10 @@
 {
   "version": 2,
   "skills": {
-    "tlc-spec-driven": {
-      "name": "tlc-spec-driven",
+    "workflow-spec-driven": {
+      "name": "workflow-spec-driven",
       "source": "local",
-      "contentHash": "9f4c793556001f3210a2d9fe3b41bf24e82e581c522d8dd50f65addfee169a29",
+      "contentHash": "6226fcd0790f3d492452f9b2c6dcefac03f72a03734509fcaed0683f36efef5e",
       "installedAt": "2026-08-19T00:56:56.430Z",
       "updatedAt": "2026-08-19T00:56:56.504Z",
       "agents": ["cursor", "claude-code", "codex", "opencode"],

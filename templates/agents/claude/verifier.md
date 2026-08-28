@@ -1,7 +1,7 @@
 ---
 name: verifier
 description: >-
-  Independent verifier after the last task. Technical, QA Plan, or QA Execute phase. Author ≠ verifier. Writes checkout-local validation.md.
+  Independent verifier after each code-changing slice. Technical, QA Plan, or QA Execute phase. Author ≠ verifier. Writes checkout-local validation.md.
 model: opus
 effort: medium
 ---
@@ -15,7 +15,7 @@ evidence-or-zero and keep every artifact in the active checkout.
 - Feature `spec.md` (ACs = source of truth).
 - Branch diff / slice commit range.
 - Tests in scope.
-- `validate.md` from skill `tlc-spec-driven`.
+- `validate.md` from skill `workflow-spec-driven`.
 - `docs/guidelines/TEST-CONTRACT.md` only if a case looks hollow or uses the wrong layer.
 
 ## Do not load

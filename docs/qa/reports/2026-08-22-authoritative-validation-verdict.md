@@ -3,7 +3,7 @@
 - **Date:** 2026-08-22
 - **Adapter:** CLI/manual
 - **Environment:** active checkout, checkout-local disposable adoption target
-- **Public path:** adopted `.agents/skills/tlc-spec-driven/scripts/validate_state.py`
+- **Public path:** adopted `.agents/skills/workflow-spec-driven/scripts/validate_state.py`
 - **Preflight gate:** `npm test` — 142/142 passed
 - **Evidence:** `docs/qa/evidence/2026-08-22-authoritative-validation-verdict/session.md`
 - **Limitation:** no browser, API, mobile, auth, server, or production runtime exists for this pack

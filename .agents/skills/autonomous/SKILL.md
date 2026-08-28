@@ -37,7 +37,7 @@ choice in one line with the reason, and proceed — this is a judgment to make, 
 
 | The work is | Path |
 | --- | --- |
-| **A direct correction** — an exact human-defined single invariant with no product ambiguity or implicit-requirement surface | The direct-correction path in `tlc-spec-driven` |
+| **A direct correction** — an exact human-defined single invariant with no product ambiguity or implicit-requirement surface | The direct-correction path in `workflow-spec-driven` |
 | **A feature** — a capability or behaviour the product lacks | The full loop in `AGENTS.md` |
 | **An issue batch** — work already filed and reviewed | The filed-issue path in `docs/guidelines/REVIEW-ROUNDS.md` |
 
@@ -104,7 +104,7 @@ planning. It is an optional orchestration layer above TLC; its serial fallback r
 - **The feature-closing step is the QA session** and writes no product code, so it takes no Verifier
   and no deep-review.
 
-**A direct correction:** follow the direct-correction path in `tlc-spec-driven`: inspect, implement,
+**A direct correction:** follow the direct-correction path in `workflow-spec-driven`: inspect, implement,
 run the scoped validation, and commit. Create no feature artifacts and skip fresh Verifier,
 deep-review, and QA.
 

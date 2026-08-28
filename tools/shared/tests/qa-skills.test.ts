@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -86,10 +86,10 @@ describe("QA workflow artifact policy", () => {
   it("IT-015 treats versioned task state as the commit precondition", () => {
     const agents = readRepositoryFile("AGENTS.md");
     const loop = readRepositoryFile("docs/workflow/loop.md");
-    const specDriven = readRepositoryFile(".agents/skills/tlc-spec-driven/SKILL.md");
-    const implementer = readRepositoryFile(".agents/skills/tlc-spec-driven/references/implement.md");
-    const validator = readRepositoryFile(".agents/skills/tlc-spec-driven/references/validate.md");
-    const memory = readRepositoryFile(".agents/skills/tlc-spec-driven/references/memory.md");
+    const specDriven = readRepositoryFile(".agents/skills/workflow-spec-driven/SKILL.md");
+    const implementer = readRepositoryFile(".agents/skills/workflow-spec-driven/references/implement.md");
+    const validator = readRepositoryFile(".agents/skills/workflow-spec-driven/references/validate.md");
+    const memory = readRepositoryFile(".agents/skills/workflow-spec-driven/references/memory.md");
     const providerPackets = [
       readRepositoryFile("templates/agents/cursor/implementer.md"),
       readRepositoryFile("templates/agents/claude/implementer.md"),
@@ -160,6 +160,32 @@ describe("QA workflow artifact policy", () => {
 describe("canonical QA skills", () => {
   const qaPlanPath = ".agents/skills/qa-plan/SKILL.md";
   const qaExecutePath = ".agents/skills/qa-execute/SKILL.md";
+
+  it("UT-001 installs one attributed slice-native workflow authority", () => {
+    const skill = readRepositoryFile(".agents/skills/workflow-spec-driven/SKILL.md");
+    const notice = readRepositoryFile(".agents/skills/workflow-spec-driven/NOTICE.md");
+    const activeContract = [
+      skill,
+      notice,
+      readRepositoryFile(".agents/skills/workflow-spec-driven/references/sub-agents.md"),
+      readRepositoryFile(".agents/skills/workflow-spec-driven/references/tasks.md"),
+      readRepositoryFile(".agents/skills/workflow-spec-driven/references/implement.md"),
+    ].join("\n");
+
+    expect(skillMetadata(".agents/skills/workflow-spec-driven/SKILL.md").name).toBe(
+      "workflow-spec-driven",
+    );
+    expect(existsSync(join(repositoryRoot, ".agents/skills/tlc-spec-driven"))).toBe(false);
+    expect(notice).toContain("Felipe Rodrigues");
+    expect(notice).toContain("CC BY 4.0");
+    expect(notice).toContain(
+      "https://github.com/tech-leads-club/agent-skills/tree/main/skills/tlc-spec-driven",
+    );
+    expect(activeContract).not.toMatch(/phase[- ]batch|Batch complete|opt[- ]in/i);
+    expect(activeContract).not.toMatch(/after the last task of the feature/i);
+    expect(activeContract).toContain("slice packet");
+    expect(activeContract).toContain("fresh Technical Verifier");
+  });
 
   it("IT-001 exposes model-invoked skills with matching names", () => {
     for (const [relativePath, expectedName, inspirationUrl] of [
@@ -244,10 +270,10 @@ describe("canonical QA skills", () => {
     expect(reviewRounds).not.toMatch(/one global (?:remediation|blocker) counter/i);
 
     for (const relativePath of [
-      ".agents/skills/tlc-spec-driven/SKILL.md",
-      ".agents/skills/tlc-spec-driven/references/validate.md",
-      ".agents/skills/tlc-spec-driven/references/sub-agents.md",
-      ".agents/skills/tlc-spec-driven/references/implement.md",
+      ".agents/skills/workflow-spec-driven/SKILL.md",
+      ".agents/skills/workflow-spec-driven/references/validate.md",
+      ".agents/skills/workflow-spec-driven/references/sub-agents.md",
+      ".agents/skills/workflow-spec-driven/references/implement.md",
       ".agents/skills/autonomous/SKILL.md",
       "docs/workflow/reviews.md",
       "docs/workflow/README.md",
@@ -257,10 +283,10 @@ describe("canonical QA skills", () => {
       expect(source).toContain("REVIEW-ROUNDS.md");
       expect(source).toContain("fingerprint");
     }
-    expect(readRepositoryFile(".agents/skills/tlc-spec-driven/references/validate.md")).toContain(
+    expect(readRepositoryFile(".agents/skills/workflow-spec-driven/references/validate.md")).toContain(
       "diagnostic cap is per issue and separate from review-remediation fingerprint accounting",
     );
-    const convergence = readRepositoryFile(".agents/skills/tlc-spec-driven/scripts/review_convergence.py");
+    const convergence = readRepositoryFile(".agents/skills/workflow-spec-driven/scripts/review_convergence.py");
     expect(convergence).toContain("failed_remediations");
     expect(convergence).toContain("os.replace");
   });
@@ -526,7 +552,7 @@ describe("configurable review policy", () => {
   });
 
   it("bridges workflow resolution and feature-closing QA ordering", () => {
-    const specDriven = readRepositoryFile(".agents/skills/tlc-spec-driven/SKILL.md");
+    const specDriven = readRepositoryFile(".agents/skills/workflow-spec-driven/SKILL.md");
     const qaScenarios = readRepositoryFile("docs/guidelines/QA-SCENARIOS.md");
     const gates = readRepositoryFile("docs/guidelines/GATES.md");
     const testContract = readRepositoryFile("docs/guidelines/TEST-CONTRACT.md");

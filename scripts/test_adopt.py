@@ -130,10 +130,10 @@ def test_external_security_step_is_printed_without_installing_security_trees() -
 
 def test_global_tlc_paths_reject_without_mutation() -> None:
     roots = (
-        "$(HOME)/.claude/skills/tlc-spec-driven/scripts",
-        "${HOME}/.claude/skills/tlc-spec-driven/scripts",
-        "$HOME/.claude/skills/tlc-spec-driven/scripts",
-        "~/.claude/skills/tlc-spec-driven/scripts",
+        "$(HOME)/.claude/skills/workflow-spec-driven/scripts",
+        "${HOME}/.claude/skills/workflow-spec-driven/scripts",
+        "$HOME/.claude/skills/workflow-spec-driven/scripts",
+        "~/.claude/skills/workflow-spec-driven/scripts",
     )
     for root in roots:
         tmp = Path(tempfile.mkdtemp())
@@ -150,7 +150,7 @@ def test_global_tlc_paths_reject_without_mutation() -> None:
                 else:
                     raise AssertionError(f"expected rejection for {root}")
             assert snapshot_tree(tmp) == before
-            assert "use .agents/skills/tlc-spec-driven/scripts/" in stderr.getvalue()
+            assert "use .agents/skills/workflow-spec-driven/scripts/" in stderr.getvalue()
         finally:
             shutil.rmtree(tmp)
 
@@ -159,11 +159,11 @@ def test_project_local_tlc_path_is_accepted() -> None:
     tmp = Path(tempfile.mkdtemp())
     try:
         (tmp / "Makefile").write_text(
-            "TLC := .agents/skills/tlc-spec-driven/scripts/validate_tasks.py\n",
+            "TLC := .agents/skills/workflow-spec-driven/scripts/validate_tasks.py\n",
             encoding="utf-8",
         )
         run(tmp)
-        assert (tmp / ".agents/skills/tlc-spec-driven/SKILL.md").is_file()
+        assert (tmp / ".agents/skills/workflow-spec-driven/SKILL.md").is_file()
         assert (tmp / "Makefile").read_text(encoding="utf-8").startswith("TLC := .agents/")
     finally:
         shutil.rmtree(tmp)

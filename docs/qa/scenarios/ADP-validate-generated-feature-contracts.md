@@ -5,7 +5,7 @@ title: Validate TLC-generated feature contracts
 persona: Workflow adopter
 journey: J-adopt-workflow
 expected: The vendored validators accept both TLC-generated task layouts and its annotated acceptance-criteria heading while still rejecting future-phase dependencies and criteria without SHALL.
-entry_points: .agents/skills/tlc-spec-driven/scripts/validate_tasks.py; .agents/skills/tlc-spec-driven/scripts/validate_spec.py
+entry_points: .agents/skills/workflow-spec-driven/scripts/validate_tasks.py; .agents/skills/workflow-spec-driven/scripts/validate_spec.py
 qa_status: pass
 bug_ids:
 fix_status:

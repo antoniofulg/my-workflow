@@ -20,20 +20,12 @@ This is where code gets written. Every task follows the same cycle: plan → imp
 
 ## Process
 
-**Batch worker context:** When this task is executed as part of a phase-batch sub-agent, the worker
-receives the task definitions for every phase in its batch, coding principles, the generated Test
-Coverage Matrix and Gate Check Commands from `tasks.md` when present, and relevant spec/design
-context. A batch is
-one or more consecutive whole phases packed to ~7 tasks. The worker executes ALL tasks in its
-assigned batch in order - finishing every task in one phase before starting the next phase in the
-batch - and each task follows every step below (implement → gate → atomic commit) before moving to
-the next. After all tasks in the batch are complete, the worker reports a compact summary (tasks
-done, commit hashes, test counts, deviations/blockers) to the orchestrator. See
-[sub-agents.md](sub-agents.md) for the full model.
-
-### Before implementing: assess sub-agent delegation (MANDATORY - before the first task)
-
-Before implementing anything, if a formal `tasks.md` with an Execution Plan exists, **count its total tasks** and pack the phases into task-budgeted batches (~7 tasks per worker, whole phases - see [sub-agents.md](sub-agents.md)). If that yields **more than one batch** (> ~8 tasks), you MUST present the sub-agent offer to the user and wait for their choice before starting Execute - do not silently proceed inline. If the feature fits a single batch (≤ ~8 tasks, or the user declines), execute inline. Skip this check only when you are already a batch worker executing a delegated batch (the orchestrator already made the delegation decision).
+**Slice worker context:** A worker receives only the current slice task definitions, cited acceptance
+criteria, assigned test IDs, gate, required design excerpt, and compact slice memory. It does not
+receive the planning transcript, whole feature state, unrelated slices, or a global task summary.
+The coordinator owns inter-slice dispatch and the clean integration checkout. Concurrent writing
+slices use isolated worktrees; tasks inside one slice remain sequential. See
+[sub-agents.md](sub-agents.md) for the lifecycle and recovery contract.
 
 ### 0. List Atomic Steps (MANDATORY when Tasks phase was skipped)
 
@@ -219,7 +211,7 @@ After the gate check passes:
 
    **On any failure** → rewrite or remove the affected test(s), re-run the gate, then re-run this review.
 
-   *Honest caveat:* This is an inspection-based review (model judgment), complementary to - not a replacement for - the deterministic gate. The gate confirms the test suite runs; the feature-level discrimination sensor (step 9) confirms the tests can detect regressions. This review confirms the suite is meaningful and bounded.
+   *Honest caveat:* This is an inspection-based review (model judgment), complementary to - not a replacement for - the deterministic gate. The gate confirms the test suite runs; the slice discrimination sensor (step 9) confirms the tests can detect regressions. This review confirms the suite is meaningful and bounded.
 
    Add the two mapping tables and a one-line adequacy verdict to the Execution Template's Post-Gate section.
 
@@ -237,7 +229,7 @@ crash between those steps is how resume redoes finished work.
 2. Create **one** atomic commit that includes the implementation and its tests; verify the local
    status/traceability updates before committing.
 
-Each task gets its own commit immediately after verification. Never batch multiple tasks into one commit.
+Each task gets its own commit immediately after verification. Never dispatch multiple tasks into one commit.
 
 **Format ([Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/)):**
 
@@ -330,15 +322,18 @@ During implementation, you will notice things that could be improved, refactored
 
 **Blast radius (approval ≠ remote authority):** Approving a spec or tasks authorizes local implementation and local commits only. Before `git push`, force-push, deploy, production DB migration, or any other remote / externally visible / destructive operation, STOP and get an explicit go-ahead for that action - even if Execute was already approved.
 
-### 9. Feature-Level Validation (after the LAST task - MANDATORY, always runs)
+### 9. Slice-Level Validation (after each code-changing slice - MANDATORY)
 
-When the task you just completed is the **last task of the feature** (or of a priority group being delivered on its own, e.g. all P1 tasks), you MUST run feature-level validation before reporting the work as done. **This is not optional and is never prompted - it runs automatically.** Do not stop at the final task's commit.
+When the current slice reaches its checkpoint, the coordinator MUST dispatch a fresh Technical
+Verifier before any dependent slice consumes that checkpoint. Validation is automatic and does not
+wait for a separate approval. Do not let a slice's commit unblock dependent work without this proof.
 
 **Author ≠ verifier.** An author checking their own work reapplies the mental model that may have produced the gaps. The Verifier is a fresh sub-agent that re-derives coverage from the spec independently - this separation is the quality gate, not a style preference.
 
 **Layering:**
 - Per-task adequacy self-check (steps 5-6): cheap, always runs, author does it, confirms each task in isolation.
-- Feature-level validation (step 9): one trustworthy independent gate at completion, always-on, Verifier sub-agent does it.
+- Slice-level validation (step 9): one trustworthy independent gate at each code-changing checkpoint,
+  always-on, performed by a fresh Verifier session.
 
 **How to delegate to the Verifier:**
 Dispatch a fresh sub-agent following the **Verifier** role described in [sub-agents.md](sub-agents.md). Provide it with:
@@ -351,9 +346,8 @@ Dispatch a fresh sub-agent following the **Verifier** role described in [sub-age
 
 If the Verifier returns FAIL, record the fingerprinted result with the stdlib convergence script, route the ranked gaps back to an implementer, and re-dispatch the Verifier using the accounting in `docs/guidelines/REVIEW-ROUNDS.md`; count the failed Verifier result even when the scoped build gate is green, halt on the third failed remediation of the same fingerprint, and escalate.
 
-If you are unsure whether more tasks remain, check `tasks.md` when present; when Tasks was skipped,
-confirm every inline execution-plan step is complete. If all work is complete, dispatch the Verifier
-now.
+The final integrated tree still receives the separately routed Deep Review and fresh QA sessions.
+The last Implementer writes only a compact handoff and never certifies the integrated result.
 
 ---
 
@@ -422,7 +416,10 @@ now.
 **Status**: ✅ Complete | ❌ Blocked | ⚠️ Partial
 ```
 
-**After the LAST task:** dispatch the Verifier sub-agent (see step 9 and [sub-agents.md](sub-agents.md)) for independent feature-level validation, including the spec-anchored check and discrimination sensor. Validation always runs automatically - never prompted. Execute is not done until the Verifier reports PASS and the validation report is written, confirmed deterministically by `python3 <skill-dir>/scripts/validate_state.py <feature>` (exit non-zero = not done); see [validate.md](validate.md).
+**After each code-changing slice:** dispatch the fresh Technical Verifier (see step 9 and
+[sub-agents.md](sub-agents.md)) for independent slice validation, including the spec-anchored check
+and discrimination sensor. The integrated feature then follows its configured Deep Review and fresh
+QA route; the last Implementer does not perform those roles.
 
 ---
 

@@ -135,7 +135,7 @@ What MUST be done before this task can start?
 
 Group tasks into ordered phases. Each phase depends on the ones before it; tasks execute sequentially within a phase.
 
-**Size phases near the worker budget.** During Execute, phases are packed into task-budgeted batches (~7 tasks per sub-agent, whole phases - see [sub-agents.md](sub-agents.md)). Because a batch cut may only land on a phase boundary, a phase that is much larger than the budget forces an over-sized worker. Keep each phase from greatly exceeding the budget:
+**Size phases near the worker budget.** During Execute, phases are packed into task-budgeted dispatches (~7 tasks per sub-agent, whole phases - see [sub-agents.md](sub-agents.md)). Because a dispatch cut may only land on a phase boundary, a phase that is much larger than the budget forces an over-sized worker. Keep each phase from greatly exceeding the budget:
 
 - If a phase would hold **more than ~10 tasks (≈1.5× the budget)**, split it into cohesive sub-phases at a genuine dependency/cohesion seam - not at an arbitrary task index.
 - Only leave a phase over-sized when its tasks are one tight dependency chain that genuinely cannot be split. That is a legitimate (if fat) single-worker phase, not a smell.
@@ -176,7 +176,7 @@ Before showing tasks to the user, run ALL three pre-approval checks. These are N
 
 ## Execution Protocol (MANDATORY -- do not skip)
 
-Implement these tasks with the `tlc-spec-driven` skill: **activate it by name and follow its Execute flow and Critical Rules.** Do not search for skill files by filesystem path. The skill is the source of truth for the full flow (per-task cycle, sub-agent delegation, adequacy review, Verifier, discrimination sensor).
+Implement these tasks with the `workflow-spec-driven` skill: **activate it by name and follow its Execute flow and Critical Rules.** Do not search for skill files by filesystem path. The skill is the source of truth for the full flow (per-task cycle, sub-agent delegation, adequacy review, Verifier, discrimination sensor).
 
 **If the skill cannot be activated, STOP and tell the user - do not proceed without it.**
 
@@ -341,31 +341,26 @@ Phase 2:  T4 ------→ T5 ------→ T6 ------→ T7
 Phase 3:  T8 ------→ T9
 ```
 
-Execution is strictly sequential - there is no intra-phase parallelism. A single agent (or batch worker) works one task at a time, in order.
+Execution is sequential within a slice and coordinator-assisted across safe independent slices.
+The coordinator reads the frozen route, recomputes the ready queue, and dispatches compatible
+writers without waiting for approval. A single ready slice runs in the clean integration checkout;
+two or more compatible ready slices use isolated Implementer worktrees. Planner, Explorer, and
+read-only proof roles stay in the clean checkout.
 
-**How phase-based execution works:**
-
-At Execute, the agent counts total tasks and packs phases into **task-budgeted batches** (~7 tasks
-per worker, whole phases - the benchmarked sweet spot is ~20 tasks → ~3 workers). A **phase** is the
-semantic/dependency unit; a **batch** is one or more *consecutive whole phases* assigned to one
-worker. The cut only ever lands on a phase boundary - a phase is never split across workers. When
-packing yields more than one batch (> ~8 tasks), the agent offers to dispatch batch sub-agents.
-Batches run sequentially: each worker executes ALL its tasks in order, then reports a compact summary
-before the next batch starts. This right-sizes the worker count by workload instead of by phase
-count (one-per-phase is too fragmented; expensive and slow). See [sub-agents.md](sub-agents.md) for
-the full model - packing algorithm, offer-then-confirm, worker payload, compact summary contract,
-failure handling, and context sizing guidance.
-
-When the whole feature fits a single batch (≤ ~8 tasks), execution happens inline in the main window
-with no sub-agents spawned.
+The automatic route starts at two writer lanes and admits at most one additional lane after each
+healthy settle window, up to four. Missing or unhealthy evidence keeps active work running but
+prevents admission above two. `disabled` is the explicit serial override. Each worker receives only
+its own slice packet, runs that slice's tasks in order, and reports a compact checkpoint. The
+coordinator sends a fresh Technical Verifier, integrates only verified commits, and refills the next
+compatible ready slice. See [sub-agents.md](sub-agents.md) for lifecycle and recovery details.
 
 **The orchestrating agent's role during Execute:**
-1. Count total tasks and pack phases into ~7-task batches - offer batch sub-agents if that yields more than one batch and the user accepts
-2. Dispatch the next batch (to a worker, or execute inline)
-3. Receive the compact batch summary
-4. Update tasks.md with results
-5. If the batch summary shows all tasks complete: proceed to the next batch
-6. If a task failed: decide fix/escalate before dispatching the next batch
+
+1. Resolve the route and build bounded packets for ready slices.
+2. Admit serial or isolated writer lanes according to mode, dependencies, paths, resources, and health.
+3. Receive checkpoints, route fresh verification, and synchronize verified dependency commits.
+4. Update `tasks.md` with each task's result before its atomic commit.
+5. Park blocked or fail-closed work with its evidence and continue only eligible slices.
 
 ---
 

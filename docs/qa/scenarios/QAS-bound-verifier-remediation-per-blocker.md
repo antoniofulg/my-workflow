@@ -5,7 +5,7 @@ title: Continue verification for distinct blockers
 persona: Workflow operator
 journey: J-execute-parallel-slices
 expected: Distinct verifier blockers receive independent remediation counts while the same requirement, root cause, and failure path halts only after its third failed remediation.
-entry_points: .agents/skills/tlc-spec-driven/scripts/review_convergence.py; .agents/skills/autonomous/SKILL.md; .agents/skills/autonomous/references/parallelization.md
+entry_points: .agents/skills/workflow-spec-driven/scripts/review_convergence.py; .agents/skills/autonomous/SKILL.md; .agents/skills/autonomous/references/parallelization.md
 qa_status: pass
 bug_ids:
 fix_status:

@@ -1,5 +1,5 @@
 ---
-name: tlc-spec-driven
+name: workflow-spec-driven
 description: Feature planning and implementation with 4 adaptive phases (Specify, Design, Tasks, Execute). Auto-sizes depth by complexity. Writes testable requirements in EARS notation, atomic tasks, atomic Conventional Commits, and requirement traceability. Ships deterministic Python validation scripts so structural gates are enforced by code, not memory. Features an independent Verifier (author != verifier, evidence-or-zero), a discrimination sensor, a decision log (STATE.md), a test-coverage matrix, and a self-improving lessons layer. Stack-agnostic and tool-agnostic. Use when (1) planning features, (2) implementing with verification and atomic commits, (3) validating an implementation against a spec. Triggers on "specify feature", "discuss feature", "design", "tasks", "implement", "validate", "verify work", "UAT", "record decision", "pause work", "resume work". Do NOT use for pure architecture decomposition analysis or standalone technical design documents.
 license: CC-BY-4.0
 metadata:
@@ -7,7 +7,7 @@ metadata:
   version: 3.3.0
 ---
 
-# Tech Lead's Club - Spec-Driven Development
+# Workflow-owned slice-driven development
 
 Plan and implement features with precision. Granular tasks. Clear dependencies. Right tools. Zero ceremony.
 
@@ -32,8 +32,8 @@ Rules 1–4 below govern feature work; direct corrections use the exception in A
 
 1. Tests derive from the spec's acceptance criteria and assert spec-defined outcomes - they never mirror the implementation.
 2. The gate must pass (tests pass) before a task is done - the test runner decides, not self-assessment.
-3. One atomic commit per task. When `tasks.md` is present, mark the task complete there (and update spec traceability when used) **before** that commit; when Tasks is skipped, update and verify the inline execution plan before committing. Feature files under `.specs/features/` are versioned workflow state and may be part of that atomic commit. Never batch tasks; never weaken, skip, or delete tests to make them pass.
-4. After the LAST **feature** task, a fresh **Verifier always runs automatically** (author ≠ verifier) - spec-anchored outcome check + discrimination sensor. Direct corrections use the path below and do not dispatch a Verifier. See Sub-Agent Delegation.
+3. One atomic commit per task. When `tasks.md` is present, mark the task complete there (and update spec traceability when used) **before** that commit; when Tasks is skipped, update and verify the inline execution plan before committing. Feature files under `.specs/features/` are versioned workflow state and may be part of that atomic commit. Never combine task commits; never weaken, skip, or delete tests to make them pass.
+4. After each code-changing slice, a fresh **Technical Verifier** runs automatically (author ≠ verifier) - spec-anchored outcome check + discrimination sensor. Direct corrections use the path below and do not dispatch a Verifier.
 5. **Blast radius:** approving a spec or tasks authorizes local implementation and local commits only. `git push`, force-push, deploy, production DB changes, and other remote / externally visible / destructive operations require an explicit go-ahead for that action.
 
 **Deterministic gates run before human review - not from memory.** The structural gates for the spec and tasks are enforced by scripts in this skill's `scripts/` directory, so they cannot silently drift when the model forgets a step:
@@ -45,7 +45,7 @@ Rules 1–4 below govern feature work; direct corrections use the exception in A
 
 A non-zero exit means STOP and fix before proceeding. Skip a script only when no code-execution tool is available; then perform the same checks by reading the artifact.
 
-**Before Execute (feature work):** read [implement.md](references/implement.md) completely. When a formal `tasks.md` exists, run `<skill-dir>/scripts/validate_tasks.py` against it; if it packs into more than one task-budgeted batch (> ~8 tasks), present the sub-agent offer first (see Sub-Agent Delegation). When Tasks was skipped, verify the inline execution plan instead: every step must name one deliverable, a gate command, and one atomic commit.
+**Before Execute (feature work):** read [implement.md](references/implement.md) completely. When a formal `tasks.md` exists, run `<skill-dir>/scripts/validate_tasks.py` against it and resolve the frozen workflow route. The coordinator dispatches safe independent slices by default and uses serial execution only for an explicit `disabled` route or a fail-closed condition. When Tasks was skipped, verify the inline execution plan instead: every step must name one deliverable, a gate command, and one atomic commit.
 
 ## Auto-Sizing: The Core Principle
 
@@ -131,21 +131,30 @@ frozen route.
 **Reserve:** 160k+ tokens for work, reasoning, outputs
 **Monitoring:** Display status when >40k (see [context-limits.md](references/context-limits.md))
 
-## Sub-Agent Delegation
+## Coordinator-assisted slice dispatch
 
-**Trigger:** count total tasks. If the feature packs into more than one task-budgeted batch (> ~8 tasks) → offer sub-agents; if it fits a single batch (≤ ~8 tasks) → execute inline.
+The coordinator dispatches every safe independent slice whose route is ready. It does not wait for
+an extra approval response. The frozen route decides whether execution is `assisted` or explicitly
+`disabled`; a fail-closed runtime condition also falls back to serial execution.
 
-**Offer-then-confirm** - never auto-spawn. The user must accept before any sub-agent is dispatched.
+The Planner and coordinator remain on the clean integration checkout. Only concurrent Implementers
+receive persistent worktrees. A single ready slice runs serially in the integration checkout. Two
+compatible ready slices start in isolated writer worktrees; each worker receives only its own bounded
+slice packet and executes its tasks sequentially. The coordinator recomputes readiness after each
+verified checkpoint and refills a free lane from dependency-, path-, and resource-compatible work.
 
-**One worker per task-budgeted batch (~7 tasks, whole phases):** Phases stay the semantic/dependency unit; a **batch** is the execution unit - one or more *consecutive whole phases* packed to ~7 tasks. Walk phases in order, accumulate whole phases into the current batch until it reaches the budget, then start the next - **never split a phase** across workers. ~20 tasks → ~3 workers; scales linearly (40 → ~6). Each worker executes all its tasks in order (implement → gate → atomic commit), then reports a compact summary (tasks done, commit hashes, test counts, deviations). Batches run sequentially - a batch never starts until the previous one reports all tasks complete. Workers never spawn further sub-agents.
+Automatic admission starts at two lanes. A healthy settle window admits at most one additional lane,
+up to four. Missing, malformed, stale, or unhealthy evidence never admits a lane above two. The
+explicit integer cap is always respected and does not bypass health proof. See
+[sub-agents.md](references/sub-agents.md) for lifecycle, recovery, and role boundaries.
 
-**Verifier (always-on, never prompted):** After the final task is committed, the orchestrator dispatches a fresh Verifier sub-agent automatically - regardless of phase count. Validation never requires a user prompt; it is the closing step of Execute. **Author ≠ verifier**: the Verifier re-derives coverage independently using evidence-or-zero; it does not inherit the author's mental model. The Verifier: (1) performs a **spec-anchored outcome check** - confirms each test's asserted value matches the spec-defined expected outcome, flags spec-precision gaps; (2) runs a **discrimination sensor** - injects behavior-level faults in an isolated scratch (temp worktree or file copies - never `git stash`), confirms tests kill them, discards the scratch and verifies real-tree porcelain matches the pre-sensor baseline; surviving mutants become fix tasks; (3) writes `.specs/features/[feature]/validation.md` (PASS/FAIL, per-AC evidence, sensor result, diff range); (4) returns a compact verdict + ranked gap list to the orchestrator in chat. Gaps become fix tasks; record each failed Verifier result with `<skill-dir>/scripts/review_convergence.py`, including green-gate failures, and halt when the configured live threshold for that immutable fingerprint is reached using `docs/guidelines/REVIEW-ROUNDS.md`; final deep-review findings never start round 3. (5) **distills lessons** - turns each grounded failure (surviving mutant, spec-precision gap, failed AC, SPEC_DEVIATION) into a reusable project-local lesson via `<skill-dir>/scripts/lessons.py`; a clean PASS records nothing (see [lessons.md](lessons.md)).
+**Technical Verifier (always-on):** After each code-changing slice reaches its checkpoint, the coordinator dispatches a fresh Verifier automatically. It re-derives spec evidence, runs the discrimination sensor in an isolated scratch, writes the slice validation report, and never fixes the inspected tree. Dependent slices consume only verified checkpoints. Deep Review and QA are separate fresh roles on the integrated tree. Review remediation uses the immutable finding `fingerprint` and `docs/guidelines/REVIEW-ROUNDS.md`.
 
-**Model tier per role (only if the harness supports choosing a model per sub-agent).** Match the reasoning cost to the work instead of paying top-tier reasoning for boilerplate. A batch worker on a mechanical, low-ambiguity phase (entities, config, wiring, straightforward CRUD) runs on a faster/cheaper tier; a worker on a core-domain or high-ambiguity phase, and the Design phase itself, runs on a high-reasoning tier; the Verifier runs on a mid-to-high tier because it does adversarial reasoning and designs mutations. This is a portable recommendation: if the harness cannot set a per-sub-agent model, ignore it. Full rubric in [sub-agents.md](references/sub-agents.md).
+**Model tier per role (only if the harness supports choosing a model per sub-agent).** Match the reasoning cost to the work instead of paying top-tier reasoning for boilerplate. A mechanical slice can run on a faster/cheaper tier; a core-domain or high-ambiguity slice, and the Design phase itself, should use a high-reasoning tier; the Verifier should use a mid-to-high tier because it does adversarial reasoning and designs mutations. This is a portable recommendation: if the harness cannot set a model per sub-agent, ignore it. Full rubric in [sub-agents.md](references/sub-agents.md).
 
 **Standalone fallback:** Without sub-agents, run `validate.md` as an independent fresh-eyes pass after the final commit - including the spec-anchored check and discrimination sensor.
 
-Full mechanics (worker payload, compact summary format, failure handling, context sizing, model tier, Verifier report format): [sub-agents.md](references/sub-agents.md).
+Full mechanics (slice packet, lane admission, failure handling, model tier, and Verifier report format): [sub-agents.md](references/sub-agents.md).
 
 ## Commands
 

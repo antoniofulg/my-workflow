@@ -1,10 +1,10 @@
 {
   "version": 1,
   "skills": {
-    "tlc-spec-driven": {
-      "source": "@tech-leads-club/agent-skills",
-      "sourceType": "npm",
-      "skillPath": "tlc-spec-driven/SKILL.md"
+    "workflow-spec-driven": {
+      "source": "local",
+      "sourceType": "local",
+      "skillPath": ".agents/skills/workflow-spec-driven/SKILL.md"
     },
     "autonomous": {
       "source": "local",

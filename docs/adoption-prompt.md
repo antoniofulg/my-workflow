@@ -36,7 +36,7 @@ Review the complete diff, managed-path overwrites, and the target's declared ful
 exact gate command and result. If the change exposes a user-visible UI, API, CLI, mobile, public
 configuration, adoption, or docs-as-interface promise, send the existing Verifier a fresh
 `qa-plan` packet followed by a separate `qa-execute` packet. For a purely internal refactor,
-record `no user-visible change` and do not run QA. Activate `tlc-spec-driven`. At the start of
+record `no user-visible change` and do not run QA. Activate `workflow-spec-driven`. At the start of
 workflow work, activate `ponytail` at `full`; `AGENTS.md` carries the full-cycle session rule and
 the explicit stop commands.
 ```

@@ -50,7 +50,7 @@ COPY_PATHS = [
     "tools/qa_parallel_pilot.py",
     "tools/shared/src/frontmatter.ts",
     "tools/shared/tests/frontmatter.test.ts",
-    ".agents/skills/tlc-spec-driven",
+    ".agents/skills/workflow-spec-driven",
     ".agents/skills/deep-review",
     ".agents/skills/ponytail",
     ".agents/skills/ponytail-audit",
@@ -213,7 +213,7 @@ def reject_global_tlc_paths(dest: Path) -> None:
             die(
                 f"refusing adoption: {makefile}:{line_number} uses machine-global "
                 f"TLC path {match.group(0)!r}; use "
-                ".agents/skills/tlc-spec-driven/scripts/... in the target Makefile"
+                ".agents/skills/workflow-spec-driven/scripts/... in the target Makefile"
             )
 
 

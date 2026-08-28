@@ -94,11 +94,11 @@ skill tree and every old-name/phase-batch reference, and extend the canonical sk
 
 **Done when:**
 
-- [ ] `NOTICE.md` carries author/source/license/change attribution and `skills-lock.json` names only the new skill.
-- [ ] `rg 'tlc-spec-driven|phase batch|Batch complete'` finds only attribution/history explicitly allowed by the contract test.
-- [ ] Conditional loading, slice task ordering, and fresh Technical Verifier wording are canonical across skill and instruction references.
-- [ ] Assigned 1 case passes with no existing assertion weakened or deleted.
-- [ ] Full gate exits 0 before commit.
+- [x] `NOTICE.md` carries author/source/license/change attribution and `skills-lock.json` names only the new skill.
+- [x] `rg 'tlc-spec-driven|phase batch|Batch complete'` finds only attribution/history explicitly allowed by the contract test.
+- [x] Conditional loading, slice task ordering, and fresh Technical Verifier wording are canonical across skill and instruction references.
+- [x] Assigned 1 case passes with no existing assertion weakened or deleted.
+- [x] Full gate exits 0 before commit.
 
 **Tests:** unit + contract — UT-001
 **Gate:** `npm_config_offline=true npm run test:all`
