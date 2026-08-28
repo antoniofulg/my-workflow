@@ -164,6 +164,12 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: .specs/features/hybrid-slice-execution/validation-s4.md:HSE-56 (lifecycle)
 - last seen: 2026-08-28T21:01:28Z
 
+### L-026 - Derive role-routing traces from the shipped routing source; never assert a trace literal constructed inside the test.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `role-routing` · harmful: 0
+- features: hybrid-slice-execution
+- evidence: validation-s5.md#M4 (role-routing)
+- last seen: 2026-08-28T22:13:06Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

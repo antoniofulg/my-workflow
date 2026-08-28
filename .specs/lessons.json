@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 26,
+  "next_id": 27,
   "lessons": [
     {
       "id": "L-001",
@@ -454,6 +454,24 @@
       ],
       "created": "2026-08-28T21:01:28Z",
       "last_seen": "2026-08-28T21:01:28Z"
+    },
+    {
+      "id": "L-026",
+      "key": "surviving_mutant::derive role routing traces from the shipped routing source never assert a trace literal constructed inside the test",
+      "text": "Derive role-routing traces from the shipped routing source; never assert a trace literal constructed inside the test.",
+      "signal": "surviving_mutant",
+      "scope": "role-routing",
+      "status": "candidate",
+      "features": [
+        "hybrid-slice-execution"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s5.md#M4 (role-routing)"
+      ],
+      "created": "2026-08-28T22:13:06Z",
+      "last_seen": "2026-08-28T22:13:06Z"
     }
   ]
 }
