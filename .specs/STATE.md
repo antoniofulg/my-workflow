@@ -220,3 +220,24 @@
   versions of one blocker remain bounded and all other halt conditions still apply.
 - **Scope**: Technical Verifier fix/reverify loops, autonomous halt decisions, TLC verifier guidance,
   review workflow documentation, and their contract tests.
+
+### AD-015
+
+- **Decision**: Replace the vendored TLC phase-batch delegation with a workflow-owned,
+  CC-BY-4.0-attributed spec-driven skill that dispatches vertical slices through hybrid assisted
+  execution. Only concurrent writers receive worktrees; tasks within a slice remain sequential;
+  fresh Verifier, Deep Review, and QA sessions remain independent. Adaptive concurrency starts at
+  two workers and may scale one lane at a time to a default ceiling of four when a machine-only
+  health proof and resource leases permit it. Context cleanup and slice-scoped packets are part of
+  the foundation, not a later optimization.
+- **Reason**: The current TLC skill teaches sequential phase batches, while the approved workflow
+  uses safe vertical slices as the unit of concurrent delivery. A single, lean contract removes
+  contradictory scheduling instructions and reduces repeated context.
+- **Trade-off**: The workflow owns a maintained adaptation and additional scheduler/resource
+  machinery. Independent proof still consumes tokens, and unavailable health evidence prevents
+  scaling above the safe baseline.
+- **Scope**: Agent instructions, spec-driven skill and references, role packets, workflow snapshot
+  schema, planner/executor scheduling, resource provider and health probe, worktree lifecycle,
+  adoption, verification, QA, and context-budget evidence.
+- **Date**: 2026-08-28
+- **Status**: active

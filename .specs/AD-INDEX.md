@@ -21,3 +21,4 @@ When recording an `AD-NNN`, run `python3 tools/ad-index.py` in the same commit.
 | `AD-012` | active | Parallel execution uses a provider-neutral deterministic coordinator whose adapters own external effects. |
 | `AD-013` | active | The provider-neutral coordinator derives and validates a deterministic sibling Git worktree destination, creates that checkout with fixed a… |
 | `AD-014` | active | Technical Verifier remediation is bounded per blocker fingerprint, defined by the requirement, root cause, and concrete failure path. |
+| `AD-015` | active | Replace the vendored TLC phase-batch delegation with a workflow-owned, CC-BY-4.0-attributed spec-driven skill that dispatches vertical slic… |
