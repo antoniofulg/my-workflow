@@ -370,12 +370,19 @@ def test_adoption_installs_parallel_pilot_and_preserves_consumer_config() -> Non
         assert adopted.read_bytes() == source.read_bytes()
 
         adopted.write_bytes(b"stale managed copy\n")
+        legacy = tmp / ".agents/skills/tlc-spec-driven"
+        legacy.mkdir(parents=True)
+        (legacy / "SKILL.md").write_text("obsolete\n", encoding="utf-8")
+        legacy_pointer = tmp / ".claude/skills/tlc-spec-driven"
+        legacy_pointer.symlink_to("../../.agents/skills/tlc-spec-driven")
         config = tmp / ".my-workflow.toml"
         config.write_bytes(config.read_bytes() + b"# consumer-owned\n")
         config_before = config.read_bytes()
         run(tmp)
         assert adopted.read_bytes() == source.read_bytes()
         assert config.read_bytes() == config_before
+        assert not legacy.exists()
+        assert not legacy_pointer.exists()
 
         pilot_before = adopted.read_bytes()
         run(tmp)

@@ -82,6 +82,7 @@ def telemetry(
         "role_budget_bytes": ROLE_BUDGET_BYTES,
         "within_budget": within_budget,
         "components": {"role": role_bytes, "slice": slice_bytes},
+        "total_bytes": role_bytes + slice_bytes,
     }
     if error:
         result["error"] = error
@@ -93,16 +94,27 @@ def write_telemetry(path: Path, data: dict[str, Any]) -> None:
     path.write_text(json.dumps(data, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def emit_telemetry(path: Path, data: dict[str, Any]) -> None:
+    """Best-effort diagnostics that never turn a safe error into a traceback."""
+    try:
+        write_telemetry(path, data)
+    except OSError:
+        pass
+
+
 def build(input_path: Path, output_path: Path, telemetry_path: Path, role_path: Path | None) -> dict[str, Any]:
-    role_bytes = role_path.stat().st_size if role_path and role_path.is_file() else 0
+    try:
+        role_bytes = role_path.stat().st_size if role_path and role_path.is_file() else 0
+    except OSError:
+        role_bytes = 0
     try:
         request = json.loads(input_path.read_text(encoding="utf-8"))
         validate_request(request)
         packet = render_packet(request)
-    except (OSError, json.JSONDecodeError, PacketError) as exc:
+    except (OSError, UnicodeError, json.JSONDecodeError, PacketError) as exc:
         reason = str(exc) if isinstance(exc, PacketError) else "invalid_input"
         result = telemetry(role_bytes=role_bytes, slice_bytes=0, within_budget=False, error=reason)
-        write_telemetry(telemetry_path, result)
+        emit_telemetry(telemetry_path, result)
         raise PacketError(reason) from exc
 
     slice_bytes = len(packet)
@@ -110,19 +122,24 @@ def build(input_path: Path, output_path: Path, telemetry_path: Path, role_path: 
         result = telemetry(
             role_bytes=role_bytes, slice_bytes=slice_bytes, within_budget=False, error="role_budget_exceeded"
         )
-        write_telemetry(telemetry_path, result)
+        emit_telemetry(telemetry_path, result)
         raise PacketError("role_budget_exceeded")
     if slice_bytes > SLICE_BUDGET_BYTES:
         result = telemetry(
             role_bytes=role_bytes, slice_bytes=slice_bytes, within_budget=False, error="slice_budget_exceeded"
         )
-        write_telemetry(telemetry_path, result)
+        emit_telemetry(telemetry_path, result)
         raise PacketError("slice_budget_exceeded")
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_bytes(packet)
+    try:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(packet)
+    except OSError as exc:
+        result = telemetry(role_bytes=role_bytes, slice_bytes=slice_bytes, within_budget=False, error="io_error")
+        emit_telemetry(telemetry_path, result)
+        raise PacketError("io_error") from exc
     result = telemetry(role_bytes=role_bytes, slice_bytes=slice_bytes, within_budget=True)
-    write_telemetry(telemetry_path, result)
+    emit_telemetry(telemetry_path, result)
     return result
 
 

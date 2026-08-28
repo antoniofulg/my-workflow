@@ -73,6 +73,11 @@ COPY_MISSING_PATHS = [
     "templates/agents",
 ]
 
+OBSOLETE_MANAGED_PATHS = (
+    ".agents/skills/tlc-spec-driven",
+    ".claude/skills/tlc-spec-driven",
+)
+
 
 GLOBAL_CLAUDE_ROOT = re.compile(
     r"(?:\$\(HOME\)|\$\{HOME\}|\$HOME|~)/\.claude(?:/|$)"
@@ -113,6 +118,15 @@ def copy_missing(src: Path, dest: Path) -> None:
     if dest.exists() or dest.is_symlink():
         return
     copy_tree(src, dest)
+
+
+def remove_obsolete_managed_paths(dest: Path) -> None:
+    for relative in OBSOLETE_MANAGED_PATHS:
+        path = dest / relative
+        if path.is_symlink() or path.is_file():
+            path.unlink()
+        elif path.is_dir():
+            shutil.rmtree(path)
 
 
 def product_section(text: str) -> str:
@@ -231,6 +245,7 @@ def main(argv: list[str]) -> None:
     reject_global_tlc_paths(dest)
     if not skip_agents:
         adopt_agents(src, dest)
+    remove_obsolete_managed_paths(dest)
     for rel in COPY_PATHS:
         origin = src / rel
         if not origin.exists():

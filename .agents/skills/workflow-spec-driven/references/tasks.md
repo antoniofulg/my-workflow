@@ -1,6 +1,6 @@
 # Tasks
 
-**Goal**: Break into GRANULAR, ATOMIC tasks. Clear dependencies. Right tools. Sequential phase execution plan.
+**Goal**: Break into GRANULAR, ATOMIC tasks. Clear dependencies. Right tools. Dependency-ordered execution plan.
 
 **Skip this phase when:** There are ≤3 obvious steps. In that case, tasks are implicit - go straight to Execute and list them inline in your implementation plan.
 
@@ -133,14 +133,8 @@ What MUST be done before this task can start?
 
 ### 4. Create Execution Plan
 
-Group tasks into ordered phases. Each phase depends on the ones before it; tasks execute sequentially within a phase.
-
-**Size phases near the worker budget.** During Execute, phases are packed into task-budgeted dispatches (~7 tasks per sub-agent, whole phases - see [sub-agents.md](sub-agents.md)). Because a dispatch cut may only land on a phase boundary, a phase that is much larger than the budget forces an over-sized worker. Keep each phase from greatly exceeding the budget:
-
-- If a phase would hold **more than ~10 tasks (≈1.5× the budget)**, split it into cohesive sub-phases at a genuine dependency/cohesion seam - not at an arbitrary task index.
-- Only leave a phase over-sized when its tasks are one tight dependency chain that genuinely cannot be split. That is a legitimate (if fat) single-worker phase, not a smell.
-
-This keeps phase boundaries meaningful while letting the packing hit its target worker count.
+Group tasks by dependency and cohesion labels. Dependencies determine order; compatible slices
+may be dispatched together by the coordinator, while tasks within each slice remain sequential.
 
 ### 5. Validate Before Presenting (MANDATORY)
 
@@ -201,7 +195,8 @@ Implement these tasks with the `workflow-spec-driven` skill: **activate it by na
 
 ## Execution Plan
 
-Phases are ordered and run sequentially - each phase completes before the next begins, and tasks within a phase execute in order.
+The execution plan records dependency labels and task order. Independent slices may run concurrently;
+tasks within each slice execute in order and a dependent slice waits for its verified checkpoint.
 
 ### Phase 1: Foundation
 
@@ -329,12 +324,12 @@ T8 → T9
 
 ---
 
-## Phase Execution Map
+## Dependency Execution Map
 
-Visual representation of task ordering. Phases run in sequence, and tasks within a phase run in order:
+Visual representation of task ordering and dependency labels:
 
 ```
-Phase 1 → Phase 2 → Phase 3
+Phase 1   Phase 2   Phase 3
 
 Phase 1:  T1 ------→ T2 ------→ T3
 Phase 2:  T4 ------→ T5 ------→ T6 ------→ T7
@@ -431,7 +426,7 @@ Pick whichever option keeps tasks atomic and cohesive. The goal: no task produce
 
 ## Tips
 
-- **Phases are ordered** - Each phase completes before the next; tasks run in order within a phase
+- **Dependencies are gates** - Each task waits only for its declared prerequisites; independent slices can run together
 - **Reuses = Token saver** - Always reference existing code
 - **Tools per task** - MCPs and Skills prevent wrong approaches
 - **Dependencies are gates** - Clear what blocks what

@@ -164,11 +164,12 @@ describe("canonical QA skills", () => {
   it("UT-001 installs one attributed slice-native workflow authority", () => {
     const skill = readRepositoryFile(".agents/skills/workflow-spec-driven/SKILL.md");
     const notice = readRepositoryFile(".agents/skills/workflow-spec-driven/NOTICE.md");
+    const tasksReference = readRepositoryFile(".agents/skills/workflow-spec-driven/references/tasks.md");
     const activeContract = [
       skill,
       notice,
       readRepositoryFile(".agents/skills/workflow-spec-driven/references/sub-agents.md"),
-      readRepositoryFile(".agents/skills/workflow-spec-driven/references/tasks.md"),
+      tasksReference,
       readRepositoryFile(".agents/skills/workflow-spec-driven/references/implement.md"),
     ].join("\n");
 
@@ -183,6 +184,10 @@ describe("canonical QA skills", () => {
     );
     expect(activeContract).not.toMatch(/phase[- ]batch|Batch complete|opt[- ]in/i);
     expect(activeContract).not.toMatch(/after the last task of the feature/i);
+    expect(tasksReference).toMatch(/compatible slices\s+may be dispatched together/);
+    expect(tasksReference).not.toMatch(
+      /task-budgeted dispatch|whole phases|phases? (?:run|are ordered|complete) in sequence|phase boundaries/i,
+    );
     expect(activeContract).toContain("slice packet");
     expect(activeContract).toContain("fresh Technical Verifier");
   });
