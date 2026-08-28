@@ -285,11 +285,11 @@ then import the installed probe with a call-counting fake Orca.
 | HSE-50 | Halt recovery | S4 | Implemented in T13 |
 | HSE-51 | Halt recovery | S4 | Implemented in T13 |
 | HSE-52 | Halt recovery | S4 | Implemented in T13 |
-| HSE-53 | Mutation issue guard | S4 | In Tasks |
-| HSE-54 | Mutation issue guard | S4 | In Tasks |
-| HSE-55 | Mutation issue guard | S4 | In Tasks |
-| HSE-56 | Mutation issue guard | S4 | In Tasks |
-| HSE-57 | Mutation issue guard | S4 | In Tasks |
+| HSE-53 | Mutation issue guard | S4 | Implemented in T14 |
+| HSE-54 | Mutation issue guard | S4 | Implemented in T14 |
+| HSE-55 | Mutation issue guard | S4 | Implemented in T14 |
+| HSE-56 | Mutation issue guard | S4 | Implemented in T14 |
+| HSE-57 | Mutation issue guard | S4 | Implemented in T14 |
 
 **Coverage:** 57 total, 57 mapped to design slices, 0 unmapped.
 

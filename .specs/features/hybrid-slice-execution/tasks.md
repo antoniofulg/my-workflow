@@ -310,17 +310,17 @@ and stdlib atomic writer pattern from review convergence
 
 **Done when:**
 
-- [ ] `MutationRunner.issue` is the sole reachable Orca/Git/provider mutation boundary for public
+- [x] `MutationRunner.issue` is the sole reachable Orca/Git/provider mutation boundary for public
   `dispatch` and `cleanup`; a structural AST check rejects any alternate sink.
-- [ ] State is durably `in_flight` with attempt 1 before the sink; injected atomic-write failure
+- [x] State is durably `in_flight` with attempt 1 before the sink; injected atomic-write failure
   leaves prior bytes unchanged and all physical ledgers empty.
-- [ ] Existing `in_flight`/`unknown` entries issue zero mutations and use only bounded same-identity
+- [x] Existing `in_flight`/`unknown` entries issue zero mutations and use only bounded same-identity
   reads; absent or contradictory observations fail closed.
-- [ ] PATH-backed Git, provider, and Orca ledgers record exactly one physical mutation for every
+- [x] PATH-backed Git, provider, and Orca ledgers record exactly one physical mutation for every
   logical happy, post-effect-timeout, pointer, and cleanup operation.
-- [ ] Terminal ledger contains the short packet pointer and never the packet body.
-- [ ] The duplicate-success Git and provider discrimination mutants both fail the focused suite.
-- [ ] Assigned 5 new cases, all prior S4 cases, focused gate, and full gate exit 0; generation 2 is
+- [x] Terminal ledger contains the short packet pointer and never the packet body.
+- [x] The duplicate-success Git and provider discrimination mutants both fail the focused suite.
+- [x] Assigned 5 new cases, all prior S4 cases, focused gate, and full gate exit 0; generation 2 is
   ready for a fresh independent CP-S4 Technical Verifier.
 
 **Tests:** unit + integration + security — UT-020, IT-017, IT-018, IT-019, SEC-013

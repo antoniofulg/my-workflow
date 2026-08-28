@@ -16,6 +16,8 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
+from copy import deepcopy
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -226,7 +228,7 @@ def pointer(packet_file: Path, *, worktree: Path | None = None) -> str:
     return f"read {shlex.quote(str(packet))} and execute it as your packet"
 
 
-def send_pointer(
+def _send_pointer_once(
     probe: OrcaProbe,
     handle: str,
     packet_file: Path,
@@ -1038,43 +1040,20 @@ def cleanup(args: argparse.Namespace) -> None:
     stopped = False
     lease_released = False
     effect_state_path = getattr(args, "state_path", None)
-
-    def cleanup_effect(
-        effect_spec: dict[str, Any], invoke: Callable[[], dict[str, Any]],
-        *, success: Callable[[dict[str, Any]], bool] | None = None,
-        reconcile: Callable[[], bool] | None = None,
-    ) -> dict[str, Any]:
-        if isinstance(state_payload, dict) and isinstance(effect_state_path, Path):
-            return _persisted_effect(args, state_payload, effect_state_path, effect_spec, invoke,
-                                     success=success, reconcile=reconcile)
-        return {"status": "settled", "attempts": 1, "receipt": invoke()}
+    if not isinstance(state_payload, dict) or not isinstance(effect_state_path, Path):
+        raise ProbeError("cleanup requires persisted state")
+    runner = MutationRunner(args, state_payload, effect_state_path)
 
     if owned:
-        stopped_result = cleanup_effect(
-            {"effect_id": f"{receipt['operation_id']}:cleanup-stop", "kind": "orca"},
-            lambda: raw([probe.orca, "terminal", "stop", "--terminal", known, "--json"], timeout=args.timeout),
-            reconcile=lambda: all(value.get("handle") != known for value in probe.worktree_terminals(worktree_id)),
+        stopped_result = runner.issue(
+            {"effect_id": f"{receipt['operation_id']}:cleanup-stop", "kind": "orca",
+             "argv": ["terminal", "stop", "--terminal", known, "--json"]},
+            observe=lambda: all(value.get("handle") != known for value in probe.worktree_terminals(worktree_id)),
         )
         stopped = True
     if lease_id is not None:
         provider_root = Path(state_payload["repository_root"]).resolve() if isinstance(state_payload, dict) else path.parent
         provider = _owned_path(provider_value, provider_root, "lease provider")
-        def release_lease() -> dict[str, Any]:
-            result = subprocess.run(
-                [str(provider)], cwd=str(provider_root),
-                input=json.dumps({"operation": "release", "lease_id": lease_id,
-                                  "repository": receipt["repository"], "worktree": receipt["id"]}),
-                capture_output=True, text=True, shell=False, timeout=args.timeout, check=False,
-            )
-            if result.returncode != 0:
-                raise ProbeError("owned lease release failed")
-            try:
-                released = json.loads(result.stdout or "{}")
-            except json.JSONDecodeError as error:
-                raise ProbeError("owned lease release receipt is malformed") from error
-            if not isinstance(released, dict) or released.get("lease_id") != lease_id or released.get("released") is not True:
-                raise ProbeError("owned lease release receipt is uncorrelated")
-            return released
         def lease_reconciled() -> bool:
             result = subprocess.run(
                 [str(provider)], cwd=str(provider_root),
@@ -1086,31 +1065,35 @@ def cleanup(args: argparse.Namespace) -> None:
                 return False
             observed = json.loads(result.stdout or "{}")
             return isinstance(observed, dict) and observed.get("lease_id") == lease_id and observed.get("released") is True
-        cleanup_effect({"effect_id": f"{receipt['operation_id']}:cleanup-lease", "kind": "lease"}, release_lease,
-                       reconcile=lease_reconciled)
+        cleanup_lease = {"effect_id": f"{receipt['operation_id']}:cleanup-lease", "kind": "lease",
+                         "provider": str(provider), "operation": "release"}
+        cleanup_lease_result = runner.issue(
+            cleanup_lease,
+            observe=lease_reconciled,
+            success=lambda value: isinstance(value, dict) and value.get("lease_id") == lease_id and value.get("released") is True,
+        )
+        del cleanup_lease_result
         lease_released = True
     else:
         lease_released = True
     if git(path, "symbolic-ref", "--quiet", "--short", "HEAD", check=False).stdout.strip() == branch.removeprefix("refs/heads/"):
-        cleanup_effect(
-            {"effect_id": f"{receipt['operation_id']}:cleanup-detach", "kind": "git", "argv": ["switch", "--detach", current_head]},
-            lambda: {"returncode": git(path, "switch", "--detach", current_head).returncode},
+        runner.issue(
+            {"effect_id": f"{receipt['operation_id']}:cleanup-detach", "kind": "git", "path": str(path), "argv": ["switch", "--detach", current_head]},
             success=lambda value: value.get("returncode") == 0,
-            reconcile=lambda: git(path, "symbolic-ref", "--quiet", "--short", "HEAD", check=False).returncode != 0,
+            observe=lambda: git(path, "symbolic-ref", "--quiet", "--short", "HEAD", check=False).returncode != 0,
         )
-    cleanup_effect(
-        {"effect_id": f"{receipt['operation_id']}:cleanup-branch", "kind": "git", "argv": ["branch", "--delete", branch.removeprefix("refs/heads/")]},
-        lambda: {"returncode": git(path, "branch", "--delete", branch.removeprefix("refs/heads/"), check=False).returncode},
+    runner.issue(
+        {"effect_id": f"{receipt['operation_id']}:cleanup-branch", "kind": "git", "path": str(path), "argv": ["branch", "--delete", branch.removeprefix("refs/heads/")]},
         success=lambda value: value.get("returncode") == 0,
-        reconcile=lambda: not ref_exists(common_git_dir.parent, ref),
+        observe=lambda: not ref_exists(common_git_dir.parent, ref),
     )
     if ref_exists(common_git_dir.parent, ref):
         raise ProbeError("owned branch ref remains after deletion")
 
-    removed_result = cleanup_effect(
-        {"effect_id": f"{receipt['operation_id']}:cleanup-rm", "kind": "orca"},
-        lambda: raw([probe.orca, "worktree", "rm", "--worktree", f"id:{worktree_id}", "--json"], timeout=args.timeout),
-        reconcile=lambda: worktree_id not in probe.inventory()["worktrees"],
+    removed_result = runner.issue(
+        {"effect_id": f"{receipt['operation_id']}:cleanup-rm", "kind": "orca",
+         "argv": ["worktree", "rm", "--worktree", f"id:{worktree_id}", "--json"]},
+        observe=lambda: worktree_id not in probe.inventory()["worktrees"],
     )
     after = probe.inventory()
     foreign_before = set(before["worktrees"]) - {worktree_id}
@@ -1390,8 +1373,21 @@ def _receipt_from_state(state: dict[str, Any]) -> dict[str, Any]:
 
 
 def _write_json(path: Path, value: dict[str, Any]) -> None:
+    """Atomically replace state so a sink never sees a half-written issue record."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            json.dump(value, stream, indent=2, sort_keys=True)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
 
 
 def _effect_record(state: dict[str, Any], effect_id: str) -> dict[str, Any] | None:
@@ -1457,6 +1453,103 @@ def _reconcile_effect(
     raise ProbeError(f"effect {effect.get('effect_id')} was not reconciled")
 
 
+class MutationRunner:
+    """Own the only transition from a durable effect intent to a physical mutation."""
+
+    def __init__(self, args: argparse.Namespace, state: dict[str, Any], state_path: Path) -> None:
+        self.args = args
+        self.state = state
+        self.state_path = state_path
+
+    def _sink(self, effect: dict[str, Any]) -> dict[str, Any]:
+        kind = effect.get("kind")
+        argv = effect.get("argv")
+        if kind == "orca":
+            if not isinstance(argv, list) or not argv or any(not isinstance(item, str) for item in argv):
+                raise ProbeError("malformed Orca mutation")
+            command = [self.args.orca, *argv] if isinstance(argv, list) else []
+            if effect.get("pointer"):
+                    return _send_pointer_once(
+                    OrcaProbe(self.state["repository"], orca=self.args.orca),
+                    str(effect["handle"]), Path(str(effect["packet"])), Path(str(effect["log"])),
+                )
+            return raw(command, timeout=float(getattr(self.args, "timeout", 30.0)))
+        if kind == "git":
+            if not isinstance(argv, list):
+                raise ProbeError("malformed Git mutation")
+            result = git(effect.get("path", self.state["repository_root"]), *argv, check=True)
+            return {"returncode": result.returncode}
+        if kind == "lease":
+            provider = _owned_path(effect.get("provider"), Path(self.state["repository_root"]), "lease provider")
+            operation = effect.get("operation", "acquire")
+            result = subprocess.run(
+                [str(provider)], cwd=self.state["repository_root"], input=json.dumps({
+                    "operation": operation, "lease_id": self.state["lease_id"],
+                    "repository": self.state["repository"], "slice": self.state["slice_id"],
+                    "task": self.state["task_id"], "operation_id": self.state["operation_id"],
+                }), capture_output=True, text=True, shell=False,
+                timeout=float(getattr(self.args, "timeout", 30.0)), check=False,
+            )
+            if result.returncode:
+                raise ProbeError("resource provider mutation failed")
+            try:
+                value = json.loads(result.stdout or "{}")
+            except json.JSONDecodeError as error:
+                raise ProbeError("resource provider returned malformed JSON") from error
+            if not isinstance(value, dict):
+                raise ProbeError("resource provider returned malformed JSON")
+            return value
+        raise ProbeError("unknown mutation kind")
+
+    def issue(
+        self,
+        effect: dict[str, Any],
+        sink: Callable[[], dict[str, Any]] | None = None,
+        observe: Callable[[], bool] | None = None,
+        success: Callable[[dict[str, Any]], bool] | None = None,
+    ) -> dict[str, Any]:
+        """Persist in-flight attempt one, issue once, or reconcile an existing effect."""
+        effect_id = _token(effect.get("effect_id"), "effect id")
+        existing = _effect_record(self.state, effect_id)
+        if existing is not None:
+            if existing.get("status") == "settled":
+                return existing
+            reader = observe or (lambda: self._read_effect(existing))
+            return _settle_callback(self.args, self.state, self.state_path, existing, reader)
+        record = {key: effect[key] for key in ("effect_id", "kind", "argv", "path", "provider", "operation", "observe", "observe_operation", "pointer", "handle", "packet", "log") if key in effect}
+        record.update({"effect_id": effect_id, "kind": effect.get("kind"), "status": "in_flight", "attempts": 1})
+        original = deepcopy(self.state)
+        self.state.setdefault("effects", []).append(record)
+        self.state.setdefault("effect_ids", []).append(effect_id)
+        try:
+            _write_json(self.state_path, self.state)
+        except Exception:
+            self.state.clear()
+            self.state.update(original)
+            raise
+        try:
+            receipt = (sink or (lambda: self._sink(effect)))()
+        except Exception as error:  # noqa: BLE001 - preserve ambiguous post-effect state
+            record.update({"status": "unknown", "error": str(error)})
+            _write_json(self.state_path, self.state)
+            raise
+        record.update({"status": "issued", "receipt": receipt})
+        _write_json(self.state_path, self.state)
+        if success is not None and not success(receipt):
+            record.update({"status": "unknown", "error": "mutation receipt was not accepted"})
+            _write_json(self.state_path, self.state)
+            raise ProbeError(f"effect {effect_id} receipt was not accepted")
+        reader = observe or (lambda: self._read_effect(record))
+        if observe is not None or isinstance(effect.get("observe"), list):
+            return _settle_callback(self.args, self.state, self.state_path, record, reader)
+        record["status"] = "settled"
+        _write_json(self.state_path, self.state)
+        return record
+
+    def _read_effect(self, effect: dict[str, Any]) -> bool:
+        return _reconcile_effect(self.args, self.state, self.state_path, effect).get("status") == "settled"
+
+
 def _persisted_effect(
     args: argparse.Namespace,
     state: dict[str, Any],
@@ -1467,39 +1560,8 @@ def _persisted_effect(
     success: Callable[[dict[str, Any]], bool] | None = None,
     reconcile: Callable[[], bool] | None = None,
 ) -> dict[str, Any]:
-    """Persist pending before one mutation, then settle or preserve unknown evidence."""
-    effect_id = _token(effect_spec.get("effect_id"), "effect id")
-    existing = _effect_record(state, effect_id)
-    if existing is not None:
-        if existing.get("status") == "settled":
-            return existing
-        if reconcile is not None:
-            return _settle_callback(args, state, state_path, existing, reconcile)
-        return _reconcile_effect(args, state, state_path, existing)
-    record = {key: effect_spec[key] for key in ("effect_id", "kind", "argv", "provider", "operation", "observe", "observe_operation") if key in effect_spec}
-    record.update({"effect_id": effect_id, "kind": effect_spec.get("kind"), "status": "pending", "attempts": 0})
-    state.setdefault("effects", []).append(record)
-    state.setdefault("effect_ids", []).append(effect_id)
-    _write_json(state_path, state)
-    try:
-        receipt = invoke()
-    except Exception as error:  # noqa: BLE001 - preserve ambiguous effect
-        record.update({"status": "unknown", "attempts": 1, "error": str(error)})
-        _write_json(state_path, state)
-        raise
-    record.update({"status": "issued", "attempts": 1, "receipt": receipt})
-    _write_json(state_path, state)
-    if success is not None and not success(receipt):
-        record.update({"status": "unknown", "error": "mutation receipt was not accepted"})
-        _write_json(state_path, state)
-        raise ProbeError(f"effect {effect_id} receipt was not accepted")
-    if reconcile is not None:
-        return _settle_callback(args, state, state_path, record, reconcile)
-    if isinstance(effect_spec.get("observe"), list):
-        return _reconcile_effect(args, state, state_path, record)
-    record["status"] = "settled"
-    _write_json(state_path, state)
-    return record
+    """Compatibility adapter; all issuance is delegated to MutationRunner.issue."""
+    return MutationRunner(args, state, state_path).issue(effect_spec, sink=invoke, observe=reconcile, success=success)
 
 
 def _settle_callback(
@@ -1556,40 +1618,6 @@ def _observation_identity(payload: dict[str, Any], state: dict[str, Any], source
             raise ProbeError(f"{source} correlation missing: {field}")
         if found != state[field]:
             raise ProbeError(f"{source} correlation mismatch: {field}")
-
-
-def _run_declared_mutation(args: argparse.Namespace, state: dict[str, Any], effect: dict[str, Any]) -> dict[str, Any]:
-    kind = effect.get("kind")
-    effect_id = _token(effect.get("effect_id"), "effect id")
-    argv = effect.get("argv")
-    if kind not in {"orca", "git", "lease"} or not isinstance(argv, list) or not argv or any(not isinstance(item, str) for item in argv):
-        raise ProbeError("malformed declared mutation")
-    command = list(argv)
-    if kind == "orca":
-        command.insert(0, args.orca)
-        if not _is_mutation(command):
-            raise ProbeError("declared Orca effect is not a mutation")
-        receipt = raw(command, timeout=30)
-    elif kind == "git":
-        result = git(state["repository_root"], *command, check=True)
-        receipt = {"returncode": result.returncode}
-    else:
-        provider = _owned_path(effect.get("provider"), Path(state["repository_root"]), "lease provider")
-        if not provider.is_file() or not os.access(provider, os.X_OK):
-            raise ProbeError("lease provider is not executable")
-        result = subprocess.run([str(provider)], cwd=state["repository_root"], input=json.dumps({
-            "operation": effect.get("operation", "acquire"), "lease_id": state["lease_id"],
-            "repository": state["repository"], "slice": state["slice_id"], "task": state["task_id"],
-            "operation_id": state["operation_id"],
-        }), capture_output=True, text=True, shell=False, timeout=30, check=False)
-        if result.returncode:
-            raise ProbeError("resource provider mutation failed")
-        try:
-            receipt = json.loads(result.stdout or "{}")
-        except json.JSONDecodeError as error:
-            raise ProbeError("resource provider returned malformed JSON") from error
-    return {"effect_id": effect_id, "kind": kind, "status": "issued", "receipt": receipt, "attempts": 1,
-            "argv": argv, **({key: effect[key] for key in ("provider", "operation", "observe") if key in effect})}
 
 
 def dispatch(args: argparse.Namespace) -> None:
@@ -1671,19 +1699,20 @@ def dispatch(args: argparse.Namespace) -> None:
     declared = request.get("effects", [])
     if not isinstance(declared, list):
         raise ProbeError("effects must be an array")
+    runner = MutationRunner(args, state, state_path)
     for effect_spec in declared:
         if not isinstance(effect_spec, dict):
             raise ProbeError("malformed declared mutation")
-        _persisted_effect(
-            args, state, state_path, effect_spec,
-            lambda effect_spec=effect_spec: _run_declared_mutation(args, state, effect_spec)["receipt"],
+        runner.issue(
+            effect_spec,
             success=lambda receipt: isinstance(receipt, dict) and receipt.get("ok", True) is not False,
         )
     pointer_spec = {"effect_id": f"{state['operation_id']}:pointer", "kind": "orca",
-                    "argv": ["terminal", "send"], "observe": request.get("pointer_observe")}
-    sent_record = _persisted_effect(
-        args, state, state_path, pointer_spec,
-        lambda: send_pointer(OrcaProbe(state["repository"], orca=args.orca), state["terminal_handle"], packet_path, log_path),
+                    "argv": ["terminal", "send"], "pointer": True,
+                    "handle": state["terminal_handle"], "packet": str(packet_path),
+                    "log": str(log_path), "observe": request.get("pointer_observe")}
+    sent_record = runner.issue(
+        pointer_spec,
         success=lambda receipt: isinstance(receipt, dict) and receipt.get("ok") is True,
     )
     sent = sent_record.get("receipt", {})

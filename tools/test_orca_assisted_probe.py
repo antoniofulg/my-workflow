@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import subprocess
@@ -413,6 +414,101 @@ def test_SEC001_dispatch_rejects_repository_symlink_before_any_effect() -> None:
         request_path, state_path = real / "request.json", real / "state.json"; request_path.write_text(json.dumps(request), encoding="utf-8")
         completed = subprocess.run([sys.executable, str(ROOT / "orca_assisted_probe.py"), "--orca", str(fake), "dispatch", "--request", str(request_path), "--state", str(state_path)], capture_output=True, text=True, check=False)
         assert completed.returncode != 0 and not calls.exists() and not state_path.exists()
+
+
+def test_UT020_public_lifecycle_has_one_mutation_issuer() -> None:
+    tree = ast.parse((ROOT / "orca_assisted_probe.py").read_text(encoding="utf-8"))
+    public = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in {"dispatch", "cleanup"}]
+    assert {node.name for node in public} == {"dispatch", "cleanup"}
+    for node in public:
+        for call in ast.walk(node):
+            if not isinstance(call, ast.Call):
+                continue
+            if isinstance(call.func, ast.Name):
+                assert call.func.id not in {"raw", "subprocess"}, f"direct sink in {node.name}"
+    runner = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "MutationRunner")
+    assert any(isinstance(node, ast.FunctionDef) and node.name == "issue" for node in runner.body)
+
+
+def test_IT017_SEC013_issue_persists_in_flight_before_sink_and_rejects_duplicate_success() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory); state_path = root / "state.json"; ledger = root / "ledger"
+        state: dict[str, object] = {"repository_root": str(root), "repository": "repo", "slice_id": "S4", "task_id": "T14", "operation_id": "op-T14", "lease_id": "lease-T14", "effects": [], "effect_ids": []}
+        state_path.write_text(json.dumps(state), encoding="utf-8")
+        args = type("Args", (), {"orca": "orca", "timeout": 1.0, "attempts": 1, "interval": 0})()
+        seen: list[dict[str, object]] = []
+        def sink() -> dict[str, object]:
+            seen.append(json.loads(state_path.read_text(encoding="utf-8")))
+            ledger.write_text("physical\n", encoding="utf-8")
+            return {"ok": True}
+        effect = {"effect_id": "git-once", "kind": "git", "argv": ["add", "seed"]}
+        runner = probe.MutationRunner(args, state, state_path)
+        result = runner.issue(effect, sink=sink)
+        assert seen[0]["effects"][0]["status"] == "in_flight"
+        assert seen[0]["effects"][0]["attempts"] == 1
+        assert result["status"] == "settled"
+        runner.issue(effect, sink=lambda: (_ for _ in ()).throw(AssertionError("duplicate sink")))
+        assert ledger.read_text(encoding="utf-8").splitlines() == ["physical"]
+
+        prior = state_path.read_bytes()
+        original_write = probe._write_json
+        def fail_write(path: Path, value: dict[str, object]) -> None:
+            raise OSError("injected pre-sink failure")
+        probe._write_json = fail_write  # type: ignore[assignment]
+        try:
+            try:
+                probe.MutationRunner(args, {**state, "effects": [], "effect_ids": []}, state_path).issue({"effect_id": "provider-once", "kind": "git", "argv": ["add", "seed"]}, sink=lambda: (_ for _ in ()).throw(AssertionError("sink reached")))
+            except OSError:
+                pass
+            else:
+                raise AssertionError("pre-sink persistence failure was accepted")
+        finally:
+            probe._write_json = original_write  # type: ignore[assignment]
+        assert state_path.read_bytes() == prior
+
+
+def test_IT018_IT019_SEC013_physical_ledgers_cover_git_provider_orca_and_restart_reads() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory); head = _repo(root)
+        fake_orca, orca_ledger = root / "orca", root / "orca.ledger"
+        fake_orca.write_text(f"#!/bin/sh\nprintf '%s\\n' \"$*\" >> {orca_ledger}\nprintf '%s\\n' '{{\"ok\":true}}'\n", encoding="utf-8"); fake_orca.chmod(0o755)
+        provider_ledger, provider = root / "provider.ledger", root / "provider"
+        provider.write_text(f"#!/bin/sh\nprintf '%s\\n' provider >> {provider_ledger}\nprintf '%s\\n' '{{\"lease_id\":\"lease-S4\",\"released\":true}}'\n", encoding="utf-8"); provider.chmod(0o755)
+        git_ledger, fake_git = root / "git.ledger", root / "git"
+        fake_git.write_text(f"#!/bin/sh\nprintf '%s\\n' \"$*\" >> {git_ledger}\n", encoding="utf-8"); fake_git.chmod(0o755)
+        request = root / "request.json"; state_path = root / "state.json"
+        effects = [
+            {"effect_id": "orca-once", "kind": "orca", "argv": ["worktree", "create"]},
+            {"effect_id": "git-once", "kind": "git", "argv": ["add", "seed"]},
+            {"effect_id": "provider-once", "kind": "lease", "provider": str(provider), "operation": "acquire"},
+        ]
+        request.write_text(json.dumps(_request(root, head, effects=effects)), encoding="utf-8")
+        env = {**os.environ, "PATH": f"{root}:{os.environ.get('PATH', '')}"}
+        completed = subprocess.run([sys.executable, str(ROOT / "orca_assisted_probe.py"), "--orca", str(fake_orca), "dispatch", "--request", str(request), "--state", str(state_path)], env=env, capture_output=True, text=True, check=False)
+        assert completed.returncode == 0, completed.stderr
+        orca_lines = orca_ledger.read_text(encoding="utf-8").splitlines()
+        assert sum("worktree create" in line for line in orca_lines) == 1
+        assert sum("terminal send" in line for line in orca_lines) == 1
+        assert len(git_ledger.read_text(encoding="utf-8").splitlines()) == 1
+        assert len(provider_ledger.read_text(encoding="utf-8").splitlines()) == 1
+        assert "SECRET_PACKET_BODY" not in orca_ledger.read_text(encoding="utf-8")
+        saved = json.loads(state_path.read_text(encoding="utf-8"))
+        assert {effect["status"] for effect in saved["effects"]} == {"settled"}
+        replay = {**saved, "effects": [{**saved["effects"][0], "status": "unknown"}, {**saved["effects"][1], "status": "in_flight"}], "status": "send_started"}
+        replay_path = root / "replay.json"; replay_path.write_text(json.dumps(replay), encoding="utf-8")
+        args = type("Args", (), {"orca": str(fake_orca), "attempts": 1, "interval": 0, "timeout": 1.0})()
+        reads = {"count": 0}
+        def observe() -> bool:
+            reads["count"] += 1
+            return True
+        runner = probe.MutationRunner(args, replay, replay_path)
+        runner.issue(replay["effects"][0], observe=observe)
+        runner.issue(replay["effects"][1], observe=observe)
+        replay_lines = orca_ledger.read_text(encoding="utf-8").splitlines()
+        assert sum("worktree create" in line for line in replay_lines) == 1
+        assert sum("terminal send" in line for line in replay_lines) == 1
+        assert len(git_ledger.read_text(encoding="utf-8").splitlines()) == 1
+        assert reads["count"] == 2
 
 
 def main() -> None:
