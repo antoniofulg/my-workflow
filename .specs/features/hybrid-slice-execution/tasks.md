@@ -195,7 +195,7 @@ subcommands, packet persistence, short-pointer send, injected runners, JSON stdo
 - [x] Full packet lands on disk; fake Orca receives one short pointer with no body marker.
 - [x] JSON output follows `dx.md` and contains no injected sensitive marker.
 - [x] Assigned 3 cases pass with no existing assertion weakened or deleted.
-- [ ] Full gate exits 0 before commit.
+- [x] Full gate exits 0 before commit; remediation adds the public lifecycle proof.
 
 **Tests:** integration + security — IT-006, IT-011, SEC-005
 **Gate:** `python3 tools/test_orca_assisted_probe.py && npm_config_offline=true npm run test:all`
@@ -220,7 +220,7 @@ persisted and required.
 - [x] Only bounded same-handle read operations repeat.
 - [x] Malformed, stale, moved, reused, or contradictory identities fail closed before integration/cleanup.
 - [x] Assigned 5 cases pass with no existing assertion weakened or deleted.
-- [ ] Full gate exits 0 before commit.
+- [x] Full gate exits 0 before commit; remediation adds correlated Git/lease exactly-once proof.
 
 **Tests:** integration + security — IT-007, IT-008, IT-009, SEC-006, SEC-007
 **Gate:** `python3 tools/test_orca_assisted_probe.py && npm_config_offline=true npm run test:all`
@@ -244,7 +244,7 @@ repository-contained fixed paths, fail-closed foreign-state handling, and normal
 - [x] Escaping/symlinked paths, reused handles, dirty trees, unmerged commits, running workers, live leases, or extra refs stop before destruction.
 - [x] Failure reports exact logical residue without home paths or raw payloads.
 - [x] Assigned 3 cases pass with no existing assertion weakened or deleted.
-- [ ] Full gate exits 0; CP-S4 is ready for a fresh Technical Verifier.
+- [x] Full gate exits 0; CP-S4 is ready for a fresh Technical Verifier.
 
 **Tests:** integration + security — IT-010, SEC-001, SEC-008
 **Gate:** `python3 tools/test_orca_assisted_probe.py && npm_config_offline=true npm run test:all`
