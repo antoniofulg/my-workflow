@@ -2413,6 +2413,94 @@ def test_heavy_gate_rejects_foreign_or_reused_lease_without_release() -> None:
         shutil.rmtree(root)
 
 
+def test_resume_rederives_explicit_scheduler_cap_before_selecting_or_effects() -> None:
+    root = make_repo()
+    try:
+        workflow = json.loads((root / ".specs/features/fixture/workflow.json").read_text(encoding="utf-8"))
+        workflow["parallelization"]["max_workers"] = 1
+        snapshot = workflow
+        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "assisted", workflow["git_head"])
+        state["scheduler"] = {"cap": 4, "active": 1, "ready": 4}
+        state["lanes"]["lane-A"] = {
+            "slice": "A", "task": "T1", "state": "running", "resources": [],
+            "declared_paths": ["src/1.py"],
+        }
+        plan = {
+            "lanes": [
+                {"id": "lane-A", "slice": "A", "task": "T1", "declared_paths": ["src/1.py"], "resources": []},
+                {"id": "lane-B", "slice": "B", "task": "T2", "declared_paths": ["src/2.py"], "resources": []},
+                {"id": "lane-C", "slice": "C", "task": "T3", "declared_paths": ["src/3.py"], "resources": []},
+                {"id": "lane-D", "slice": "D", "task": "T4", "declared_paths": ["src/4.py"], "resources": []},
+            ]
+        }
+        effects = {"adapter": 0, "provider": 0, "worktree": 0}
+
+        def no_effect_adapter() -> object:
+            effects["adapter"] += 1
+            return object()
+
+        coordinator = parallel_execute.Coordinator(root, "fixture", adapter_factory=no_effect_adapter)
+        selected = coordinator._schedule_lanes(snapshot, plan, state)
+        assert [lane["task"] for lane in selected] == ["T1"]
+        assert len([lane for lane in state["lanes"].values() if lane.get("state") in {"running", "waiting", "needs_sync", "invalidated", "gate_required"}]) == 1
+        assert effects == {"adapter": 0, "provider": 0, "worktree": 0}
+    finally:
+        shutil.rmtree(root)
+
+
+def test_invalid_persisted_scheduler_cap_fails_closed_before_effects() -> None:
+    root = make_repo()
+    try:
+        coordinator = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: (_ for _ in ()).throw(AssertionError("adapter effect")))
+        coordinator._prepare_repository()
+        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "assisted", "head")
+        state["scheduler"] = {"cap": "four", "active": 0, "ready": 0}
+        try:
+            parallel_execute.validate_runtime_state(state, str(root.resolve()), "fixture")
+        except parallel_execute.StateError as exc:
+            assert "scheduler" in str(exc)
+        else:
+            raise AssertionError("invalid persisted scheduler cap must fail closed")
+    finally:
+        shutil.rmtree(root)
+
+
+def test_forged_persisted_heavy_gate_fails_before_provider_release() -> None:
+    root = make_repo()
+    try:
+        class Provider:
+            def __init__(self) -> None:
+                self.releases = 0
+
+            def acquire(self, request: dict[str, object], _: set[str]) -> dict[str, object]:
+                return {
+                    "lease_id": "lease-A", "idempotency_key": request["idempotency_key"],
+                    "resources": request["resources"], "prepared_worktree": True,
+                    "environment": {}, "released": False,
+                }
+
+            def release(self, _: dict[str, object], __: str) -> dict[str, object]:
+                self.releases += 1
+                return {"lease_id": "lease-A", "released": True}
+
+        provider = Provider()
+        coordinator = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: RecordingAdapter())
+        coordinator._prepare_repository()
+        state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "assisted", "head")
+        state["lanes"]["lane-A"] = {"slice": "A", "task": "T1", "state": "running", "resources": []}
+        coordinator.acquire_heavy_gate({}, state, "lane-A", "test-gate", ["exclusive"], provider)  # type: ignore[arg-type]
+        state["heavy_gates"]["test-gate"]["lease_id"] = "foreign-run-lease"  # type: ignore[index]
+        try:
+            coordinator.release_heavy_gate({}, state, "lane-A", "test-gate", provider)  # type: ignore[arg-type]
+        except parallel_execute.StateError as exc:
+            assert "heavy gate" in str(exc)
+        else:
+            raise AssertionError("forged persisted heavy gate must fail closed")
+        assert provider.releases == 0
+    finally:
+        shutil.rmtree(root)
+
+
 if __name__ == "__main__":
     tests = [function for name, function in sorted(globals().items()) if name.startswith("test_")]
     for function in tests:

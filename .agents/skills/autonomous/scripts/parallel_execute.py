@@ -165,6 +165,119 @@ def _validate_technical_verifier_receipt(
         raise StateError("uncorrelated technical verifier receipt")
 
 
+_HEAVY_GATE_FIELDS = {
+    "feature", "slice", "task", "lane", "gate", "lease_id", "operation", "status",
+    "idempotency_key", "resources", "prepared_worktree", "environment_keys", "environment",
+    "released",
+}
+
+
+def _validate_heavy_gate_state(state: Mapping[str, Any], feature: str) -> None:
+    gates = state.get("heavy_gates")
+    if gates is None:
+        return
+    if not isinstance(gates, Mapping):
+        raise StateError("invalid heavy gate state")
+    lanes = state.get("lanes")
+    actions = state.get("actions")
+    if not isinstance(lanes, Mapping) or not isinstance(actions, Mapping):
+        raise StateError("heavy gate state lacks runtime maps")
+    source_head = _require_text(state.get("source_git_head"), "source git head")
+    seen_lease_ids: set[str] = set()
+    for gate_name, lease in gates.items():
+        if not isinstance(gate_name, str) or not _ID.fullmatch(gate_name) or not isinstance(lease, Mapping):
+            raise StateError("invalid heavy gate receipt")
+        if set(lease) != _HEAVY_GATE_FIELDS:
+            raise StateError("heavy gate receipt has an incomplete schema")
+        lane_id = lease.get("lane")
+        lane = lanes.get(lane_id) if isinstance(lane_id, str) else None
+        if not isinstance(lane_id, str) or not _ID.fullmatch(lane_id) or not isinstance(lane, Mapping):
+            raise StateError("heavy gate references unknown lane")
+        gate_id = lease.get("gate")
+        lease_id = lease.get("lease_id")
+        operation = lease.get("operation")
+        status = lease.get("status")
+        idempotency = lease.get("idempotency_key")
+        acquire_receipt = dict(lease)
+        acquire_receipt["status"] = "active"
+        acquire_receipt["released"] = False
+        if (
+            gate_id != gate_name
+            or lease.get("feature") != feature
+            or lease.get("slice") != lane.get("slice")
+            or lease.get("task") != lane.get("task")
+            or operation != "acquire"
+            or status not in {"active", "released"}
+            or type(lease.get("prepared_worktree")) is not bool
+            or lease.get("prepared_worktree") is not True
+            or type(lease.get("released")) is not bool
+            or lease.get("released") is not (status == "released")
+            or not isinstance(lease_id, str)
+            or not lease_id
+            or lease_id in seen_lease_ids
+        ):
+            raise StateError("uncorrelated heavy gate identity")
+        expected_key = idempotency_key(
+            feature, str(lane["slice"]), str(lane["task"]), f"gate-acquire-{gate_name}", source_head
+        )
+        if idempotency != expected_key:
+            raise StateError("uncorrelated heavy gate idempotency")
+        resources = lease.get("resources")
+        if (
+            not isinstance(resources, list)
+            or not resources
+            or any(not isinstance(item, str) or not item for item in resources)
+            or len(set(resources)) != len(resources)
+        ):
+            raise StateError("invalid heavy gate resources")
+        environment_keys = lease.get("environment_keys")
+        environment = lease.get("environment")
+        if (
+            not isinstance(environment_keys, list)
+            or any(not isinstance(item, str) or not item for item in environment_keys)
+            or environment_keys != sorted(set(environment_keys))
+            or not isinstance(environment, Mapping)
+            or sorted(str(item) for item in environment) != environment_keys
+            or any(value != "<redacted>" for value in environment.values())
+        ):
+            raise StateError("invalid heavy gate environment")
+        seen_lease_ids.add(lease_id)
+
+        acquire_key = expected_key
+        acquire_action = actions.get(acquire_key)
+        expected_request = {
+            "repository": state["repository_id"], "feature": feature, "slice": lane["slice"],
+            "task": lane["task"], "gate": gate_name, "worktree": lane.get("worktree_path", ""),
+            "idempotency_key": acquire_key, "resources": list(resources), "operation": "acquire",
+        }
+        if (
+            not isinstance(acquire_action, Mapping)
+            or acquire_action.get("action") != "gate_acquire"
+            or acquire_action.get("lane") != lane_id
+            or acquire_action.get("status") not in {"accepted", "released"}
+            or acquire_action.get("external_id") != lease_id
+            or acquire_action.get("request") != expected_request
+            or acquire_action.get("receipt") != acquire_receipt
+        ):
+            raise StateError("heavy gate acquire action is uncorrelated")
+        if status == "released":
+            release_key = idempotency_key(
+                feature, str(lane["slice"]), str(lane["task"]), f"gate-release-{gate_name}", source_head
+            )
+            release_action = actions.get(release_key)
+            release_request = {**expected_request, "idempotency_key": release_key, "operation": "release"}
+            if (
+                not isinstance(release_action, Mapping)
+                or release_action.get("action") != "gate_release"
+                or release_action.get("lane") != lane_id
+                or release_action.get("status") not in {"accepted", "released"}
+                or release_action.get("external_id") != lease_id
+                or release_action.get("request") != release_request
+                or release_action.get("receipt") != {"lease_id": lease_id, "released": True}
+            ):
+                raise StateError("heavy gate release action is uncorrelated")
+
+
 def new_runtime_state(repository_id: str, feature: str, mode: str, source_git_head: str) -> dict[str, Any]:
     if mode not in MODES:
         raise StateError("invalid mode")
@@ -199,6 +312,15 @@ def validate_runtime_state(
     actions = state.get("actions")
     if not isinstance(lanes, Mapping) or not isinstance(actions, Mapping):
         raise StateError("runtime state lanes and actions must be objects")
+    scheduler = state.get("scheduler")
+    if scheduler is not None:
+        if (
+            not isinstance(scheduler, Mapping)
+            or set(scheduler) != {"cap", "active", "ready"}
+            or any(type(scheduler.get(field)) is not int or scheduler[field] < 0 for field in ("cap", "active", "ready"))
+            or scheduler["cap"] < 1
+        ):
+            raise StateError("invalid scheduler state")
     post_gate = state.get("post_integration_gate")
     if post_gate is not None:
         if (
@@ -308,6 +430,7 @@ def validate_runtime_state(
                 )
         elif action.get("receipt") is not None:
             raise StateError("pending action contains receipt")
+    _validate_heavy_gate_state(state, actual_feature)
 
 
 def transition_lane(
@@ -661,8 +784,15 @@ class Coordinator:
             health_reader=self.health_reader or (lambda: machine_health.collect_health(self.root) if machine_health else None),
         )
         saved = state.get("scheduler")
-        if isinstance(saved, Mapping) and type(saved.get("cap")) is int:
-            scheduler.cap = max(scheduler.baseline if configured == "auto" else 1, min(saved["cap"], scheduler.ceiling))
+        if saved is not None:
+            if not isinstance(saved, Mapping) or type(saved.get("cap")) is not int or saved["cap"] < 1:
+                raise StateError("invalid scheduler state")
+            if configured == "auto":
+                if saved["cap"] < scheduler.baseline or saved["cap"] > scheduler.ceiling:
+                    raise StateError("invalid scheduler capacity")
+                scheduler.cap = saved["cap"]
+            else:
+                scheduler.cap = min(saved["cap"], configured)
         candidates = plan.get("ready_lanes")
         if not isinstance(candidates, list):
             candidates = plan.get("lanes", [])
@@ -670,6 +800,8 @@ class Coordinator:
             lane for lane in state.get("lanes", {}).values()
             if isinstance(lane, Mapping) and lane.get("state") in {"needs_resources", "running", "waiting", "needs_sync", "invalidated", "gate_required"}
         ]
+        if len(active) > scheduler.cap:
+            raise StateError("active lanes exceed scheduler capacity")
         selected = scheduler.select(
             [candidate for candidate in candidates if isinstance(candidate, Mapping)],
             {str(index): lane for index, lane in enumerate(active)},
@@ -1354,6 +1486,7 @@ class Coordinator:
         provider: ResourceProvider | None,
     ) -> dict[str, Any] | None:
         """Acquire an exclusive gate through the existing provider, or park its claimant."""
+        validate_runtime_state(state, str(self.root), self.feature)
         if not _ID.fullmatch(gate) or not resources or any(not isinstance(item, str) or not item for item in resources):
             raise ExecutorError("invalid heavy gate request")
         lane = state.get("lanes", {}).get(lane_id)
@@ -1395,6 +1528,7 @@ class Coordinator:
             "idempotency_key": key,
             "resources": list(resources),
         }
+        action["request"] = {**request, "operation": "acquire"}
         try:
             if action.get("status") in {"accepted", "released"}:
                 receipt = action.get("receipt")
@@ -1411,7 +1545,16 @@ class Coordinator:
             action["status"] = "failed"
             self._save(state)
             raise
-        lease.update({"gate": gate, "lane": lane_id, "released": False})
+        lease.update({
+            "feature": self.feature,
+            "slice": lane["slice"],
+            "task": lane["task"],
+            "gate": gate,
+            "lane": lane_id,
+            "operation": "acquire",
+            "status": "active",
+            "released": False,
+        })
         gates[gate] = lease
         self._accept(action, external_id=lease["lease_id"], receipt=lease)
         self._save(state)
@@ -1425,6 +1568,7 @@ class Coordinator:
         gate: str,
         provider: ResourceProvider | None,
     ) -> dict[str, Any]:
+        validate_runtime_state(state, str(self.root), self.feature)
         gates = state.get("heavy_gates")
         lease = gates.get(gate) if isinstance(gates, Mapping) else None
         if not isinstance(lease, Mapping) or lease.get("lane") != lane_id:
@@ -1452,6 +1596,7 @@ class Coordinator:
             "task": lane["task"], "gate": gate, "worktree": lane.get("worktree_path", ""),
             "idempotency_key": key, "resources": resources,
         }
+        action["request"] = {**request, "operation": "release"}
         receipt = action.get("receipt") if action.get("status") in {"accepted", "released"} else (
             provider.release(request, lease_id) if created else self._reconcile_pending(provider, action)
         )
@@ -1460,6 +1605,7 @@ class Coordinator:
             self._save(state)
             raise ExecutorError("heavy gate release is uncorrelated")
         lease = dict(lease)
+        lease["status"] = "released"
         lease["released"] = True
         gates[gate] = lease
         self._accept(action, external_id=lease_id, receipt={"lease_id": lease_id, "released": True})
