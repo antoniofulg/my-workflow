@@ -183,6 +183,41 @@ def test_create_candidate_without_git_identity_is_rejected() -> None:
             raise AssertionError("non-Git create candidate must fail closed")
 
 
+def test_create_does_not_adopt_after_failed_final_inventory() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        receipt = root / "receipt.json"
+        candidate = {"id": "lane", "repoId": "repo", "displayName": "slice-a"}
+        inventories = iter((
+            {"worktrees": {}, "terminals": {}},
+            {"worktrees": {"lane": candidate}, "terminals": {}},
+        ))
+        calls: list[list[str]] = []
+        configured_inventory = probe.OrcaProbe.inventory
+        configured_raw = probe.raw
+        probe.OrcaProbe.inventory = lambda self: next(inventories) if inventories else {}  # type: ignore[assignment]
+        def fake_raw(argv: list[str], timeout: float = 30.0) -> dict[str, object]:
+            calls.append(argv)
+            return {"ok": False}
+        probe.raw = fake_raw  # type: ignore[assignment]
+        args = SimpleNamespace(repo="repo", orca="orca", name="slice-a", base="main",
+                               receipt=str(receipt), log=str(root / "log"), create_timeout=1.0,
+                               settle_window=0.01, interval=0.0)
+        try:
+            try:
+                probe.create(args)
+            except probe.ProbeError as error:
+                assert "final inventory unavailable" in str(error)
+            else:
+                raise AssertionError("failed final inventory must fail closed")
+        finally:
+            probe.OrcaProbe.inventory = configured_inventory  # type: ignore[assignment]
+            probe.raw = configured_raw  # type: ignore[assignment]
+        assert len(calls) == 1
+        assert calls[0][2:4] == ["create", "--repo"]
+        assert not receipt.exists()
+
+
 def test_late_create_cleanup_reconciles_each_mutation_once() -> None:
     with tempfile.TemporaryDirectory() as directory:
         log = Path(directory) / "cleanup.log"
@@ -227,6 +262,27 @@ def test_late_create_cleanup_retains_candidate_when_stop_is_not_reconciled() -> 
         assert [call[2] for call in calls] == ["stop"]
 
 
+def test_late_create_cleanup_rejects_reused_handle_without_mutation() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        log = Path(directory) / "cleanup.log"
+        calls: list[list[str]] = []
+        configured = probe.OrcaProbe("repo", interval=0)
+        configured.worktree_terminals = lambda _worktree_id: [{"handle": "foreign"}]  # type: ignore[method-assign]
+        original_raw = probe.raw
+        probe.raw = lambda argv, timeout=30.0: calls.append(argv) or {"ok": True}  # type: ignore[assignment]
+        try:
+            probe._cleanup_late_candidates(
+                configured, [{"id": "lane"}], {"terminals": {"foreign": {"handle": "foreign"}}}, log,
+                SimpleNamespace(create_timeout=1.0, settle_window=0.01, interval=0.0),
+            )
+        finally:
+            probe.raw = original_raw  # type: ignore[assignment]
+        assert calls == []
+        record = json.loads(log.read_text(encoding="utf-8").splitlines()[0])
+        assert record["event"] == "late_handle_ambiguous"
+        assert record["recovery"] == "candidate-retained"
+
+
 def test_route_requires_two_consecutive_screen_frames_after_reset() -> None:
     assert probe.route_command("codex", "gpt-5.6-luna", "low") == (
         "exec codex --model gpt-5.6-luna -c model_reasoning_effort=low"
@@ -243,7 +299,7 @@ def test_route_requires_two_consecutive_screen_frames_after_reset() -> None:
         receipt.write_text(json.dumps({"repository": "repo", "instance": "instance", "id": "lane", "path": str(root), "branch": "branch",
                                        "pre_head": "a" * 40, "startupTerminal": {"handle": "h"},
                                        "gitdir": "", "worktree_gitdir": "",
-                                       "before": {"terminals": {}}}), encoding="utf-8")
+                                       "before": {"terminals": {}, "worktrees": {}}}), encoding="utf-8")
         reads = [
             {"handle": "h", "source": "screen", "text": "Claude Code Sonnet 5 with low effort"},
             {"handle": "h", "source": "ansi", "text": "Claude Code Sonnet 5 with low effort"},
@@ -319,7 +375,7 @@ def test_receipt_repository_binding_is_not_optional() -> None:
             "repository": "repo-a", "instance": "instance", "id": "lane", "path": directory,
             "branch": "refs/heads/lane", "pre_head": "a" * 40, "gitdir": directory,
             "worktree_gitdir": directory, "startupTerminal": {"handle": "h"},
-            "before": {"terminals": {}},
+            "before": {"terminals": {}, "worktrees": {}},
         }), encoding="utf-8")
         try:
             probe._receipt(path, repository="repo-b")
@@ -327,6 +383,22 @@ def test_receipt_repository_binding_is_not_optional() -> None:
             assert "repository" in str(error)
         else:
             raise AssertionError("foreign receipt must be rejected")
+
+
+def test_receipt_before_inventory_shape_is_validated() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "receipt.json"
+        path.write_text(json.dumps({
+            "repository": "repo", "instance": "instance", "id": "lane", "path": directory,
+            "branch": "refs/heads/lane", "pre_head": "a" * 40, "gitdir": directory,
+            "worktree_gitdir": directory, "startupTerminal": {"handle": "h"}, "before": [],
+        }), encoding="utf-8")
+        try:
+            probe._receipt(path, repository="repo")
+        except probe.ProbeError as error:
+            assert "before inventory" in str(error)
+        else:
+            raise AssertionError("malformed before inventory must fail closed")
 
 
 def test_marker_frame_rejects_foreign_first_frame_handle() -> None:
@@ -369,7 +441,7 @@ def test_cleanup_refuses_when_owned_branch_ref_remains() -> None:
         receipt.write_text(json.dumps({"repository": "repo", "id": "lane", "path": str(root), "branch": "refs/heads/lane",
                                        "instance": "instance", "pre_head": head, "gitdir": str(common_git),
                                        "worktree_gitdir": str(admin),
-                                       "startupTerminal": {"handle": "h"}, "before": {"terminals": {}}}), encoding="utf-8")
+                                       "startupTerminal": {"handle": "h"}, "before": {"terminals": {}, "worktrees": {}}}), encoding="utf-8")
         before = {"worktrees": {"lane": {"id": "lane", "repoId": "repo", "instanceId": "instance",
                                            "path": str(root.resolve()), "branch": "refs/heads/lane"}}, "terminals": {}}
         original_inventory = probe.OrcaProbe.inventory
@@ -511,7 +583,7 @@ def _cleanup_failure_case(*, retain_owned: bool, remove_foreign: bool,
                                             "gitdir": str(common_git),
                                             "worktree_gitdir": str(admin),
                                             "startupTerminal": {"handle": "owned-terminal"},
-                                            "before": {"terminals": {}}}), encoding="utf-8")
+                                            "before": {"terminals": {}, "worktrees": {}}}), encoding="utf-8")
         before = {"worktrees": {"lane": {"id": "lane", "repoId": "repo", "instanceId": "instance",
                                            "path": str(root.resolve()), "branch": "refs/heads/lane"},
                                  "foreign": {"id": "foreign"}},
@@ -674,7 +746,7 @@ def _cleanup_git_residue_case(*, retain_registration: bool, retain_gitdir: bool)
             "repository": "repo", "id": "lane", "path": str(worktree), "branch": "refs/heads/lane",
             "instance": "instance", "pre_head": head, "gitdir": str(common_git),
             "worktree_gitdir": str(worktree_gitdir),
-            "startupTerminal": {"handle": "owned-terminal"}, "before": {"terminals": {}},
+            "startupTerminal": {"handle": "owned-terminal"}, "before": {"terminals": {}, "worktrees": {}},
         }), encoding="utf-8")
         before = {"worktrees": {"lane": {
             "id": "lane", "repoId": "repo", "instanceId": "instance",

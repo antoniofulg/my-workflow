@@ -380,6 +380,8 @@ T11 -> T12
 T12 -> T13
 
 T13 -> T14
+
+T14 -> T15
 ```
 
 ### T11: Enforce assisted effect and cleanup proofs
@@ -504,6 +506,34 @@ and cleanup rejects absent or non-ancestor receipt pre-heads before any destruct
 **Tests:** IT-015, SEC-013 in `tools/test_orca_assisted_probe.py`
 **Gate:** Quick. Commit `fix(orca): close final assisted proof gaps`.
 
+### T15: Close Round-2 assisted blockers
+
+**Status:** complete
+**Slice:** G
+**Resources:** none
+**Observable behaviour:** Contradictory direct Orca readiness signals, malformed receipt state,
+failed final inventory, reused late handles, and stale durable handoff state all fail closed without
+authorizing an unverified assisted effect.
+**Where:** `tools/orca_assisted_probe.py`
+**Files:** `.agents/skills/autonomous/scripts/parallel_execute.py`,
+`tools/test_orca_assisted_probe.py`, `tools/test_parallel_executor.py`, `.specs/STATE.md`
+**Depends on:** T14
+**Requirement:** AST-01, AST-04, AST-06, AST-08, SEC-008
+**Reuses:** Existing direct capability, receipt, create settle, late-cleanup, and canonical state tests.
+**Tools:** Skills `ponytail`, `tlc-spec-driven`; stdlib only.
+**Done when:**
+
+- [x] Contradictory readiness aliases serialize and are covered by equivalent negative cases.
+- [x] Receipt `before` shape is validated before dereference.
+- [x] Failed final inventory cannot adopt a cumulative candidate or write a receipt.
+- [x] Reused late terminal handles retain recovery evidence and issue zero destructive calls.
+- [x] Handoff names T15/current exact boundary; all focused, full, and validator gates pass.
+
+**Result:** Round-2 code/state blockers are closed; verifier-owned `validation.md` remains untouched.
+
+**Tests:** IT-016, SEC-014 in canonical executor/probe suites
+**Gate:** Quick. Commit `fix(orca): close round-two assisted blockers`.
+
 ## Task Granularity Check
 
 | Task | Scope | Status |
@@ -522,6 +552,7 @@ and cleanup rejects absent or non-ancestor receipt pre-heads before any destruct
 | T12 | Assisted capability, route, receipt, and cleanup fail-closed review remediation | PASS |
 | T13 | Final assisted review negative discrimination and late-cleanup reconciliation | PASS |
 | T14 | Final exact commit and immutable cleanup discrimination | PASS |
+| T15 | Round-2 assisted blocker remediation | PASS |
 
 ## Diagram-Definition Cross-Check
 
@@ -541,6 +572,7 @@ and cleanup rejects absent or non-ancestor receipt pre-heads before any destruct
 | T12 | T11 | T11 -> T12 | PASS |
 | T13 | T12 | T12 -> T13 | PASS |
 | T14 | T13 | T13 -> T14 | PASS |
+| T15 | T14 | T14 -> T15 | PASS |
 
 ## Test Co-location Validation
 
@@ -560,6 +592,7 @@ and cleanup rejects absent or non-ancestor receipt pre-heads before any destruct
 | T12 | Assisted coordinator and probe boundaries | unit + fake-host integration | IT-013 + SEC-011 in canonical executor/probe suites | PASS |
 | T13 | Assisted probe review boundaries | fake-host integration | IT-014 + SEC-012 in the owning probe suite | PASS |
 | T14 | Assisted effect and cleanup boundaries | fake-host integration | IT-015 + SEC-013 in the owning probe suite | PASS |
+| T15 | Assisted capability, receipt, settle, and cleanup boundaries | unit + fake-host integration | IT-016 + SEC-014 in canonical executor/probe suites | PASS |
 
 ## Implementation Batch Recommendation
 
@@ -567,8 +600,8 @@ Phase 2 contains five tasks, within one task-budgeted batch. The coordinator sho
 implementer for Slice E and one implementer for Slice F concurrently, then dispatch one implementer
 for Slice G after T7 and T9 are green and committed. No phase split or front/back split is needed.
 
-Phase 3 contains four resumed remediation tasks: T11 follows T10 after the independent Verifier
+Phase 3 contains five resumed remediation tasks: T11 follows T10 after the independent Verifier
 reported proof gaps, T12 closes the first final Deep Review defects, T13 closes the first remaining
-negative-discrimination and late-cleanup gaps, and T14 closes the final exact-identity gaps. They
-own the probe, assisted executor boundary, and their runnable checks, and each closes with the Quick
-gate.
+negative-discrimination and late-cleanup gaps, T14 closes the final exact-identity gaps, and T15
+closes the Round-2 capability, receipt, settle, and handoff blockers. They own the probe, assisted
+executor boundary, and their runnable checks, and each closes with the Quick gate.

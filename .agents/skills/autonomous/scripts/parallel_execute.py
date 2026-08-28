@@ -448,8 +448,10 @@ def _assisted_capability() -> Mapping[str, Any]:
     capabilities = status.get("capabilities")
     if isinstance(capabilities, Mapping):
         capabilities = [key for key, enabled in capabilities.items() if enabled is True]
-    ready = status.get("ready", status.get("connected", status.get("reachable")))
-    if ready is not True or not isinstance(capabilities, list) or "orchestration.contract.v1" not in capabilities:
+    readiness = [status[key] for key in ("ready", "connected", "reachable") if key in status]
+    if not readiness or any(value is not True for value in readiness):
+        return {"status": "unsupported", "reason": "orca-required-capability-unavailable"}
+    if not isinstance(capabilities, list) or "orchestration.contract.v1" not in capabilities:
         return {"status": "unsupported", "reason": "orca-required-capability-unavailable"}
     return {"status": "compatible", "capabilities": capabilities, "proof": {"isolation": "worktree-terminal"}}
 

@@ -356,6 +356,26 @@ def test_assisted_unavailable_capability_serializes_before_host_effect() -> None
         shutil.rmtree(root)
 
 
+def test_assisted_capability_rejects_contradictory_readiness_aliases() -> None:
+    original_which = parallel_execute.shutil.which
+    original_runner = parallel_execute.run_argv
+    try:
+        parallel_execute.shutil.which = lambda _name: "/tmp/orca"  # type: ignore[assignment]
+        for status in (
+            {"ready": True, "reachable": False, "capabilities": ["orchestration.contract.v1"]},
+            {"connected": True, "reachable": False, "capabilities": ["orchestration.contract.v1"]},
+        ):
+            parallel_execute.run_argv = lambda _argv, **_kwargs: subprocess.CompletedProcess(  # type: ignore[assignment]
+                [], 0, json.dumps(status), ""
+            )
+            result = parallel_execute._assisted_capability()
+            assert result["status"] == "unsupported"
+            assert result["reason"] == "orca-required-capability-unavailable"
+    finally:
+        parallel_execute.shutil.which = original_which  # type: ignore[assignment]
+        parallel_execute.run_argv = original_runner  # type: ignore[assignment]
+
+
 def test_assisted_cli_does_not_select_automatic_adapter() -> None:
     root = make_repo(mode="assisted")
     original_factory = parallel_execute._adapter_factory

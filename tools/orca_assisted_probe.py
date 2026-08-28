@@ -300,6 +300,12 @@ def _receipt(path: Path, *, repository: str | None = None) -> dict[str, Any]:
         raise ProbeError("receipt repository does not match requested repository")
     if not isinstance(value["instance"], str) or not value["instance"]:
         raise ProbeError("receipt instance is required")
+    before = value["before"]
+    if not isinstance(before, dict):
+        raise ProbeError("receipt before inventory must be an object")
+    for key in ("terminals", "worktrees"):
+        if not isinstance(before.get(key), dict):
+            raise ProbeError(f"receipt before.{key} inventory must be an object")
     handle = value["startupTerminal"].get("handle") if isinstance(value["startupTerminal"], dict) else None
     if not isinstance(handle, str) or not handle:
         raise ProbeError("receipt startupTerminal.handle is required")
@@ -417,9 +423,10 @@ def create(args: argparse.Namespace) -> None:
 
     try:
         final = probe.inventory()
-    except Exception as error:  # noqa: BLE001 - retain cumulative read-only evidence
-        append(log, {"event": "deadline_audit_error", "at": now(), "error": str(error)})
-        final = {"worktrees": {}, "terminals": {}}
+    except Exception as error:  # noqa: BLE001 - never adopt stale cumulative evidence
+        append(log, {"event": "deadline_audit_error", "at": now(), "error": str(error),
+                     "recovery": "receipt-not-written"})
+        raise ProbeError("final inventory unavailable; create receipt not written") from error
     cumulative.update({key: value for key, value in final["worktrees"].items() if key not in before["worktrees"]})
     matches = [
         value
@@ -466,7 +473,13 @@ def _cleanup_late_candidates(
         cleanup_ready = True
         for value in listed:
             handle = value.get("handle")
-            if not isinstance(handle, str) or not handle or handle in prior_handles:
+            if not isinstance(handle, str) or not handle:
+                continue
+            if handle in prior_handles:
+                cleanup_ready = False
+                append(log, {"event": "late_handle_ambiguous", "at": now(),
+                             "worktree": worktree_id, "handle": handle,
+                             "recovery": "candidate-retained"})
                 continue
             try:
                 result = mutate_once(
