@@ -164,6 +164,7 @@ describe("canonical QA skills", () => {
   it("UT-001 installs one attributed slice-native workflow authority", () => {
     const skill = readRepositoryFile(".agents/skills/workflow-spec-driven/SKILL.md");
     const notice = readRepositoryFile(".agents/skills/workflow-spec-driven/NOTICE.md");
+    const validator = readRepositoryFile(".agents/skills/workflow-spec-driven/references/validate.md");
     const tasksReference = readRepositoryFile(".agents/skills/workflow-spec-driven/references/tasks.md");
     const activeContract = [
       skill,
@@ -190,6 +191,10 @@ describe("canonical QA skills", () => {
     );
     expect(activeContract).toContain("slice packet");
     expect(activeContract).toContain("fresh Technical Verifier");
+    expect(validator).toContain("After each code-changing slice reaches its checkpoint");
+    expect(validator).toContain("before any dependent slice consumes that checkpoint");
+    expect(validator).toContain("final integrated Deep Review and QA");
+    expect(validator).not.toContain("After all tasks for a feature (or priority group) are done");
   });
 
   it("IT-001 exposes model-invoked skills with matching names", () => {

@@ -148,10 +148,7 @@ def test_UT017_authorized_resume_appends_generation_and_preserves_halt_history()
         assert resumed["failed_remediations"] == 3
         assert resumed["status"] == "open"
         generation_one = resumed["generations"][0]
-        assert generation_one["failed_remediations"] == entry_before["failed_remediations"]
-        assert generation_one["status"] == entry_before["status"]
-        assert resumed["generations"][0]["failed_remediations"] == 3
-        assert resumed["generations"][0]["status"] == "halted"
+        assert generation_one == entry_before["generations"][0]
         assert resumed["generations"][0]["halt_event"]["status"] == "halted"
         assert resumed["generations"][1]["failed_remediations"] == 0
         assert resumed["generations"][1]["authorization_ref"] == AUTHORIZATION
@@ -223,6 +220,74 @@ def test_UT019_resumed_generation_closes_only_on_fresh_independent_pass() -> Non
             shutil.rmtree(second_root)
     finally:
         shutil.rmtree(root)
+
+
+def test_invalid_generation_thresholds_are_rejected_without_rewriting_state() -> None:
+    for invalid_status, failures in (("halted", 2), ("open", 3)):
+        root = Path(tempfile.mkdtemp())
+        try:
+            entry = review_convergence.record_failure(root, "fixture", "EXE-08", "root", "path")
+            path = review_convergence.state_path(root, "fixture")
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            stored = payload["fingerprints"][entry["fingerprint"]]
+            generation = stored["generations"][0]
+            generation["status"] = invalid_status
+            generation["failed_remediations"] = failures
+            if invalid_status == "halted":
+                generation["halt_event"] = {
+                    "generation": 1,
+                    "failed_remediations": failures,
+                    "status": "halted",
+                }
+            else:
+                generation.pop("halt_event", None)
+            stored["status"] = invalid_status
+            stored["failed_remediations"] = failures
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            before = path.read_bytes()
+            try:
+                review_convergence.record_failure(root, "fixture", "EXE-08", "root", "path")
+            except ValueError as exc:
+                assert "generation" in str(exc)
+            else:
+                raise AssertionError(f"invalid {invalid_status} generation was accepted")
+            assert path.read_bytes() == before
+        finally:
+            shutil.rmtree(root)
+
+
+def test_invalid_legacy_thresholds_are_rejected_without_rewriting_state() -> None:
+    for invalid_status, failures in (("halted", 2), ("open", 3)):
+        root = Path(tempfile.mkdtemp())
+        try:
+            path = review_convergence.state_path(root, "fixture")
+            path.parent.mkdir(parents=True)
+            key = review_convergence.fingerprint("EXE-08", "root", "path")
+            payload = {
+                "version": 1,
+                "feature": "fixture",
+                "fingerprints": {
+                    key: {
+                        "fingerprint": key,
+                        "requirement": "exe-08",
+                        "root_cause": "root",
+                        "failure_path": "path",
+                        "failed_remediations": failures,
+                        "status": invalid_status,
+                    }
+                },
+            }
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            before = path.read_bytes()
+            try:
+                review_convergence.record_failure(root, "fixture", "EXE-08", "root", "path")
+            except ValueError as exc:
+                assert "convergence entry" in str(exc)
+            else:
+                raise AssertionError(f"invalid legacy {invalid_status} entry was accepted")
+            assert path.read_bytes() == before
+        finally:
+            shutil.rmtree(root)
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@
 
 1. **Per-task verification (always, author self-check):** After implementing each task, verify its "Done when" criteria before committing. This is mandatory and automatic. The implementer runs it.
 
-2. **Feature-level validation (independent Verifier sub-agent, always-on, never prompted):** After all tasks for a feature (or priority group) are done, validation runs automatically - the orchestrator dispatches a **fresh Verifier sub-agent** (see [sub-agents.md](sub-agents.md)). Do NOT ask the user whether to run it; it is the safety net, mandatory. User interaction is limited to interactive UAT (for user-facing features) and acting on a FAIL verdict ("fix these gaps now?"). The Verifier:
+2. **Slice-level validation (fresh Technical Verifier, always-on, never prompted):** After each code-changing slice reaches its checkpoint, the coordinator dispatches a **fresh Technical Verifier** (see [sub-agents.md](sub-agents.md)) before any dependent slice consumes that checkpoint. Independent slices may be verified concurrently; each dependent route waits only for its own verified checkpoint. Do NOT ask the user whether to run it; it is the safety net, mandatory. The Verifier:
    - Runs **read-only** over the real implementation and tests - mutations run in a scratch/throwaway state only (see Discrimination Sensor section)
    - Scopes coverage to the feature's **git diff surface** (not the full repository)
    - Re-derives coverage independently using **evidence-or-zero**: every AC must be traced to a `file:line` + assertion expression; a criterion with no `file:line` citation counts as NOT covered
@@ -15,7 +15,9 @@
    - Returns a compact verdict + ranked gap list to the orchestrator in chat
    - Gaps become **fix tasks** routed back to an implementer; re-verification uses the immutable finding fingerprint and third-failure halt in `docs/guidelines/REVIEW-ROUNDS.md`
 
-3. **Interactive UAT (for user-facing features only):** The feature has complex user-facing behavior where human judgment matters (UI flows, interaction patterns, visual design). For backend-only or infrastructure work, automated checks are sufficient.
+3. **Final integrated validation (fresh Verifier, after all code-changing slices are integrated):** Once the feature's verified slices are integrated, run the final feature-level checks over the integrated tree. This is separate from the per-slice Technical Verifiers and from the final integrated Deep Review and QA; neither stage replaces the other. User interaction is limited to interactive UAT (for user-facing features) and acting on a FAIL verdict ("fix these gaps now?").
+
+4. **Interactive UAT (for user-facing features only):** The feature has complex user-facing behavior where human judgment matters (UI flows, interaction patterns, visual design). For backend-only or infrastructure work, automated checks are sufficient.
 
 **Trigger for explicit validation:** "Validate", "verify work", "UAT", "test with me", "walk me through it"
 
@@ -346,7 +348,7 @@ Update spec.md requirement statuses:
 
 ## Tips
 
-- **Validation is never prompted** - it always runs after each code-changing slice; do not ask the user whether to run it
+- **Validation is never prompted** - slice validation always runs after each code-changing slice, and final integrated validation runs after all verified slices are integrated; do not ask the user whether to run it
 - **Spec-anchored, not just covered** - "there is an assertion" is not enough; the assertion must target the spec-defined outcome
 - **Sensor in scratch only** - never mutate the real tree; use a temp worktree or file copies (never `git stash`), run, discard, then confirm porcelain matches the pre-sensor baseline
 - **Surviving mutants are fix tasks** - do not mark the feature done if the sensor found weak tests

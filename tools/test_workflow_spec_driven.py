@@ -35,28 +35,33 @@ def run_builder(
     body: dict[str, object],
     role: bytes = b"",
     output_path: Path | None = None,
+    input_path: Path | None = None,
+    telemetry_path: Path | None = None,
+    role_path: Path | None = None,
 ) -> tuple[subprocess.CompletedProcess[str], Path, Path]:
-    input_path = root / "request.json"
-    output_path = output_path or root / "packet.md"
-    telemetry_path = root / "telemetry.json"
-    input_path.write_text(json.dumps(body), encoding="utf-8")
-    role_path = root / "role.md"
-    role_path.write_bytes(role)
+    request_file = root / "request.json"
+    result_output = output_path or root / "packet.md"
+    result_telemetry = telemetry_path or root / "telemetry.json"
+    request_file.write_text(json.dumps(body), encoding="utf-8")
+    role_file = root / "role.md"
+    role_file.write_bytes(role)
     command = [
         sys.executable,
         str(BUILDER),
         "build",
         "--input",
-        str(input_path),
+        str(input_path or "request.json"),
         "--output",
-        str(output_path),
+        str(output_path or "packet.md"),
         "--telemetry",
-        str(telemetry_path),
+        str(telemetry_path or "telemetry.json"),
         "--role-input",
-        str(role_path),
+        str(role_path or "role.md"),
+        "--root",
+        str(root),
     ]
     result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=False)
-    return result, output_path, telemetry_path
+    return result, result_output, result_telemetry
 
 
 def memory_length_for_slice_size(target: int) -> int:
@@ -178,11 +183,45 @@ class WorkflowSpecDrivenTests(unittest.TestCase):
             result, _output, telemetry = run_builder(
                 Path(directory), request(), output_path=Path.home()
             )
+            before_unsafe_attempt = telemetry.read_bytes()
             self.assertNotEqual(result.returncode, 0)
-            self.assertEqual(json.loads(result.stdout), {"error": "io_error", "ok": False})
+            self.assertEqual(json.loads(result.stdout), {"error": "unsafe_output_path", "ok": False})
             self.assertNotIn(str(Path.home()), result.stdout)
             self.assertNotIn(str(Path.home()), result.stderr)
-            self.assertNotIn(str(Path.home()), telemetry.read_text(encoding="utf-8"))
+            self.assertEqual(telemetry.read_bytes(), before_unsafe_attempt)
+
+    def test_sec012_paths_are_relative_contained_and_non_symlink_before_io(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "target").mkdir()
+            (root / "target" / "role.md").write_bytes(b"role")
+            (root / "target" / "request.json").write_text(json.dumps(request()), encoding="utf-8")
+            (root / "target" / "telemetry.json").write_text("sentinel", encoding="utf-8")
+            (root / "link").symlink_to(root / "target", target_is_directory=True)
+
+            invalid_paths = (
+                ("input", "../request.json"),
+                ("input", "/tmp/request.json"),
+                ("input", "link/request.json"),
+                ("output", "../packet.md"),
+                ("output", "/tmp/packet.md"),
+                ("output", "link/packet.md"),
+                ("role", "../role.md"),
+                ("role", "/tmp/role.md"),
+                ("role", "link/role.md"),
+                ("telemetry", "../telemetry.json"),
+                ("telemetry", "/tmp/telemetry.json"),
+                ("telemetry", "link/telemetry.json"),
+            )
+            for field, value in invalid_paths:
+                with self.subTest(field=field, value=value):
+                    kwargs: dict[str, object] = {f"{field}_path": Path(value)}
+                    result, output, telemetry = run_builder(root, request(), **kwargs)  # type: ignore[arg-type]
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(json.loads(result.stdout), {"error": f"unsafe_{field}_path", "ok": False})
+                    self.assertFalse(output.exists())
+                    self.assertFalse(telemetry.exists())
+            self.assertEqual((root / "target" / "telemetry.json").read_text(encoding="utf-8"), "sentinel")
 
 
 if __name__ == "__main__":

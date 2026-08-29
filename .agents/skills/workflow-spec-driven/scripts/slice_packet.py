@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -29,6 +30,25 @@ SLICE_BUDGET_BYTES = 10_240
 
 class PacketError(ValueError):
     """A packet cannot be safely materialized."""
+
+
+def _safe_path(repo_root: Path, value: Path, field: str) -> Path:
+    """Return a repository-contained, non-symlink path before touching it."""
+    if value.is_absolute() or "\x00" in str(value) or ".." in value.parts:
+        raise PacketError(f"unsafe_{field}_path")
+    candidate = repo_root.joinpath(value)
+    try:
+        candidate.relative_to(repo_root)
+    except ValueError as exc:
+        raise PacketError(f"unsafe_{field}_path") from exc
+    cursor = repo_root
+    for component in value.parts:
+        if component in ("", "."):
+            continue
+        cursor /= component
+        if os.path.islink(cursor):
+            raise PacketError(f"unsafe_{field}_path")
+    return candidate
 
 
 def _strings(value: Any, field: str) -> list[str]:
@@ -102,19 +122,32 @@ def emit_telemetry(path: Path, data: dict[str, Any]) -> None:
         pass
 
 
-def build(input_path: Path, output_path: Path, telemetry_path: Path, role_path: Path | None) -> dict[str, Any]:
+def build(
+    input_path: Path,
+    output_path: Path,
+    telemetry_path: Path,
+    role_path: Path | None,
+    repo_root: Path | None = None,
+) -> dict[str, Any]:
+    root = (repo_root or Path.cwd()).resolve()
+    if not root.is_dir():
+        raise PacketError("invalid_root")
+    safe_input = _safe_path(root, input_path, "input")
+    safe_output = _safe_path(root, output_path, "output")
+    safe_telemetry = _safe_path(root, telemetry_path, "telemetry")
+    safe_role = _safe_path(root, role_path, "role") if role_path is not None else None
     try:
-        role_bytes = role_path.stat().st_size if role_path and role_path.is_file() else 0
+        role_bytes = safe_role.stat().st_size if safe_role and safe_role.is_file() else 0
     except OSError:
         role_bytes = 0
     try:
-        request = json.loads(input_path.read_text(encoding="utf-8"))
+        request = json.loads(safe_input.read_text(encoding="utf-8"))
         validate_request(request)
         packet = render_packet(request)
     except (OSError, UnicodeError, json.JSONDecodeError, PacketError) as exc:
         reason = str(exc) if isinstance(exc, PacketError) else "invalid_input"
         result = telemetry(role_bytes=role_bytes, slice_bytes=0, within_budget=False, error=reason)
-        emit_telemetry(telemetry_path, result)
+        emit_telemetry(safe_telemetry, result)
         raise PacketError(reason) from exc
 
     slice_bytes = len(packet)
@@ -122,24 +155,24 @@ def build(input_path: Path, output_path: Path, telemetry_path: Path, role_path: 
         result = telemetry(
             role_bytes=role_bytes, slice_bytes=slice_bytes, within_budget=False, error="role_budget_exceeded"
         )
-        emit_telemetry(telemetry_path, result)
+        emit_telemetry(safe_telemetry, result)
         raise PacketError("role_budget_exceeded")
     if slice_bytes > SLICE_BUDGET_BYTES:
         result = telemetry(
             role_bytes=role_bytes, slice_bytes=slice_bytes, within_budget=False, error="slice_budget_exceeded"
         )
-        emit_telemetry(telemetry_path, result)
+        emit_telemetry(safe_telemetry, result)
         raise PacketError("slice_budget_exceeded")
 
     try:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_bytes(packet)
+        safe_output.parent.mkdir(parents=True, exist_ok=True)
+        safe_output.write_bytes(packet)
     except OSError as exc:
         result = telemetry(role_bytes=role_bytes, slice_bytes=slice_bytes, within_budget=False, error="io_error")
-        emit_telemetry(telemetry_path, result)
+        emit_telemetry(safe_telemetry, result)
         raise PacketError("io_error") from exc
     result = telemetry(role_bytes=role_bytes, slice_bytes=slice_bytes, within_budget=True)
-    emit_telemetry(telemetry_path, result)
+    emit_telemetry(safe_telemetry, result)
     return result
 
 
@@ -151,9 +184,10 @@ def main(argv: list[str]) -> int:
     build_parser.add_argument("--output", required=True, type=Path)
     build_parser.add_argument("--telemetry", required=True, type=Path)
     build_parser.add_argument("--role-input", type=Path)
+    build_parser.add_argument("--root", type=Path, default=Path.cwd())
     args = parser.parse_args(argv)
     try:
-        result = build(args.input, args.output, args.telemetry, args.role_input)
+        result = build(args.input, args.output, args.telemetry, args.role_input, args.root)
     except PacketError as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, sort_keys=True))
         return 1
