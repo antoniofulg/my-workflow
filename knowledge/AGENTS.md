@@ -195,7 +195,7 @@ or a batch at once — whichever the user prefers, recorded here once it settles
 
 ### HARVEST
 
-The project's own artefacts are sources like any other. Run the knowledge checker (`npm run knowledge`
+The project's own artefacts are sources like any other. Run the knowledge checker (`bun run knowledge`
 in this pack); its gap report names what has accumulated in `.specs/` without a concept, and its
 drift report names what changed underneath a concept that already exists.
 

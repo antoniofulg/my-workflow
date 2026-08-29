@@ -83,6 +83,7 @@ const activeAuthorityRoots = [
   "docs/guidelines",
   "docs/qa",
   "docs/workflow",
+  "knowledge",
   "package.json",
   "bunfig.toml",
   "scripts",
@@ -1018,6 +1019,7 @@ describe("Bun tooling runtime contract", () => {
 
     expect(scannedPaths).toContain("README.md");
     expect(scannedPaths).toContain("docs/qa/README.md");
+    expect(scannedPaths).toContain("knowledge/AGENTS.md");
     expect(violations).toEqual([]);
 
     const historicalPaths = trackedPaths.filter(isHistoricalAuthority);

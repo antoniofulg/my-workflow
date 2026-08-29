@@ -102,4 +102,3 @@ graph TD
 | Lock migration | Delete `package-lock.json`; commit `bun.lock` | One dependency graph and one frozen-install contract. |
 | External packages | `bunx --bun --no-install` | Locked, Bun-executed, fail-closed command boundary. |
 | Historical docs | Preserve unchanged | Past evidence must remain truthful. |
-
