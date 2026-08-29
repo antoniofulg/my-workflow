@@ -338,7 +338,9 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(policy).toContain("deep-review at the frozen groups");
     expect(policy).toContain("final QA");
     expect(policy).toContain("one full gate on the final tree");
-    expect(policy).toContain("TLC remains unchanged");
+    expect(policy).toMatch(/workflow-spec-driven\s+skill is slice-native/i);
+    expect(policy).toMatch(/independent slices may run concurrently/i);
+    expect(policy).toMatch(/tasks inside one slice\s+remain sequential in its worker\/worktree/i);
     expect(policy).toMatch(/uncertainty or failure\s+serializes safely/i);
   });
 });

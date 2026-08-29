@@ -1,7 +1,8 @@
 # Parallel Slice Dispatch
 
-This contract adds coordinator-assisted concurrency between slices. Tasks inside a slice remain
-sequential. TLC remains unchanged for task execution.
+This contract adds coordinator-assisted concurrency between slices. The workflow-spec-driven
+skill is slice-native: independent slices may run concurrently, while tasks inside one slice
+remain sequential in its worker/worktree.
 
 ## Entry gate
 

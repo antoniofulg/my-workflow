@@ -345,6 +345,8 @@ fresh Deep Review, final QA is fresh, and the last implementer emits only a comp
 - [x] Claude, Codex, and Cursor packets share the same role boundary and skill name.
 - [x] Contract trace proves author ≠ verifier/reviewer/QA and the correct private/integrated tree per phase.
 - [x] No implementer packet says one implementer globally, batch complete, or final QA.
+- [x] Assisted dispatch names `workflow-spec-driven` as slice-native: independent slices may run
+  concurrently while tasks inside one slice remain sequential in its worker/worktree.
 - [x] Assigned 3 cases pass with no existing assertion weakened or deleted.
 - [x] Full gate exits 0; CP-S5 is ready for a fresh Technical Verifier.
 
