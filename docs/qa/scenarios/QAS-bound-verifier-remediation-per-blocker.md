@@ -6,13 +6,13 @@ persona: Workflow operator
 journey: J-execute-parallel-slices
 expected: Distinct verifier blockers receive independent remediation counts while the same requirement, root cause, and failure path halts only after its third failed remediation.
 entry_points: .agents/skills/workflow-spec-driven/scripts/review_convergence.py; .agents/skills/autonomous/SKILL.md; .agents/skills/autonomous/references/parallelization.md
-qa_status: untested
+qa_status: pass
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/convergence-replays.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/convergence-threshold.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/ledger-bounds.json
-last_report: docs/qa/reports/2026-08-25-parallel-slice-executor-final.md
+evidence: docs/qa/evidence/2026-08-29-hybrid-slice-execution/summary.json; docs/qa/evidence/2026-08-29-hybrid-slice-execution/commands.json
+last_report: docs/qa/reports/2026-08-29-hybrid-slice-execution.md
 overlaps:
 ---
 

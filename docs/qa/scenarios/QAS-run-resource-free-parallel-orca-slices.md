@@ -11,8 +11,8 @@ bug_ids: BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree
 fix_status: fixed
 retest_status: pending
 fix_commits: f7a1f36; 1216014; 6b3f1f0; 2fb2f41; 8675c6d; 6419d24; 453a8ab; 941bbc5; e24228c; 35a49bf; a1a49a2; 1e40171; f02b679; 5b7a9dd; 48e5322; a736757; 0ed8b55
-evidence: docs/qa/evidence/2026-08-25-parallel-slice-executor-v060-safe-retest/pilot-identities.md; docs/qa/reports/2026-08-25-parallel-slice-executor-v060-safe-retest.md
-last_report: docs/qa/reports/2026-08-25-parallel-slice-executor-v060-safe-retest.md
+evidence: docs/qa/evidence/2026-08-29-hybrid-slice-execution/summary.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-v060-safe-retest/pilot-identities.md; docs/qa/reports/2026-08-25-parallel-slice-executor-v060-safe-retest.md
+last_report: docs/qa/reports/2026-08-29-hybrid-slice-execution.md
 overlaps: CFG-plan-parallel-slice-dispatch
 ---
 

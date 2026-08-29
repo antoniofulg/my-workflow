@@ -519,6 +519,38 @@ preserving the live Orca limitation.
 **Gate:** `npm_config_offline=true npm run test:all`
 **Commit:** `test(qa): plan hybrid adoption verification`
 
+### Final QA Execute: hybrid adoption and assisted execution
+
+**What:** Walk adopted workflow through public CLIs with checkout-local fake providers, record fresh
+independent readback, and preserve unreachable live-host boundary truthfully.
+
+**Where:** `docs/qa/reports/2026-08-29-hybrid-slice-execution.md`, affected scenario frontmatter,
+ignored `docs/qa/evidence/2026-08-29-hybrid-slice-execution/`
+**Depends on:** Final QA Plan
+**Requirements:** HSE-01 through HSE-57
+
+**Done when:**
+
+- [x] All 3 charters have terminal verdicts: 6 offline/adoption scenarios pass and 2 live-Orca
+  scenarios remain `blocked-verify` with external boundary named.
+- [x] Adoption proves 65 selected managed files byte-identical, old TLC absent, consumer state
+  preserved, package membership present, and probe import makes 0 Orca calls.
+- [x] Public planner/executor walks prove serial integration, 2 compatible writers, dependency and
+  path blocking, disabled zero-effect fallback, fail-closed health, and provider refusal.
+- [x] Pointer delivery contains 0 packet-body occurrences; all 7 transient logical mutation classes
+  record exactly 1 physical call; cleanup reconciles to zero owned residue.
+- [x] Convergence halts generation 1 at 3, appends authorized generation 2 without history reset,
+  rejects missing authorization without a write, and closes only on fresh independent PASS.
+- [x] Nine edge probes pass; current scenario evidence and report paths reload independently.
+- [x] Live Orca, external skill installation, network publication, and product/runtime edits remain
+  absent from this QA session.
+- [ ] Closing gate exits 0. Blocked by
+  `BUG-20260829-final-qa-pass-conflicts-with-adoption-gate`; current gate exits 1 after 114/114
+  Vitest tests because the adoption suite requires the freshly passing scenario to stay `untested`.
+
+**Gate:** `npm_config_offline=true npm run test:all`
+**Commit:** `test(qa): verify hybrid adoption workflow`
+
 ## Checkpoint DAG
 
 | Producer | Checkpoint | Consumers | Proof required before release |

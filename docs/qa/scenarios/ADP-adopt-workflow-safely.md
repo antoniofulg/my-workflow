@@ -6,13 +6,13 @@ persona: Workflow adopter
 journey: J-adopt-workflow
 expected: A fresh target receives the v3 assisted workflow, pointer-only probe, tracked example/templates, initialized local config, generated runtime packets, and valid guidance; re-adoption preserves consumer-owned local state and feature workflow state remains visible to Git.
 entry_points: README.md#adopt-the-workflow; docs/guidelines/ARTIFACT-LIFECYCLE.md; scripts/adopt.py; tools/orca_assisted_probe.py; .my-workflow.toml.example; .my-workflow.toml; templates/agents/
-qa_status: untested
-bug_ids: BUG-20260822-deep-review-learnings-untrackable; BUG-20260822-feature-specs-ignored; BUG-20260822-feature-state-gate-conflicts; BUG-20260825-adoption-omits-parallel-pilot
-fix_status: fixed
-retest_status: pass
+qa_status: pass
+bug_ids: BUG-20260822-deep-review-learnings-untrackable; BUG-20260822-feature-specs-ignored; BUG-20260822-feature-state-gate-conflicts; BUG-20260825-adoption-omits-parallel-pilot; BUG-20260829-final-qa-pass-conflicts-with-adoption-gate
+fix_status: pending
+retest_status:
 fix_commits: 0413862; a7397d2; 43e9910; a3fc718; 5b5474e; 816afd6
-evidence: docs/qa/evidence/2026-08-25-release-0-6-0/session.md
-last_report: docs/qa/reports/2026-08-25-release-0-6-0.md
+evidence: docs/qa/evidence/2026-08-29-hybrid-slice-execution/summary.json; docs/qa/evidence/2026-08-29-hybrid-slice-execution/commands.json
+last_report: docs/qa/reports/2026-08-29-hybrid-slice-execution.md
 overlaps:
 ---
 

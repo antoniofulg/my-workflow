@@ -6,13 +6,13 @@ persona: Workflow adopter
 journey: J-configure-feature-workflow
 expected: Resolution and resume report the live remediation stall bound without persisting it, while model/effort routes, cadence, selected parallelization mode, and safe optional resource provider remain frozen until an explicit refresh; packet drift still requires explicit synchronization and refresh.
 entry_points: .my-workflow.toml.example; .my-workflow.toml; .claude/agents/; .codex/agents/; .cursor/agents/; .agents/skills/workflow-config/scripts/workflow_config.py; .specs/features/<slug>/workflow.json; .agents/skills/workflow-config/SKILL.md
-qa_status: untested
+qa_status: pass
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-24-parallel-slice-dispatch/session.md; docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/setup.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/resource-plan.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/resource-status.json; docs/qa/evidence/2026-08-25-remediation-stall-bound/summary.json; docs/qa/evidence/2026-08-25-remediation-stall-bound/session.log
-last_report: docs/qa/reports/2026-08-25-remediation-stall-bound.md
+evidence: docs/qa/evidence/2026-08-29-hybrid-slice-execution/summary.json; docs/qa/evidence/2026-08-29-hybrid-slice-execution/commands.json
+last_report: docs/qa/reports/2026-08-29-hybrid-slice-execution.md
 overlaps:
 ---
 
