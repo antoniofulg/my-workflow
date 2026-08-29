@@ -345,6 +345,15 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(policy).toMatch(/independent slices may run concurrently/i);
     expect(policy).toMatch(/tasks inside one slice\s+remain sequential in its worker\/worktree/i);
     expect(policy).toMatch(/uncertainty or failure\s+serializes safely/i);
+    expect(autonomous).toContain(
+      "serial execution is used when exactly one ready slice exists, explicit `disabled` mode, or any",
+    );
+    expect(autonomous).toContain(
+      "fail-closed condition; concurrent isolated writer worktrees require at least two compatible ready",
+    );
+    expect(autonomous).not.toContain(
+      "serial execution is reserved for explicit `disabled` mode or a fail-closed condition",
+    );
 
     const validation = readRepositoryFile(
       ".agents/skills/workflow-spec-driven/references/validate.md",

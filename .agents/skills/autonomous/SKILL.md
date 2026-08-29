@@ -95,7 +95,9 @@ unattended run gets wrong:
 When the frozen workflow is resolved, read
 `.agents/skills/autonomous/references/parallelization.md` after workflow resolution and before
 planning. Assisted dispatch is the default. Independent compatible slices may open together;
-serial execution is reserved for explicit `disabled` mode or a fail-closed condition.
+serial execution is used when exactly one ready slice exists, explicit `disabled` mode, or any
+fail-closed condition; concurrent isolated writer worktrees require at least two compatible ready
+slices.
 
 - **Every implementation slice closes its technical review before any dependent slice consumes its
   checkpoint** — implement, scoped gate, commit, and a fresh Verifier on the private writer
