@@ -19,9 +19,9 @@ remote-delivery authority, published capability version, and honestly bounded pa
    and unrelated remote actions remain separately authorized.
 5. Inspect the external security entries in `skills-lock.json` and confirm the docs describe them as
    separately authorized, immutable dependencies rather than bundled capabilities.
-6. Inspect the opt-in parallel slice contract: `disabled`, `safe`, and `full`, sequential TLC tasks,
-   deterministic worktree/worker follow-up, checkpoint synchronization, resource preflight, and
-   zero-effect serial fallback when capability or isolation is unproven.
+6. Inspect the assisted-by-default hybrid slice contract: `assisted` and `disabled`, sequential
+   tasks within each slice, dynamic writer admission, checkpoint synchronization, resource preflight,
+   and zero-effect serial fallback when dependency, health, ownership, or isolation proof is missing.
 7. Reconcile the parallel release claims with durable QA status. Keep the real Orca/Codex two-lane
    lifecycle and completed-pilot cleanup as `blocked-verify`, never as completed-pilot evidence.
 8. Inspect the package and lockfile root metadata, full test command, and package membership for the

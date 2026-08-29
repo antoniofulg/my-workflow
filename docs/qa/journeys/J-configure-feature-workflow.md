@@ -35,3 +35,6 @@ preserving consumer-owned configuration and local-artifact boundaries.
 provider boundary is the repository's frozen `resource_provider: null` path; resource-bearing work
 serializes before mutation. The real Orca/Codex worker journey remains separately
 `blocked-verify` in [`J-execute-parallel-slices`](J-execute-parallel-slices.md).
+
+The v3 assisted and planner promises are reset to `untested` for the 2026-08-29 offline QA cycle;
+the passing zero-effect fallback remains an adjacent canary and will be reconfirmed in that cycle.

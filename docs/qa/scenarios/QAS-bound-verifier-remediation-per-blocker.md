@@ -6,7 +6,7 @@ persona: Workflow operator
 journey: J-execute-parallel-slices
 expected: Distinct verifier blockers receive independent remediation counts while the same requirement, root cause, and failure path halts only after its third failed remediation.
 entry_points: .agents/skills/workflow-spec-driven/scripts/review_convergence.py; .agents/skills/autonomous/SKILL.md; .agents/skills/autonomous/references/parallelization.md
-qa_status: pass
+qa_status: untested
 bug_ids:
 fix_status:
 retest_status:
@@ -25,3 +25,6 @@ closed fingerprints replayed with no count increment, while a distinct fingerpri
 on its third failed remediation; the checkout ledger read stayed at 21 total/21 closed/0 open with
 maximum count 2 before and after. The same command log records the later failure and replay staying
 at halted count 3.
+
+The hybrid-slice feature adds authorized audit generations without erasing the first halt. The
+public convergence CLI must be re-walked on a disposable ledger; the R19 verdict remains historical.

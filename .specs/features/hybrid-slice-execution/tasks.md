@@ -498,6 +498,27 @@ prepared leases, effect-specific postconditions, durable diagnostics, and a proc
 **Gate:** `python3 tools/test_orca_assisted_probe.py && npm_config_offline=true npm run test:all`
 **Commit:** `fix(orca): close final probe review blockers`
 
+### Final QA Plan: hybrid adoption and assisted execution
+
+**What:** Map every HSE criterion to durable adoption, configuration, offline assisted-execution,
+or internal technical evidence; reset changed public promises for a fresh independent walk while
+preserving the live Orca limitation.
+
+**Where:** `docs/qa/journeys/`, `docs/qa/scenarios/`, `docs/qa/charters/`
+**Depends on:** CP-S6 and final implementation review
+**Requirements:** HSE-01 through HSE-57
+
+**Done when:**
+
+- [x] All 57 acceptance criteria have one explicit disposition across the three 2026-08-29 charters.
+- [x] Adoption, configuration, offline fake-provider, and convergence scenarios are `untested`; the passing fallback is an adjacent canary.
+- [x] Real Orca lifecycle and completed-pilot cleanup remain `blocked-verify`.
+- [x] The handoff names the existing CLI/manual adapter, checkout-local fake providers, evidence/report paths, and a fresh QA Execute Verifier.
+- [x] No product walk, live Orca action, framework installation, or product/runtime edit occurred in QA Plan.
+
+**Gate:** `npm_config_offline=true npm run test:all`
+**Commit:** `test(qa): plan hybrid adoption verification`
+
 ## Checkpoint DAG
 
 | Producer | Checkpoint | Consumers | Proof required before release |

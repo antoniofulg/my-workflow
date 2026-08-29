@@ -1,23 +1,24 @@
 # J-execute-parallel-slices
 
 **Persona:** Workflow operator
-**Goal:** Advance eligible slices concurrently without weakening the sequential TLC workflow.
-**Entry point:** `.my-workflow.toml` → `parallel_execute.py start|status|resume`
+**Goal:** Advance eligible slices through the assisted workflow while preserving independent proof and safe serial fallback.
+**Entry point:** `.my-workflow.toml` → `parallel_execute.py start|status|resume` → `orca_assisted_probe.py dispatch|inspect|cleanup`
 
 ## Flow
 
-1. Resolve a feature with a supported parallelization mode and inspect the frozen provider choice.
-2. Preflight a disposable safe-mode fixture with exactly two ready `Resources: none` slices.
-3. Start through `--adapter auto`; require a proven Orca capability or an explicit zero-effect serial fallback.
-4. Observe distinct worktree, branch, dispatch, and terminal receipts for both active lanes.
-5. Resume through correlated events until both workers have terminal read-before-ack-before-release receipts.
-6. Run the lifecycle oracle, then clean only the attested fixture, workers, and worktrees.
-7. Inspect status and Git residue to confirm no owned checkout or worker remains.
+1. Resolve a v3 feature with default `assisted` mode and inspect the frozen provider and worker cap.
+2. Plan ready, blocked, conflicting, and serial cases; require worktrees only for compatible concurrent writers.
+3. Exercise the public executor and assisted probe with checkout-local fake providers; persist the packet and transport only its pointer.
+4. Observe correlated worktree, branch, operation, terminal, checkpoint, and lease receipts without packet bodies or absolute home paths.
+5. Reconcile transient responses through bounded read-only inspections and confirm one physical mutation per logical operation.
+6. Run cleanup only after ownership and lifecycle proof, then independently confirm zero owned residue and an unrelated canary remains.
+7. Keep the separate real Orca/Codex lifecycle and completed-pilot cleanup legs `blocked-verify` until upstream support is verified.
 
 ## Promises
 
 - [`QAS-run-resource-free-parallel-orca-slices`](../scenarios/QAS-run-resource-free-parallel-orca-slices.md)
 - [`QAS-clean-owned-parallel-slice-pilot`](../scenarios/QAS-clean-owned-parallel-slice-pilot.md)
+- [`QAS-coordinate-assisted-slices-offline`](../scenarios/QAS-coordinate-assisted-slices-offline.md)
 - [`CFG-fallback-unproven-parallel-execution`](../scenarios/CFG-fallback-unproven-parallel-execution.md)
 - [`QAS-bound-verifier-remediation-per-blocker`](../scenarios/QAS-bound-verifier-remediation-per-blocker.md)
 
