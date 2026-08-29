@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented here.
 
+## [0.7.0] - 2026-08-29
+
+### Added
+
+- PR #70's QA evidence and PR #73's hybrid slice execution establish the release's assisted-by-default workflow contract.
+- Assisted slice execution is the default: independent slices can run concurrently in isolated worktrees, while a single ready slice integrates serially in the checkout.
+- `workflow-spec-driven` replaces the legacy TLC path, with bounded slice context, independent proof, adaptive machine health, and exclusive-resource leases.
+
+### Changed
+
+- Tasks within each slice remain sequential; the coordinator owns dependency release, parking, continuation, integration, and cleanup. Adoption installs the pointer-only assisted probe with exactly-once mutations and read-only failure reconciliation.
+
+### Fixed
+
+- Safe cleanup and bounded ownership/effect checks prevent cross-slice residue and duplicate mutations. Live Orca remains `blocked-verify` because host terminal transport validation was not performed.
+
 ## [0.6.0] - 2026-08-25
 
 ### Added
