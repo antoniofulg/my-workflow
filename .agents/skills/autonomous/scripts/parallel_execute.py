@@ -74,8 +74,8 @@ class LaneScheduler:
             raise ExecutorError("invalid writer admission bounds")
         self.configured_cap = configured_cap
         self.baseline = baseline
-        self.ceiling = ceiling
-        self.cap = min(ceiling if configured_cap == "auto" else configured_cap, baseline)
+        self.ceiling = ceiling if configured_cap == "auto" else configured_cap
+        self.cap = min(self.ceiling, baseline)
         self.health_reader = health_reader
 
     @staticmethod
@@ -104,7 +104,10 @@ class LaneScheduler:
     def _settle(self, active_count: int) -> None:
         if active_count < self.baseline or self.cap >= self.ceiling:
             return
-        evidence = self.health_reader() if self.health_reader is not None else None
+        try:
+            evidence = self.health_reader() if self.health_reader is not None else None
+        except Exception:
+            return
         if machine_health is not None and machine_health.should_admit_lane(
             active_count,
             self.configured_cap,
@@ -702,32 +705,31 @@ class Coordinator:
             self.root = _repository_root(self.root)
             self.state_path = runtime_state_path(self.root, self.feature)
 
-    def _workflow(self) -> dict[str, Any]:
+    def _workflow(self, *, validate: bool = True) -> dict[str, Any]:
         path = self.root / ".specs" / "features" / self.feature / "workflow.json"
         try:
             snapshot = json.loads(path.read_text(encoding="utf-8"))
-            if isinstance(snapshot, dict) and snapshot.get("version") in (1, 2):
-                raise ExecutorError("workflow snapshot version is stale; rerun resolution with --refresh")
-            if not isinstance(snapshot, dict) or snapshot.get("version") != 3 or snapshot.get("feature") != self.feature:
-                raise ValueError
-            parallelization = snapshot["parallelization"]
-            if not isinstance(parallelization, dict) or set(parallelization) != {
-                "mode", "max_workers", "automatic_baseline", "automatic_ceiling", "resource_provider"
-            }:
-                raise ValueError
-            mode = parallelization["mode"]
-            head = snapshot["git_head"]
-            max_workers = parallelization["max_workers"]
-            if (
-                mode not in MODES
-                or (max_workers != "auto" and (type(max_workers) is not int or max_workers < 1))
-                or parallelization["automatic_baseline"] != 2
-                or parallelization["automatic_ceiling"] != 4
-                or not isinstance(head, str)
-                or not head
-            ):
-                raise ValueError
-            return snapshot
+            if not validate:
+                if isinstance(snapshot, dict) and snapshot.get("version") in (1, 2):
+                    raise ExecutorError("workflow snapshot version is stale; rerun resolution with --refresh")
+                if not isinstance(snapshot, dict) or snapshot.get("version") != 3 or snapshot.get("feature") != self.feature:
+                    raise ValueError
+                parallelization = snapshot.get("parallelization")
+                if not isinstance(parallelization, Mapping) or parallelization.get("mode") not in MODES:
+                    raise ValueError
+                return snapshot
+            scripts = Path(__file__).resolve().parents[2] / "workflow-config" / "scripts"
+            if str(scripts) not in sys.path:
+                sys.path.insert(0, str(scripts))
+            import workflow_config
+
+            try:
+                return workflow_config.validate_snapshot(self.root, self.feature, snapshot)
+            except workflow_config.ConfigError as exc:
+                message = str(exc)
+                if "stale; rerun resolution" in message:
+                    raise ExecutorError(message.removeprefix("workflow-config: ")) from exc
+                raise ValueError() from exc
         except ExecutorError:
             raise
         except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
@@ -841,7 +843,7 @@ class Coordinator:
         return list(event.get("actions", [])) if isinstance(event.get("actions", []), list) else []
 
     def status(self) -> dict[str, Any]:
-        workflow = self._workflow()
+        workflow = self._workflow(validate=False)
         if workflow["parallelization"]["mode"] == "disabled":
             return {"version": 1, "feature": self.feature, "mode": "disabled", "state": None, "actions": []}
         self._prepare_repository()
@@ -1487,7 +1489,12 @@ class Coordinator:
     ) -> dict[str, Any] | None:
         """Acquire an exclusive gate through the existing provider, or park its claimant."""
         validate_runtime_state(state, str(self.root), self.feature)
-        if not _ID.fullmatch(gate) or not resources or any(not isinstance(item, str) or not item for item in resources):
+        if (
+            not _ID.fullmatch(gate)
+            or not resources
+            or any(not isinstance(item, str) or not item for item in resources)
+            or len(set(resources)) != len(resources)
+        ):
             raise ExecutorError("invalid heavy gate request")
         lane = state.get("lanes", {}).get(lane_id)
         if not isinstance(lane, Mapping):
@@ -1653,7 +1660,12 @@ class Coordinator:
             for item in plan.get("blocked", [])
             if isinstance(item, Mapping)
         ):
-            expanded = self._plan_for_capacity(snapshot["parallelization"]["automatic_ceiling"], state)
+            configured_cap = snapshot["parallelization"]["max_workers"]
+            expanded_cap = (
+                snapshot["parallelization"]["automatic_ceiling"]
+                if configured_cap == "auto" else configured_cap
+            )
+            expanded = self._plan_for_capacity(expanded_cap, state)
             if not expanded.get("fallback"):
                 plan = expanded
                 lanes = list(plan.get("lanes", []))
@@ -1667,11 +1679,12 @@ class Coordinator:
             if isinstance(slice_id, str):
                 seen_slices.add(slice_id)
             lane_id = str(plan_lane.get("id", ""))
-            try:
-                destination = self._worktree_destination(plan_lane)
-                destinations[lane_id] = bounded_path(_git_common_dir(self.root).parent.parent, destination)
-            except (ExecutorError, PathBoundaryError):
-                return _serial_result(self.feature, mode, "unsafe-worktree-path", lanes)
+            if plan_lane.get("worktree", True) is True:
+                try:
+                    destination = self._worktree_destination(plan_lane)
+                    destinations[lane_id] = bounded_path(_git_common_dir(self.root).parent.parent, destination)
+                except (ExecutorError, PathBoundaryError):
+                    return _serial_result(self.feature, mode, "unsafe-worktree-path", lanes)
             resources = self._lane_resources(plan_lane)
             if resources is None:
                 return _serial_result(self.feature, mode, "missing-resource-metadata", lanes)
@@ -1762,28 +1775,37 @@ class Coordinator:
                 retry_acquire_created = False
             if existing["state"] in {"complete", "failed", "serial"}:
                 continue
-            worktree_key, worktree_action, worktree_created = self._record_action(state, lane_id, existing, "worktree")
-            self._save(state)
-            if worktree_action["status"] == "pending":
-                try:
-                    if not worktree_created:
-                        receipt = self._reconcile_pending(adapter, worktree_action)
-                        if receipt is None:
-                            raise ExecutorError("unreconciled pending action: worktree")
-                    else:
-                        receipt = self._create_worktree(destinations[lane_id])
-                    if not isinstance(receipt, Mapping):
-                        raise ExecutorError("malformed worktree receipt")
-                    self._validate_worktree_receipt(receipt, destinations[lane_id], state["source_git_head"])
-                    bounded_path(_git_common_dir(self.root).parent.parent, receipt["worktree_path"])
-                    self._accept(worktree_action, external_id=receipt.get("worktree_id"), receipt=dict(receipt))
-                    existing.update({key: receipt[key] for key in ("worktree_id", "gitdir", "worktree_path", "branch", "pre_head") if key in receipt})
-                except Exception as exc:
-                    existing["fallback_reason"] = "worktree:" + str(exc)
-                    if existing["state"] in {"ready", "running"}:
-                        transition_lane(state, lane_id, "serial", expected=existing["state"])
-                    self._save(state)
-                    return _serial_result(self.feature, mode, "unreconciled-pending" if not worktree_created else "worktree-failed", lanes)
+            if plan_lane.get("worktree", True) is True:
+                worktree_key, worktree_action, worktree_created = self._record_action(state, lane_id, existing, "worktree")
+                self._save(state)
+                if worktree_action["status"] == "pending":
+                    try:
+                        if not worktree_created:
+                            receipt = self._reconcile_pending(adapter, worktree_action)
+                            if receipt is None:
+                                raise ExecutorError("unreconciled pending action: worktree")
+                        else:
+                            receipt = self._create_worktree(destinations[lane_id])
+                        if not isinstance(receipt, Mapping):
+                            raise ExecutorError("malformed worktree receipt")
+                        self._validate_worktree_receipt(receipt, destinations[lane_id], state["source_git_head"])
+                        bounded_path(_git_common_dir(self.root).parent.parent, receipt["worktree_path"])
+                        self._accept(worktree_action, external_id=receipt.get("worktree_id"), receipt=dict(receipt))
+                        existing.update({key: receipt[key] for key in ("worktree_id", "gitdir", "worktree_path", "branch", "pre_head") if key in receipt})
+                    except Exception as exc:
+                        existing["fallback_reason"] = "worktree:" + str(exc)
+                        if existing["state"] in {"ready", "running"}:
+                            transition_lane(state, lane_id, "serial", expected=existing["state"])
+                        self._save(state)
+                        return _serial_result(self.feature, mode, "unreconciled-pending" if not worktree_created else "worktree-failed", lanes)
+            else:
+                existing.update({
+                    "worktree_id": "integration",
+                    "worktree_path": str(self.root),
+                    "branch": "(integration)",
+                    "pre_head": state["source_git_head"],
+                })
+                self._save(state)
             if plan_lane.get("sync_after"):
                 try:
                     sync_status = self._sync_lane(state, lane_id, plan_lane, existing)

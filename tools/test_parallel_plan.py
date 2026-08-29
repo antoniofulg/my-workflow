@@ -30,6 +30,13 @@ def make_repo(
     subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
     subprocess.run(["git", "config", "user.name", "Test"], cwd=root, check=True)
     (root / "seed").write_text("seed\n", encoding="utf-8")
+    agents = root / ".codex" / "agents"
+    agents.mkdir(parents=True)
+    for name in ("implementer", "verifier", "explorer", "deep-reviewer"):
+        (agents / f"{name}.toml").write_text(
+            'model = "gpt-test"\nmodel_reasoning_effort = "medium"\ndeveloper_instructions = ""\n',
+            encoding="utf-8",
+        )
     subprocess.run(["git", "add", "."], cwd=root, check=True)
     subprocess.run(["git", "commit", "-qm", "seed"], cwd=root, check=True)
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
@@ -38,12 +45,24 @@ def make_repo(
             {
                 "feature": feature,
                 "git_head": head,
+                "profile": None,
+                "overrides": {},
+                "deep_review": {"cadence": "feature", "groups": [[1]]},
                 "parallelization": {
                     "mode": mode,
                     "max_workers": max_workers,
                     "automatic_baseline": 2,
                     "automatic_ceiling": 4,
                     "resource_provider": None,
+                },
+                "roles": {
+                    role: {
+                        "provider": "codex",
+                        "agent_file": f".codex/agents/{'deep-reviewer' if role == 'deep_reviewer' else role}.toml",
+                        "model": "gpt-test",
+                        "effort": "medium",
+                    }
+                    for role in ("implementer", "verifier", "explorer", "deep_reviewer")
                 },
                 "version": 3,
             },
@@ -240,6 +259,19 @@ def test_initial_admission_uses_baseline_before_explicit_ceiling() -> None:
             assert blocked_task(plan, "T4")["reasons"] == [expected_reason]
         finally:
             shutil.rmtree(root)
+
+
+def test_explicit_cap_above_automatic_ceiling_expands_selection() -> None:
+    root = make_repo(
+        task("T1", "A") + task("T2", "B") + task("T3", "C") + task("T4", "D") + task("T5", "E"),
+        max_workers=5,
+    )
+    try:
+        plan = parallel_plan.plan(root=root, feature="fixture", selection_cap=5)
+        assert [item["task"] for item in plan["lanes"]] == ["T1", "T2", "T3", "T4", "T5"]
+        assert plan["compatibility"]["selected"] == ["T1", "T2", "T3", "T4", "T5"]
+    finally:
+        shutil.rmtree(root)
 
 
 def test_resource_collision_blocks_only_the_conflicting_ready_writer() -> None:
@@ -457,6 +489,28 @@ def test_snapshot_identity_and_version_are_validated_before_mode_and_head() -> N
                     )
             else:
                 raise AssertionError("expected invalid workflow snapshot")
+    finally:
+        shutil.rmtree(root)
+
+
+def test_complete_snapshot_schema_is_required_before_planning() -> None:
+    root = make_repo(task("T1", "A"))
+    path = root / ".specs/features/fixture/workflow.json"
+    original = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        for mutate in (
+            lambda snapshot: snapshot.pop("roles"),
+            lambda snapshot: snapshot["parallelization"].update(resource_provider="/outside/provider"),
+        ):
+            snapshot = json.loads(json.dumps(original))
+            mutate(snapshot)
+            path.write_text(json.dumps(snapshot), encoding="utf-8")
+            try:
+                parallel_plan.plan(root=root, feature="fixture")
+            except ValueError as exc:
+                assert str(exc) == "invalid workflow snapshot"
+            else:
+                raise AssertionError("incomplete snapshot must fail before planning")
     finally:
         shutil.rmtree(root)
 

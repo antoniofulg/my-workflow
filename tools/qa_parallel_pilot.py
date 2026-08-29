@@ -63,7 +63,20 @@ def setup() -> dict[str, str]:
             "### T2: pilot B\n**Status:** pending\n**Slice:** B\n**Where:** src/b.py\n**Depends on:** None\n**Resources:** none\n",
             encoding="utf-8",
         )
-        git(root, "add", "-f", str(feature_dir / "tasks.md"))
+        agents = root / ".codex" / "agents"
+        agents.mkdir(parents=True)
+        for name, model, effort in (
+            ("implementer", "gpt-5.6-luna", "high"),
+            ("verifier", "gpt-5.6-sol", "medium"),
+            ("explorer", "gpt-5.6-luna", "medium"),
+            ("deep-reviewer", "gpt-5.6-luna", "high"),
+        ):
+            (agents / f"{name}.toml").write_text(
+                f'name = "{name}"\nmodel = "{model}"\nmodel_reasoning_effort = "{effort}"\n'
+                'developer_instructions = "QA fixture"\n',
+                encoding="utf-8",
+            )
+        git(root, "add", "-f", str(feature_dir / "tasks.md"), str(agents))
         git(root, "commit", "-qm", "qa fixture plan")
         head = git(root, "rev-parse", "HEAD")
         (feature_dir / "workflow.json").write_text(
@@ -72,12 +85,33 @@ def setup() -> dict[str, str]:
                     "version": 3,
                     "feature": FEATURE,
                     "git_head": head,
+                    "profile": None,
+                    "overrides": {},
+                    "deep_review": {"cadence": "grouped.3", "groups": [[1, 2]]},
                     "parallelization": {
                         "mode": "assisted",
                         "max_workers": "auto",
                         "automatic_baseline": 2,
                         "automatic_ceiling": 4,
                         "resource_provider": None,
+                    },
+                    "roles": {
+                        "implementer": {
+                            "provider": "codex", "agent_file": ".codex/agents/implementer.toml",
+                            "model": "gpt-5.6-luna", "effort": "high",
+                        },
+                        "verifier": {
+                            "provider": "codex", "agent_file": ".codex/agents/verifier.toml",
+                            "model": "gpt-5.6-sol", "effort": "medium",
+                        },
+                        "explorer": {
+                            "provider": "codex", "agent_file": ".codex/agents/explorer.toml",
+                            "model": "gpt-5.6-luna", "effort": "medium",
+                        },
+                        "deep_reviewer": {
+                            "provider": "codex", "agent_file": ".codex/agents/deep-reviewer.toml",
+                            "model": "gpt-5.6-luna", "effort": "high",
+                        },
                     },
                 },
                 sort_keys=True,

@@ -45,6 +45,20 @@ def test_missing_malformed_stale_or_pressured_evidence_denies_lane_above_baselin
     assert machine_health.should_admit_lane(2, "auto", healthy(), now_monotonic=10) is True
 
 
+def test_non_finite_timestamps_and_non_integer_gate_counts_fail_closed() -> None:
+    for evidence in (
+        {**healthy(), "observed_at_monotonic": float("nan")},
+        {**healthy(), "observed_at_monotonic": float("inf")},
+        {**healthy(), "heavy_gates_active": 0.0},
+        {**healthy(), "heavy_gates_active": True},
+    ):
+        assert machine_health.should_admit_lane(2, "auto", evidence, now_monotonic=10) is False
+
+
+def test_health_reader_failure_denies_growth_without_exception() -> None:
+    assert machine_health.should_admit_lane(2, "auto", None, now_monotonic=10) is False
+
+
 def test_health_output_is_normalized() -> None:
     evidence = machine_health.collect_health(
         ".",

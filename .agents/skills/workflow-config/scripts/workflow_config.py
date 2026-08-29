@@ -631,6 +631,10 @@ def _snapshot_path(root: Path, feature: str) -> Path:
 def _validate_snapshot(root: Path, feature: str, snapshot: Any) -> dict[str, Any]:
     if not isinstance(snapshot, dict):
         raise _error("existing snapshot must be a JSON object")
+    if type(snapshot.get("version")) is not int or snapshot.get("version") != SNAPSHOT_VERSION:
+        if snapshot.get("version") in (1, 2):
+            raise _error("workflow snapshot version is stale; rerun resolution with --refresh")
+        raise _error("existing snapshot version must be integer 3")
     required = {
         "version",
         "feature",
@@ -643,10 +647,6 @@ def _validate_snapshot(root: Path, feature: str, snapshot: Any) -> dict[str, Any
     }
     if set(snapshot) != required:
         raise _error("existing snapshot has an incomplete schema")
-    if type(snapshot["version"]) is not int or snapshot["version"] != SNAPSHOT_VERSION:
-        if snapshot.get("version") in (1, 2):
-            raise _error("workflow snapshot version is stale; rerun resolution with --refresh")
-        raise _error("existing snapshot version must be integer 3")
     if snapshot["feature"] != feature or not isinstance(snapshot["feature"], str):
         raise _error("existing snapshot feature does not match the requested feature")
     if not isinstance(snapshot["git_head"], str) or not snapshot["git_head"]:
@@ -735,6 +735,11 @@ def _validate_snapshot(root: Path, feature: str, snapshot: Any) -> dict[str, Any
         "resource_provider": normalized_provider,
     }
     return normalized
+
+
+def validate_snapshot(root: Path, feature: str, snapshot: Any) -> dict[str, Any]:
+    """Validate the complete frozen v3 snapshot for all runtime readers."""
+    return _validate_snapshot(root.resolve(), feature, snapshot)
 
 
 def _write_snapshot(path: Path, snapshot: dict[str, Any]) -> None:

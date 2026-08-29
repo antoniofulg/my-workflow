@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import shutil
 import sys
@@ -20,10 +21,6 @@ STATUSES = {"healthy", "pressured", "unknown"}
 
 def _status(value: Any) -> str:
     return value if isinstance(value, str) and value in STATUSES else "unknown"
-
-
-def _count(value: Any) -> int:
-    return value if type(value) is int and value >= 0 else 0
 
 
 def _invalid() -> dict[str, Any]:
@@ -60,6 +57,9 @@ def normalize_health(
         or type(max_age_seconds) not in (int, float)
         or max_age_seconds <= 0
         or observed < 0
+        or not math.isfinite(float(observed))
+        or not math.isfinite(float(now))
+        or not math.isfinite(float(max_age_seconds))
         or now < observed
         or now - observed > max_age_seconds
         or evidence.get("schema_version") != SCHEMA_VERSION
@@ -68,7 +68,7 @@ def normalize_health(
         return result
     cpu, memory, disk = (_status(evidence.get(key)) for key in ("cpu", "memory", "disk"))
     heavy = evidence.get("heavy_gates_active")
-    if heavy != _count(heavy) or any(value == "unknown" for value in (cpu, memory, disk)):
+    if type(heavy) is not int or heavy < 0 or any(value == "unknown" for value in (cpu, memory, disk)):
         return result
     result.update(
         observed_at_monotonic=float(observed),

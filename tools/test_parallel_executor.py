@@ -70,6 +70,13 @@ def make_repo(*, mode: str = "assisted", feature: str = "fixture") -> Path:
     subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
     subprocess.run(["git", "config", "user.name", "Test"], cwd=root, check=True)
     (root / "seed").write_text("seed\n", encoding="utf-8")
+    agents = root / ".codex" / "agents"
+    agents.mkdir(parents=True)
+    for name in ("implementer", "verifier", "explorer", "deep-reviewer"):
+        (agents / f"{name}.toml").write_text(
+            'model = "gpt-test"\nmodel_reasoning_effort = "medium"\ndeveloper_instructions = ""\n',
+            encoding="utf-8",
+        )
     subprocess.run(["git", "add", "."], cwd=root, check=True)
     subprocess.run(["git", "commit", "-qm", "seed"], cwd=root, check=True)
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
@@ -78,12 +85,24 @@ def make_repo(*, mode: str = "assisted", feature: str = "fixture") -> Path:
             {
                 "feature": feature,
                 "git_head": head,
+                "profile": None,
+                "overrides": {},
+                "deep_review": {"cadence": "feature", "groups": [[1]]},
                 "parallelization": {
                     "mode": mode,
                     "max_workers": "auto",
                     "automatic_baseline": 2,
                     "automatic_ceiling": 4,
                     "resource_provider": None,
+                },
+                "roles": {
+                    role: {
+                        "provider": "codex",
+                        "agent_file": f".codex/agents/{'deep-reviewer' if role == 'deep_reviewer' else role}.toml",
+                        "model": "gpt-test",
+                        "effort": "medium",
+                    }
+                    for role in ("implementer", "verifier", "explorer", "deep_reviewer")
                 },
                 "version": 3,
             },
@@ -2327,6 +2346,53 @@ def test_lane_scheduler_admits_one_extra_writer_after_healthy_settle() -> None:
     assert scheduler.cap == 3
 
 
+def test_lane_scheduler_honors_explicit_cap_above_automatic_ceiling() -> None:
+    now = time.monotonic()
+    evidence = {
+        "schema_version": 1,
+        "observed_at_monotonic": now,
+        "cpu": "healthy",
+        "memory": "healthy",
+        "disk": "healthy",
+        "heavy_gates_active": 0,
+    }
+    scheduler = parallel_execute.LaneScheduler(5, health_reader=lambda: evidence)
+    candidates = [
+        {"task": f"T{index}", "declared_paths": [f"src/{index}.py"], "resources": []}
+        for index in range(1, 6)
+    ]
+    existing = {
+        f"lane-{index}": {"task": f"T{index}", "state": "running", "declared_paths": [f"src/{index}.py"], "resources": []}
+        for index in range(1, 3)
+    }
+    assert [lane["task"] for lane in scheduler.select(candidates, existing)] == ["T3"]
+    assert scheduler.cap == 3
+    existing["lane-3"] = {"task": "T3", "state": "running", "declared_paths": ["src/3.py"], "resources": []}
+    assert [lane["task"] for lane in scheduler.select(candidates, existing)] == ["T4"]
+    assert scheduler.cap == 4
+    existing["lane-4"] = {"task": "T4", "state": "running", "declared_paths": ["src/4.py"], "resources": []}
+    assert [lane["task"] for lane in scheduler.select(candidates, existing)] == ["T5"]
+    assert scheduler.cap == 5
+
+
+def test_health_reader_failure_preserves_active_lanes_and_denies_growth() -> None:
+    scheduler = parallel_execute.LaneScheduler(5, health_reader=lambda: (_ for _ in ()).throw(RuntimeError("unavailable")))
+    existing = {
+        "lane-A": {"task": "T1", "state": "running", "declared_paths": ["src/1.py"], "resources": []},
+        "lane-B": {"task": "T2", "state": "running", "declared_paths": ["src/2.py"], "resources": []},
+    }
+    selected = scheduler.select(
+        [
+            {"task": "T1", "declared_paths": ["src/1.py"], "resources": []},
+            {"task": "T2", "declared_paths": ["src/2.py"], "resources": []},
+            {"task": "T3", "declared_paths": ["src/3.py"], "resources": []},
+        ],
+        existing,
+    )
+    assert selected == []
+    assert scheduler.cap == 2
+
+
 def test_lane_scheduler_refills_only_compatible_freed_slot() -> None:
     scheduler = parallel_execute.LaneScheduler("auto")
     existing = {
@@ -2369,6 +2435,13 @@ def test_heavy_gates_serialize_on_existing_provider_while_light_work_remains_eli
         state = parallel_execute.new_runtime_state(str(root.resolve()), "fixture", "assisted", source_head)
         state["lanes"]["lane-A"] = {"slice": "A", "task": "T1", "state": "running", "resources": [], "worktree": True}
         state["lanes"]["lane-B"] = {"slice": "B", "task": "T2", "state": "ready", "resources": [], "worktree": True}
+        try:
+            coordinator.acquire_heavy_gate({}, state, "lane-A", "duplicate-gate", ["exclusive", "exclusive"], provider)  # type: ignore[arg-type]
+        except parallel_execute.ExecutorError as exc:
+            assert "invalid heavy gate request" in str(exc)
+        else:
+            raise AssertionError("duplicate heavy-gate resources must fail before provider mutation")
+        assert provider.acquires == 0
         lease = coordinator.acquire_heavy_gate({}, state, "lane-A", "test-gate", ["exclusive"], provider)  # type: ignore[arg-type]
         assert lease is not None and lease["gate"] == "test-gate"
         assert coordinator.acquire_heavy_gate({}, state, "lane-B", "test-gate-2", ["exclusive"], provider) is None
@@ -2376,6 +2449,41 @@ def test_heavy_gates_serialize_on_existing_provider_while_light_work_remains_eli
         released = coordinator.release_heavy_gate({}, state, "lane-A", "test-gate", provider)  # type: ignore[arg-type]
         assert released["released"] is True
         assert provider.releases == 1
+    finally:
+        shutil.rmtree(root)
+
+
+def test_serial_lane_uses_clean_integration_checkout_without_worktree_effects() -> None:
+    root = make_repo()
+    try:
+        class SerialAdapter(RecordingAdapter):
+            def start_worker(self, lane: dict[str, object], receipt: dict[str, object], *, idempotency_key: str) -> dict[str, str]:
+                self.effects.append(("worker", idempotency_key))
+                assert receipt["worktree_path"] == str(root.resolve())
+                assert receipt["worktree_id"] == "integration"
+                return {
+                    "feature": "fixture", "slice": str(lane["slice"]), "task": str(lane["task"]),
+                    "worktree_id": "integration", "worktree_path": str(root.resolve()),
+                    "branch": "(integration)", "pre_head": str(receipt["pre_head"]),
+                    "run_id": "run-serial", "orchestration_task_id": "task-serial",
+                    "dispatch_id": "dispatch-serial", "terminal_handle": "terminal-serial",
+                    "idempotency_key": idempotency_key, "status": "complete", "terminal": "true",
+                }
+
+        adapter = SerialAdapter()
+        coordinator = parallel_execute.Coordinator(root, "fixture", adapter_factory=lambda: adapter)
+        coordinator._plan = lambda: {
+            "fallback": False,
+            "lanes": [{
+                "id": "serial", "slice": "A", "task": "T1", "status": "ready",
+                "execution": "serial-integration", "worktree": False, "sync_after": [],
+                "declared_paths": ["src/a.py"], "resources": [],
+            }],
+        }  # type: ignore[method-assign]
+        result = coordinator.start()
+        assert result["fallback"] is False
+        assert [effect[0] for effect in adapter.effects] == ["worker"]
+        assert result["state"]["lanes"]["serial"]["state"] == "complete"  # type: ignore[index]
     finally:
         shutil.rmtree(root)
 

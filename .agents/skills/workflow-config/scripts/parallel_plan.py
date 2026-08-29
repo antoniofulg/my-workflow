@@ -13,6 +13,8 @@ from pathlib import Path
 from pathlib import PurePosixPath
 from typing import Any
 
+import workflow_config
+
 
 MODES = {"assisted", "disabled"}
 STATUS_VALUES = {"pending", "in_progress", "waiting", "complete"}
@@ -41,36 +43,19 @@ def _snapshot(root: Path, feature: str) -> dict[str, Any]:
     path = root / ".specs" / "features" / feature / "workflow.json"
     try:
         snapshot = json.loads(path.read_text(encoding="utf-8"))
-        if isinstance(snapshot, dict) and snapshot.get("version") in (1, 2):
-            raise ValueError("workflow snapshot version is stale; rerun resolution with --refresh")
-        if (
-            not isinstance(snapshot, dict)
-            or type(snapshot.get("version")) is not int
-            or snapshot["version"] != 3
-            or snapshot.get("feature") != feature
-        ):
-            raise ValueError("invalid workflow snapshot")
-        parallelization = snapshot["parallelization"]
-        if not isinstance(parallelization, dict) or set(parallelization) != {
-            "mode", "max_workers", "automatic_baseline", "automatic_ceiling", "resource_provider"
-        }:
-            raise ValueError("invalid workflow snapshot")
-        mode = parallelization["mode"]
-        max_workers = parallelization["max_workers"]
-        if (
-            mode not in MODES
-            or (max_workers != "auto" and (type(max_workers) is not int or max_workers < 1))
-            or parallelization["automatic_baseline"] != 2
-            or parallelization["automatic_ceiling"] != 4
-        ):
-            raise ValueError("invalid workflow snapshot")
-        source_git_head = snapshot["git_head"]
-    except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        try:
+            validated = workflow_config.validate_snapshot(root, feature, snapshot)
+        except workflow_config.ConfigError as exc:
+            message = str(exc)
+            if "stale; rerun resolution" in message:
+                raise ValueError(message.removeprefix("workflow-config: ")) from exc
+            raise ValueError("invalid workflow snapshot") from exc
+    except (OSError, TypeError, json.JSONDecodeError) as exc:
         raise ValueError("invalid workflow snapshot") from exc
-    if not isinstance(mode, str) or mode not in MODES:
-        raise ValueError("invalid workflow snapshot")
-    if not isinstance(source_git_head, str) or not source_git_head:
-        raise ValueError("invalid workflow snapshot")
+    parallelization = validated["parallelization"]
+    mode = parallelization["mode"]
+    max_workers = parallelization["max_workers"]
+    source_git_head = validated["git_head"]
     return {
         "mode": mode,
         "max_workers": max_workers,
