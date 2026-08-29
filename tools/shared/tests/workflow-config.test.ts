@@ -26,9 +26,17 @@ function isIgnored(relativePath: string): boolean {
   }
 }
 
+function checkoutPorcelain(): string {
+  return execFileSync("git", ["status", "--porcelain=v1", "--untracked-files=all"], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+  });
+}
+
 function packagedFiles(): string[] {
   const destination = mkdtempSync(join(tmpdir(), "workflow-package-"));
   const tarball = join(destination, "workflow.tgz");
+  const before = checkoutPorcelain();
   try {
     execFileSync("bun", ["pm", "pack", "--filename", tarball, "--ignore-scripts"], {
       cwd: repositoryRoot,
@@ -41,6 +49,7 @@ function packagedFiles(): string[] {
       .map((path) => path.replace(/^package\//, ""));
   } finally {
     rmSync(destination, { recursive: true, force: true });
+    expect(checkoutPorcelain()).toBe(before);
   }
 }
 
