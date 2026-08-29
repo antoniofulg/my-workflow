@@ -14,7 +14,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter as pathDelimiter, dirname, join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 const repositoryRoot = process.cwd();
 const securitySkills = {

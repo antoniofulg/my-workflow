@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { readFrontmatter } from "../src/frontmatter.js";
 
 describe("frontmatter reader", () => {

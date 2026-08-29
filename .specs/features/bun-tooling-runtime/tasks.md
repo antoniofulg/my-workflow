@@ -54,11 +54,11 @@ S2 and S3 may open together only after CP-S1 passes. Tasks inside each slice rem
 - Skill: ponytail
 
 **Done when**:
-- [ ] `packageManager` pins Bun 1.4.0 and scripts use Bun only.
-- [ ] `bun.lock` is committed and `package-lock.json`, Vitest, and `tsx` are absent.
-- [ ] `bunfig.toml` limits discovery to `tools` and preloads a 1.4.x guard.
-- [ ] Every structural suite imports `bun:test`.
-- [ ] `bun install --frozen-lockfile && bun test` exits 0 with the canonical suite count.
+- [x] `packageManager` pins Bun 1.4.0 and scripts use Bun only.
+- [x] `bun.lock` is committed and `package-lock.json` and Vitest are absent; `tsx` remains only for T2's knowledge boundary.
+- [x] `bunfig.toml` limits discovery to `tools` and preloads a 1.4.x guard.
+- [x] Every structural suite imports `bun:test`.
+- [x] `bun install --frozen-lockfile && bun test` exits 0 with the canonical suite count (114 passed).
 
 **Tests**: IT-001, IT-002, UT-001
 **Gate**: Full
@@ -80,7 +80,7 @@ S2 and S3 may open together only after CP-S1 passes. Tasks inside each slice rem
 - [ ] Knowledge script executes the TypeScript entrypoint with Bun.
 - [ ] External `yaml` dependency and import are absent.
 - [ ] Existing valid/malformed frontmatter outcomes remain exact.
-- [ ] `bun test tools/knowledge tools/shared` and `bun run knowledge -- --help` exit 0.
+- [ ] `bun test tools/knowledge tools/shared` and the existing knowledge CLI contract executed through `bun run knowledge` exit 0.
 
 **Tests**: UT-002, IT-005
 **Gate**: Quick

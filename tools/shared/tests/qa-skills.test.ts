@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 const repositoryRoot = process.cwd();
 
@@ -845,11 +845,8 @@ describe("adoption and public setup", () => {
   it("IT-005 / AIM-11 reports release version 0.7.0 consistently", () => {
     const manifest = JSON.parse(readRepositoryFile("package.json")) as {
       version?: string;
+      packageManager?: string;
       scripts?: { test?: string };
-    };
-    const lockfile = JSON.parse(readRepositoryFile("package-lock.json")) as {
-      version?: string;
-      packages?: { ""?: { version?: string } };
     };
     const changelog = readRepositoryFile("CHANGELOG.md");
     const latestHeading = changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m)?.[1];
@@ -858,9 +855,10 @@ describe("adoption and public setup", () => {
     const latestRelease = changelog.slice(releaseStart, nextRelease === -1 ? undefined : nextRelease);
 
     expect(manifest.version).toBe("0.7.0");
-    expect(manifest.scripts?.test).toBe("vitest run --dir tools");
-    expect(lockfile.version).toBe("0.7.0");
-    expect(lockfile.packages?.[""]?.version).toBe("0.7.0");
+    expect(manifest.packageManager).toBe("bun@1.4.0");
+    expect(manifest.scripts?.test).toBe("bun test");
+    expect(readRepositoryFile("bun.lock")).toContain('"name": "my-workflow"');
+    expect(existsSync(join(repositoryRoot, "package-lock.json"))).toBe(false);
     expect(latestHeading).toBe("0.7.0");
     expect(latestHeading).toBe(manifest.version);
     expect(latestRelease).toContain("Assisted slice execution is the default");
