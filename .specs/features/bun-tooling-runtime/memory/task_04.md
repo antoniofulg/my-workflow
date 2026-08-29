@@ -1,0 +1,3 @@
+- T4 keeps the source package complete, but adoption copies only `tools/knowledge/src` and the shared frontmatter runtime; the three repository-only TypeScript tests are not adopted.
+- Package membership is inspected by creating a Bun tarball at an explicit temporary absolute filename and reading it with `tar`; no tarball is written to the checkout.
+- The adopted knowledge entrypoint runs directly as `bun <target>/tools/knowledge/src/cli.ts <target>` and remains independent of consumer Node packages.

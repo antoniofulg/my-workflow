@@ -124,10 +124,10 @@ S2 and S3 may open together only after CP-S1 passes. Tasks inside each slice rem
 - Skill: ponytail
 
 **Done when**:
-- [ ] Package checks use Bun in a disposable boundary and leave no checkout tarball.
-- [ ] Adoption omits repository-only TypeScript tests.
-- [ ] Adopted knowledge CLI runs with Bun and no external YAML package.
-- [ ] Adoption/re-adoption byte identity and consumer preservation remain green.
+- [x] Package checks use Bun in a disposable boundary and leave no checkout tarball.
+- [x] Adoption omits repository-only TypeScript tests.
+- [x] Adopted knowledge CLI runs with Bun and no external YAML package.
+- [x] Adoption/re-adoption byte identity and consumer preservation remain green.
 
 **Tests**: IT-004, IT-005, SEC-002
 **Gate**: Build

@@ -26,6 +26,24 @@ function isIgnored(relativePath: string): boolean {
   }
 }
 
+function packagedFiles(): string[] {
+  const destination = mkdtempSync(join(tmpdir(), "workflow-package-"));
+  const tarball = join(destination, "workflow.tgz");
+  try {
+    execFileSync("bun", ["pm", "pack", "--filename", tarball, "--ignore-scripts"], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    });
+    return execFileSync("tar", ["-tzf", tarball], { encoding: "utf8" })
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((path) => path.replace(/^package\//, ""));
+  } finally {
+    rmSync(destination, { recursive: true, force: true });
+  }
+}
+
 describe("workflow configuration skill", () => {
   it("defines resolution, resume, refresh, and explicit provider failure", () => {
     const skill = readRepositoryFile(skillPath);
@@ -67,13 +85,7 @@ describe("workflow configuration skill", () => {
     ]) {
       expect(isIgnored(relativePath), relativePath).toBe(true);
     }
-    const packageManifest = JSON.parse(
-      execFileSync("npm", ["pack", "--dry-run", "--json"], {
-        cwd: repositoryRoot,
-        encoding: "utf8",
-      }),
-    ) as Array<{ files: Array<{ path: string }> }>;
-    const packaged = packageManifest[0].files.map(({ path }) => path);
+    const packaged = packagedFiles();
     expect(packaged).toContain(".my-workflow.toml.example");
     expect(packaged).toContain("templates/agents/claude/planner.md");
     expect(packaged).toContain("templates/agents/codex/planner.toml");

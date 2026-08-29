@@ -183,6 +183,19 @@ def test_fresh_and_refuse() -> None:
         config.write_text(sentinel, encoding="utf-8")
         original_config = config.read_bytes()
         run(tmp)
+        assert (tmp / "tools/knowledge/src/check.ts").is_file()
+        assert (tmp / "tools/knowledge/src/cli.ts").is_file()
+        assert not (tmp / "tools/knowledge/tests").exists()
+        assert not (tmp / "tools/shared/tests").exists()
+        knowledge = subprocess.run(
+            ["bun", str(tmp / "tools/knowledge/src/cli.ts"), str(tmp)],
+            cwd=tmp,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert knowledge.returncode == 0, knowledge.stderr
+        assert "knowledge:" in f"{knowledge.stdout}{knowledge.stderr}"
         assert config.read_bytes() == original_config
         agents = (tmp / "AGENTS.md").read_text(encoding="utf-8")
         assert STENCIL in agents
