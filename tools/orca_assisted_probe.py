@@ -47,6 +47,11 @@ GIT_READS = {
 }
 PROVIDER_READS = {"inspect", "status", "get", "list"}
 EFFECT_KINDS = {"orca", "git", "lease"}
+TEXT_KEYS = {
+    "preview", "screen", "text", "output", "content", "message", "tail",
+    "stdout", "stderr", "shown", "read", "body", "packet_body", "transcript",
+}
+SECRET_KEYS = {"secret", "token", "password", "authorization", "api_key", "access_token"}
 REDACT_KEYS = {
     "receipt", "payload", "shown", "read", "tail", "stderr", "stdout", "error",
     "command", "argv", "body", "route", "pointer", "packet_body",
@@ -169,13 +174,17 @@ def screen_text(payload: dict[str, Any]) -> str:
 
 def _redact(value: Any, *, root: Path | None = None, key: str = "") -> Any:
     """Keep diagnostics useful without retaining receipts, commands, or secrets."""
-    if key in REDACT_KEYS:
+    normalized_key = key.lower().replace("-", "_")
+    compact_key = normalized_key.replace("_", "")
+    if (normalized_key in REDACT_KEYS or normalized_key in TEXT_KEYS or normalized_key in SECRET_KEYS
+            or any(part in compact_key for part in ("preview", "screen", "text", "output", "content", "transcript", "secret", "token", "password", "receipt"))):
         if key == "error":
             return "operation failed"
-        return None
+        return "<redacted>"
     if isinstance(value, dict):
         return {str(name): _redact(child, root=root, key=str(name)) for name, child in value.items()
-                if str(name) not in REDACT_KEYS}
+                if (str(name).lower().replace("-", "_") not in REDACT_KEYS
+                    and "receipt" not in str(name).lower().replace("-", ""))}
     if isinstance(value, list):
         return [_redact(child, root=root, key=key) for child in value]
     if isinstance(value, str):
@@ -1495,14 +1504,130 @@ def _validate_observation(kind: Any, observation: Any) -> list[str]:
         if tuple(observation[:2]) not in ORCA_READS:
             raise ProbeError("effect Orca observation is not read-only")
     elif kind == "git":
-        if observation[0] not in GIT_READS or any(item in {"-C", "--git-dir", "--work-tree"} for item in observation):
-            raise ProbeError("effect Git observation is not read-only")
+        _validate_git_observation(observation)
     elif kind == "lease":
         if observation[0] not in PROVIDER_READS or len(observation) != 1:
             raise ProbeError("effect lease observation is not read-only")
     else:
         raise ProbeError("unknown effect kind")
     return list(observation)
+
+
+def _validate_git_observation(observation: list[str]) -> None:
+    """Allow only the small, argument-safe set used by reconciliation."""
+    if any(item in {"-C", "--git-dir", "--work-tree", "--delete", "-d", "-D"}
+           for item in observation):
+        raise ProbeError("effect Git observation is not read-only")
+    command = tuple(observation)
+    if command in {
+        ("rev-parse", "HEAD"), ("rev-parse", "--git-common-dir"),
+        ("rev-parse", "--absolute-git-dir"), ("symbolic-ref", "--quiet"),
+        ("symbolic-ref", "--quiet", "--short", "HEAD"),
+        ("status", "--porcelain"), ("worktree", "list"),
+        ("worktree", "list", "--porcelain"),
+    }:
+        return
+    if observation[0] == "symbolic-ref" and set(observation[1:]) <= {"--quiet", "--short", "HEAD"} \
+            and "--delete" not in observation and len(observation) <= 4:
+        return
+    if (observation[0] == "show-ref" and len(observation) == 4
+            and set(observation[1:3]) == {"--verify", "--quiet"}
+            and observation[3].startswith("refs/")):
+        return
+    if observation[0] == "cat-file" and len(observation) == 3 and observation[1] == "-e":
+        return
+    if observation[0] == "merge-base" and len(observation) == 4 and observation[1] == "--is-ancestor":
+        return
+    if observation[0] == "for-each-ref" and len(observation) == 3 and observation[1].startswith("--format="):
+        return
+    raise ProbeError("effect Git observation is not read-only")
+
+
+def _flag(argv: list[str], name: str) -> str | None:
+    try:
+        index = argv.index(name)
+    except ValueError:
+        return None
+    if index + 1 >= len(argv):
+        raise ProbeError(f"effect argument {name} is incomplete")
+    return argv[index + 1]
+
+
+def _validate_effect_target(kind: str, argv: list[str], effect: Mapping[str, Any], state: Mapping[str, Any]) -> None:
+    """Bind every declared mutation to the identities in the operation state."""
+    if kind == "orca":
+        command = tuple(argv[:2])
+        handle = _flag(argv, "--terminal")
+        worktree = _flag(argv, "--worktree")
+        expected_handle = str(state["terminal_handle"])
+        expected_worktree = f"id:{state['worktree_id']}"
+        if handle is not None and handle != expected_handle:
+            raise ProbeError("Orca effect targets a foreign terminal")
+        if worktree is not None and worktree != expected_worktree:
+            raise ProbeError("Orca effect targets a foreign worktree")
+        if command in {("terminal", "send"), ("terminal", "stop")} and handle is None:
+            if not (command == ("terminal", "send") and effect.get("pointer") is True):
+                raise ProbeError("Orca terminal effect lacks its correlated handle")
+        if command == ("worktree", "create"):
+            repository = _flag(argv, "--repo")
+            if repository is not None and repository != f"id:{state['repository']}":
+                raise ProbeError("Orca create targets a foreign repository")
+        if command == ("terminal", "send") and effect.get("pointer") is True:
+            if argv != ["terminal", "send"] and handle != expected_handle:
+                raise ProbeError("pointer effect has an uncorrelated terminal command")
+        if effect.get("handle") is not None and effect.get("handle") != expected_handle:
+            raise ProbeError("pointer handle is not correlated")
+    elif kind == "git":
+        root = Path(str(state["repository_root"])).resolve()
+        effect_path = Path(str(effect.get("path", state["worktree_path"]))).resolve()
+        expected_path = Path(str(state["worktree_path"])).resolve()
+        if effect_path != expected_path:
+            raise ProbeError("Git effect targets a foreign checkout")
+        verb = argv[0]
+        values = [item for item in argv[1:] if not item.startswith("-")]
+        if verb == "branch" and any(item in {"--delete", "-d", "-D"} for item in argv):
+            branch = str(state["branch"]).removeprefix("refs/heads/")
+            if not values or values[-1] != branch:
+                raise ProbeError("Git effect targets a foreign branch")
+        if verb == "update-ref" and (len(argv) < 2 or argv[1] != state["branch"]):
+            raise ProbeError("Git effect targets a foreign ref")
+        if verb == "worktree" and len(argv) > 1 and argv[1] in {"remove", "move"}:
+            targets = [item for item in argv[2:] if not item.startswith("-")]
+            if not targets or Path(targets[-1]).resolve() != expected_path:
+                raise ProbeError("Git effect targets a foreign worktree")
+        if verb in {"switch", "checkout"} and "--detach" in argv:
+            target = values[-1] if values else ""
+            if target not in {str(state.get("commit_id")), str(state.get("pre_head"))} and not SHA40.fullmatch(target):
+                raise ProbeError("Git effect detaches at an invalid checkpoint")
+
+
+def _resource_list(value: Any) -> list[str]:
+    if not isinstance(value, list) or not value or any(not isinstance(item, str) or not item for item in value):
+        raise ProbeError("effect resources must be a non-empty list of strings")
+    if len(set(value)) != len(value):
+        raise ProbeError("effect resources must be unique")
+    return list(value)
+
+
+def _prepared_lease(effect: Mapping[str, Any], state: Mapping[str, Any]) -> bool:
+    resources = effect.get("resources")
+    if not resources:
+        return True
+    lease_id = state.get("lease_id")
+    if not lease_id:
+        return False
+    if effect.get("lease_id") not in (None, lease_id):
+        return False
+    requested_provider = effect.get("lease_provider", state.get("resource_provider"))
+    for candidate in state.get("effects", []):
+        correlation = candidate.get("correlation", {}) if isinstance(candidate, dict) else {}
+        if (candidate.get("kind") == "lease" and candidate.get("status") == "settled"
+                and candidate.get("operation") == "acquire"
+                and correlation.get("lease_id") == lease_id
+                and (requested_provider is None or correlation.get("provider") == str(Path(str(requested_provider)).resolve()))
+                and set(correlation.get("resources", [])) - {str(lease_id)} == set(resources)):
+            return True
+    return False
 
 
 def _effect_correlation(effect: Mapping[str, Any], state: Mapping[str, Any]) -> dict[str, Any]:
@@ -1518,11 +1643,8 @@ def _effect_correlation(effect: Mapping[str, Any], state: Mapping[str, Any]) -> 
     operation = _token(operation, "effect operation")
     if kind == "lease" and any(field not in effect for field in ("operation", "resources", "idempotency_key", "argv")):
         raise ProbeError("lease effect correlation is incomplete")
-    resources = effect.get("resources")
-    if resources is None:
-        resources = []
-    if not isinstance(resources, (dict, list, tuple, str, int, float, bool)):
-        raise ProbeError("effect resources are malformed")
+    raw_resources = effect.get("resources")
+    resources = [] if raw_resources is None else _resource_list(raw_resources)
     idempotency = _token(effect.get("idempotency_key", effect_id), "idempotency key")
     correlation = {
         "effect_id": effect_id, "kind": kind, "repository": state["repository"],
@@ -1537,7 +1659,11 @@ def _effect_correlation(effect: Mapping[str, Any], state: Mapping[str, Any]) -> 
             raise ProbeError("lease effect correlation is incomplete")
         if effect.get("operation") not in {"acquire", "release"}:
             raise ProbeError("lease effect operation is invalid")
+        if str(state["lease_id"]) not in resources:
+            raise ProbeError("lease resources must include the correlated lease id")
         correlation["provider"] = str(_owned_path(effect["provider"], Path(str(state["repository_root"])), "lease provider"))
+        if state.get("resource_provider") is not None and correlation["provider"] != str(Path(str(state["resource_provider"])).resolve()):
+            raise ProbeError("lease provider is not the configured provider")
     if kind == "git":
         path = _owned_path(str(effect.get("path", state["repository_root"])), Path(str(state["repository_root"])), "Git effect path")
         correlation["path"] = str(path)
@@ -1565,9 +1691,21 @@ def _effect_correlation(effect: Mapping[str, Any], state: Mapping[str, Any]) -> 
                     _owned_path(item, Path(str(state["repository_root"])), "Git effect path", allow_missing=True)
     elif kind == "lease" and argv[0] != str(effect.get("operation")):
         raise ProbeError("effect lease argv does not match operation")
+    _validate_effect_target(kind, argv, effect, state)
+    if resources and kind != "lease" and not _prepared_lease(effect, state):
+        raise ProbeError("resource-bearing effect has no prepared correlated lease")
     correlation["argv"] = list(argv)
-    correlation["observe_operation"] = effect.get("observe_operation")
+    observe_operation = effect.get("observe_operation", "inspect") if kind == "lease" else effect.get("observe_operation")
+    if kind == "lease" and observe_operation not in PROVIDER_READS:
+        raise ProbeError("lease observation operation is not read-only")
+    correlation["observe_operation"] = observe_operation
     correlation["pointer"] = effect.get("pointer") is True
+    if correlation["pointer"] and (kind != "orca" or tuple(argv[:2]) != ("terminal", "send")):
+        raise ProbeError("pointer effects must be terminal send operations")
+    if effect.get("postcondition") is not None:
+        if not isinstance(effect["postcondition"], (dict, list, str, int, float, bool)):
+            raise ProbeError("effect postcondition is malformed")
+        correlation["postcondition"] = deepcopy(effect["postcondition"])
     if effect.get("observe") is not None:
         correlation["observe"] = _validate_observation(kind, effect["observe"])
     for key in ("handle", "packet", "log"):
@@ -1603,7 +1741,67 @@ def _lease_response_matches(value: Any, correlation: Mapping[str, Any], *, relea
             expected = correlation[field]
         if found != expected:
             return False
+    operation = correlation.get("operation")
+    if operation == "release" and value.get("released") is not True:
+        return False
+    if operation == "acquire" and not (value.get("acquired") is True or value.get("live") is True):
+        return False
     return released is None or value.get("released") is released
+
+
+def _postcondition_matches(value: Any, expected: Any) -> bool:
+    if expected is None:
+        return True
+    if isinstance(expected, dict):
+        if "field" in expected and "equals" in expected:
+            current = value
+            for part in str(expected["field"]).split("."):
+                if not isinstance(current, dict) or part not in current:
+                    return False
+                current = current[part]
+            return current == expected["equals"]
+        if not isinstance(value, dict):
+            return False
+        return all(key in value and _postcondition_matches(value[key], item) for key, item in expected.items())
+    return value == expected
+
+
+def _effect_postcondition(effect: Mapping[str, Any], state: Mapping[str, Any], value: Any) -> bool:
+    """Prove the requested mutation, not merely that an observation returned zero."""
+    explicit = effect.get("postcondition")
+    if explicit is not None:
+        return _postcondition_matches(value, explicit)
+    kind = effect.get("kind")
+    argv = effect.get("argv", [])
+    if not isinstance(argv, list) or not argv:
+        return False
+    if kind == "lease":
+        return _lease_response_matches(value, _effect_correlation(effect, state),
+                                       released=True if effect.get("operation") == "release" else None)
+    if kind == "git":
+        observation = effect.get("observe", [])
+        command = tuple(argv)
+        observed_command = tuple(observation) if isinstance(observation, list) else ()
+        if observed_command[:2] == ("rev-parse", "HEAD"):
+            return isinstance(value, dict) and value.get("stdout", "").strip() == str(state.get("commit_id"))
+        if command and command[0] in {"switch", "checkout"} and "--detach" in command:
+            return isinstance(value, dict) and value.get("returncode") != 0
+        if observed_command and observed_command[0] == "symbolic-ref":
+            return isinstance(value, dict) and value.get("returncode") != 0
+        if observed_command[:2] == ("worktree", "list"):
+            return isinstance(value, dict) and str(state["worktree_path"]) not in str(value.get("stdout", ""))
+        if observed_command[0:1] == ("show-ref",):
+            return isinstance(value, dict) and value.get("returncode") != 0
+        return False
+    if kind == "orca":
+        target = str(state["terminal_handle"])
+        result = value.get("result", value) if isinstance(value, dict) else {}
+        if tuple(argv[:2]) == ("terminal", "stop"):
+            return not any(item.get("handle") == target for item in items(value, "terminals"))
+        if tuple(argv[:2]) == ("worktree", "rm"):
+            return not any(item.get("id") == state["worktree_id"] for item in items(value, "worktrees"))
+        return isinstance(result, dict) and result.get("handle") == target and result.get("pointer_received") is True
+    return False
 
 
 def _reconcile_effect(
@@ -1627,9 +1825,12 @@ def _reconcile_effect(
                 payload = OrcaProbe(state["repository"], orca=args.orca, interval=interval,
                                     read_attempts=1).run([args.orca, *observe])
                 _observation_identity(payload, state, "effect observation")
-                complete = True
+                complete = _effect_postcondition(effect, state, payload)
             elif kind == "git":
-                complete = git(state["repository_root"], *observe, check=False).returncode == 0
+                result = git(state["repository_root"], *observe, check=False)
+                complete = _effect_postcondition(effect, state, {
+                    "returncode": result.returncode, "stdout": result.stdout,
+                })
             elif kind == "lease":
                 provider = _owned_path(effect.get("provider"), Path(state["repository_root"]), "lease provider")
                 correlation = _effect_correlation(effect, state)
@@ -1649,7 +1850,7 @@ def _reconcile_effect(
                     observed_correlation = {**correlation, "operation": effect.get("observe_operation", "inspect")}
                     if not _lease_response_matches(observed, observed_correlation):
                         raise ProbeError("effect lease observation is uncorrelated")
-                    complete = True
+                    complete = _effect_postcondition(effect, state, observed)
             else:
                 raise ProbeError("unknown effect kind")
             if complete:
@@ -1758,7 +1959,7 @@ class MutationRunner:
                 return existing
             reader = observe or (lambda: self._read_effect(existing))
             return _settle_callback(self.args, self.state, self.state_path, existing, reader)
-        record = {key: effect[key] for key in ("effect_id", "kind", "argv", "path", "provider", "operation", "observe", "observe_operation", "pointer", "handle", "packet", "log") if key in effect}
+        record = {key: effect[key] for key in ("effect_id", "kind", "argv", "path", "provider", "operation", "resources", "idempotency_key", "observe", "observe_operation", "postcondition", "pointer", "handle", "packet", "log") if key in effect}
         record.update({"effect_id": effect_id, "kind": effect.get("kind"), "status": "in_flight", "attempts": 1,
                        "correlation": correlation, "fingerprint": fingerprint})
         original = deepcopy(self.state)
@@ -1911,17 +2112,6 @@ def dispatch(args: argparse.Namespace) -> None:
     _identity(state, label="dispatch state")
     if state["lease_id"] is not None:
         state["lease_id"] = _token(state["lease_id"], "lease id")
-    if state_path.exists():
-        previous = _json_object(state_path)
-        if _state_identity(previous) != _state_identity(state):
-            raise ProbeError("operation state identity was reused or changed")
-        if previous.get("status") in {"pointer_sent", "settled"}:
-            emit({"status": previous["status"], "operation_id": state["operation_id"],
-                  "replayed": True})
-            return
-        state = previous
-    packet_path.parent.mkdir(parents=True, exist_ok=True)
-    packet_path.write_text(body, encoding="utf-8")
     receipt = {
         "repository": state["repository"], "id": state["worktree_id"],
         "repository_root": state["repository_root"], "slice_id": state["slice_id"],
@@ -1934,16 +2124,37 @@ def dispatch(args: argparse.Namespace) -> None:
         "startupTerminal": {"handle": state["terminal_handle"]},
         "before": request.get("before", {"terminals": {}, "worktrees": {}}),
     }
-    state["receipt"] = receipt
-    if request.get("resource_provider") is not None:
-        state["resource_provider"] = str(_owned_path(request["resource_provider"], root, "resource provider"))
-    state["status"] = "send_started"
-    _write_json(state_path, state)
+    # Initialization and the first durable send_started record share the same
+    # lock as MutationRunner.issue.  A second dispatcher can only reload this
+    # state; it cannot put a stale effect-free snapshot back on disk.
+    with _ledger_lock(state_path):
+        if state_path.exists():
+            previous = _json_object(state_path)
+            if _state_identity(previous) != _state_identity(state):
+                raise ProbeError("operation state identity was reused or changed")
+            if previous.get("status") in {"pointer_sent", "settled"}:
+                emit({"status": previous["status"], "operation_id": state["operation_id"],
+                      "replayed": True})
+                return
+            state = previous
+            receipt = state["receipt"]
+        else:
+            packet_path.parent.mkdir(parents=True, exist_ok=True)
+            packet_path.write_text(body, encoding="utf-8")
+            state["receipt"] = receipt
+            if request.get("resource_provider") is not None:
+                state["resource_provider"] = str(_owned_path(request["resource_provider"], root, "resource provider"))
+            state["status"] = "send_started"
+            _write_json(state_path, state)
     declared = request.get("effects", [])
     if not isinstance(declared, list):
         raise ProbeError("effects must be an array")
     runner = MutationRunner(args, state, state_path)
-    for effect_spec in declared:
+    # Acquire declared leases before effects that claim their resources.  This
+    # makes the prepared-lease requirement deterministic even when callers put
+    # the lease declaration after the writer effect.
+    ordered = sorted(declared, key=lambda value: 0 if value.get("kind") == "lease" and value.get("operation") == "acquire" else 1)
+    for effect_spec in ordered:
         if not isinstance(effect_spec, dict):
             raise ProbeError("malformed declared mutation")
         runner.issue(

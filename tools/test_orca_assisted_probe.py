@@ -149,10 +149,13 @@ def test_IT009_SEC007_inspect_requires_full_independent_correlation_and_settles(
 def test_IT007_IT008_SEC006_declared_orca_git_and_lease_mutations_are_issued_once() -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory); head = _repo(root); calls, fake = root / "calls", root / "orca"; _fake_orca(fake, calls)
-        provider = root / "provider"; provider.write_text("#!/bin/sh\nread payload\nprintf '{\"lease_id\":\"lease-S4\",\"released\":true,\"repository\":\"repo\",\"repository_root\":\"%s\",\"slice\":\"S4\",\"task\":\"T7\",\"operation_id\":\"op-S4-T7\",\"worktree\":\"worktree-S4\",\"operation\":\"acquire\",\"resources\":[\"lease-S4\"],\"idempotency_key\":\"lease-1\"}\\n' \"$PWD\"\n", encoding="utf-8"); provider.chmod(0o755)
+        provider = root / "provider"; provider.write_text("#!/bin/sh\nread payload\nprintf '{\"lease_id\":\"lease-S4\",\"acquired\":true,\"live\":true,\"repository\":\"repo\",\"repository_root\":\"%s\",\"slice\":\"S4\",\"task\":\"T7\",\"operation_id\":\"op-S4-T7\",\"worktree\":\"worktree-S4\",\"operation\":\"acquire\",\"resources\":[\"lease-S4\"],\"idempotency_key\":\"lease-1\"}\\n' \"$PWD\"\n", encoding="utf-8"); provider.chmod(0o755)
         effects = [{"effect_id": f"{kind}-1", "kind": "orca", "argv": argv} for kind, argv in (
-            ("create", ["worktree", "create"]), ("send", ["terminal", "send"]), ("set", ["worktree", "set"]),
-            ("stop", ["terminal", "stop"]), ("rm", ["worktree", "rm"]))]
+            ("create", ["worktree", "create"]),
+            ("send", ["terminal", "send", "--terminal", "terminal-S4"]),
+            ("set", ["worktree", "set", "--worktree", "id:worktree-S4"]),
+            ("stop", ["terminal", "stop", "--terminal", "terminal-S4"]),
+            ("rm", ["worktree", "rm", "--worktree", "id:worktree-S4"]))]
         effects += [{"effect_id": "git-1", "kind": "git", "argv": ["add", "seed"]},
                     {"effect_id": "lease-1", "kind": "lease", "provider": str(provider), "operation": "acquire", "argv": ["acquire"], "resources": ["lease-S4"], "idempotency_key": "lease-1"}]
         request = root / "request.json"; request.write_text(json.dumps(_request(root, head, effects=effects)), encoding="utf-8"); state = root / "state.json"
@@ -327,10 +330,10 @@ def test_IT017_IT018_IT019_SEC013_path_backed_cleanup_ledgers_reconcile_once() -
 def test_IT007_SEC006_each_mutator_has_one_actual_call_after_post_effect_failure() -> None:
     mutators = (
         ("create", "orca", ["worktree", "create"]),
-        ("send", "orca", ["terminal", "send"]),
-        ("set", "orca", ["worktree", "set"]),
-        ("stop", "orca", ["terminal", "stop"]),
-        ("rm", "orca", ["worktree", "rm"]),
+        ("send", "orca", ["terminal", "send", "--terminal", "terminal-S4"]),
+        ("set", "orca", ["worktree", "set", "--worktree", "id:worktree-S4"]),
+        ("stop", "orca", ["terminal", "stop", "--terminal", "terminal-S4"]),
+        ("rm", "orca", ["worktree", "rm", "--worktree", "id:worktree-S4"]),
         ("git", "git", ["add", "seed"]),
         ("lease", "lease", ["acquire"]),
     )
@@ -681,7 +684,7 @@ def test_IT018_IT019_SEC013_physical_ledgers_cover_git_provider_orca_and_restart
         fake_orca, orca_ledger = root / "orca", root / "orca.ledger"
         fake_orca.write_text(f"#!/bin/sh\nprintf '%s\\n' \"$*\" >> {orca_ledger}\nprintf '%s\\n' '{{\"ok\":true}}'\n", encoding="utf-8"); fake_orca.chmod(0o755)
         provider_ledger, provider = root / "provider.ledger", root / "provider"
-        provider.write_text(f"#!/bin/sh\nprintf '%s\\n' provider >> {provider_ledger}\nprintf '{{\"lease_id\":\"lease-S4\",\"released\":true,\"repository\":\"repo\",\"repository_root\":\"%s\",\"slice\":\"S4\",\"task\":\"T7\",\"operation_id\":\"op-S4-T7\",\"worktree\":\"worktree-S4\",\"operation\":\"acquire\",\"resources\":[\"lease-S4\"],\"idempotency_key\":\"provider-once\"}}\\n' \"$PWD\"\n", encoding="utf-8"); provider.chmod(0o755)
+        provider.write_text(f"#!/bin/sh\nprintf '%s\\n' provider >> {provider_ledger}\nprintf '{{\"lease_id\":\"lease-S4\",\"acquired\":true,\"live\":true,\"repository\":\"repo\",\"repository_root\":\"%s\",\"slice\":\"S4\",\"task\":\"T7\",\"operation_id\":\"op-S4-T7\",\"worktree\":\"worktree-S4\",\"operation\":\"acquire\",\"resources\":[\"lease-S4\"],\"idempotency_key\":\"provider-once\"}}\\n' \"$PWD\"\n", encoding="utf-8"); provider.chmod(0o755)
         git_ledger, fake_git = root / "git.ledger", root / "git"
         fake_git.write_text(f"#!/bin/sh\nprintf '%s\\n' \"$*\" >> {git_ledger}\n", encoding="utf-8"); fake_git.chmod(0o755)
         request = root / "request.json"; state_path = root / "state.json"
@@ -732,9 +735,85 @@ def _concurrent_issue(state_path: str, ledger: str) -> None:
     probe.MutationRunner(args, state, state_file).issue(effect, sink=sink)
 
 
+def _concurrent_dispatch(request_path: str, state_path: str, orca: str) -> None:
+    args = type("Args", (), {"orca": orca, "request": request_path, "state": state_path})()
+    probe.dispatch(args)
+
+
+def test_SEC014_final_probe_boundaries_are_fail_closed_and_dispatch_is_process_safe() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory); head = _repo(root); state = _state(root, head)
+        state_path = root / "state.json"; state_path.write_text(json.dumps(state), encoding="utf-8")
+
+        # Diagnostics retain only structure; terminal/provider text and packet bodies never survive.
+        log = root / "diagnostics.jsonl"
+        probe.append(log, {"preview": "SECRET_PREVIEW", "screen": "SECRET_SCREEN", "text": "SECRET_TEXT",
+                           "output": "SECRET_OUTPUT", "content": "SECRET_CONTENT", "token": "SECRET_TOKEN",
+                           "operation_id": "op-safe"})
+        diagnostics = log.read_text(encoding="utf-8")
+        assert all(secret not in diagnostics for secret in ("SECRET_PREVIEW", "SECRET_SCREEN", "SECRET_TEXT",
+                                                            "SECRET_OUTPUT", "SECRET_CONTENT", "SECRET_TOKEN"))
+        assert '"operation_id": "op-safe"' in diagnostics
+
+        # Read-side validation rejects destructive Git/provider operations.
+        for kind, observation in (("git", ["worktree", "remove", str(root)]),
+                                  ("git", ["symbolic-ref", "--delete", "HEAD"]),
+                                  ("lease", ["inspect"])):
+            if kind == "lease":
+                observation = ["inspect"]
+            if kind == "git" and observation[0] == "symbolic-ref":
+                observation = ["symbolic-ref", "--delete", "HEAD"]
+            if kind == "lease":
+                continue
+            try: probe._validate_observation(kind, observation)
+            except probe.ProbeError: pass
+            else: raise AssertionError(f"destructive observation accepted: {kind} {observation}")
+        try: probe._validate_observation("lease", ["release"])
+        except probe.ProbeError: pass
+        else: raise AssertionError("release observation accepted")
+
+        # Foreign targets, pointer-kind mismatch, and unleased resources stop before a sink.
+        bad_effects = (
+            {"effect_id": "foreign-terminal", "kind": "orca", "argv": ["terminal", "stop", "--terminal", "foreign"]},
+            {"effect_id": "foreign-worktree", "kind": "orca", "argv": ["worktree", "rm", "--worktree", "id:foreign"]},
+            {"effect_id": "pointer-rm", "kind": "orca", "argv": ["worktree", "rm"], "pointer": True},
+            {"effect_id": "unleased", "kind": "git", "argv": ["add", "seed"], "resources": ["db"]},
+        )
+        for effect in bad_effects:
+            try: probe.MutationRunner(type("Args", (), {"orca": "orca", "timeout": 1.0})(), state, state_path).issue(
+                effect, sink=lambda: (_ for _ in ()).throw(AssertionError("sink reached")))
+            except (probe.ProbeError, AssertionError) as error:
+                assert not isinstance(error, AssertionError), error
+            else: raise AssertionError(f"unsafe effect accepted: {effect['effect_id']}")
+
+        lease_correlation = {**_correlation(state, resources=["lease-S4"], idempotency_key="lease"),
+                             "operation": "release"}
+        assert not probe._lease_response_matches({**lease_correlation, "released": False}, lease_correlation)
+        assert not probe._lease_response_matches({**lease_correlation, "released": True},
+                                                  {**lease_correlation, "operation": "acquire"})
+        mismatch = {"kind": "git", "argv": ["add", "seed"], "observe": ["rev-parse", "HEAD"]}
+        assert not probe._effect_postcondition(mismatch, state, {"returncode": 0, "stdout": "f" * 40 + "\n"})
+
+        # Two dispatchers share one durable initialization/issue lock.
+        request_path = root / "request.json"; request_path.write_text(json.dumps(_request(root, head)), encoding="utf-8")
+        calls, fake = root / "dispatch.calls", root / "orca"
+        _fake_orca(fake, calls)
+        context = multiprocessing.get_context("fork")
+        workers = [context.Process(target=_concurrent_dispatch, args=(str(request_path), str(root / "dispatch-state.json"), str(fake))) for _ in range(2)]
+        for worker in workers: worker.start()
+        for worker in workers: worker.join(10)
+        assert all(worker.exitcode == 0 for worker in workers)
+        assert calls.read_text(encoding="utf-8").splitlines().count(
+            "terminal send --terminal terminal-S4 --text read " + str((root / "state" / "packet.md").resolve()) + " and execute it as your packet --enter --json"
+        ) == 1
+
+
 def test_SEC013_process_safe_effect_claim_executes_one_physical_mutation() -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory); head = _repo(root); state = _state(root, head)
+        state["effects"] = [{"effect_id": "lease-ready", "kind": "lease", "operation": "acquire",
+                             "status": "settled", "correlation": {"lease_id": state["lease_id"],
+                             "resources": [state["lease_id"], "seed"]}}]
         state_path, ledger = root / "state.json", root / "physical.ledger"
         state_path.write_text(json.dumps(state), encoding="utf-8")
         context = multiprocessing.get_context("fork")
@@ -790,6 +869,9 @@ def test_SEC013_reused_effect_mismatch_and_diagnostics_are_fail_closed_and_redac
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory); head = _repo(root); state = _state(root, head)
         state_path, log = root / "state.json", root / "events.jsonl"
+        state["effects"] = [{"effect_id": "lease-ready", "kind": "lease", "operation": "acquire",
+                             "status": "settled", "correlation": {"lease_id": state["lease_id"],
+                             "resources": [state["lease_id"], "seed"]}}]
         state_path.write_text(json.dumps(state), encoding="utf-8")
         args = type("Args", (), {"orca": "orca", "timeout": 1.0, "attempts": 1, "interval": 0})()
         effect = {"effect_id": "reuse-once", "kind": "git", "path": str(root), "argv": ["add", "seed"],

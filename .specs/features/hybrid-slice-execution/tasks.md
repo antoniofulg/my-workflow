@@ -476,6 +476,28 @@ convergence counters.
 **Gate:** `python3 tools/test_machine_health.py && python3 tools/test_parallel_plan.py && python3 tools/test_parallel_executor.py && python3 tools/test_review_convergence.py && npm_config_offline=true npm run test:all`
 **Commit:** `fix(workflow): close final review blockers`
 
+### Final review remediation: close probe safety blockers
+
+**What:** Bind every assisted probe mutation and read reconciliation to immutable targets,
+prepared leases, effect-specific postconditions, durable diagnostics, and a process-safe ledger.
+
+**Where:** `tools/orca_assisted_probe.py`, `tools/test_orca_assisted_probe.py`
+**Depends on:** T14
+**Requirements:** HSE-22, HSE-23, HSE-24, HSE-25, HSE-26, HSE-27, HSE-28, HSE-29, HSE-39, HSE-40, HSE-41, HSE-42, HSE-53, HSE-54, HSE-55, HSE-56, HSE-57
+
+**Done when:**
+
+- [x] Diagnostics redact terminal/provider text, secrets, packet bodies, and raw receipts.
+- [x] Foreign mutation targets, destructive observations, malformed/unleased resources, and
+  pointer-kind mismatches fail before a physical sink.
+- [x] Lease receipts prove acquisition/release state; reconciliation proves the requested
+  postcondition and never issues a mutation.
+- [x] Concurrent dispatch shares the durable issue lock and preserves one physical mutation.
+- [x] Probe check passes 24/24 and the exact full gate exits 0.
+
+**Gate:** `python3 tools/test_orca_assisted_probe.py && npm_config_offline=true npm run test:all`
+**Commit:** `fix(orca): close final probe review blockers`
+
 ## Checkpoint DAG
 
 | Producer | Checkpoint | Consumers | Proof required before release |
