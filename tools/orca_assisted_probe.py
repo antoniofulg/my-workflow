@@ -9,6 +9,8 @@ read-only inspections needed to settle a late or incomplete receipt.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import hashlib
 import json
 import os
 import re
@@ -23,6 +25,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - supported deployment is POSIX
+    fcntl = None  # type: ignore[assignment]
+
 
 ORCA = os.environ.get("ORCA", "orca")
 DEFAULT_INTERVAL = 0.25
@@ -30,6 +37,24 @@ DEFAULT_SETTLE_WINDOW = 60.0
 DEFAULT_TURN_WINDOW = 300.0
 EFFORTS = ("low", "medium", "high")
 MUTATIONS = {"create", "send", "rm", "set", "stop"}
+ORCA_READS = {
+    ("terminal", "list"), ("terminal", "show"), ("terminal", "read"),
+    ("terminal", "wait"), ("worktree", "list"), ("worktree", "show"),
+}
+GIT_READS = {
+    "cat-file", "diff", "for-each-ref", "log", "merge-base", "rev-parse",
+    "show-ref", "status", "symbolic-ref", "worktree",
+}
+PROVIDER_READS = {"inspect", "status", "get", "list"}
+EFFECT_KINDS = {"orca", "git", "lease"}
+REDACT_KEYS = {
+    "receipt", "payload", "shown", "read", "tail", "stderr", "stdout", "error",
+    "command", "argv", "body", "route", "pointer", "packet_body",
+}
+PATH_KEYS = {
+    "path", "packet_file", "packet_path", "state_path", "receipt_path", "log_path",
+    "worktree_path", "gitdir", "worktree_gitdir", "provider", "resource_provider",
+}
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
 STATE_SCHEMA = 2
 STATE_FIELDS = (
@@ -63,11 +88,11 @@ def raw(argv: list[str], timeout: float = 30.0) -> dict[str, Any]:
         argv, capture_output=True, text=True, shell=False, timeout=timeout, check=False
     )
     if completed.returncode != 0:
-        raise ProbeError(completed.stderr.strip() or f"command failed: {' '.join(argv)}")
+        raise ProbeError(completed.stderr.strip() or "command failed")
     try:
         value = json.loads(completed.stdout or "{}")
     except json.JSONDecodeError as error:
-        raise ProbeError(f"invalid JSON from {' '.join(argv)}") from error
+        raise ProbeError("invalid JSON from command") from error
     if not isinstance(value, dict):
         raise ProbeError(f"non-object JSON from {' '.join(argv)}")
     return value
@@ -142,10 +167,38 @@ def screen_text(payload: dict[str, Any]) -> str:
     return "\n".join(strings(payload))
 
 
-def append(path: Path, value: dict[str, Any]) -> None:
+def _redact(value: Any, *, root: Path | None = None, key: str = "") -> Any:
+    """Keep diagnostics useful without retaining receipts, commands, or secrets."""
+    if key in REDACT_KEYS:
+        if key == "error":
+            return "operation failed"
+        return None
+    if isinstance(value, dict):
+        return {str(name): _redact(child, root=root, key=str(name)) for name, child in value.items()
+                if str(name) not in REDACT_KEYS}
+    if isinstance(value, list):
+        return [_redact(child, root=root, key=key) for child in value]
+    if isinstance(value, str):
+        if key in PATH_KEYS or os.path.isabs(value):
+            try:
+                candidate = Path(value)
+                if root is not None:
+                    return str(candidate.resolve().relative_to(root.resolve()))
+            except (OSError, ValueError):
+                pass
+            return "<path>" if os.path.isabs(value) else value
+        return value if len(value) <= 256 else "<redacted>"
+    return value
+
+
+def emit(value: dict[str, Any], *, root: Path | None = None) -> None:
+    print(json.dumps(_redact(value, root=root), sort_keys=True))
+
+
+def append(path: Path, value: dict[str, Any], *, root: Path | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as stream:
-        stream.write(json.dumps(value, sort_keys=True) + "\n")
+        stream.write(json.dumps(_redact(value, root=root), sort_keys=True) + "\n")
 
 
 class OrcaProbe:
@@ -270,6 +323,9 @@ def _send_pointer_once(
         },
     )
     return sent
+
+
+send_pointer = _send_pointer_once
 
 
 def mutate_once(
@@ -479,10 +535,10 @@ def create(args: argparse.Namespace) -> None:
         raise
     receipt["create_receipt_present"] = result is not None
     Path(args.receipt).write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(json.dumps({"status": "created", "id": receipt["id"], "path": receipt["path"],
-                      "branch": receipt["branch"], "pre_head": receipt["pre_head"],
-                      "handle": receipt["startupTerminal"]["handle"], "settle_samples": sample,
-                      "create_receipt_present": result is not None}, sort_keys=True))
+    emit({"status": "created", "id": receipt["id"], "path": receipt["path"],
+          "branch": receipt["branch"], "pre_head": receipt["pre_head"],
+          "handle": receipt["startupTerminal"]["handle"], "settle_samples": sample,
+          "create_receipt_present": result is not None})
 
 
 def _cleanup_late_candidates(
@@ -615,8 +671,8 @@ def route(args: argparse.Namespace) -> None:
             except Exception as error:  # noqa: BLE001 - hint only
                 append(log, {"event": "idle_hint_failed", "at": now(), "error": str(error)})
         if consecutive >= 2:
-            print(json.dumps({"status": "accepted", "handle": handle, "samples": sample,
-                              "provider": args.provider, "model": args.model, "effort": args.effort}, sort_keys=True))
+            emit({"status": "accepted", "handle": handle, "samples": sample,
+                  "provider": args.provider, "model": args.model, "effort": args.effort})
             return
         time.sleep(probe.interval)
     raise ProbeError(f"rendered route timeout: {route_cmd}")
@@ -808,8 +864,8 @@ def effect(args: argparse.Namespace, probe: OrcaProbe, receipt: dict[str, Any], 
                       "comment": actual_comment, "second_tail": second_text[-2500:]}
             append(Path(args.log), record)
             if all(checks.values()):
-                print(json.dumps({"status": "complete", "phase": args.phase, "head": head,
-                                  "handle": handle, "send_receipt_ok": sent.get("ok")}, sort_keys=True))
+                emit({"status": "complete", "phase": args.phase, "head": head,
+                      "handle": handle, "send_receipt_ok": sent.get("ok")})
                 return record
             raise ProbeError("incomplete or ambiguous effect")
         time.sleep(probe.interval)
@@ -851,7 +907,7 @@ def set_comment(args: argparse.Namespace) -> None:
         settle_window=getattr(args, "settle_window", DEFAULT_SETTLE_WINDOW),
         interval=getattr(args, "interval", DEFAULT_INTERVAL),
     )
-    print(json.dumps(result, sort_keys=True))
+    emit(result)
 
 
 def sync_commit(args: argparse.Namespace) -> None:
@@ -868,8 +924,8 @@ def sync_commit(args: argparse.Namespace) -> None:
     result = gate(args.worktree, args.gate)
     if result["passed"] is not True:
         raise ProbeError("affected gate failed after producer sync")
-    print(json.dumps({"status": "synchronized", "commit": args.commit,
-                      "already_present": already_present, "gate": result}, sort_keys=True))
+    emit({"status": "synchronized", "commit": args.commit,
+          "already_present": already_present, "gate": result})
 
 
 def stop(args: argparse.Namespace) -> None:
@@ -886,7 +942,7 @@ def stop(args: argparse.Namespace) -> None:
         settle_window=getattr(args, "settle_window", DEFAULT_SETTLE_WINDOW),
         interval=getattr(args, "interval", DEFAULT_INTERVAL),
     )
-    print(json.dumps(result, sort_keys=True))
+    emit(result)
 
 
 def remove(args: argparse.Namespace) -> None:
@@ -903,7 +959,7 @@ def remove(args: argparse.Namespace) -> None:
         settle_window=getattr(args, "settle_window", DEFAULT_SETTLE_WINDOW),
         interval=getattr(args, "interval", DEFAULT_INTERVAL),
     )
-    print(json.dumps(result, sort_keys=True))
+    emit(result)
 
 
 def cleanup(args: argparse.Namespace) -> None:
@@ -1056,23 +1112,29 @@ def cleanup(args: argparse.Namespace) -> None:
     if lease_id is not None:
         provider_root = Path(state_payload["repository_root"]).resolve() if isinstance(state_payload, dict) else path.parent
         provider = _owned_path(provider_value, provider_root, "lease provider")
+        cleanup_lease = {"effect_id": f"{receipt['operation_id']}:cleanup-lease", "kind": "lease",
+                         "provider": str(provider), "operation": "release", "argv": ["release"],
+                         "resources": [lease_id], "idempotency_key": f"{receipt['operation_id']}:cleanup-lease"}
+        lease_correlation = _effect_correlation(cleanup_lease, state_payload)
         def lease_reconciled() -> bool:
             result = _provider_read(
                 provider, provider_root,
                 {"operation": "inspect", "lease_id": lease_id,
-                 "repository": receipt["repository"], "worktree": receipt["id"]},
+                 "repository": receipt["repository"], "repository_root": receipt["repository_root"],
+                 "slice": receipt["slice_id"], "task": receipt["task_id"],
+                 "operation_id": receipt["operation_id"], "worktree": receipt["id"],
+                 "worktree_path": receipt["path"], "resources": lease_correlation["resources"],
+                 "idempotency_key": lease_correlation["idempotency_key"]},
                 args.timeout,
             )
             if result.returncode != 0:
                 return False
             observed = json.loads(result.stdout or "{}")
-            return isinstance(observed, dict) and observed.get("lease_id") == lease_id and observed.get("released") is True
-        cleanup_lease = {"effect_id": f"{receipt['operation_id']}:cleanup-lease", "kind": "lease",
-                         "provider": str(provider), "operation": "release"}
+            return _lease_response_matches(observed, {**lease_correlation, "operation": "inspect"}, released=True)
         cleanup_lease_result = runner.issue(
             cleanup_lease,
             observe=lease_reconciled,
-            success=lambda value: isinstance(value, dict) and value.get("lease_id") == lease_id and value.get("released") is True,
+            success=lambda value: _lease_response_matches(value, lease_correlation, released=True),
         )
         del cleanup_lease_result
         lease_released = True
@@ -1123,11 +1185,11 @@ def cleanup(args: argparse.Namespace) -> None:
         raise ProbeError("owned residue remains after cleanup")
     if ref_exists(common_git_dir.parent, ref):
         raise ProbeError("owned branch ref remains after cleanup")
-    print(json.dumps({"status": "cleaned", "worktree": worktree_id, "handle": known,
-                      "stopped": stopped, "foreign_preserved": True,
-                      "stop_reconciled": bool(stopped_result) if owned else True,
-                      "rm_reconciled": bool(removed_result), "lease_released": lease_released,
-                      "residue": []}, sort_keys=True))
+    emit({"status": "cleaned", "worktree": worktree_id, "handle": known,
+          "stopped": stopped, "foreign_preserved": True,
+          "stop_reconciled": bool(stopped_result) if owned else True,
+          "rm_reconciled": bool(removed_result), "lease_released": lease_released,
+          "residue": []})
 
 
 def transport(args: argparse.Namespace) -> None:
@@ -1142,7 +1204,7 @@ def transport(args: argparse.Namespace) -> None:
         if terminal(shown).get("handle") == args.handle and terminal(read).get("handle") == args.handle \
                 and terminal(shown).get("connected") is True and terminal(read).get("source") == "screen" \
                 and args.marker in text and not is_working(text):
-            print(json.dumps({"status": "delivered", "send_receipt_ok": sent.get("ok")}, sort_keys=True))
+            emit({"status": "delivered", "send_receipt_ok": sent.get("ok")})
             return
         time.sleep(probe.interval)
     raise ProbeError("pointer transport proof timeout")
@@ -1166,7 +1228,7 @@ def terminal_new(args: argparse.Namespace) -> None:
         raise ProbeError(f"verifier terminal candidates={len(found)}")
     if args.out:
         Path(args.out).write_text(json.dumps(found[0], indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(json.dumps({"status": "created", "handle": found[0]["handle"], "receipt": created}, sort_keys=True))
+    emit({"status": "created", "handle": found[0]["handle"], "receipt": created})
 
 
 def verifier_route(args: argparse.Namespace) -> None:
@@ -1193,8 +1255,8 @@ def verifier_route(args: argparse.Namespace) -> None:
                  and rendered_route_matches(text, args.provider, args.model, args.effort))
         consecutive = consecutive + 1 if match else 0
         if consecutive >= 2:
-            print(json.dumps({"status": "accepted", "handle": args.handle, "route": route_cmd,
-                              "send_receipt_ok": sent.get("ok")}, sort_keys=True))
+            emit({"status": "accepted", "handle": args.handle, "route": route_cmd,
+                  "send_receipt_ok": sent.get("ok")})
             return
         time.sleep(probe.interval)
     raise ProbeError(f"rendered verifier route timeout: {route_cmd}")
@@ -1204,7 +1266,7 @@ def verifier_send(args: argparse.Namespace) -> None:
     probe = OrcaProbe(args.repo, orca=args.orca)
     result = send_pointer(probe, args.handle, Path(args.packet), Path(args.log),
                           worktree=Path(args.worktree).resolve(), phase="VERIFIER", slice=args.slice)
-    print(json.dumps(result, sort_keys=True))
+    emit(result)
 
 
 def wait_text(args: argparse.Namespace) -> None:
@@ -1231,7 +1293,7 @@ def wait_text(args: argparse.Namespace) -> None:
                 required = Path(args.require_file)
                 if not required.is_file() or (args.require_text and args.require_text not in required.read_text(encoding="utf-8")):
                     raise ProbeError("required file/text missing")
-            print(json.dumps({"status": "complete", "marker": args.marker}, sort_keys=True))
+            emit({"status": "complete", "marker": args.marker})
             return
         time.sleep(probe.interval)
     raise ProbeError(f"marker timeout: {args.marker}")
@@ -1266,7 +1328,7 @@ def audit(args: argparse.Namespace) -> None:
     }
     if any(residue.values()):
         raise ProbeError(f"owned residue remains: {residue}")
-    print(json.dumps({"status": "clean", "residue": residue}, sort_keys=True))
+    emit({"status": "clean", "residue": residue})
 
 
 def _json_object(path: Path) -> dict[str, Any]:
@@ -1385,6 +1447,11 @@ def _write_json(path: Path, value: dict[str, Any]) -> None:
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, path)
+        directory_fd = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
     finally:
         try:
             os.unlink(temporary)
@@ -1404,6 +1471,141 @@ def _effect_record(state: dict[str, Any], effect_id: str) -> dict[str, Any] | No
     return next((item for item in state.get("effects", []) if item.get("effect_id") == effect_id), None)
 
 
+@contextlib.contextmanager
+def _ledger_lock(state_path: Path) -> Iterable[None]:
+    """Serialize claim, sink, receipt, and reconciliation across processes."""
+    if fcntl is None:
+        raise ProbeError("process-safe effect locking is unavailable")
+    lock_path = state_path.with_name(f".{state_path.name}.lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a+", encoding="utf-8") as stream:
+        fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
+
+
+def _validate_observation(kind: Any, observation: Any) -> list[str]:
+    if not isinstance(observation, list) or not observation or any(not isinstance(item, str) for item in observation):
+        raise ProbeError("effect observation must be an argv array")
+    if any(ord(char) < 32 or ord(char) == 127 for item in observation for char in item):
+        raise ProbeError("effect observation contains control characters")
+    if kind == "orca":
+        if tuple(observation[:2]) not in ORCA_READS:
+            raise ProbeError("effect Orca observation is not read-only")
+    elif kind == "git":
+        if observation[0] not in GIT_READS or any(item in {"-C", "--git-dir", "--work-tree"} for item in observation):
+            raise ProbeError("effect Git observation is not read-only")
+    elif kind == "lease":
+        if observation[0] not in PROVIDER_READS or len(observation) != 1:
+            raise ProbeError("effect lease observation is not read-only")
+    else:
+        raise ProbeError("unknown effect kind")
+    return list(observation)
+
+
+def _effect_correlation(effect: Mapping[str, Any], state: Mapping[str, Any]) -> dict[str, Any]:
+    effect_id = _token(effect.get("effect_id"), "effect id")
+    kind = effect.get("kind")
+    if kind not in EFFECT_KINDS:
+        raise ProbeError("unknown mutation kind")
+    required = ("repository", "repository_root", "slice_id", "task_id", "operation_id",
+                "worktree_id", "worktree_path", "lease_id")
+    if any(field not in state for field in required):
+        raise ProbeError("effect correlation is incomplete")
+    operation = effect.get("operation", effect.get("action", "mutate"))
+    operation = _token(operation, "effect operation")
+    if kind == "lease" and any(field not in effect for field in ("operation", "resources", "idempotency_key", "argv")):
+        raise ProbeError("lease effect correlation is incomplete")
+    resources = effect.get("resources")
+    if resources is None:
+        resources = []
+    if not isinstance(resources, (dict, list, tuple, str, int, float, bool)):
+        raise ProbeError("effect resources are malformed")
+    idempotency = _token(effect.get("idempotency_key", effect_id), "idempotency key")
+    correlation = {
+        "effect_id": effect_id, "kind": kind, "repository": state["repository"],
+        "repository_root": state["repository_root"], "slice_id": state["slice_id"],
+        "task_id": state["task_id"], "operation_id": state["operation_id"],
+        "worktree_id": state["worktree_id"], "worktree_path": state["worktree_path"],
+        "lease_id": state["lease_id"], "operation": operation,
+        "resources": resources, "idempotency_key": idempotency,
+    }
+    if kind == "lease":
+        if not state.get("lease_id") or not isinstance(effect.get("provider"), str):
+            raise ProbeError("lease effect correlation is incomplete")
+        if effect.get("operation") not in {"acquire", "release"}:
+            raise ProbeError("lease effect operation is invalid")
+        correlation["provider"] = str(_owned_path(effect["provider"], Path(str(state["repository_root"])), "lease provider"))
+    if kind == "git":
+        path = _owned_path(str(effect.get("path", state["repository_root"])), Path(str(state["repository_root"])), "Git effect path")
+        correlation["path"] = str(path)
+    argv = effect.get("argv")
+    if not isinstance(argv, list) or not argv or any(not isinstance(item, str) or not item for item in argv):
+        raise ProbeError("effect argv is malformed")
+    if any(ord(char) < 32 or ord(char) == 127 for item in argv for char in item):
+        raise ProbeError("effect argv contains control characters")
+    if kind == "orca":
+        if tuple(argv[:2]) not in {("terminal", "send"), ("terminal", "stop"), ("terminal", "create"),
+                                   ("worktree", "create"), ("worktree", "set"), ("worktree", "rm")}:
+            raise ProbeError("effect Orca operation is not allowed")
+    elif kind == "git":
+        if argv[0] not in {"add", "commit", "checkout", "switch", "update-ref", "branch", "worktree"}:
+            raise ProbeError("effect Git operation is not allowed")
+        if any(item in {"-C", "--git-dir", "--work-tree"} for item in argv):
+            raise ProbeError("effect Git operation escapes its repository")
+        if argv[0] == "add":
+            after_separator = False
+            for item in argv[1:]:
+                if item == "--":
+                    after_separator = True
+                    continue
+                if (after_separator or not item.startswith("-")) and item != ".":
+                    _owned_path(item, Path(str(state["repository_root"])), "Git effect path", allow_missing=True)
+    elif kind == "lease" and argv[0] != str(effect.get("operation")):
+        raise ProbeError("effect lease argv does not match operation")
+    correlation["argv"] = list(argv)
+    correlation["observe_operation"] = effect.get("observe_operation")
+    correlation["pointer"] = effect.get("pointer") is True
+    if effect.get("observe") is not None:
+        correlation["observe"] = _validate_observation(kind, effect["observe"])
+    for key in ("handle", "packet", "log"):
+        if key in effect:
+            if key in {"packet", "log"}:
+                correlation[key] = str(_owned_path(
+                    effect[key], Path(str(state["repository_root"])), key, allow_missing=True
+                ))
+            else:
+                correlation[key] = _token(effect[key], key)
+    return correlation
+
+
+def _effect_fingerprint(correlation: Mapping[str, Any]) -> str:
+    return hashlib.sha256(json.dumps(correlation, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def _lease_response_matches(value: Any, correlation: Mapping[str, Any], *, released: bool | None = None) -> bool:
+    if not isinstance(value, dict):
+        return False
+    aliases = {
+        "repository": ("repository", "repo"), "repository_root": ("repository_root", "root"),
+        "slice_id": ("slice_id", "slice"), "task_id": ("task_id", "task"),
+        "operation_id": ("operation_id",), "worktree_id": ("worktree_id", "worktree"),
+        "lease_id": ("lease_id", "lease"), "operation": ("operation", "action"),
+        "resources": ("resources",), "idempotency_key": ("idempotency_key",),
+    }
+    for field, names in aliases.items():
+        found = next((value[name] for name in names if name in value), object())
+        if field == "repository_root" and isinstance(found, str) and isinstance(correlation[field], str):
+            found, expected = str(Path(found).resolve()), str(Path(correlation[field]).resolve())
+        else:
+            expected = correlation[field]
+        if found != expected:
+            return False
+    return released is None or value.get("released") is released
+
+
 def _reconcile_effect(
     args: argparse.Namespace,
     state: dict[str, Any],
@@ -1411,11 +1613,11 @@ def _reconcile_effect(
     effect: dict[str, Any],
 ) -> dict[str, Any]:
     """Settle an issued/unknown effect with bounded reads; never issue it again."""
+    expected_correlation = _effect_correlation(effect, state)
+    if effect.get("correlation") != expected_correlation or effect.get("fingerprint") != _effect_fingerprint(expected_correlation):
+        raise ProbeError(f"effect {effect.get('effect_id')} correlation is immutable and malformed")
     observe = effect.get("observe")
-    if not isinstance(observe, list) or not observe or any(not isinstance(item, str) for item in observe):
-        raise ProbeError(f"effect {effect.get('effect_id')} has no read-only reconciliation")
-    if _is_mutation(observe):
-        raise ProbeError("effect observation must be read-only")
+    _validate_observation(effect.get("kind"), observe)
     attempts = max(1, min(int(getattr(args, "attempts", 3)), 3))
     interval = max(0.0, float(getattr(args, "interval", DEFAULT_INTERVAL)))
     for attempt in range(attempts):
@@ -1430,18 +1632,22 @@ def _reconcile_effect(
                 complete = git(state["repository_root"], *observe, check=False).returncode == 0
             elif kind == "lease":
                 provider = _owned_path(effect.get("provider"), Path(state["repository_root"]), "lease provider")
+                correlation = _effect_correlation(effect, state)
                 result = _provider_read(
                     provider, state["repository_root"],
                     {"operation": effect.get("observe_operation", "inspect"),
                      "lease_id": state["lease_id"], "repository": state["repository"],
                      "slice": state["slice_id"], "task": state["task_id"],
-                     "operation_id": state["operation_id"]}, 30,
+                     "operation_id": state["operation_id"], "repository_root": state["repository_root"],
+                     "worktree": state["worktree_id"], "worktree_path": state["worktree_path"],
+                     "resources": correlation["resources"], "idempotency_key": correlation["idempotency_key"]}, 30,
                 )
                 if result.returncode:
                     complete = False
                 else:
                     observed = json.loads(result.stdout or "{}")
-                    if not isinstance(observed, dict) or observed.get("lease_id") != state["lease_id"]:
+                    observed_correlation = {**correlation, "operation": effect.get("observe_operation", "inspect")}
+                    if not _lease_response_matches(observed, observed_correlation):
                         raise ProbeError("effect lease observation is uncorrelated")
                     complete = True
             else:
@@ -1477,6 +1683,20 @@ class MutationRunner:
         observe: Callable[[], bool] | None = None,
         success: Callable[[dict[str, Any]], bool] | None = None,
     ) -> dict[str, Any]:
+        with _ledger_lock(self.state_path):
+            if self.state_path.is_file():
+                latest = _json_object(self.state_path)
+                self.state.clear()
+                self.state.update(latest)
+            return self._issue_unlocked(effect, sink=sink, observe=observe, success=success)
+
+    def _issue_unlocked(
+        self,
+        effect: dict[str, Any],
+        sink: Callable[[], dict[str, Any]] | None = None,
+        observe: Callable[[], bool] | None = None,
+        success: Callable[[dict[str, Any]], bool] | None = None,
+    ) -> dict[str, Any]:
         """Persist in-flight attempt one, issue once, or reconcile an existing effect."""
         def physical_sink() -> dict[str, Any]:
             kind = effect.get("kind")
@@ -1486,24 +1706,31 @@ class MutationRunner:
                     raise ProbeError("malformed Orca mutation")
                 command = [self.args.orca, *argv]
                 if effect.get("pointer"):
+                    root = Path(str(self.state["repository_root"]))
                     return _send_pointer_once(
                         OrcaProbe(self.state["repository"], orca=self.args.orca),
-                        str(effect["handle"]), Path(str(effect["packet"])), Path(str(effect["log"])),
+                        str(effect["handle"]), _owned_path(effect["packet"], root, "packet", allow_missing=False),
+                        _owned_path(effect["log"], root, "log", allow_missing=True),
                     )
                 return raw(command, timeout=float(getattr(self.args, "timeout", 30.0)))
             if kind == "git":
                 if not isinstance(argv, list):
                     raise ProbeError("malformed Git mutation")
-                result = git(effect.get("path", self.state["repository_root"]), *argv, check=True)
+                root = Path(str(self.state["repository_root"]))
+                result = git(_owned_path(str(effect.get("path", root)), root, "Git effect path"), *argv, check=True)
                 return {"returncode": result.returncode}
             if kind == "lease":
                 provider = _owned_path(effect.get("provider"), Path(self.state["repository_root"]), "lease provider")
                 operation = effect.get("operation", "acquire")
+                correlation = _effect_correlation(effect, self.state)
                 result = subprocess.run(
                     [str(provider)], cwd=self.state["repository_root"], input=json.dumps({
                         "operation": operation, "lease_id": self.state["lease_id"],
                         "repository": self.state["repository"], "slice": self.state["slice_id"],
                         "task": self.state["task_id"], "operation_id": self.state["operation_id"],
+                        "repository_root": self.state["repository_root"],
+                        "worktree": self.state["worktree_id"], "worktree_path": self.state["worktree_path"],
+                        "resources": correlation["resources"], "idempotency_key": correlation["idempotency_key"],
                     }), capture_output=True, text=True, shell=False,
                     timeout=float(getattr(self.args, "timeout", 30.0)), check=False,
                 )
@@ -1515,18 +1742,25 @@ class MutationRunner:
                     raise ProbeError("resource provider returned malformed JSON") from error
                 if not isinstance(value, dict):
                     raise ProbeError("resource provider returned malformed JSON")
+                if not _lease_response_matches(value, correlation):
+                    raise ProbeError("resource provider returned an uncorrelated lease receipt")
                 return value
             raise ProbeError("unknown mutation kind")
 
-        effect_id = _token(effect.get("effect_id"), "effect id")
+        correlation = _effect_correlation(effect, self.state)
+        fingerprint = _effect_fingerprint(correlation)
+        effect_id = correlation["effect_id"]
         existing = _effect_record(self.state, effect_id)
         if existing is not None:
+            if existing.get("correlation") != correlation or existing.get("fingerprint") != fingerprint:
+                raise ProbeError(f"effect {effect_id} was reused with different immutable identity")
             if existing.get("status") == "settled":
                 return existing
             reader = observe or (lambda: self._read_effect(existing))
             return _settle_callback(self.args, self.state, self.state_path, existing, reader)
         record = {key: effect[key] for key in ("effect_id", "kind", "argv", "path", "provider", "operation", "observe", "observe_operation", "pointer", "handle", "packet", "log") if key in effect}
-        record.update({"effect_id": effect_id, "kind": effect.get("kind"), "status": "in_flight", "attempts": 1})
+        record.update({"effect_id": effect_id, "kind": effect.get("kind"), "status": "in_flight", "attempts": 1,
+                       "correlation": correlation, "fingerprint": fingerprint})
         original = deepcopy(self.state)
         self.state.setdefault("effects", []).append(record)
         self.state.setdefault("effect_ids", []).append(effect_id)
@@ -1682,8 +1916,8 @@ def dispatch(args: argparse.Namespace) -> None:
         if _state_identity(previous) != _state_identity(state):
             raise ProbeError("operation state identity was reused or changed")
         if previous.get("status") in {"pointer_sent", "settled"}:
-            print(json.dumps({"status": previous["status"], "operation_id": state["operation_id"],
-                              "replayed": True}, sort_keys=True))
+            emit({"status": previous["status"], "operation_id": state["operation_id"],
+                  "replayed": True})
             return
         state = previous
     packet_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1729,10 +1963,10 @@ def dispatch(args: argparse.Namespace) -> None:
     state["send_ok"] = sent.get("ok")
     _write_json(state_path, state)
     _write_json(receipt_path, receipt)
-    print(json.dumps({"status": state["status"], "operation_id": state["operation_id"],
-                      "slice_id": state["slice_id"], "task_id": state["task_id"],
-                      "pointer_path": str(packet_path), "state_path": str(state_path),
-                      "receipt_path": str(receipt_path), "effect_ids": state["effect_ids"]}, sort_keys=True))
+    emit({"status": state["status"], "operation_id": state["operation_id"],
+          "slice_id": state["slice_id"], "task_id": state["task_id"],
+          "pointer_path": str(packet_path), "state_path": str(state_path),
+          "receipt_path": str(receipt_path), "effect_ids": state["effect_ids"]})
 
 
 def inspect(args: argparse.Namespace) -> None:
@@ -1771,9 +2005,9 @@ def inspect(args: argparse.Namespace) -> None:
             raise ProbeError("unsettled mutation effect remains")
     state["status"] = "settled"
     _write_json(state_path, state)
-    print(json.dumps({"status": "inspected", "operation_id": state["operation_id"],
-                      "slice_id": state["slice_id"], "task_id": state["task_id"],
-                      "handle": handle, "connected": shown.get("connected")}, sort_keys=True))
+    emit({"status": "inspected", "operation_id": state["operation_id"],
+          "slice_id": state["slice_id"], "task_id": state["task_id"],
+          "handle": handle, "connected": shown.get("connected")})
 
 
 def cleanup_entry(args: argparse.Namespace) -> None:
@@ -1862,7 +2096,7 @@ def main(argv: list[str] | None = None) -> None:
     try:
         args.function(args)
     except (ProbeError, OSError, subprocess.SubprocessError) as error:
-        raise SystemExit(f"FAIL_CLOSED {error}") from error
+        raise SystemExit("FAIL_CLOSED operation rejected") from error
 
 
 if __name__ == "__main__":
