@@ -899,9 +899,35 @@ describe("Bun tooling runtime contract", () => {
   it("pins the Bun engine, discovery boundary, and exact Bun-to-Python gate", () => {
     const manifest = JSON.parse(readRepositoryFile("package.json")) as {
       engines?: { bun?: string };
-      scripts?: { test?: string; testPython?: string; [name: string]: string | undefined };
+      scripts?: { test?: string; [name: string]: string | undefined };
     };
     const bunfig = readRepositoryFile("bunfig.toml");
+    const pythonSuites = execFileSync("find", ["tools", "-type", "f", "-name", "test_*.py"], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    })
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .sort();
+    const expectedPythonSuites = [
+      "tools/test_ad_index.py",
+      "tools/test_deep_review_contract.py",
+      "tools/test_deep_review_symlink_manifest.py",
+      "tools/test_deep_review_token_metrics.py",
+      "tools/test_git_adapter.py",
+      "tools/test_machine_health.py",
+      "tools/test_orca_adapter.py",
+      "tools/test_orca_assisted_probe.py",
+      "tools/test_parallel_executor.py",
+      "tools/test_parallel_plan.py",
+      "tools/test_qa_parallel_pilot.py",
+      "tools/test_review_convergence.py",
+      "tools/test_tlc_validators.py",
+      "tools/test_workflow_config.py",
+      "tools/test_workflow_spec_driven.py",
+    ];
+    const pythonLoop = "find tools -type f -name 'test_*.py' -print | sort | while read test; do python3 \"$test\" || exit $?; done";
 
     expect(manifest.engines?.bun).toBe(">=1.4.0 <1.5.0");
     expect(bunfig).toContain("[test]");
@@ -910,6 +936,8 @@ describe("Bun tooling runtime contract", () => {
     expect(manifest.scripts?.test).toBe("bun test");
     expect(manifest.scripts?.["test:all"]).toBe("bun run test && bun run test:python");
     expect(manifest.scripts?.["test:python"]).toContain("python3 scripts/test_adopt.py");
+    expect(pythonSuites).toEqual(expectedPythonSuites);
+    expect(manifest.scripts?.["test:python"]).toContain(pythonLoop);
   });
 
   it("keeps every tools test on bun:test and removes forbidden active runner authority", () => {
