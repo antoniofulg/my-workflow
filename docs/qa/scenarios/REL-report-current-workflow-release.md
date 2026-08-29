@@ -6,13 +6,13 @@ persona: Repository reader
 journey: J-review-workflow-release
 expected: The newest changelog release matches both package authorities and shipped public contracts, while the full test command scopes discovery to canonical tests under tools.
 entry_points: CHANGELOG.md; package.json; package-lock.json
-qa_status: untested
+qa_status: pass
 bug_ids: BUG-20260824-release-overstates-lifecycle-qa; BUG-20260825-adoption-omits-parallel-pilot
 fix_status:
 retest_status:
 fix_commits:
-evidence:
-last_report:
+evidence: docs/qa/evidence/2026-08-29-release-0-7-0/package-summary.json; docs/qa/evidence/2026-08-29-release-0-7-0/adoption-summary.json; docs/qa/evidence/2026-08-29-release-0-7-0/installed-probe-dispatch-summary.json
+last_report: docs/qa/reports/2026-08-29-release-0-7-0.md
 overlaps:
 ---
 
@@ -29,6 +29,12 @@ claim a completed pilot.
 
 The prior `0.6.0` verdict and its evidence remain historical record below; this release reset
 clears only the current metadata pointers until the independent `0.7.0` release walk completes.
+
+Fresh QA on 2026-08-29 passed release `0.7.0` through one package identity, a 410-file offline
+package dry-run, disposable adoption and re-adoption, independently reloaded installed files,
+pointer-only fake-provider dispatch, hybrid planner/executor canaries, and zero owned residue. The
+real Orca/Codex lifecycle and completed-pilot cleanup remain `blocked-verify`; no publication,
+tag, GitHub release, remote delivery, deploy, or live Orca action occurred. See the current report.
 
 QA on 2026-08-25 failed release `0.6.0` during fresh adoption: the package contains the public
 parallel-pilot helper, but `scripts/adopt.py` does not install it. The release walk stopped at the
