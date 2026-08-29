@@ -70,7 +70,7 @@ S2 and S3 may open together only after CP-S1 passes. Tasks inside each slice rem
 **Where**: `tools/shared/src/frontmatter.ts`
 **Depends on**: T1
 **Reuses**: existing frontmatter and CLI tests
-**Requirement**: BUN-06, BUN-07, BUN-13
+**Requirement**: BUN-06, BUN-07
 
 **Tools**:
 - MCP: official Bun docs fallback
@@ -82,7 +82,7 @@ S2 and S3 may open together only after CP-S1 passes. Tasks inside each slice rem
 - [x] Existing valid/malformed frontmatter outcomes remain exact.
 - [x] `bun test tools/knowledge tools/shared` and the existing knowledge CLI contract executed through `bun run knowledge` exit 0.
 
-**Tests**: UT-002, IT-005
+**Tests**: UT-002
 **Gate**: Quick
 **Commit**: `refactor(knowledge): use native Bun tooling`
 
@@ -183,7 +183,7 @@ T1 → T2 → T3 ──→ T5
 | Task | Layer | Matrix Requires | Task Says | Status |
 | --- | --- | --- | --- | --- |
 | T1 | Bun manifest/runner | integration | IT-001/002, UT-001 | ✅ |
-| T2 | Knowledge parser | unit/integration | UT-002, IT-005 | ✅ |
+| T2 | Knowledge parser | unit | UT-002 | ✅ |
 | T3 | Python command boundary | unit/integration | UT-003, IT-007, SEC-001 | ✅ |
 | T4 | Package/adoption | integration/security | IT-004/005, SEC-002 | ✅ |
 | T5 | Documentation contract | full integration | IT-003/006, E2E-001 | ✅ |

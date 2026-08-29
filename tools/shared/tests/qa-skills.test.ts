@@ -1,5 +1,6 @@
-import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "bun:test";
 
@@ -46,6 +47,33 @@ function skillMetadata(relativePath: string): { name: string; description: strin
 
 function normalizePacket(source: string): string {
   return source.replaceAll("`", "").replace(/\s+/g, " ").trim();
+}
+
+function runBunVersionSensor(versionSource: string, replacement: string): void {
+  const root = mkdtempSync(join(tmpdir(), "bun-version-sensor-"));
+  const preload = join(root, "preload.ts");
+  const marker = join(root, "marker.txt");
+  const suite = join(root, "marker.test.ts");
+
+  try {
+    writeFileSync(preload, versionSource.replace("Bun.version", replacement), "utf8");
+    writeFileSync(
+      suite,
+      `import { writeFileSync } from "node:fs";\nwriteFileSync(${JSON.stringify(marker)}, "ran");\n`,
+      "utf8",
+    );
+
+    const result = spawnSync(process.execPath, ["test", "--preload", preload, suite], {
+      cwd: root,
+      encoding: "utf8",
+    });
+
+    expect(result.status).not.toBe(0);
+    expect(existsSync(marker)).toBe(false);
+    expect(`${result.stdout}${result.stderr}`).toContain("Bun 1.4.x is required");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 }
 
 const verifierPacketPaths = [
@@ -864,5 +892,49 @@ describe("adoption and public setup", () => {
     expect(latestRelease).toContain("Assisted slice execution is the default");
     expect(latestRelease).toContain("workflow-spec-driven");
     expect(latestRelease).toContain("blocked-verify");
+  });
+});
+
+describe("Bun tooling runtime contract", () => {
+  it("pins the Bun engine, discovery boundary, and exact Bun-to-Python gate", () => {
+    const manifest = JSON.parse(readRepositoryFile("package.json")) as {
+      engines?: { bun?: string };
+      scripts?: { test?: string; testPython?: string; [name: string]: string | undefined };
+    };
+    const bunfig = readRepositoryFile("bunfig.toml");
+
+    expect(manifest.engines?.bun).toBe(">=1.4.0 <1.5.0");
+    expect(bunfig).toContain("[test]");
+    expect(bunfig).toContain('root = "./tools"');
+    expect(bunfig).toContain('preload = ["./tools/shared/src/bun-version.ts"]');
+    expect(manifest.scripts?.test).toBe("bun test");
+    expect(manifest.scripts?.["test:all"]).toBe("bun run test && bun run test:python");
+    expect(manifest.scripts?.["test:python"]).toContain("python3 scripts/test_adopt.py");
+  });
+
+  it("keeps every tools test on bun:test and removes forbidden active runner authority", () => {
+    const suites = execFileSync("find", ["tools", "-type", "f", "-name", "*.test.ts"], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    })
+      .trim()
+      .split("\n")
+      .filter(Boolean);
+    const manifest = readRepositoryFile("package.json");
+
+    expect(suites.length).toBeGreaterThan(0);
+    for (const suite of suites) {
+      expect(readRepositoryFile(suite)).toMatch(/from ["']bun:test["']/);
+    }
+    expect(manifest).not.toMatch(/"(?:vitest|tsx|yaml)"\s*:/);
+    expect(readRepositoryFile("tools/shared/src/frontmatter.ts")).not.toMatch(/from ["']yaml["']/);
+    expect(readRepositoryFile("tools/shared/src/frontmatter.ts")).toContain("Bun.YAML.parse");
+  });
+
+  it("fails closed for unsupported and malformed Bun versions before a suite marker runs", () => {
+    const versionSource = readRepositoryFile("tools/shared/src/bun-version.ts");
+
+    runBunVersionSensor(versionSource.replace('"1.4.x"', '"9.x"'), "Bun.version");
+    runBunVersionSensor(versionSource, JSON.stringify("not-a-version"));
   });
 });
