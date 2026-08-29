@@ -36,3 +36,17 @@ Execute Verifier to re-walk the adoption charter and its package/configuration c
 The canonical adoption assertion now accepts the current independently verified `pass` verdict and
 requires its dated evidence/report paths. The live Orca assertion remains `blocked-verify`. A fresh
 Verifier retest is still pending; this fix records no retest result.
+
+## Retest
+
+Fresh QA Execute at `8257d37` passed the affected adoption journey through `scripts/adopt.py` in a
+new disposable consumer. Independent readback confirmed 65 managed files byte-identical, 0 Orca
+calls on installed-probe import, preserved consumer-owned config/profile hashes, a 408-file package
+canary, and one-ready execution in the integration checkout without an extra worktree. The closing
+`npm_config_offline=true npm run test:all` exited `0` with 8/8 Vitest files, 114/114 tests, 24
+adoption checks, and 15 tool Python suites. Evidence:
+`docs/qa/evidence/2026-08-29-hybrid-slice-execution/summary.json` and
+`docs/qa/evidence/2026-08-29-hybrid-slice-execution/commands.json`.
+
+Retest status: pass. Real Orca/Codex lifecycle scenarios remain `blocked-verify`; no live Orca call
+was made.

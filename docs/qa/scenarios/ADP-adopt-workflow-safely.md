@@ -9,8 +9,8 @@ entry_points: README.md#adopt-the-workflow; docs/guidelines/ARTIFACT-LIFECYCLE.m
 qa_status: pass
 bug_ids: BUG-20260822-deep-review-learnings-untrackable; BUG-20260822-feature-specs-ignored; BUG-20260822-feature-state-gate-conflicts; BUG-20260825-adoption-omits-parallel-pilot; BUG-20260829-final-qa-pass-conflicts-with-adoption-gate
 fix_status: fixed
-retest_status: pending
-fix_commits: 0413862; a7397d2; 43e9910; a3fc718; 5b5474e; 816afd6
+retest_status: pass
+fix_commits: 0413862; a7397d2; 43e9910; a3fc718; 5b5474e; 816afd6; 9653ed1
 evidence: docs/qa/evidence/2026-08-29-hybrid-slice-execution/summary.json; docs/qa/evidence/2026-08-29-hybrid-slice-execution/commands.json
 last_report: docs/qa/reports/2026-08-29-hybrid-slice-execution.md
 overlaps:
@@ -81,3 +81,9 @@ release/package canary also passed; see the current report.
 The hybrid-slice feature changes this public promise to v3 assisted-by-default adoption and adds
 the pointer-only `tools/orca_assisted_probe.py`. The implementation gate is not a user QA walk, so
 this scenario is reset to `untested` until fresh QA confirms the installed tree.
+
+Fresh QA Execute at `8257d37` retested the adoption-gate fix through a new disposable consumer.
+Sixty-five selected managed files matched source bytes, probe import made zero Orca calls,
+re-adoption preserved consumer-owned config and QA profile hashes, and package plus one-ready
+serial-integration canaries passed. The closing full gate exited zero. Real Orca/Codex scenarios
+remain `blocked-verify`; this offline adoption pass does not change that boundary.

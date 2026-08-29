@@ -165,3 +165,39 @@ This conflicts with the fresh independent `pass` verdict recorded by this sessio
 [`BUG-20260829-final-qa-pass-conflicts-with-adoption-gate`](../bugs/BUG-20260829-final-qa-pass-conflicts-with-adoption-gate.md).
 QA Execute stops here; a fresh Verifier must resume the adoption charter plus adjacent package and
 configuration canaries after an Implementer fixes the owning assertion.
+
+## Fresh retest after the adoption-gate fix
+
+- **Retest HEAD:** `8257d379d9cebcd4a7c5b55c1f9de001607123bc`
+- **Fix commit:** `9653ed1`
+- **Adapter:** CLI/manual through `scripts/adopt.py`, installed public CLIs, independent filesystem
+  readback, and `npm pack --dry-run --json`
+- **Raw evidence:** `docs/qa/evidence/2026-08-29-hybrid-slice-execution/summary.json` and
+  `docs/qa/evidence/2026-08-29-hybrid-slice-execution/commands.json`
+- **Live Orca:** not invoked
+
+The fresh disposable consumer received 65 selected managed files byte-for-byte. A fresh process
+reloaded the installed files, confirmed the obsolete TLC path absent, and imported the installed
+probe with a call-counting fake `orca`; the ledger remained absent, proving 0 Orca calls.
+Re-adoption preserved exact hashes for consumer-owned `.my-workflow.toml` and `docs/qa/README.md`.
+The disposable target was removed after the walk.
+
+Adjacent canaries passed. `npm pack --dry-run --json` listed 408 files and included the assisted
+probe plus workflow skill notice. The current v3 configuration planned one ready slice as
+`serial-integration` with `worktree: false`; execution used `worktree_id: integration`, and fresh
+Git readback found only the consumer's integration worktree. The QA registry retained the offline
+adoption/configuration verdicts as `pass` and both real-Orca lifecycle scenarios as
+`blocked-verify`.
+
+Closing command:
+
+```text
+npm_config_offline=true npm run test:all
+```
+
+Exit `0`: 8/8 Vitest files and 114/114 tests passed; 24 adoption checks and all 15 tool Python
+suites passed. No test was weakened or skipped. `git worktree list --porcelain` reported exactly 2
+project worktrees after cleanup: operator main and this feature checkout.
+
+**Retest verdict:** pass. The adoption-gate defect is closed, the affected adoption journey and
+adjacent package/configuration canaries pass, and the external Orca limitation remains unchanged.
