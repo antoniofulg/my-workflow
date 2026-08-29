@@ -39,6 +39,8 @@ T2 → T4 → T5
 
 S2 and S3 may open together only after CP-S1 passes. Tasks inside each slice remain sequential.
 
+**CP-S1**: PASS — T1/T2 independently verified in `validation-s1.md`; IT-005 remains assigned to T4/S3.
+
 ## Task Breakdown
 
 ### T1: Migrate the structural toolchain atomically
