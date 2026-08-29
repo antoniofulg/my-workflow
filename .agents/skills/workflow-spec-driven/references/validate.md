@@ -11,7 +11,7 @@
    - Scopes coverage to the feature's **git diff surface** (not the full repository)
    - Re-derives coverage independently using **evidence-or-zero**: every AC must be traced to a `file:line` + assertion expression; a criterion with no `file:line` citation counts as NOT covered
    - Runs the **spec-anchored outcome check** and the **discrimination sensor** (both described below)
-   - Writes `.specs/features/[feature]/validation.md` with the full evidence report as versioned workflow state; retain it with the feature when the verification record must travel to CI, reviewers, or fresh clones.
+   - Writes `.specs/features/[feature]/validation-[slice].md` with the full slice evidence report as versioned workflow state; a concurrent Verifier therefore cannot overwrite another slice's evidence. The final integrated Verifier alone writes `.specs/features/[feature]/validation.md`.
    - Returns a compact verdict + ranked gap list to the orchestrator in chat
    - Gaps become **fix tasks** routed back to an implementer; re-verification uses the immutable finding fingerprint and third-failure halt in `docs/guidelines/REVIEW-ROUNDS.md`
 
@@ -187,7 +187,7 @@ Fix tasks follow the same format as regular tasks and can be executed with the i
 
 After all checks complete, the Verifier MUST:
 
-1. **Write the feature report** to `.specs/features/[feature]/validation.md` (see template below). It is versioned workflow state and travels with the feature when committed.
+1. **Write the final feature report** to `.specs/features/[feature]/validation.md` (see template below) only after all slice reports exist and the verified slices are integrated. It is versioned workflow state and travels with the feature when committed. A slice-level Verifier writes `.specs/features/[feature]/validation-[slice].md` instead.
 2. **Return a compact summary in chat** to the orchestrator (see Compact Chat Summary section below). The orchestrator surfaces it to the user and routes any ranked gaps to fix tasks.
 
 **Deterministic backing (run it, do not eyeball it).** After writing the report, run `python3 <skill-dir>/scripts/validate_state.py <feature>`. It confirms the report is real - present, verdict filled to PASS, and backed by at least one `file:line` evidence citation - so a missing, hollow, placeholder, or FAIL report cannot slip through as done. A non-zero exit means the feature is NOT done: repair the report or route the FAIL gaps to fix tasks, then re-run. This is the closing gate of Execute and runs automatically, the same way the lessons layer runs at distillation; it is never a manual step. If no code-execution tool is available, confirm the same by reading `validation.md`.
@@ -208,7 +208,7 @@ The Verifier returns this block to the orchestrator after completing all checks:
 **Spec-anchored check**: [N/N ACs matched spec outcome | M spec-precision gaps flagged]
 **Gate**: [X passed, 0 failed]
 **Sensor**: [N mutations injected, N killed, N survived]
-**Report**: `.specs/features/[feature]/validation.md` (versioned workflow state)
+**Report**: `.specs/features/[feature]/validation-[slice].md` for a slice Verifier, or `.specs/features/[feature]/validation.md` for the final integrated Verifier (versioned workflow state)
 
 **Ranked gaps** (if FAIL):
 1. [Gap description] - [AC or criterion] - [file:line or "no evidence"]
@@ -217,7 +217,7 @@ The Verifier returns this block to the orchestrator after completing all checks:
 
 ---
 
-## Validation Report Template (`.specs/features/[feature]/validation.md`)
+## Validation Report Template (`.specs/features/[feature]/validation-[slice].md` for a slice; `validation.md` only for final integrated validation)
 
 ```markdown
 # [Feature] Validation
@@ -360,5 +360,5 @@ Update spec.md requirement statuses:
 - **Infer severity** - Never ask the user "how bad is this?"
 - **Max 3 diagnostic iterations** - Prevents infinite investigation loops; this diagnostic cap is per issue and separate from review-remediation fingerprint accounting in `docs/guidelines/REVIEW-ROUNDS.md`.
 - **Update traceability** - Every verified requirement updates spec.md status
-- **Always write the report file** - `.specs/features/[feature]/validation.md` is versioned workflow state; keep it with the feature when its evidence must travel
+- **Always write the report file** - slice Verifiers write `.specs/features/[feature]/validation-[slice].md`; the final integrated Verifier writes `.specs/features/[feature]/validation.md`. Both are versioned workflow state and travel with the feature when their evidence must travel.
 - **Distill after writing** - turn grounded failures into lessons via `scripts/lessons.py` ([lessons.md](lessons.md)); clean PASS → no lesson

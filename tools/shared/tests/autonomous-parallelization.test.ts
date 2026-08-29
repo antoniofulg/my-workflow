@@ -310,6 +310,9 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(policy).toContain("existing serial path");
     expect(policy).toContain("without creating a worker or worktree");
     expect(policy).toContain("one worker per slice");
+    expect(policy).toContain("Exactly one ready slice is a serial-integration lane");
+    expect(policy).toContain("Persistent writer worktrees are admitted only when at least two");
+    expect(policy).toContain("slices are selected");
     expect(policy).toContain("Tasks inside a slice remain sequential");
     expect(policy).toContain("must first leave a clean committed checkpoint");
     expect(policy).toContain("report the exact dependency and current head");
@@ -342,5 +345,11 @@ describe("autonomous parallel slice dispatch contract", () => {
     expect(policy).toMatch(/independent slices may run concurrently/i);
     expect(policy).toMatch(/tasks inside one slice\s+remain sequential in its worker\/worktree/i);
     expect(policy).toMatch(/uncertainty or failure\s+serializes safely/i);
+
+    const validation = readRepositoryFile(
+      ".agents/skills/workflow-spec-driven/references/validate.md",
+    );
+    expect(validation).toContain("validation-[slice].md");
+    expect(validation).toContain("`validation.md` only for final integrated validation");
   });
 });

@@ -214,6 +214,22 @@ def test_write_collision_serializes_with_exact_paths() -> None:
         shutil.rmtree(root)
 
 
+def test_one_ready_assisted_slice_is_explicit_serial_integration_without_worktree() -> None:
+    root = make_repo(task("T1", "A"))
+    try:
+        plan = parallel_plan.plan(root=root, feature="fixture")
+        assert plan["decision"] == "serial-integration"
+        assert plan["compatibility"]["selected"] == ["T1"]
+        assert plan["lanes"] == [{
+            "id": "serial", "slice": "A", "task": "T1", "status": "ready",
+            "execution": "serial-integration", "worktree": False, "sync_after": [],
+            "declared_paths": ["src/t1.py"], "resources": [],
+        }]
+        assert plan["role_worktrees"]["implementer"] is False
+    finally:
+        shutil.rmtree(root)
+
+
 def test_concurrent_writer_selection_is_capped_and_not_parity_bound() -> None:
     root = make_repo(task("T1", "A") + task("T2", "B") + task("T3", "C") + task("T4", "D"))
     try:

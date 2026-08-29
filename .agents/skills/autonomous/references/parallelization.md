@@ -52,6 +52,9 @@ or cleanup failure returns serial recovery without creating a replacement effect
 ## Dispatch boundary
 
 - Use one worker per slice. The orchestrator owns the slice worktree, runtime, and checkpoint.
+- Exactly one ready slice is a serial-integration lane: it uses the clean integration checkout and
+  creates no extra worktree. Persistent writer worktrees are admitted only when at least two
+  compatible ready slices are selected.
 - A worker runs its slice's tasks in task order. Tasks inside a slice remain sequential.
 - Each task still has its own implementation, scoped gate, `tasks.md` update, and atomic commit.
 - The orchestrator never starts a later task in a slice before the planner marks its dependencies

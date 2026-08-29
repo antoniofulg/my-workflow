@@ -99,7 +99,8 @@ serial execution is reserved for explicit `disabled` mode or a fail-closed condi
 
 - **Every implementation slice closes its technical review before any dependent slice consumes its
   checkpoint** — implement, scoped gate, commit, and a fresh Verifier on the private writer
-  checkpoint. Independent compatible slices may open concurrently. Deep-review runs at the resolved
+  checkpoint. A single ready slice runs serially in the clean integration checkout; only two or
+  more compatible ready slices may open concurrent writer worktrees. Deep-review runs at the resolved
   groups on the integrated tree, before fresh final QA. Author and proof identities stay distinct.
 - **One pull request for the feature**, with the slices as atomic commits inside it.
 - **The feature-closing step is the QA session** and writes no product code, so it takes no Verifier

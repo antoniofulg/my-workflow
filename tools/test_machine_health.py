@@ -49,6 +49,7 @@ def test_non_finite_timestamps_and_non_integer_gate_counts_fail_closed() -> None
     for evidence in (
         {**healthy(), "observed_at_monotonic": float("nan")},
         {**healthy(), "observed_at_monotonic": float("inf")},
+        {**healthy(), "observed_at_monotonic": 10**10000},
         {**healthy(), "heavy_gates_active": 0.0},
         {**healthy(), "heavy_gates_active": True},
     ):

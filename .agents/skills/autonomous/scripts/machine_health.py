@@ -23,6 +23,13 @@ def _status(value: Any) -> str:
     return value if isinstance(value, str) and value in STATUSES else "unknown"
 
 
+def _finite_number(value: Any) -> bool:
+    """Check numeric evidence without converting unbounded integers to float."""
+    if type(value) is int:
+        return abs(value) <= sys.float_info.max
+    return type(value) is float and math.isfinite(value)
+
+
 def _invalid() -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
@@ -57,9 +64,9 @@ def normalize_health(
         or type(max_age_seconds) not in (int, float)
         or max_age_seconds <= 0
         or observed < 0
-        or not math.isfinite(float(observed))
-        or not math.isfinite(float(now))
-        or not math.isfinite(float(max_age_seconds))
+        or not _finite_number(observed)
+        or not _finite_number(now)
+        or not _finite_number(max_age_seconds)
         or now < observed
         or now - observed > max_age_seconds
         or evidence.get("schema_version") != SCHEMA_VERSION

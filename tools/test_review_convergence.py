@@ -223,7 +223,7 @@ def test_UT019_resumed_generation_closes_only_on_fresh_independent_pass() -> Non
 
 
 def test_invalid_generation_thresholds_are_rejected_without_rewriting_state() -> None:
-    for invalid_status, failures in (("halted", 2), ("open", 3)):
+    for invalid_status, failures in (("halted", 2), ("open", 3), ("closed", 3)):
         root = Path(tempfile.mkdtemp())
         try:
             entry = review_convergence.record_failure(root, "fixture", "EXE-08", "root", "path")
@@ -257,7 +257,7 @@ def test_invalid_generation_thresholds_are_rejected_without_rewriting_state() ->
 
 
 def test_invalid_legacy_thresholds_are_rejected_without_rewriting_state() -> None:
-    for invalid_status, failures in (("halted", 2), ("open", 3)):
+    for invalid_status, failures in (("halted", 2), ("open", 3), ("closed", 3)):
         root = Path(tempfile.mkdtemp())
         try:
             path = review_convergence.state_path(root, "fixture")
@@ -288,6 +288,28 @@ def test_invalid_legacy_thresholds_are_rejected_without_rewriting_state() -> Non
             assert path.read_bytes() == before
         finally:
             shutil.rmtree(root)
+
+
+def test_boolean_failure_counters_are_not_integer_counters() -> None:
+    root = Path(tempfile.mkdtemp())
+    try:
+        entry = review_convergence.record_failure(root, "fixture", "EXE-08", "root", "path")
+        path = review_convergence.state_path(root, "fixture")
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        stored = payload["fingerprints"][entry["fingerprint"]]
+        stored["failed_remediations"] = True
+        stored["generations"][0]["failed_remediations"] = True
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        before = path.read_bytes()
+        try:
+            review_convergence.record_failure(root, "fixture", "EXE-08", "root", "path")
+        except ValueError as exc:
+            assert "generation" in str(exc) or "convergence" in str(exc)
+        else:
+            raise AssertionError("boolean failure counters must be rejected")
+        assert path.read_bytes() == before
+    finally:
+        shutil.rmtree(root)
 
 
 if __name__ == "__main__":

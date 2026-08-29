@@ -453,6 +453,29 @@ and prove the disposable installed tree offline while keeping the live host jour
 **Gate:** `python3 scripts/test_adopt.py && python3 -m compileall -q .agents/skills tools scripts && npm_config_offline=true npm run test:all`
 **Commit:** `feat(adopt): install hybrid slice workflow`
 
+### Final review remediation: close workflow blockers
+
+**What:** Harden the final workflow contract for oversized health evidence, explicit serial
+integration, serial-lane technical proof, slice-keyed validation reports, and immutable review
+convergence counters.
+
+**Where:** `.agents/skills/autonomous/`, `.agents/skills/workflow-spec-driven/`,
+`.agents/skills/workflow-config/`, `tools/`
+**Depends on:** T4, T10, T13
+
+**Done when:**
+
+- [x] Invalid numeric evidence and boolean convergence counters fail closed without rewriting state.
+- [x] One ready slice uses the clean integration checkout; two or more compatible slices are the
+  only worktree case.
+- [x] Serial code-changing lanes capture their post-worker head and require a fresh verifier before
+  completion or dependent consumption.
+- [x] Slice verifier evidence is keyed by slice and the aggregate `validation.md` is final-only.
+- [x] Focused gates and the exact full gate exit 0 before commit.
+
+**Gate:** `python3 tools/test_machine_health.py && python3 tools/test_parallel_plan.py && python3 tools/test_parallel_executor.py && python3 tools/test_review_convergence.py && npm_config_offline=true npm run test:all`
+**Commit:** `fix(workflow): close final review blockers`
+
 ## Checkpoint DAG
 
 | Producer | Checkpoint | Consumers | Proof required before release |

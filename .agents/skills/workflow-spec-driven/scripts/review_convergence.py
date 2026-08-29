@@ -53,12 +53,14 @@ def _generation(number: int, failures: int, status: str, **extra: Any) -> dict[s
 def _legacy_generation(entry: dict[str, Any]) -> dict[str, Any]:
     failures = entry.get("failed_remediations")
     status = entry.get("status")
-    if not isinstance(failures, int) or failures < 0 or status not in GENERATION_STATUSES:
+    if type(failures) is not int or failures < 0 or status not in GENERATION_STATUSES:
         raise ValueError("invalid convergence entry")
     if status == "halted" and failures < MAX_FAILURES:
         raise ValueError("halted convergence entry has too few failures")
     if status == "open" and failures >= MAX_FAILURES:
         raise ValueError("open convergence entry has too many failures")
+    if status == "closed" and failures >= MAX_FAILURES:
+        raise ValueError("closed convergence entry has too many failures")
     return _generation(1, failures, status)
 
 
@@ -75,12 +77,14 @@ def _validate_generation(generation: Any, expected_number: int) -> dict[str, Any
         raise ValueError("non-contiguous audit generations")
     failures = generation.get("failed_remediations")
     status = generation.get("status")
-    if not isinstance(failures, int) or failures < 0 or status not in GENERATION_STATUSES:
+    if type(failures) is not int or failures < 0 or status not in GENERATION_STATUSES:
         raise ValueError("invalid audit generation")
     if status == "halted" and failures < MAX_FAILURES:
         raise ValueError("halted audit generation has too few failures")
     if status == "open" and failures >= MAX_FAILURES:
         raise ValueError("open audit generation has too many failures")
+    if status == "closed" and failures >= MAX_FAILURES:
+        raise ValueError("closed audit generation has too many failures")
     if status == "halted":
         event = generation.get("halt_event")
         if not isinstance(event, dict) or event != _halt_event(expected_number, failures):
@@ -114,7 +118,7 @@ def _normalize_entry(key: str, value: Any) -> dict[str, Any]:
     if current_generation != len(generations):
         raise ValueError("invalid current generation")
     cumulative = sum(item["failed_remediations"] for item in generations)
-    if normalized.get("failed_remediations") != cumulative:
+    if type(normalized.get("failed_remediations")) is not int or normalized.get("failed_remediations") != cumulative:
         raise ValueError("inconsistent cumulative failures")
     if normalized.get("status") != generations[-1]["status"]:
         raise ValueError("inconsistent convergence status")

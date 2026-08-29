@@ -1092,19 +1092,61 @@ class Coordinator:
 
     def _record_producer_head(self, state: dict[str, Any], lane_id: str, lane: dict[str, Any]) -> str:
         worktree_path = lane.get("worktree_path")
-        if not isinstance(worktree_path, str) or not worktree_path:
+        if lane.get("worktree") is False:
+            if worktree_path != str(self.root):
+                raise ExecutorError("serial lane is not on the integration checkout")
+        elif not isinstance(worktree_path, str) or not worktree_path:
             raise ExecutorError("missing owned worktree for producer checkpoint")
         expected_head = lane.get("current_head") or lane.get("pre_head")
-        current_head = self._git_adapter().head(
-            worktree_path,
-            expected_receipt=dict(lane),
-            expected_head=expected_head if isinstance(expected_head, str) and lane.get("current_head") else None,
-        )
+        adapter = self._git_adapter()
+        if lane.get("worktree") is False:
+            current_head = adapter.head(self.root)
+        else:
+            current_head = adapter.head(
+                worktree_path,
+                expected_receipt=dict(lane),
+                expected_head=expected_head if isinstance(expected_head, str) and lane.get("current_head") else None,
+            )
         if not isinstance(current_head, str) or not current_head:
             raise ExecutorError("missing producer worktree HEAD")
         lane["current_head"] = current_head
         self._save(state)
         return current_head
+
+    def _serial_verifier_ready(self, state: Mapping[str, Any], lane_id: str, lane: Mapping[str, Any]) -> bool:
+        current_head = lane.get("current_head")
+        if not isinstance(current_head, str) or not current_head:
+            return False
+        key = idempotency_key(
+            self.feature, str(lane["slice"]), str(lane["task"]), "technical_verifier", state["source_git_head"]
+        )
+        action = state.get("actions", {}).get(key) if isinstance(state.get("actions"), Mapping) else None
+        if not isinstance(action, Mapping) or action.get("status") not in {"accepted", "released"}:
+            return False
+        receipt = action.get("receipt")
+        if not isinstance(receipt, Mapping):
+            return False
+        try:
+            _validate_technical_verifier_receipt(receipt, lane, feature=self.feature, current_head=current_head)
+        except StateError:
+            return False
+        return True
+
+    def _complete_verified_serial_lanes(self, state: dict[str, Any], plan: Mapping[str, Any]) -> list[str]:
+        completed: list[str] = []
+        for plan_lane in plan.get("lanes", []):
+            if not isinstance(plan_lane, Mapping) or plan_lane.get("worktree") is not False:
+                continue
+            lane_id = str(plan_lane.get("id", ""))
+            lane = state.get("lanes", {}).get(lane_id)
+            if not isinstance(lane, dict) or lane.get("state") != "running":
+                continue
+            if not lane.get("technical_verifier_pending") or not self._serial_verifier_ready(state, lane_id, lane):
+                continue
+            transition_lane(state, lane_id, "complete", expected="running")
+            lane.pop("technical_verifier_pending", None)
+            completed.append(lane_id)
+        return completed
 
     def _consume_technical_verifier_receipts(
         self, state: dict[str, Any], receipts: Sequence[Mapping[str, Any]] | None
@@ -1725,7 +1767,7 @@ class Coordinator:
                     "resources": resources,
                     "declared_paths": list(plan_lane.get("declared_paths", []))
                     if isinstance(plan_lane.get("declared_paths", []), list) else [],
-                    "worktree": plan_lane.get("worktree") is True,
+                    "worktree": plan_lane.get("worktree", True) is True,
                 }
                 existing = state["lanes"][lane_id]
             elif existing.get("slice") != slice_id or existing.get("task") != task_id:
@@ -1846,6 +1888,13 @@ class Coordinator:
                         result["state"] = state
                         return result
                     continue
+            if existing.get("state") == "running":
+                worker_key = idempotency_key(self.feature, slice_id, task_id, "worker", state["source_git_head"])
+                worker_action = state["actions"].get(worker_key)
+                if isinstance(worker_action, Mapping) and worker_action.get("status") in {"accepted", "released"}:
+                    # A terminal serial worker waits here for its fresh verifier receipt;
+                    # never issue the same worker again just to consume that proof.
+                    continue
             if resources:
                 if provider is None:
                     existing["fallback_reason"] = "missing-resource-provider"
@@ -1956,8 +2005,8 @@ class Coordinator:
                 if terminal and existing["state"] == "running":
                     if (
                         mode == "assisted"
-                        and existing.get("worktree") is True
                         and not isinstance(existing.get("current_head"), str)
+                        and (existing.get("worktree") is False or isinstance(existing.get("gitdir"), str))
                     ):
                         try:
                             self._record_producer_head(state, lane_id, existing)
@@ -1966,8 +2015,25 @@ class Coordinator:
                             transition_lane(state, lane_id, "serial", expected="running")
                             self._save(state)
                             return _serial_result(self.feature, mode, "producer-head-failed", lanes)
-                    transition_lane(state, lane_id, "complete", expected="running")
+                    if existing.get("worktree") is False:
+                        existing["technical_verifier_pending"] = True
+                    else:
+                        transition_lane(state, lane_id, "complete", expected="running")
         self._consume_technical_verifier_receipts(state, technical_verifier_receipts)
+        self._complete_verified_serial_lanes(state, plan)
+        pending_serial = [
+            lane_id
+            for plan_lane in plan.get("lanes", [])
+            if isinstance(plan_lane, Mapping) and plan_lane.get("worktree") is False
+            for lane_id in [str(plan_lane.get("id", ""))]
+            if isinstance(state.get("lanes", {}).get(lane_id), Mapping)
+            and state["lanes"][lane_id].get("technical_verifier_pending") is True
+        ]
+        if pending_serial:
+            self._save(state)
+            result = _serial_result(self.feature, mode, "technical-verifier-required", lanes)
+            result["state"] = state
+            return result
         integration_status = self._integrate_verified_slices(state, plan)
         if integration_status == "serial":
             result = _serial_result(self.feature, mode, state.get("integration_recovery", {}).get("reason", "integration-failed"), lanes)

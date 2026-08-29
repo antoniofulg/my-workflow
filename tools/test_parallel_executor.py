@@ -2481,9 +2481,20 @@ def test_serial_lane_uses_clean_integration_checkout_without_worktree_effects() 
             }],
         }  # type: ignore[method-assign]
         result = coordinator.start()
-        assert result["fallback"] is False
+        assert result["fallback"] is True
         assert [effect[0] for effect in adapter.effects] == ["worker"]
-        assert result["state"]["lanes"]["serial"]["state"] == "complete"  # type: ignore[index]
+        assert result["reason"] == "technical-verifier-required"
+        assert result["state"]["lanes"]["serial"]["state"] == "running"  # type: ignore[index]
+        head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+        verifier = {
+            "receipt_id": "verifier-serial", "feature": "fixture", "slice": "A", "task": "T1",
+            "worktree_id": "integration", "worktree_path": str(root.resolve()), "current_head": head,
+            "author": "verifier-serial", "implementer": "worker-serial", "verdict": "passed",
+        }
+        completed = coordinator.start(technical_verifier_receipts=[verifier])
+        assert completed["fallback"] is False
+        assert completed["state"]["lanes"]["serial"]["state"] == "complete"  # type: ignore[index]
+        assert [effect[0] for effect in adapter.effects] == ["worker"]
     finally:
         shutil.rmtree(root)
 
