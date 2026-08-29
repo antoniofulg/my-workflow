@@ -14,7 +14,7 @@ For consuming projects, those authorities are their executable manifests or CI j
 | `DOC` | Documentation | `README.md` | [`README.md`](../../README.md) |
 | `CFG` | Workflow configuration, generated state, and Git visibility | `.my-workflow.toml.example`; `.my-workflow.toml`; `templates/agents/`; `.agents/skills/workflow-config/scripts/workflow_config.py`; `.gitignore`; `.specs/` | [README configuration contract](../../README.md#adopt-the-workflow), [`workflow-config` skill](../../.agents/skills/workflow-config/SKILL.md), [artifact lifecycle](../guidelines/ARTIFACT-LIFECYCLE.md) |
 | `WFL` | Cross-provider workflow handoff | `docs/workflow/ai-memory.md`; `scripts/ai-memory.zsh`; Claude Code, Codex, and Cursor lifecycle hooks | [ai-memory handoff contract](../workflow/ai-memory.md), [`scripts/ai-memory.zsh`](../../scripts/ai-memory.zsh) |
-| `REL` | Package metadata | `package.json`, `package-lock.json` | [`package.json`](../../package.json) |
+| `REL` | Package metadata | `package.json`, `bun.lock` | [`package.json`](../../package.json) |
 
 No browser, API, or mobile surface exists in this repository.
 
@@ -35,7 +35,7 @@ No browser, API, or mobile surface exists in this repository.
 - Exact path used by `qa-execute`: invoke the command documented by the
   [`workflow-config` skill](../../.agents/skills/workflow-config/SKILL.md) inside a checkout-local
   disposable Git repository; invoke [`scripts/adopt.py`](../../scripts/adopt.py) against a separate
-  checkout-local disposable target; inspect package membership with `npm pack --dry-run --json`
+  checkout-local disposable target; inspect package membership with `bun pm pack --dry-run`
   from the active checkout, and create any clean-clone canary from the active local repository into
   a checkout-owned disposable path without fetching a remote; inspect the adoption script's printed
   external-skill command before invoking
@@ -50,8 +50,8 @@ No browser, API, or mobile surface exists in this repository.
   assisted probe's `dispatch`, `inspect`, and `cleanup` commands with fake providers for offline
   proof; do not replace a
   serial fallback or incomplete lifecycle with a simulated success.
-- Installed QA tooling discovered: Vitest is declared in [`package.json`](../../package.json) for
-  structural checks; it is not a real-user runner. Python standard-library checks live in
+- Installed QA tooling discovered: Bun's `bun:test` is declared by [`package.json`](../../package.json)
+  for structural checks; it is not a real-user runner. Python standard-library checks live in
   [`scripts/test_adopt.py`](../../scripts/test_adopt.py).
 
 The workflow does not install a framework or invent commands when a runner is absent.
@@ -95,7 +95,7 @@ The workflow does not install a framework or invent commands when a runner is ab
   controls remain technical-verification surfaces.
 - External dependencies requiring a human: installing the three pinned external security skills is
   an explicit, networked authorization step printed by [`scripts/adopt.py`](../../scripts/adopt.py);
-  QA must not run it implicitly. The adapter requires Python 3 for adoption and Node/npm for the
+  QA must not run it implicitly. The adapter requires Python 3 for adoption and Bun 1.4.x for the
   workflow gates, with network access only when the QA packet authorizes the installer command.
 
 `qa-plan` reads this profile before mapping promises. `qa-execute` uses the CLI/manual adapter,

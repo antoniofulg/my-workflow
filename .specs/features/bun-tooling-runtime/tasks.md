@@ -146,13 +146,15 @@ S2 and S3 may open together only after CP-S1 passes. Tasks inside each slice rem
 - Skill: writing-for-agents, ponytail
 
 **Done when**:
-- [ ] Active README/workflow/guideline commands match `package.json` Bun scripts.
-- [ ] Canonical scan finds no forbidden active authority outside the historical allowlist.
-- [ ] Historical reports/specs remain byte-unchanged.
-- [ ] `bun install --frozen-lockfile && bun run test:all` and `bun pm pack --dry-run` exit 0.
+- [x] Active README/workflow/guideline commands match `package.json` Bun scripts.
+- [x] Canonical scan finds no forbidden active authority outside the historical allowlist.
+- [x] Historical reports/specs remain byte-unchanged.
+- [x] `bun install --frozen-lockfile && bun run test:all` and `bun pm pack --dry-run` exit 0.
 
 **Tests**: IT-003, IT-006, E2E-001
 **Gate**: Full
+**Status**: complete — active command authority, historical allowlist scan, and Bun package commands updated.
+
 **Commit**: `docs(workflow): document the Bun tooling contract`
 
 ## Dependency Execution Map

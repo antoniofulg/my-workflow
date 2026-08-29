@@ -45,7 +45,7 @@ Empty on purpose. Machinery only: operating schema, `raw/` README, stub indexes,
 | `knowledge/AGENTS.md` | OKF v0.2 schema (frontmatter, ingest, harvest, lint) |
 | `knowledge/wiki/` | Concepts, when the consuming project earns them |
 | `knowledge/raw/` | Immutable originals. Privacy surface — committed, so strip personal data |
-| `npm run knowledge` | Conformance, drift, gaps. Run when writing to the bundle, not as the product gate |
+| `bun run knowledge` | Conformance, drift, gaps. Run when writing to the bundle, not as the product gate |
 
 ## Adopt
 

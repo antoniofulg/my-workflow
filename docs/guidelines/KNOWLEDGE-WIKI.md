@@ -93,7 +93,7 @@ log rules. That load is justified for writing and wasted for reading.
 
 ## Verifying happens with the write, not with the ship
 
-The knowledge checker (`npm run knowledge` in this pack) runs as the **first step of a harvest**, not
+The knowledge checker (`bun run knowledge` in this pack) runs as the **first step of a harvest**, not
 as part of the consuming project's full gate.
 
 Its conformance, gap and drift reports are useful input when you are about to write to the bundle.

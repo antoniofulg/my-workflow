@@ -76,8 +76,8 @@ into `AGENTS.md` and update `CLAUDE.md` manually later.
 
 Prerequisites: the target directory must already exist, and `adopt.py` requires Python 3. Adoption
 does not require a Git `HEAD`. Before running the workflow-config resolver, the target must be a Git
-repository with at least one commit. Node.js and npm are needed only to validate this source pack's
-gates, not to adopt it.
+repository with at least one commit. Bun 1.4.x is the JavaScript/TypeScript runtime for this pack;
+it is needed only to validate the source pack's gates, not to adopt it.
 
 Adoption is a review before it is a command. [`docs/adoption-prompt.md`](docs/adoption-prompt.md)
 carries the prompt for the read-only inspection, adoption command, and diff review.
@@ -264,9 +264,9 @@ explorer and verifier runtimes live under the ignored `.cursor/agents/`, `.claud
 ## Knowledge checker
 
 ```bash
-npm install
-npm run test:all
-npm run knowledge
+bun install --frozen-lockfile
+bun run test:all
+bun run knowledge
 ```
 
 The consuming project's full gate should not include this checker. Run it when writing to the

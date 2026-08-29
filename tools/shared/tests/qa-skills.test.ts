@@ -76,6 +76,47 @@ function runBunVersionSensor(versionSource: string, replacement: string): void {
   }
 }
 
+const activeAuthorityRoots = [
+  "AGENTS.md",
+  "README.md",
+  "docs/adoption-prompt.md",
+  "docs/guidelines",
+  "docs/qa",
+  "docs/workflow",
+  "package.json",
+  "bunfig.toml",
+  "scripts",
+  "tools",
+] as const;
+
+const historicalAuthorityAllowlist = [
+  /^CHANGELOG\.md$/,
+  /^\.specs\//,
+  /^docs\/qa\/(?:evidence|reports|charters|bugs|scenarios)\//,
+] as const;
+
+function trackedRepositoryPaths(): string[] {
+  return execFileSync("git", ["ls-files"], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+  })
+    .trim()
+    .split("\n")
+    .filter(Boolean);
+}
+
+function isUnderRoot(relativePath: string, root: string): boolean {
+  return relativePath === root || relativePath.startsWith(`${root}/`);
+}
+
+function isHistoricalAuthority(relativePath: string): boolean {
+  return historicalAuthorityAllowlist.some((pattern) => pattern.test(relativePath));
+}
+
+function isTestSource(relativePath: string): boolean {
+  return /(?:^|\/)(?:test_[^/]*\.py|[^/]*\.test\.ts)$/.test(relativePath);
+}
+
 const verifierPacketPaths = [
   "templates/agents/cursor/verifier.md",
   "templates/agents/claude/verifier.md",
@@ -797,7 +838,7 @@ describe("adoption and public setup", () => {
     expect(readme).toContain("`adopt.py` requires Python 3");
     expect(readme).toMatch(/Adoption\s+does not require a Git `HEAD`/);
     expect(readme).toMatch(/the target must be a Git\s+repository with at least one commit/);
-    expect(readme).toMatch(/Node\.js and npm are needed only to validate this source pack's\s+gates/);
+    expect(readme).toMatch(/Bun 1\.4\.x is the JavaScript\/TypeScript runtime for this pack;\s+it is needed only to validate the source pack's gates/);
     expect(readme).toMatch(
       /`adopt\.py` installs and updates only the bundled TLC, Ponytail, Deep Review, QA, workflow-config,\s+and autonomous skills/,
     );
@@ -957,6 +998,33 @@ describe("Bun tooling runtime contract", () => {
     expect(manifest).not.toMatch(/"(?:vitest|tsx|yaml)"\s*:/);
     expect(readRepositoryFile("tools/shared/src/frontmatter.ts")).not.toMatch(/from ["']yaml["']/);
     expect(readRepositoryFile("tools/shared/src/frontmatter.ts")).toContain("Bun.YAML.parse");
+  });
+
+  it("IT-006 keeps Bun as the active command authority while allowing historical evidence", () => {
+    const trackedPaths = trackedRepositoryPaths();
+    const activePaths = trackedPaths.filter((relativePath) =>
+      activeAuthorityRoots.some((root) => isUnderRoot(relativePath, root)),
+    );
+    const scannedPaths = activePaths.filter(
+      (relativePath) => !isHistoricalAuthority(relativePath) && !isTestSource(relativePath),
+    );
+    const forbiddenAuthority = /\b(?:npm|npx|vitest|tsx)\b|package-lock\.json|(?:from|require)\s*[(]?['"]yaml['"]/i;
+    const violations = scannedPaths.flatMap((relativePath) => {
+      const lines = readRepositoryFile(relativePath).split(/\r?\n/);
+      return lines.flatMap((line, index) =>
+        forbiddenAuthority.test(line) ? [`${relativePath}:${index + 1}: ${line.trim()}`] : [],
+      );
+    });
+
+    expect(scannedPaths).toContain("README.md");
+    expect(scannedPaths).toContain("docs/qa/README.md");
+    expect(violations).toEqual([]);
+
+    const historicalPaths = trackedPaths.filter(isHistoricalAuthority);
+    expect(historicalPaths.length).toBeGreaterThan(0);
+    expect(
+      historicalPaths.some((relativePath) => /\b(?:npm|npx|vitest|tsx)\b|package-lock\.json/i.test(readRepositoryFile(relativePath))),
+    ).toBe(true);
   });
 
   it("fails closed for unsupported and malformed Bun versions before a suite marker runs", () => {
