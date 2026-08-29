@@ -10,7 +10,7 @@ Commit. Every code-changing slice closes with a fresh Technical Verifier before 
 is consumed. Final Deep Review and QA use fresh sessions on the integrated tree.
 
 **Design:** `.specs/features/hybrid-slice-execution/design.md`
-**Status:** In Progress — CP-S6 remediation authorized after preserved validation halt
+**Status:** Complete
 
 ## Test Coverage Matrix
 
@@ -544,9 +544,9 @@ ignored `docs/qa/evidence/2026-08-29-hybrid-slice-execution/`
 - [x] Nine edge probes pass; current scenario evidence and report paths reload independently.
 - [x] Live Orca, external skill installation, network publication, and product/runtime edits remain
   absent from this QA session.
-- [ ] Closing gate exits 0. The adoption gate assertion now accepts the current `pass` verdict and
-  dated evidence/report while preserving the live Orca `blocked-verify` assertion; fresh QA retest
-  remains pending before this task can close.
+- [x] Closing gate exits 0. The adoption gate assertion accepts the current `pass` verdict and dated
+  evidence/report while preserving the live Orca `blocked-verify` assertion; fresh QA retest passed
+  at `8257d37` and the integrated full gate is recorded in `validation.md`.
 
 **Gate:** `npm_config_offline=true npm run test:all`
 **Commit:** `test(qa): verify hybrid adoption workflow`

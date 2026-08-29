@@ -2,15 +2,15 @@
 
 **Date:** 2026-08-29
 **Spec:** `.specs/features/hybrid-slice-execution/spec.md`
-**Diff range:** `2ab4cecc2d9daede27015c7edec543800e7bd763..2601e3a4fbebf94ad7085b8df54dbb701a346153`
+**Diff range:** `2ab4cecc2d9daede27015c7edec543800e7bd763..552695302db4c45cc6adc1c82eea49d80c8dbbad`
 **Verifier:** independent Technical Verifier (author != verifier)
-**Verdict**: FAIL
+**Verdict**: PASS
 
 ## Task Completion
 
-All 14 task records (T1-T14, with non-contiguous identifiers) are checked complete in
-`.specs/features/hybrid-slice-execution/tasks.md:89`. The feature remains in progress because fresh
-QA Plan/Execute and current adoption evidence are not present.
+All 14 numbered task records, both final-review remediation batches, QA Plan, QA Execute, and its
+fresh retest are complete. The six slice reports are PASS, the three QA charters have terminal
+verdicts, and the integrated tree has no unresolved blocker.
 
 ## Spec-Anchored Acceptance Criteria
 
@@ -50,16 +50,16 @@ Evidence-or-zero was re-derived from executable assertions. One row exists for e
 | HSE-30 | Slice worker runs tasks sequentially with gate/commit | `tools/shared/tests/autonomous-parallelization.test.ts:88` - sequential tasks, scoped gate, and atomic commit asserted through line 95 | PASS |
 | HSE-31 | Fresh verifier precedes dependent consumption | `tools/shared/tests/autonomous-parallelization.test.ts:102` - fresh identity/private checkpoint route asserted; stage order at lines 125-161 | PASS |
 | HSE-32 | Integrated group routes to fresh Deep Reviewer | `tools/shared/tests/autonomous-parallelization.test.ts:112` - fresh reviewer receives integrated range, never private tree | PASS |
-| HSE-33 | Final implementation review is followed by fresh QA Plan and QA Execute | `tools/shared/tests/autonomous-parallelization.test.ts:106` proves routing, but no fresh feature QA execution exists and adoption remains `untested` at `docs/qa/scenarios/ADP-adopt-workflow-safely.md:8` | **GAP** |
+| HSE-33 | Final implementation review is followed by fresh QA Plan and QA Execute | `tools/shared/tests/autonomous-parallelization.test.ts:106` proves routing; `docs/qa/reports/2026-08-29-hybrid-slice-execution.md:3` records the fresh QA Execute and retest after the three dated QA Plan charters | PASS |
 | HSE-34 | Last implementer writes handoff only | `tools/shared/tests/autonomous-parallelization.test.ts:161` - handoff route exact; packet excludes final QA at lines 93-95 | PASS |
 | HSE-35 | Adoption installs complete workflow byte-identically | `scripts/test_adopt.py:410` - every owned component exists and bytes match through line 434 | PASS |
 | HSE-36 | Re-adoption updates owned files, preserves consumer files | `scripts/test_adopt.py:377` - stale owned copies repaired while config/profile bytes remain unchanged through line 400 | PASS |
 | HSE-37 | Canonical offline gate covers all fake boundaries without live Orca | `scripts/test_adopt.py:439` - call-counting fake remains empty; full gate result recorded below | PASS |
-| HSE-38 | Fake/adoption journeys have current evidence; live Orca stays blocked | `scripts/test_adopt.py:536` - line 541 currently asserts `qa_status: untested`, contradicting the required current adoption evidence; live status is correctly blocked at line 543 | **GAP** |
+| HSE-38 | Fake/adoption journeys have current evidence; live Orca stays blocked | `scripts/test_adopt.py:536` - lines 541-546 require current adoption/fallback PASS and live-Orca `blocked-verify`; the scenario registry records 6 PASS and 2 blocked entries | PASS |
 | HSE-39 | Paths/executables are owned, contained, non-symlinked, fixed argv | `tools/test_workflow_spec_driven.py:193` - escape/absolute/symlink table rejects before IO through line 224; adoption symlink guard starts at `scripts/test_adopt.py:465` | PASS |
 | HSE-40 | Invalid untrusted structured input rejects before next effect | `tools/test_workflow_config.py:658` - invalid config exits 2 with no config/runtime/outside mutations through line 663; forged lease releases zero at `tools/test_parallel_executor.py:2607` | PASS |
 | HSE-41 | Persisted state retains immutable reconciliation identities | `tools/test_orca_assisted_probe.py:403` - every identity field is validated; attempt/effect identity persisted at lines 655-659 | PASS |
-| HSE-42 | Diagnostics redact secrets, bodies, terminal text, home paths | `tools/test_workflow_spec_driven.py:172` - secret and home markers absent through line 191; probe log redaction asserted at `tools/test_orca_assisted_probe.py:789` | PASS |
+| HSE-42 | Diagnostics redact secrets, bodies, terminal text, home paths | `tools/test_workflow_spec_driven.py:172` - secret and home markers absent through line 191; `tools/test_orca_assisted_probe.py:748` rejects six terminal/provider/body fields through line 756 | PASS |
 | HSE-43 | Incomplete cleanup proof stops before destructive step | `tools/test_orca_assisted_probe.py:466` - unsafe-state table asserts zero stop/rm/branch/switch calls at line 504 | PASS |
 | HSE-44 | Overlapping write paths serialize and report conflict | `tools/test_parallel_plan.py:281` - T1/T3 selected and exact T1/T2 path conflict reported at line 283 | PASS |
 | HSE-45 | Moved checkpoint stays parked until sync/reverify | `tools/test_parallel_executor.py:1661` - evidence invalidated and worker withheld; resume only after accepted proof through line 1690 | PASS |
@@ -76,22 +76,22 @@ Evidence-or-zero was re-derived from executable assertions. One row exists for e
 | HSE-56 | Physical ledgers prove one Git/provider/Orca mutation and pointer only | `tools/test_orca_assisted_probe.py:696` - exact physical counts and body absence asserted through line 707 | PASS |
 | HSE-57 | Pre-sink persistence failure performs zero mutations | `tools/test_orca_assisted_probe.py:675` - prior durable bytes unchanged; zero-call path is exercised by the same canonical test | PASS |
 
-**Status:** 55/57 requirements have technical evidence. HSE-33 and HSE-38 block final PASS.
+**Status:** 57/57 requirements have spec-anchored `file:line` evidence; no precision gap.
 
 ## Discrimination Sensor
 
-Baseline checkout was clean. A detached temporary worktree at the exact inspected HEAD changed
-`tools/orca_assisted_probe.py:2102` from `if __name__ == "__main__":` to `if True:`. Command
-`python3 tools/test_orca_assisted_probe.py` exited 2 with `the following arguments are required:
-command`; the mutant was killed. `git worktree remove --force` and `git worktree prune` removed the
-scratch. Final main-checkout porcelain equals baseline.
+Baseline checkout was clean. A detached temporary worktree at inspected HEAD changed the redaction
+guard in `tools/orca_assisted_probe.py:179` to `if False and (...)`. Command
+`python3 tools/test_orca_assisted_probe.py` exited 1 at
+`tools/test_orca_assisted_probe.py:754` because `SECRET_PREVIEW` reached diagnostics. The mutant was
+killed. The scratch worktree was removed and pruned; real-checkout porcelain again matched baseline.
 
-**Sensor depth:** lightweight, highest-risk import/duplicate-dispatch guard
+**Sensor depth:** lightweight, highest-risk diagnostics trust boundary
 **Result:** 1/1 mutation killed; 0 survived - PASS
 
 ## Direct Probe and Adoption Evidence
 
-- `python3 tools/test_orca_assisted_probe.py` -> exit 0, `23/23 passed`.
+- `python3 tools/test_orca_assisted_probe.py` -> exit 0, `24/24 passed`.
 - Four focused fake-provider checks -> exit 0, 4 passed/0 failed: pointer-only transport; one
   Orca/Git/lease mutation under transient failure; restart read-only reconciliation; process-safe
   concurrent claim with one physical mutation.
@@ -107,8 +107,8 @@ scratch. Final main-checkout porcelain equals baseline.
 - `python3 -m compileall -q .agents/skills tools scripts` -> exit 0, no output.
 - `npm_config_offline=true npm run test:all` -> exit 0. Vitest: 8 files, 114/114 tests passed.
   Python discovery: `find tools -type f -name 'test_*.py' -print | sort | wc -l` -> 15 suites;
-  all completed without failure. Probe lane reported 23/23.
-- Feature diff: `git diff --name-only $(git merge-base HEAD origin/main)..HEAD | wc -l` -> 116 files.
+  all completed without failure. Probe lane reported 24/24; adoption contains 24 checks.
+- Feature diff: `git diff --name-only $(git merge-base HEAD origin/main)..HEAD | wc -l` -> 129 files.
   Deleted-test audit returned no paths.
 - Before-feature test count was not re-run; no unsupported delta is claimed.
 - Skipped tests: none reported by Vitest or Python suites.
@@ -124,25 +124,47 @@ scratch. Final main-checkout porcelain equals baseline.
   issue cases all have discriminating assertions cited above.
 - Exactly two intended worktrees remain: main and `feat/hybrid-slice-execution`.
 
-## Ranked Gaps
+## Deep Review Round 2 Closure
 
-1. **Blocker - HSE-38:** `docs/qa/scenarios/ADP-adopt-workflow-safely.md:8` is `qa_status:
-   untested`; `scripts/test_adopt.py:541` enforces that stale state although the spec requires current
-   fake/adoption evidence.
-2. **Blocker - HSE-33:** fresh final QA Plan and QA Execute have not produced current durable outputs
-   for this integrated feature. Routing is implemented, but occurrence is part of the criterion.
+All 15 Major findings were independently checked against executable assertions and current source:
 
-## Fix Plan
+| # | Round-2 finding | Closure evidence | Result |
+| --- | --- | --- | --- |
+| 1 | Unbounded health integer could raise | `tools/test_machine_health.py:48` - `10**10000` denies admission at line 56 | PASS |
+| 2 | Serial integration lane could bypass fresh Verifier | `tools/test_parallel_executor.py:2456` - worker remains pending until distinct verifier receipt, lines 2483-2497 | PASS |
+| 3 | Concurrent slice Verifiers overwrote one report | `tools/shared/tests/autonomous-parallelization.test.ts:358` - slice-keyed report and final-only aggregate asserted | PASS |
+| 4 | Closed convergence generation accepted three failures | `tools/test_review_convergence.py:225` - closed/3 rejects without rewriting bytes through line 254 | PASS |
+| 5 | Autonomous docs contradicted one-ready serial dispatch | `tools/shared/tests/autonomous-parallelization.test.ts:348` - exact serial guidance required and old contradiction forbidden through line 356 | PASS |
+| 6 | Arbitrary terminal/provider fields leaked diagnostics | `tools/test_orca_assisted_probe.py:748` - six sensitive fields absent through line 756 | PASS |
+| 7 | Git read reconciliation admitted destructive subcommands | `tools/test_orca_assisted_probe.py:758` - worktree removal and symbolic-ref deletion reject before issue | PASS |
+| 8 | Resource claims were not bound to a prepared lease | `tools/test_orca_assisted_probe.py:775` - unleased resource effect never reaches sink through line 787 | PASS |
+| 9 | Caller-supplied effects could target foreign terminal/worktree | `tools/test_orca_assisted_probe.py:775` - both foreign targets reject before sink | PASS |
+| 10 | Provider `observe_operation` could mutate | `tools/test_orca_assisted_probe.py:771` - provider release observation rejects | PASS |
+| 11 | Pointer flag could disagree with physical operation | `tools/test_orca_assisted_probe.py:779` - pointer/worktree-rm mismatch rejects before sink | PASS |
+| 12 | Read syntax alone could falsely settle an effect | `tools/test_orca_assisted_probe.py:794` - mismatched Git postcondition remains incomplete | PASS |
+| 13 | Lease reconciliation could route release as a read | `tools/test_orca_assisted_probe.py:771` - mutating provider observation rejects | PASS |
+| 14 | Concurrent dispatch could overwrite in-flight claim | `tools/test_orca_assisted_probe.py:797` - two processes produce exactly one physical pointer send | PASS |
+| 15 | `{released: false}` could settle a release | `tools/test_orca_assisted_probe.py:789` - contradictory release receipt rejects through line 793 | PASS |
 
-Run fresh QA Plan, then fresh QA Execute through the documented adoption/fake-provider public
-interfaces. Update durable scenario/report/evidence paths from that run while leaving the live Orca
-scenario `blocked-verify`. Route any product defect to an Implementer; otherwise dispatch a fresh
-Technical Verifier on the updated integrated HEAD.
+**Status:** 15/15 closed. No Critical or Major blocker remains. The serial-guidance contradiction is
+absent from the current autonomous contract and guarded by a negative assertion.
+
+## QA Closure
+
+- Three dated charters have terminal verdicts in
+  `docs/qa/reports/2026-08-29-hybrid-slice-execution.md:18`.
+- Six offline fake/adoption scenarios are `qa_status: pass`; command:
+  `rg -l '^qa_status: pass$' docs/qa/scenarios/{ADP-adopt-workflow-safely,CFG-freeze-feature-workflow,CFG-plan-parallel-slice-dispatch,CFG-fallback-unproven-parallel-execution,QAS-coordinate-assisted-slices-offline,QAS-bound-verifier-remediation-per-blocker}.md | wc -l` -> `6`.
+- Two real-Orca scenarios remain `qa_status: blocked-verify`; the same report explicitly records
+  that live Orca was not invoked.
+- Fresh retest at `8257d37` closed `BUG-20260829-final-qa-pass-conflicts-with-adoption-gate` with
+  65 byte-identical adopted files, zero import calls, 24 adoption checks, and a green full gate.
 
 ## Summary
 
-**Overall:** FAIL - not ready for feature closure.
+**Overall:** PASS - ready for feature closure.
 
-Technical implementation, build gate, fake-provider lifecycle, import safety, adoption copy, and
-sensor are green. Final QA occurrence/current adoption evidence are missing. No lesson was distilled:
-the gap is an unfinished required phase, not a reusable implementation failure or surviving mutant.
+All 57 requirements, 15 round-2 Major remediations, offline fake-provider lifecycle, adoption,
+import safety, cleanup, concurrency, QA, and discrimination sensor are green. The two live Orca
+journeys remain truthfully `blocked-verify`; they are an explicit external limitation, not a hidden
+PASS claim. No lesson was distilled because this final validation found no gap or surviving mutant.
