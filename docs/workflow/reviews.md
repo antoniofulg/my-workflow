@@ -29,6 +29,11 @@ deep-review group. If its docs are an interface users or adopters consume, it al
 phases. `docs/` is full of Markdown agents act on; no compiler catches a shipped plan that says work
 has not started.
 
+Technical Verifier reads the slice's private writer checkpoint. Deep-review reads the integrated
+commit range, and fresh QA Plan/Execute read the integrated final tree. The coordinator records
+distinct author and proof identities; the last implementer supplies a handoff and never certifies
+the integrated result.
+
 They do not send work back to each other. A deep-review finding never restarts the Verifier. A
 round-2 blocker is fixed under the approved loop and its scoped gate; the cap does not open round 3.
 Post-cap remediation follows the stall bound: each attempt runs the scoped gate, a smaller failing

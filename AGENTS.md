@@ -45,7 +45,7 @@ feature snapshots freeze delegated settings. Cursor also sees `.claude/` and `.c
 
 ## How work happens
 
-Use the `tlc-spec-driven` skill and size the work before creating feature artifacts. An exact
+Use the `workflow-spec-driven` skill and size the work before creating feature artifacts. An exact
 human-defined direct correction follows that skill's direct-correction path; only feature work
 uses the hierarchy below. At the start of workflow work, activate `ponytail`
 at `full` and keep it active for the entire session; for direct corrections, this means through
@@ -60,6 +60,13 @@ with `.agents/skills/workflow-config/SKILL.md`. Caps and QA rules: `docs/guideli
 For each feature slice: the gate decides done; one atomic Conventional Commit per task; update `tasks.md` when present, or the inline execution plan when Tasks is skipped, before committing;
 Verifier ≠ author on every code-changing slice; every counted claim carries the command that
 produced the number.
+
+During Execute, the coordinator dispatches safe independent slices by default whenever the frozen
+route exposes at least two compatible writers. Only concurrent Implementers receive isolated
+worktrees; Planner, Explorer, coordinator, and read-only proof roles stay in the clean integration
+checkout. Tasks within a slice remain sequential. Use serial execution only for explicit `disabled`
+mode or a fail-closed dependency, health, ownership, or resource condition. The coordinator owns
+pointer delivery, parking, checkpoint synchronization, verification, integration, and cleanup.
 
 Delivery is human-scheduled. Git and the artifacts named below own durable state.
 
@@ -97,7 +104,7 @@ consuming project's architecture docs. Cite the file with the label. Do not inve
 this pack.
 
 Recording an `AD-NNN` also runs `python3 tools/ad-index.py` in that commit. Skill validators live in
-the installed `tlc-spec-driven` skill (`validate_spec.py`, `validate_tasks.py`, `check_commit.py`,
+the installed `workflow-spec-driven` skill (`validate_spec.py`, `validate_tasks.py`, `check_commit.py`,
 `validate_state.py`). The consuming project owns `make check`.
 
 ## Where the truth lives

@@ -10,7 +10,7 @@ the implementer and stay. Do not implement product code.
 
 ## Load
 
-- Skill `tlc-spec-driven` (Specify / Design / Tasks), not `implement.md`
+- Skill `workflow-spec-driven` (Specify / Design / Tasks), not `implement.md`
 - Spec / `context.md` / mockup for this slice
 - `docs/guidelines/TEST-CONTRACT.md` — write `tests.md`, assign every ID to one task
 - `.specs/AD-INDEX.md`; an AD body with `rg -A 20 '^### AD-NNN' .specs/STATE.md`

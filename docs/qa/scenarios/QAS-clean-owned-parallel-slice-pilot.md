@@ -11,8 +11,8 @@ bug_ids: BUG-20260824-parallel-pilot-cleanup-allows-incomplete-lifecycle
 fix_status: fixed
 retest_status: pending
 fix_commits: d8c848e; 1216014; 6b3f1f0; 5b7a9dd; 48e5322; a736757
-evidence: docs/qa/evidence/2026-08-25-parallel-slice-executor-v060-safe-retest/pilot-identities.md; docs/qa/reports/2026-08-25-parallel-slice-executor-v060-safe-retest.md
-last_report: docs/qa/reports/2026-08-25-parallel-slice-executor-v060-safe-retest.md
+evidence: docs/qa/evidence/2026-08-29-hybrid-slice-execution/summary.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-v060-safe-retest/pilot-identities.md; docs/qa/reports/2026-08-25-parallel-slice-executor-v060-safe-retest.md
+last_report: docs/qa/reports/2026-08-29-hybrid-slice-execution.md
 overlaps: QAS-run-resource-free-parallel-orca-slices
 ---
 

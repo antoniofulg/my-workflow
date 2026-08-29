@@ -11,8 +11,8 @@ bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-24-parallel-slice-dispatch/session.md; docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/resource-plan.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/resource-start.json
-last_report: docs/qa/reports/2026-08-25-parallel-slice-executor-final.md
+evidence: docs/qa/evidence/2026-08-29-hybrid-slice-execution/summary.json; docs/qa/evidence/2026-08-29-hybrid-slice-execution/commands.json
+last_report: docs/qa/reports/2026-08-29-hybrid-slice-execution.md
 overlaps: CFG-freeze-feature-workflow
 ---
 
@@ -23,6 +23,9 @@ evidence invalidation, and preservation of TLC, Verifier, deep-review, QA, and f
 The repository exposes no portable worker runtime. QA therefore walks the public CLI output and the
 installed agent-facing policy; provider-specific worktree creation and live model behavior remain
 outside this feature's public executable surface.
+
+The hybrid planner contract changes the public mode and writer-lane decisions, so this scenario is
+reset to `untested` until fresh QA rewalks the v3 surface.
 
 The planner walk passed on 2026-08-24, including deterministic ready/blocked/follow-up/checkpoint
 output and preservation of sequential delivery gates. R19's public resource plan adds the current

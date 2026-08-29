@@ -5,22 +5,24 @@ title: Run two resource-free Orca slices concurrently
 persona: Workflow operator
 journey: J-execute-parallel-slices
 expected: Two resource-free slices become active in distinct owned worktrees and terminals, then finish through correlated read, acknowledgement, release, and status receipts without changing TLC task or verification order.
-entry_points: tools/qa_parallel_pilot.py; .agents/skills/autonomous/scripts/parallel_execute.py start; .agents/skills/autonomous/scripts/parallel_execute.py status; .agents/skills/autonomous/scripts/parallel_execute.py resume
+entry_points: tools/orca_assisted_probe.py dispatch|inspect|cleanup; tools/qa_parallel_pilot.py; .agents/skills/autonomous/scripts/parallel_execute.py start; .agents/skills/autonomous/scripts/parallel_execute.py status; .agents/skills/autonomous/scripts/parallel_execute.py resume
 qa_status: blocked-verify
 bug_ids: BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree
 fix_status: fixed
 retest_status: pending
 fix_commits: f7a1f36; 1216014; 6b3f1f0; 2fb2f41; 8675c6d; 6419d24; 453a8ab; 941bbc5; e24228c; 35a49bf; a1a49a2; 1e40171; f02b679; 5b7a9dd; 48e5322; a736757; 0ed8b55
-evidence: docs/qa/evidence/2026-08-25-parallel-slice-executor-v060-safe-retest/pilot-identities.md; docs/qa/reports/2026-08-25-parallel-slice-executor-v060-safe-retest.md
-last_report: docs/qa/reports/2026-08-25-parallel-slice-executor-v060-safe-retest.md
+evidence: docs/qa/evidence/2026-08-29-hybrid-slice-execution/summary.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-v060-safe-retest/pilot-identities.md; docs/qa/reports/2026-08-25-parallel-slice-executor-v060-safe-retest.md
+last_report: docs/qa/reports/2026-08-29-hybrid-slice-execution.md
 overlaps: CFG-plan-parallel-slice-dispatch
 ---
 
 Covers the public E2E-001 resource-free path and observable portions of EXE-02, EXE-04,
-EXE-06–EXE-10, EXE-18, and EXE-22. The independent walk must use the real Orca capability and
+EXE-06–EXE-10, EXE-18, and EXE-22. The independent live walk must use the real Orca capability and
 public executor commands; a serial fallback or missing terminal receipt is not a pass.
 
-This scenario is terminal `blocked-verify`, not `pass`, `fail`, or `untested`. Product-side parsing,
+This scenario is terminal `blocked-verify`, not `pass`, `fail`, or `untested`. Offline fake-provider
+probe and adoption checks do not convert this live-host status. The limitation is the upstream
+Orca/Codex transport boundary. Product-side parsing,
 identity, terminal-ownership, recovery, and provider-preflight fixes are independently recorded by
 the fix commits above. The remaining live walk is blocked at an external Orca/Codex boundary.
 

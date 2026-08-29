@@ -27,11 +27,16 @@ EFFORTS = ("low", "medium", "high", "xhigh", "max", "ultra")
 CADENCE_DEFAULT = "grouped.3"
 CADENCE_RE = re.compile(r"^grouped\.(\d+)$")
 SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
-PARALLELIZATION_DEFAULT = "disabled"
-PARALLELIZATION_MODES = ("disabled", "safe", "full")
+CONFIG_VERSION = 3
+SNAPSHOT_VERSION = 3
+PARALLELIZATION_DEFAULT = "assisted"
+PARALLELIZATION_MODES = ("assisted", "disabled")
+MAX_WORKERS_DEFAULT = "auto"
+AUTOMATIC_BASELINE = 2
+AUTOMATIC_CEILING = 4
 CONFIG_KEYS = {"version", "deep_review", "parallelization", "profiles", "models", "remediation"}
 DEEP_REVIEW_KEYS = {"cadence"}
-PARALLELIZATION_KEYS = {"mode", "resource_provider"}
+PARALLELIZATION_KEYS = {"mode", "max_workers", "resource_provider"}
 REMEDIATION_KEYS = {"stall_attempts"}
 STALL_ATTEMPTS_DEFAULT = 3
 MODEL_PROVIDERS = set(PROVIDERS)
@@ -109,8 +114,8 @@ def _load_config(path: Path, label: str) -> dict[str, Any]:
     if not isinstance(config, dict):
         raise _error(f"{label} must contain a table")
     version = config.get("version")
-    if type(version) is not int or version != 2:
-        raise _error("version must be integer 2")
+    if type(version) is not int or version != CONFIG_VERSION:
+        raise _error("version must be integer 3; refresh the project configuration")
     _validate_config_schema(config)
     return config
 
@@ -118,7 +123,7 @@ def _load_config(path: Path, label: str) -> dict[str, Any]:
 def _read_config(root: Path) -> dict[str, Any]:
     path = root / ".my-workflow.toml"
     if not path.exists():
-        raise _error("version must be integer 2; .my-workflow.toml is missing")
+        raise _error("version must be integer 3; refresh the project configuration; .my-workflow.toml is missing")
     return _load_config(path, ".my-workflow.toml")
 
 
@@ -153,10 +158,15 @@ def _resource_provider(root: Path, value: Any) -> str | None:
     return target.relative_to(root).as_posix()
 
 
-def _parallelization(config: dict[str, Any], root: Path) -> dict[str, str | None]:
+def _parallelization(config: dict[str, Any], root: Path) -> dict[str, Any]:
     section = config.get("parallelization") or {}
+    mode = section.get("mode", PARALLELIZATION_DEFAULT)
+    max_workers = section.get("max_workers", MAX_WORKERS_DEFAULT)
     return {
-        "mode": section.get("mode", PARALLELIZATION_DEFAULT),
+        "mode": mode,
+        "max_workers": max_workers,
+        "automatic_baseline": AUTOMATIC_BASELINE,
+        "automatic_ceiling": AUTOMATIC_CEILING,
         "resource_provider": _resource_provider(root, section.get("resource_provider")),
     }
 
@@ -182,8 +192,8 @@ def _validate_role_map(values: dict[str, Any], source: str) -> dict[str, str]:
 
 def _validate_config_schema(config: dict[str, Any]) -> None:
     version = config.get("version")
-    if type(version) is not int or version != 2:
-        raise _error("version must be integer 2")
+    if type(version) is not int or version != CONFIG_VERSION:
+        raise _error("version must be integer 3; refresh the project configuration")
     unknown = set(config) - CONFIG_KEYS
     if unknown:
         raise _error(f"contains unknown top-level key {sorted(unknown)[0]!r}")
@@ -210,10 +220,10 @@ def _validate_config_schema(config: dict[str, Any]) -> None:
         raise _error(f"parallelization contains unknown key {sorted(unknown)[0]!r}")
     mode = parallelization.get("mode", PARALLELIZATION_DEFAULT)
     if not isinstance(mode, str) or mode not in PARALLELIZATION_MODES:
-        raise _error(
-            "parallelization.mode must be one of "
-            + ", ".join(repr(value) for value in PARALLELIZATION_MODES)
-        )
+        raise _error("parallelization.mode must be 'assisted' or 'disabled'")
+    max_workers = parallelization.get("max_workers", MAX_WORKERS_DEFAULT)
+    if max_workers != MAX_WORKERS_DEFAULT and (type(max_workers) is not int or max_workers < 1):
+        raise _error("parallelization.max_workers must be 'auto' or an integer of at least 1")
 
     remediation = config.get("remediation", {})
     if remediation is None:
@@ -621,6 +631,10 @@ def _snapshot_path(root: Path, feature: str) -> Path:
 def _validate_snapshot(root: Path, feature: str, snapshot: Any) -> dict[str, Any]:
     if not isinstance(snapshot, dict):
         raise _error("existing snapshot must be a JSON object")
+    if type(snapshot.get("version")) is not int or snapshot.get("version") != SNAPSHOT_VERSION:
+        if snapshot.get("version") in (1, 2):
+            raise _error("workflow snapshot version is stale; rerun resolution with --refresh")
+        raise _error("existing snapshot version must be integer 3")
     required = {
         "version",
         "feature",
@@ -633,8 +647,6 @@ def _validate_snapshot(root: Path, feature: str, snapshot: Any) -> dict[str, Any
     }
     if set(snapshot) != required:
         raise _error("existing snapshot has an incomplete schema")
-    if type(snapshot["version"]) is not int or snapshot["version"] != 2:
-        raise _error("existing snapshot version must be integer 2")
     if snapshot["feature"] != feature or not isinstance(snapshot["feature"], str):
         raise _error("existing snapshot feature does not match the requested feature")
     if not isinstance(snapshot["git_head"], str) or not snapshot["git_head"]:
@@ -667,11 +679,21 @@ def _validate_snapshot(root: Path, feature: str, snapshot: Any) -> dict[str, Any
         raise _error("existing snapshot deep_review.groups do not match cadence")
 
     parallelization = snapshot["parallelization"]
-    if not isinstance(parallelization, dict) or not set(parallelization).issubset(PARALLELIZATION_KEYS) or "mode" not in parallelization:
+    snapshot_parallelization_keys = {
+        "mode", "max_workers", "automatic_baseline", "automatic_ceiling", "resource_provider"
+    }
+    if not isinstance(parallelization, dict) or set(parallelization) != snapshot_parallelization_keys:
         raise _error("existing snapshot parallelization has an incomplete schema")
     mode = parallelization["mode"]
     if not isinstance(mode, str) or mode not in PARALLELIZATION_MODES:
         raise _error("existing snapshot parallelization.mode is invalid")
+    max_workers = parallelization["max_workers"]
+    if max_workers != MAX_WORKERS_DEFAULT and (type(max_workers) is not int or max_workers < 1):
+        raise _error("existing snapshot parallelization.max_workers is invalid")
+    if parallelization["automatic_baseline"] != AUTOMATIC_BASELINE:
+        raise _error("existing snapshot parallelization.automatic_baseline is invalid")
+    if parallelization["automatic_ceiling"] != AUTOMATIC_CEILING:
+        raise _error("existing snapshot parallelization.automatic_ceiling is invalid")
     normalized_provider = _resource_provider(root, parallelization.get("resource_provider"))
 
     roles = snapshot["roles"]
@@ -705,8 +727,19 @@ def _validate_snapshot(root: Path, feature: str, snapshot: Any) -> dict[str, Any
                 "run --sync-agents, then explicitly use --refresh"
             )
     normalized = dict(snapshot)
-    normalized["parallelization"] = {"mode": mode, "resource_provider": normalized_provider}
+    normalized["parallelization"] = {
+        "mode": mode,
+        "max_workers": max_workers,
+        "automatic_baseline": AUTOMATIC_BASELINE,
+        "automatic_ceiling": AUTOMATIC_CEILING,
+        "resource_provider": normalized_provider,
+    }
     return normalized
+
+
+def validate_snapshot(root: Path, feature: str, snapshot: Any) -> dict[str, Any]:
+    """Validate the complete frozen v3 snapshot for all runtime readers."""
+    return _validate_snapshot(root.resolve(), feature, snapshot)
 
 
 def _write_snapshot(path: Path, snapshot: dict[str, Any]) -> None:
@@ -797,7 +830,7 @@ def resolve(
             "effort": expected["effort"],
         }
     snapshot = {
-        "version": 2,
+        "version": SNAPSHOT_VERSION,
         "feature": feature,
         "git_head": _git_head(root),
         "profile": profile,

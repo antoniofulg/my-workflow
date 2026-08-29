@@ -17,7 +17,9 @@ When recording an `AD-NNN`, run `python3 tools/ad-index.py` in the same commit.
 | `AD-008` | active | Adopt upstream ai-memory `1.31.0` only as an opt-in, transient handoff transport between Claude Code, Codex, and Cursor. |
 | `AD-009` | superseded by AD-010 | `.my-workflow.toml` is the single editable source for bundled Claude, Codex, and Cursor agent models and efforts. |
 | `AD-010` | active | Track `.my-workflow.toml.example` and provider packet templates, while keeping `.my-workflow.toml` and generated `.claude`, `.codex`, and `… |
-| `AD-011` | active | Parallelization is an opt-in inter-slice orchestration layer above unchanged TLC; `disabled` is the default, `safe` consumes independent or… |
+| `AD-011` | superseded by AD-015 | Parallelization is an opt-in inter-slice orchestration layer above unchanged TLC; `disabled` is the default, `safe` consumes independent or… |
 | `AD-012` | active | Parallel execution uses a provider-neutral deterministic coordinator whose adapters own external effects. |
 | `AD-013` | active | The provider-neutral coordinator derives and validates a deterministic sibling Git worktree destination, creates that checkout with fixed a… |
-| `AD-014` | active | Technical Verifier remediation is bounded per blocker fingerprint, defined by the requirement, root cause, and concrete failure path. |
+| `AD-014` | superseded by AD-016 | Technical Verifier remediation is bounded per blocker fingerprint, defined by the requirement, root cause, and concrete failure path. |
+| `AD-015` | active | Replace the vendored TLC phase-batch delegation with a workflow-owned, CC-BY-4.0-attributed spec-driven skill that dispatches vertical slic… |
+| `AD-016` | active | A halted blocker fingerprint may resume only after explicit human authorization creates a new audit generation under that same fingerprint. |

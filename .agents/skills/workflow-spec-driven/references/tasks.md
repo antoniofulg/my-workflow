@@ -1,6 +1,6 @@
 # Tasks
 
-**Goal**: Break into GRANULAR, ATOMIC tasks. Clear dependencies. Right tools. Sequential phase execution plan.
+**Goal**: Break into GRANULAR, ATOMIC tasks. Clear dependencies. Right tools. Dependency-ordered execution plan.
 
 **Skip this phase when:** There are ≤3 obvious steps. In that case, tasks are implicit - go straight to Execute and list them inline in your implementation plan.
 
@@ -133,14 +133,8 @@ What MUST be done before this task can start?
 
 ### 4. Create Execution Plan
 
-Group tasks into ordered phases. Each phase depends on the ones before it; tasks execute sequentially within a phase.
-
-**Size phases near the worker budget.** During Execute, phases are packed into task-budgeted batches (~7 tasks per sub-agent, whole phases - see [sub-agents.md](sub-agents.md)). Because a batch cut may only land on a phase boundary, a phase that is much larger than the budget forces an over-sized worker. Keep each phase from greatly exceeding the budget:
-
-- If a phase would hold **more than ~10 tasks (≈1.5× the budget)**, split it into cohesive sub-phases at a genuine dependency/cohesion seam - not at an arbitrary task index.
-- Only leave a phase over-sized when its tasks are one tight dependency chain that genuinely cannot be split. That is a legitimate (if fat) single-worker phase, not a smell.
-
-This keeps phase boundaries meaningful while letting the packing hit its target worker count.
+Group tasks by dependency and cohesion labels. Dependencies determine order; compatible slices
+may be dispatched together by the coordinator, while tasks within each slice remain sequential.
 
 ### 5. Validate Before Presenting (MANDATORY)
 
@@ -176,7 +170,7 @@ Before showing tasks to the user, run ALL three pre-approval checks. These are N
 
 ## Execution Protocol (MANDATORY -- do not skip)
 
-Implement these tasks with the `tlc-spec-driven` skill: **activate it by name and follow its Execute flow and Critical Rules.** Do not search for skill files by filesystem path. The skill is the source of truth for the full flow (per-task cycle, sub-agent delegation, adequacy review, Verifier, discrimination sensor).
+Implement these tasks with the `workflow-spec-driven` skill: **activate it by name and follow its Execute flow and Critical Rules.** Do not search for skill files by filesystem path. The skill is the source of truth for the full flow (per-task cycle, sub-agent delegation, adequacy review, Verifier, discrimination sensor).
 
 **If the skill cannot be activated, STOP and tell the user - do not proceed without it.**
 
@@ -201,7 +195,8 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 
 ## Execution Plan
 
-Phases are ordered and run sequentially - each phase completes before the next begins, and tasks within a phase execute in order.
+The execution plan records dependency labels and task order. Independent slices may run concurrently;
+tasks within each slice execute in order and a dependent slice waits for its verified checkpoint.
 
 ### Phase 1: Foundation
 
@@ -329,43 +324,38 @@ T8 → T9
 
 ---
 
-## Phase Execution Map
+## Dependency Execution Map
 
-Visual representation of task ordering. Phases run in sequence, and tasks within a phase run in order:
+Visual representation of task ordering and dependency labels:
 
 ```
-Phase 1 → Phase 2 → Phase 3
+Phase 1   Phase 2   Phase 3
 
 Phase 1:  T1 ------→ T2 ------→ T3
 Phase 2:  T4 ------→ T5 ------→ T6 ------→ T7
 Phase 3:  T8 ------→ T9
 ```
 
-Execution is strictly sequential - there is no intra-phase parallelism. A single agent (or batch worker) works one task at a time, in order.
+Execution is sequential within a slice and coordinator-assisted across safe independent slices.
+The coordinator reads the frozen route, recomputes the ready queue, and dispatches compatible
+writers without waiting for approval. A single ready slice runs in the clean integration checkout;
+two or more compatible ready slices use isolated Implementer worktrees. Planner, Explorer, and
+read-only proof roles stay in the clean checkout.
 
-**How phase-based execution works:**
-
-At Execute, the agent counts total tasks and packs phases into **task-budgeted batches** (~7 tasks
-per worker, whole phases - the benchmarked sweet spot is ~20 tasks → ~3 workers). A **phase** is the
-semantic/dependency unit; a **batch** is one or more *consecutive whole phases* assigned to one
-worker. The cut only ever lands on a phase boundary - a phase is never split across workers. When
-packing yields more than one batch (> ~8 tasks), the agent offers to dispatch batch sub-agents.
-Batches run sequentially: each worker executes ALL its tasks in order, then reports a compact summary
-before the next batch starts. This right-sizes the worker count by workload instead of by phase
-count (one-per-phase is too fragmented; expensive and slow). See [sub-agents.md](sub-agents.md) for
-the full model - packing algorithm, offer-then-confirm, worker payload, compact summary contract,
-failure handling, and context sizing guidance.
-
-When the whole feature fits a single batch (≤ ~8 tasks), execution happens inline in the main window
-with no sub-agents spawned.
+The automatic route starts at two writer lanes and admits at most one additional lane after each
+healthy settle window, up to four. Missing or unhealthy evidence keeps active work running but
+prevents admission above two. `disabled` is the explicit serial override. Each worker receives only
+its own slice packet, runs that slice's tasks in order, and reports a compact checkpoint. The
+coordinator sends a fresh Technical Verifier, integrates only verified commits, and refills the next
+compatible ready slice. See [sub-agents.md](sub-agents.md) for lifecycle and recovery details.
 
 **The orchestrating agent's role during Execute:**
-1. Count total tasks and pack phases into ~7-task batches - offer batch sub-agents if that yields more than one batch and the user accepts
-2. Dispatch the next batch (to a worker, or execute inline)
-3. Receive the compact batch summary
-4. Update tasks.md with results
-5. If the batch summary shows all tasks complete: proceed to the next batch
-6. If a task failed: decide fix/escalate before dispatching the next batch
+
+1. Resolve the route and build bounded packets for ready slices.
+2. Admit serial or isolated writer lanes according to mode, dependencies, paths, resources, and health.
+3. Receive checkpoints, route fresh verification, and synchronize verified dependency commits.
+4. Update `tasks.md` with each task's result before its atomic commit.
+5. Park blocked or fail-closed work with its evidence and continue only eligible slices.
 
 ---
 
@@ -436,7 +426,7 @@ Pick whichever option keeps tasks atomic and cohesive. The goal: no task produce
 
 ## Tips
 
-- **Phases are ordered** - Each phase completes before the next; tasks run in order within a phase
+- **Dependencies are gates** - Each task waits only for its declared prerequisites; independent slices can run together
 - **Reuses = Token saver** - Always reference existing code
 - **Tools per task** - MCPs and Skills prevent wrong approaches
 - **Dependencies are gates** - Clear what blocks what

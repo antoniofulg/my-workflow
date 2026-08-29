@@ -1,4 +1,4 @@
-"""Regression tests for the vendored TLC spec and task validators."""
+"""Regression tests for the workflow spec and task validators."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import sys
 import unittest
 from pathlib import Path
 
-SCRIPTS = Path(__file__).resolve().parents[1] / ".agents/skills/tlc-spec-driven/scripts"
+SCRIPTS = Path(__file__).resolve().parents[1] / ".agents/skills/workflow-spec-driven/scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 import validate_spec  # noqa: E402
@@ -21,7 +21,7 @@ def lines(name: str) -> list[str]:
     return (FIXTURES / name).read_text(encoding="utf-8").splitlines()
 
 
-class TLCValidatorTests(unittest.TestCase):
+class WorkflowValidatorTests(unittest.TestCase):
     def test_explicit_fail_verdict_wins_over_legacy_result_pass(self) -> None:
         self.assertEqual(
             validate_state._verdict("**Verdict**: FAIL\n**Result**: PASS"),

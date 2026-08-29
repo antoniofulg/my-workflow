@@ -134,6 +134,66 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: validation.md:Slice-C-R1-waiting-follow-up (workflow-executor)
 - last seen: 2026-08-24T18:42:24Z
 
+### L-021 - Exercise every public lifecycle command through the state artifact produced by its preceding command.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `lifecycle` · harmful: 0
+- features: hybrid-slice-execution
+- evidence: .specs/features/hybrid-slice-execution/validation-s4.md:45 (lifecycle)
+- last seen: 2026-08-28T18:16:50Z
+
+### L-022 - Correlate every persisted external-effect identity against independent provider and Git observations before advancing state.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `lifecycle` · harmful: 0
+- features: hybrid-slice-execution
+- evidence: .specs/features/hybrid-slice-execution/validation-s4.md:43 (lifecycle)
+- last seen: 2026-08-28T18:16:50Z
+
+### L-023 - Assert repository containment for every writable control path, including state and log outputs.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `security` · harmful: 0
+- features: hybrid-slice-execution
+- evidence: .specs/features/hybrid-slice-execution/validation-s4.md:47 (security)
+- last seen: 2026-08-28T18:16:51Z
+
+### L-024 - Structural mutation-boundary checks must classify mutating helper verbs, not only direct subprocess sinks.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `lifecycle` · harmful: 0
+- features: hybrid-slice-execution
+- evidence: .specs/features/hybrid-slice-execution/validation-s4.md:M3b (lifecycle)
+- last seen: 2026-08-28T21:01:28Z
+
+### L-025 - Prove cleanup exactly-once behavior with independent executable ledgers for every destructive sink.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `lifecycle` · harmful: 0
+- features: hybrid-slice-execution
+- evidence: .specs/features/hybrid-slice-execution/validation-s4.md:HSE-56 (lifecycle)
+- last seen: 2026-08-28T21:01:28Z
+
+### L-026 - Derive role-routing traces from the shipped routing source; never assert a trace literal constructed inside the test.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `role-routing` · harmful: 0
+- features: hybrid-slice-execution
+- evidence: validation-s5.md#M4 (role-routing)
+- last seen: 2026-08-28T22:13:06Z
+
+### L-027 - Clamp restored runtime limits against current resolved policy before scheduling effects.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `scheduler` · harmful: 0
+- features: hybrid-slice-execution
+- evidence: validation-s3.md:HSE-18 (scheduler)
+- last seen: 2026-08-28T22:58:24Z
+
+### L-028 - Validate persisted external-resource ownership against its originating action before authorization or release.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `resource-leases` · harmful: 0
+- features: hybrid-slice-execution
+- evidence: validation-s3.md:HSE-40,HSE-48 (resource-leases)
+- last seen: 2026-08-28T22:58:24Z
+
+### L-029 - Preflight every adoption write target, including merge-generated files, before the first mutation.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `adoption` · harmful: 0
+- features: hybrid-slice-execution
+- evidence: .specs/features/hybrid-slice-execution/validation-s6.md:32 (adoption)
+- last seen: 2026-08-28T23:43:48Z
+
+### L-030 - The canonical full gate must execute the owner suite for every shipped adoption surface.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `adoption` · harmful: 0
+- features: hybrid-slice-execution
+- evidence: .specs/features/hybrid-slice-execution/validation-s6.md:30 (adoption)
+- last seen: 2026-08-28T23:43:48Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

@@ -34,7 +34,7 @@ def write_config(
     extra: str = "",
     filename: str = ".my-workflow.toml",
 ) -> None:
-    lines = ["version = 2", "", "[deep_review]", f'cadence = "{cadence}"', ""]
+    lines = ["version = 3", "", "[deep_review]", f'cadence = "{cadence}"', ""]
     for provider in workflow_config.PROVIDERS:
         for role in workflow_config.ROLES:
             setting = (models or MODELS)[provider][role]
@@ -110,7 +110,10 @@ def test_defaults_and_native_routing() -> None:
         snapshot = workflow_config.resolve(
             root=root, feature="default", slice_count=4, native_provider="codex"
         )
-        assert snapshot["parallelization"] == {"mode": "disabled", "resource_provider": None}
+        assert snapshot["parallelization"] == {
+            "mode": "assisted", "max_workers": "auto", "automatic_baseline": 2,
+            "automatic_ceiling": 4, "resource_provider": None,
+        }
         assert snapshot["deep_review"] == {"cadence": "grouped.3", "groups": [[1, 2], [3, 4]]}
         assert all(value["provider"] == "codex" for value in snapshot["roles"].values())
         assert snapshot["roles"]["verifier"]["agent_file"] == ".codex/agents/verifier.toml"
@@ -118,11 +121,11 @@ def test_defaults_and_native_routing() -> None:
         shutil.rmtree(root)
 
 
-def test_parallelization_accepts_supported_modes() -> None:
+def test_parallelization_accepts_supported_modes_and_caps() -> None:
     root = make_repo()
     try:
         resolver = ROOT / ".agents/skills/workflow-config/scripts/workflow_config.py"
-        for mode in ("disabled", "safe", "full"):
+        for mode in ("assisted", "disabled"):
             write_parallelization(root,
                 f"[parallelization]\nmode = '{mode}'\n", encoding="utf-8"
             )
@@ -145,11 +148,26 @@ def test_parallelization_accepts_supported_modes() -> None:
             )
             assert result.returncode == 0
             payload = json.loads(result.stdout)
-            assert payload["parallelization"] == {"mode": mode, "resource_provider": None}
+            assert payload["parallelization"] == {
+                "mode": mode, "max_workers": "auto", "automatic_baseline": 2,
+                "automatic_ceiling": 4, "resource_provider": None,
+            }
             snapshot = json.loads(
                 (root / f".specs/features/mode-{mode}/workflow.json").read_text(encoding="utf-8")
             )
-            assert snapshot["parallelization"] == {"mode": mode, "resource_provider": None}
+            assert snapshot["parallelization"] == payload["parallelization"]
+        for value in (0, -1, 1.5, {}, []):
+            write_parallelization(root, f"[parallelization]\nmax_workers = {json.dumps(value)}\n")
+            try:
+                workflow_config.resolve(root=root, feature="bad-cap", slice_count=1,
+                                        native_provider="codex", refresh=True)
+            except workflow_config.ConfigError as exc:
+                assert str(exc) == (
+                    "workflow-config: parallelization.max_workers must be "
+                    "'auto' or an integer of at least 1"
+                )
+            else:
+                raise AssertionError(f"expected invalid cap: {value!r}")
     finally:
         shutil.rmtree(root)
 
@@ -174,7 +192,7 @@ def test_parallelization_rejects_invalid_mode_without_replacing_snapshot() -> No
                 refresh=True,
             )
         except workflow_config.ConfigError as exc:
-            assert "parallelization.mode" in str(exc)
+            assert str(exc) == "workflow-config: parallelization.mode must be 'assisted' or 'disabled'"
         else:
             raise AssertionError("expected invalid parallelization mode")
         assert path.read_bytes() == original
@@ -183,11 +201,36 @@ def test_parallelization_rejects_invalid_mode_without_replacing_snapshot() -> No
         shutil.rmtree(root)
 
 
+def test_old_active_snapshot_requires_explicit_refresh_without_replacement() -> None:
+    root = make_repo()
+    try:
+        first = workflow_config.resolve(root=root, feature="stale", slice_count=1, native_provider="codex")
+        path = root / ".specs/features/stale/workflow.json"
+        original = path.read_bytes()
+        stale = json.loads(path.read_text(encoding="utf-8"))
+        stale["version"] = 2
+        path.write_text(json.dumps(stale), encoding="utf-8")
+        try:
+            workflow_config.resolve(root=root, feature="stale", slice_count=1, native_provider="codex")
+        except workflow_config.ConfigError as exc:
+            assert str(exc) == (
+                "workflow-config: workflow snapshot version is stale; "
+                "rerun resolution with --refresh"
+            )
+        else:
+            raise AssertionError("expected stale snapshot rejection")
+        assert json.loads(path.read_text(encoding="utf-8"))["version"] == 2
+        assert original != path.read_bytes()
+        assert first["version"] == 3
+    finally:
+        shutil.rmtree(root)
+
+
 def test_parallelization_resume_uses_frozen_mode_after_config_changes() -> None:
     root = make_repo()
     try:
         write_parallelization(root,
-            "[parallelization]\nmode = 'full'\n", encoding="utf-8"
+            "[parallelization]\nmode = 'assisted'\n", encoding="utf-8"
         )
         first = workflow_config.resolve(
             root=root, feature="frozen-mode", slice_count=1, native_provider="codex"
@@ -199,7 +242,10 @@ def test_parallelization_resume_uses_frozen_mode_after_config_changes() -> None:
             root=root, feature="frozen-mode", slice_count=8, native_provider="cursor"
         )
         assert resumed == first
-        assert resumed["parallelization"] == {"mode": "full", "resource_provider": None}
+        assert resumed["parallelization"] == {
+            "mode": "assisted", "max_workers": "auto", "automatic_baseline": 2,
+            "automatic_ceiling": 4, "resource_provider": None,
+        }
     finally:
         shutil.rmtree(root)
 
@@ -209,11 +255,14 @@ def test_resource_provider_freezes_normalized_repository_relative_executable() -
     try:
         make_provider(root)
         write_parallelization(root,
-            "[parallelization]\nmode = 'full'\nresource_provider = 'tools/workflow_resources'\n",
+            "[parallelization]\nmode = 'assisted'\nresource_provider = 'tools/workflow_resources'\n",
             encoding="utf-8",
         )
         snapshot = workflow_config.resolve(root=root, feature="provider", slice_count=1, native_provider="codex")
-        assert snapshot["parallelization"] == {"mode": "full", "resource_provider": "tools/workflow_resources"}
+        assert snapshot["parallelization"] == {
+            "mode": "assisted", "max_workers": "auto", "automatic_baseline": 2,
+            "automatic_ceiling": 4, "resource_provider": "tools/workflow_resources",
+        }
         on_disk = json.loads((root / ".specs/features/provider/workflow.json").read_text(encoding="utf-8"))
         assert on_disk["parallelization"] == snapshot["parallelization"]
     finally:
@@ -284,7 +333,7 @@ def test_resource_provider_resume_uses_frozen_path_after_config_changes() -> Non
     try:
         make_provider(root, "tools/frozen-provider")
         write_parallelization(root,
-            "[parallelization]\nmode = 'full'\nresource_provider = 'tools/frozen-provider'\n", encoding="utf-8"
+            "[parallelization]\nmode = 'assisted'\nresource_provider = 'tools/frozen-provider'\n", encoding="utf-8"
         )
         first = workflow_config.resolve(root=root, feature="frozen-provider", slice_count=1, native_provider="codex")
         make_provider(root, "tools/new-provider")
@@ -378,12 +427,12 @@ def strip_metadata(provider: str, content: bytes) -> bytes:
     return "".join(lines).encode("utf-8")
 
 
-def test_parses_complete_v2_matrix() -> None:
+def test_parses_complete_v3_matrix() -> None:
     root = make_root()
     try:
         write_config(root)
         config = workflow_config._read_config(root)
-        assert config["version"] == 2
+        assert config["version"] == 3
         for provider in workflow_config.PROVIDERS:
             for role in workflow_config.ROLES:
                 assert workflow_config.model_setting(config, provider, role) == MODELS[provider][role]
@@ -393,7 +442,7 @@ def test_parses_complete_v2_matrix() -> None:
 
 def test_rejects_invalid_matrix() -> None:
     cases = [
-        (lambda c: c.__setitem__("version", 1), "version must be integer 2"),
+        (lambda c: c.__setitem__("version", 2), "version must be integer 3"),
         (lambda c: c["models"].pop("cursor"), "models.cursor is required"),
         (lambda c: c["models"]["codex"].pop("verifier"), "models.codex.verifier is required"),
         (
@@ -457,7 +506,7 @@ def test_rejects_unknown_top_level_and_missing_config() -> None:
         try:
             workflow_config._read_config(root)
         except workflow_config.ConfigError as exc:
-            assert "version must be integer 2" in str(exc)
+            assert "version must be integer 3" in str(exc)
         else:
             raise AssertionError("expected missing config failure")
     finally:
@@ -982,7 +1031,7 @@ def test_resolve_freezes_delegated_settings_and_omits_planner() -> None:
         workflow_config.sync_agents(root)
         git_root(root)
         snapshot = workflow_config.resolve(root=root, feature="freeze", slice_count=2, native_provider="codex")
-        assert snapshot["version"] == 2
+        assert snapshot["version"] == 3
         assert set(snapshot["roles"]) == set(workflow_config.DELEGATED_ROLES)
         for role in workflow_config.DELEGATED_ROLES:
             assert snapshot["roles"][role] == {
@@ -1238,7 +1287,7 @@ def test_snapshot_write_failure_preserves_previous_snapshot() -> None:
         finally:
             workflow_config.os.replace = real_replace
         assert path.read_text(encoding="utf-8") == original
-        assert first["version"] == 2
+        assert first["version"] == 3
     finally:
         shutil.rmtree(root)
 

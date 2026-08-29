@@ -1,7 +1,8 @@
 # Parallel Slice Dispatch
 
-This contract adds optional concurrency between slices. It does not change TLC task execution:
-TLC remains unchanged, and tasks inside a slice remain sequential.
+This contract adds coordinator-assisted concurrency between slices. The workflow-spec-driven
+skill is slice-native: independent slices may run concurrently, while tasks inside one slice
+remain sequential in its worker/worktree.
 
 ## Entry gate
 
@@ -15,7 +16,8 @@ TLC remains unchanged, and tasks inside a slice remain sequential.
      --root . --feature <feature-slug> [--verified-slice <slice>]
    ```
 
-4. Dispatch parallel lanes only when the frozen mode, plan, and executor capability all allow it.
+4. Assisted dispatch is the default when the frozen mode, plan, and executor capability allow it.
+   Independent compatible slices may open together; dependent consumption waits for verification.
 
 5. The `auto`/`orca` executor capability gate is proven only when the `orca` runtime is
    discoverable and the adapter declares `orchestration.contract.v1`; otherwise return serial
@@ -50,11 +52,43 @@ or cleanup failure returns serial recovery without creating a replacement effect
 ## Dispatch boundary
 
 - Use one worker per slice. The orchestrator owns the slice worktree, runtime, and checkpoint.
-- A worker runs its slice's tasks in TLC order. Tasks inside a slice remain sequential.
+- Exactly one ready slice is a serial-integration lane: it uses the clean integration checkout and
+  creates no extra worktree. Persistent writer worktrees are admitted only when at least two
+  compatible ready slices are selected.
+- A worker runs its slice's tasks in task order. Tasks inside a slice remain sequential.
 - Each task still has its own implementation, scoped gate, `tasks.md` update, and atomic commit.
 - The orchestrator never starts a later task in a slice before the planner marks its dependencies
   available.
 - A worker does not create another worker and does not edit another slice's worktree.
+
+## Proof boundary
+
+The coordinator records each Implementer's author identity with its slice and
+checkpoint. The role-route table below is the single machine-readable source for
+the owner, author relation, and tree boundary of every proof stage. Packets and
+runtime dispatch follow these rows; this prose only describes the lifecycle.
+
+<!-- role-route:v1 -->
+| stage | owner | author relation | tree | cardinality |
+| --- | --- | --- | --- | --- |
+| implement | implementer | author-only | private-slice | per-slice |
+| technical | technical-verifier | fresh-not-author | private-checkpoint | per-slice |
+| integrate | coordinator | coordinator | integrated-head | once |
+| deep-review | deep-reviewer | fresh-not-author | integrated-head | per-group |
+| qa-plan | qa-plan | fresh-not-author | integrated-head | once |
+| qa-execute | qa-execute | fresh-not-author | integrated-head | once |
+| handoff | last-implementer | author-only-no-proof | private-checkpoint | last-implementer |
+<!-- /role-route:v1 -->
+
+Technical Verification is a fresh session with a different identity and reads
+the exact private writer worktree at that checkpoint. After verified checkpoints
+are integrated, Deep Review receives the integrated commit range on the clean
+integration checkout. Fresh QA Plan and QA Execute sessions receive that
+integrated final tree. No proof role reuses the author identity or certifies a
+private tree as the final result.
+
+Every implementation slice closes its technical review before a dependent slice consumes its
+checkpoint. Independent compatible slices may open concurrently.
 
 The plan's `ready` lane is permission to start the named task, not permission to skip a gate. A
 `waiting` or `in_progress` task is never a fresh worker; the planner's state transition is part of

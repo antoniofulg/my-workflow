@@ -1,6 +1,6 @@
 # my-workflow
 
-An operating system for agents. It increments [`tlc-spec-driven`](https://github.com/tech-leads-club/agent-skills/tree/main/skills/tlc-spec-driven)
+An operating system for agents. It ships the workflow-owned [`workflow-spec-driven`](.agents/skills/workflow-spec-driven/SKILL.md)
 with a capped delivery loop, countable tests and security surfaces, and a knowledge bundle. It is
 not a product template and not a stack starter.
 
@@ -29,7 +29,8 @@ The loop, the caps, and the guidelines are the mechanism. The tour explains **wh
 This workflow is maintained by Antonio Fulgêncio. The process builds on work from the following
 authors and communities:
 
-- Tech Leads Club: [`tlc-spec-driven`](https://github.com/tech-leads-club/agent-skills/tree/main/skills/tlc-spec-driven)
+- Tech Leads Club: the adapted [`workflow-spec-driven`](.agents/skills/workflow-spec-driven/SKILL.md),
+  based on [`tlc-spec-driven`](https://github.com/tech-leads-club/agent-skills/tree/main/skills/tlc-spec-driven),
   and the security gate with its [security skills](https://github.com/tech-leads-club/agent-skills/tree/main/skills).
 - Pedro Nauck: [`deep-review`](https://github.com/pedronauck/skills/tree/main/skills/mine/deep-review),
   whose review workflow is adapted here.
@@ -202,8 +203,8 @@ tracked templates, not generated runtime packets.
 product-specific description. Re-run with `--skip-agents`, then merge workflow changes into
 `AGENTS.md` and `CLAUDE.md` manually.
 
-**`refusing adoption: Makefile:N uses machine-global TLC path`** Point the target's gate at the
-vendored `.agents/skills/tlc-spec-driven/scripts/...` path.
+**`refusing adoption: Makefile:N uses machine-global workflow skill path`** Point the target's gate at
+the vendored `.agents/skills/workflow-spec-driven/scripts/...` path.
 
 **Claude skill symlinks point nowhere.** Re-run `adopt.py`; it recreates the `.claude/skills/`
 links into `.agents/skills/`.

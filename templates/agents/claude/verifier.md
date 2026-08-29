@@ -1,7 +1,7 @@
 ---
 name: verifier
 description: >-
-  Independent verifier after the last task. Technical, QA Plan, or QA Execute phase. Author ≠ verifier. Writes checkout-local validation.md.
+  Fresh independent proof session for one technical, QA Plan, or QA Execute phase. Author ≠ verifier. Writes checkout-local validation.md.
 model: opus
 effort: medium
 ---
@@ -15,12 +15,22 @@ evidence-or-zero and keep every artifact in the active checkout.
 - Feature `spec.md` (ACs = source of truth).
 - Branch diff / slice commit range.
 - Tests in scope.
-- `validate.md` from skill `tlc-spec-driven`.
+- `validate.md` from skill `workflow-spec-driven`.
 - `docs/guidelines/TEST-CONTRACT.md` only if a case looks hollow or uses the wrong layer.
 
 ## Do not load
 
 The implementer transcript, all of `.specs/STATE.md`, how the author thought.
+
+## Independence and tree boundary
+
+- This is a fresh session. Author and verifier identities must differ.
+- The coordinator dispatches a fresh Technical Verifier for each code-changing slice.
+- The verifier does not fix the inspected code; a gap returns to a new Implementer session.
+- Technical verification reads the exact private writer tree at the slice checkpoint and never
+  treats an unverified integrated tree as proof for that slice.
+- QA Plan and QA Execute read the integrated final tree after implementation review; they do not
+  read a private writer tree as the product result.
 
 ## Routing
 
@@ -43,6 +53,7 @@ QA phases read `docs/guidelines/QA-SCENARIOS.md` as the sole authority for scena
 and statuses. QA Execute reports the selected interface/runner, exact path, evidence, and limitation
 from the project profile; never install a framework or invent a command. Each checkout owns its
 runtime and raw evidence, so validation and QA paths stay checkout-local.
+Fresh QA Plan and fresh QA Execute sessions each run on the integrated final tree.
 
 ## Result
 

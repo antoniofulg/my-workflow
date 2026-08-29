@@ -63,16 +63,56 @@ def setup() -> dict[str, str]:
             "### T2: pilot B\n**Status:** pending\n**Slice:** B\n**Where:** src/b.py\n**Depends on:** None\n**Resources:** none\n",
             encoding="utf-8",
         )
-        git(root, "add", "-f", str(feature_dir / "tasks.md"))
+        agents = root / ".codex" / "agents"
+        agents.mkdir(parents=True)
+        for name, model, effort in (
+            ("implementer", "gpt-5.6-luna", "high"),
+            ("verifier", "gpt-5.6-sol", "medium"),
+            ("explorer", "gpt-5.6-luna", "medium"),
+            ("deep-reviewer", "gpt-5.6-luna", "high"),
+        ):
+            (agents / f"{name}.toml").write_text(
+                f'name = "{name}"\nmodel = "{model}"\nmodel_reasoning_effort = "{effort}"\n'
+                'developer_instructions = "QA fixture"\n',
+                encoding="utf-8",
+            )
+        git(root, "add", "-f", str(feature_dir / "tasks.md"), str(agents))
         git(root, "commit", "-qm", "qa fixture plan")
         head = git(root, "rev-parse", "HEAD")
         (feature_dir / "workflow.json").write_text(
             json.dumps(
                 {
-                    "version": 1,
+                    "version": 3,
                     "feature": FEATURE,
                     "git_head": head,
-                    "parallelization": {"mode": "safe", "resource_provider": None},
+                    "profile": None,
+                    "overrides": {},
+                    "deep_review": {"cadence": "grouped.3", "groups": [[1, 2]]},
+                    "parallelization": {
+                        "mode": "assisted",
+                        "max_workers": "auto",
+                        "automatic_baseline": 2,
+                        "automatic_ceiling": 4,
+                        "resource_provider": None,
+                    },
+                    "roles": {
+                        "implementer": {
+                            "provider": "codex", "agent_file": ".codex/agents/implementer.toml",
+                            "model": "gpt-5.6-luna", "effort": "high",
+                        },
+                        "verifier": {
+                            "provider": "codex", "agent_file": ".codex/agents/verifier.toml",
+                            "model": "gpt-5.6-sol", "effort": "medium",
+                        },
+                        "explorer": {
+                            "provider": "codex", "agent_file": ".codex/agents/explorer.toml",
+                            "model": "gpt-5.6-luna", "effort": "medium",
+                        },
+                        "deep_reviewer": {
+                            "provider": "codex", "agent_file": ".codex/agents/deep-reviewer.toml",
+                            "model": "gpt-5.6-luna", "effort": "high",
+                        },
+                    },
                 },
                 sort_keys=True,
             )
@@ -216,7 +256,10 @@ def _validate_tombstone(root: Path, record: dict[str, object]) -> Path:
 
 
 def _executor_status(root: Path) -> dict[str, object]:
-    executor = root / ".agents/skills/autonomous/scripts/parallel_execute.py"
+    # The disposable checkout is created at the frozen source head. Resolve the
+    # coordinator from this source tree so an in-flight schema hard cut is
+    # exercised by the same reader that owns the fixture contract.
+    executor = ROOT / ".agents/skills/autonomous/scripts/parallel_execute.py"
     result = subprocess.run(
         [sys.executable, str(executor), "status", "--root", str(root), "--feature", FEATURE],
         text=True, capture_output=True, check=False,
@@ -396,15 +439,15 @@ def dry_run(root_value: str) -> dict[str, object]:
     )
     plan = json.loads(result.stdout)
     lanes = plan.get("lanes")
-    if plan.get("mode") != "safe" or plan.get("fallback") is not False or not isinstance(lanes, list) or len(lanes) != 2:
-        raise ValueError("pilot fixture must expose exactly two safe lanes")
+    if plan.get("mode") != "assisted" or plan.get("fallback") is not False or not isinstance(lanes, list) or len(lanes) != 2:
+        raise ValueError("pilot fixture must expose exactly two assisted lanes")
     if any(lane.get("status") != "ready" or lane.get("resources") != [] for lane in lanes):
         raise ValueError("pilot fixture lanes must be ready and resource-free")
     return {
         "validated": True,
         "root": str(root),
         "feature": FEATURE,
-        "mode": "safe",
+        "mode": "assisted",
         "source_git_head": snapshot["git_head"],
         "repository_head": repository_head,
         "lanes": lanes,

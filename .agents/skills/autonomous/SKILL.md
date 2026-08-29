@@ -37,7 +37,7 @@ choice in one line with the reason, and proceed — this is a judgment to make, 
 
 | The work is | Path |
 | --- | --- |
-| **A direct correction** — an exact human-defined single invariant with no product ambiguity or implicit-requirement surface | The direct-correction path in `tlc-spec-driven` |
+| **A direct correction** — an exact human-defined single invariant with no product ambiguity or implicit-requirement surface | The direct-correction path in `workflow-spec-driven` |
 | **A feature** — a capability or behaviour the product lacks | The full loop in `AGENTS.md` |
 | **An issue batch** — work already filed and reviewed | The filed-issue path in `docs/guidelines/REVIEW-ROUNDS.md` |
 
@@ -92,19 +92,23 @@ an implementation is found months later.
 feature workflow with `.agents/skills/workflow-config` before dispatch. Three rules an
 unattended run gets wrong:
 
-When the frozen workflow opts into inter-slice dispatch, read
+When the frozen workflow is resolved, read
 `.agents/skills/autonomous/references/parallelization.md` after workflow resolution and before
-planning. It is an optional orchestration layer above TLC; its serial fallback remains the default.
+planning. Assisted dispatch is the default. Independent compatible slices may open together;
+serial execution is used when exactly one ready slice exists, explicit `disabled` mode, or any
+fail-closed condition; concurrent isolated writer worktrees require at least two compatible ready
+slices.
 
-- **Every implementation slice closes its technical review before the next opens** — implement,
-  scoped gate, commit, Verifier, and a QA walk when it puts something in front of a user. Deep-review
-  runs at the resolved review groups, before final QA, so a feature can balance reading cost without
-  changing the slice contract.
+- **Every implementation slice closes its technical review before any dependent slice consumes its
+  checkpoint** — implement, scoped gate, commit, and a fresh Verifier on the private writer
+  checkpoint. A single ready slice runs serially in the clean integration checkout; only two or
+  more compatible ready slices may open concurrent writer worktrees. Deep-review runs at the resolved
+  groups on the integrated tree, before fresh final QA. Author and proof identities stay distinct.
 - **One pull request for the feature**, with the slices as atomic commits inside it.
 - **The feature-closing step is the QA session** and writes no product code, so it takes no Verifier
   and no deep-review.
 
-**A direct correction:** follow the direct-correction path in `tlc-spec-driven`: inspect, implement,
+**A direct correction:** follow the direct-correction path in `workflow-spec-driven`: inspect, implement,
 run the scoped validation, and commit. Create no feature artifacts and skip fresh Verifier,
 deep-review, and QA.
 

@@ -11,8 +11,8 @@ bug_ids: BUG-20260824-parallel-executor-worker-start-fallback-leaks-worktree
 fix_status: fixed
 retest_status: pass
 fix_commits: 0ed8b55
-evidence: docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/resource-plan.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/resource-start.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/resource-status.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/resource-effects.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/resource-residue.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r18/disabled-start.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r18/disabled-status.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r18/disabled-effects.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r18/unsupported-plan.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r18/unsupported-start.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r18/unsupported-status.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r18/unsupported-effects.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r18/resource-plan.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r18/resource-start.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r18/resource-status.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r18/resource-effects.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r18/resource-residue.md; docs/qa/evidence/2026-08-25-parallel-slice-executor-r18/commands.md
-last_report: docs/qa/reports/2026-08-25-parallel-slice-executor-final.md
+evidence: docs/qa/evidence/2026-08-29-hybrid-slice-execution/summary.json; docs/qa/evidence/2026-08-29-hybrid-slice-execution/commands.json
+last_report: docs/qa/reports/2026-08-29-hybrid-slice-execution.md
 overlaps: CFG-plan-parallel-slice-dispatch; CFG-freeze-feature-workflow
 ---
 

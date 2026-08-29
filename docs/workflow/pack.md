@@ -6,7 +6,7 @@ The workflow ships six local capabilities:
 
 | Skill | Role |
 | --- | --- |
-| `tlc-spec-driven` | Planner. Specify, Design, Tasks, Execute. Auto-sizes. |
+| `workflow-spec-driven` | Planner. Specify, Design, Tasks, Execute. Auto-sizes. |
 | `qa-plan` | Maps changed user-visible promises to durable QA journeys and charters. |
 | `qa-execute` | Walks those journeys through the consuming project's existing adapter. |
 | `ponytail` (`full`) | Shortest code that works. Stdlib before a dependency. |
@@ -57,7 +57,7 @@ bundled skills (including `deep-review`) without shipping `__pycache__` or `*.py
 `.my-workflow.toml`, and generates ignored runtime packets from those sources. Adoption rejects
 Makefile references to machine-global `$(HOME)/.claude/...`,
 `${HOME}/.claude/...`, `$HOME/.claude/...`, or `~/.claude/...`; point TLC gates at the adopted
-`.agents/skills/tlc-spec-driven/scripts/...` path instead.
+`.agents/skills/workflow-spec-driven/scripts/...` path instead.
 
 Adoption does not install the external security dependencies. After the bundled workflow is
 adopted, it prints the exact project-local command to run with `--yes`. Review and authorize that

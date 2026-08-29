@@ -26,7 +26,7 @@ The provider `verifier` executes exactly one phase per packet: `technical`, `qa-
 `qa-execute`. The orchestrator dispatches a technical packet, then fresh QA Plan and QA Execute
 packets for a public slice. Deep-review is a separate orchestrator stage, not a Verifier phase;
 internal-only changes skip the QA packets. All QA stages read `docs/guidelines/QA-SCENARIOS.md`; it owns
-fields and statuses. Each stage answers a question the others cannot, so none is redundant. Direct corrections follow `.agents/skills/tlc-spec-driven/SKILL.md`: scoped validation closes them, with no fresh Verifier, deep-review, or QA.
+fields and statuses. Each stage answers a question the others cannot, so none is redundant. Direct corrections follow `.agents/skills/workflow-spec-driven/SKILL.md`: scoped validation closes them, with no fresh Verifier, deep-review, or QA.
 
 ## Why resolved groups, not a rigid interval
 
@@ -60,7 +60,7 @@ final session answers *"does the finished thing feel right?"* after all implemen
    prior rounds. A pending, accepted, or already-resolved issue is never re-raised. This is what makes
    the loop monotonic and therefore finite.
 
-   `tlc-spec-driven` points here for remediation identity and counting; this rule prevents a renamed
+   `workflow-spec-driven` points here for remediation identity and counting; this rule prevents a renamed
    finding from resetting its history while allowing a distinct blocker to proceed.
 2. **Nitpicks never trigger a round.** They go to a follow-up list in the pull request. Only `FIX_BEFORE_SHIP` and `REWORK` findings justify another pass. **In an active, already-approved review loop, fix blocking findings without new human approval through the applicable review cap and run the scoped gate after each correction. Findings produced by the final deep-review round (round 2) are corrected automatically in the same loop; do not start round 3; escalate only if the post-fix gate fails or the configured stall threshold is reached for the same fingerprint.** Local fixes only; remote actions retain separate approval requirements.
 3. **Deduplicate by root cause, not by occurrence.** One missing null check repeated in six files is
@@ -127,7 +127,7 @@ Fix one, or a batch of them, as a small change:
 implement → scoped gate → one commit for the batch
 ```
 
-No spec, no tasks file, no verifier, no deep-review round. `tlc-spec-driven` already sizes this way:
+No spec, no tasks file, no verifier, no deep-review round. `workflow-spec-driven` already sizes this way:
 a change of a few files with an obvious outcome skips planning entirely.
 
 Three things still apply, because they are about the change and not about the review:

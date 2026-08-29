@@ -38,7 +38,7 @@ def test_pilot_handoff_uses_disposable_safe_fixture_and_dry_run_two_lanes() -> N
             check=False,
         )
         result = json.loads(dry_run.stdout)
-        assert result["mode"] == "safe"
+        assert result["mode"] == "assisted"
         assert result["validated"] is True
         assert result["repository_head"] == result["source_git_head"]
         owner_common = subprocess.check_output(["git", "rev-parse", "--git-common-dir"], cwd=ROOT, text=True).strip()
@@ -108,7 +108,7 @@ def test_normal_cleanup_requires_lifecycle_authorization_and_removes_exact_sourc
                 f"ack-{slice_id}": {"key": f"ack-{slice_id}", "action": "worker_ack", "status": "accepted", "lane": lane_id, "external_id": f"ack-{slice_id}", "receipt": {"acknowledged": True, "delivery_id": f"delivery-{slice_id}"}},
                 f"release-{slice_id}": {"key": f"release-{slice_id}", "action": "worker_release", "status": "accepted", "lane": lane_id, "external_id": f"release-{slice_id}", "receipt": {"released": True, "dispatch_id": dispatch}},
             })
-        state = parallel_execute.new_runtime_state(str(fixture_root.resolve()), "parallel-pilot", "safe", source_head)
+        state = parallel_execute.new_runtime_state(str(fixture_root.resolve()), "parallel-pilot", "assisted", source_head)
         state["lanes"] = lanes
         state["actions"] = actions
         parallel_execute.atomic_write_json(parallel_execute.runtime_state_path(fixture_root, "parallel-pilot"), state)
@@ -143,7 +143,7 @@ def test_diagnostic_abort_refuses_pending_recoverable_worker_effect() -> None:
     fixture_root = Path(fixture)
     try:
         source_head = json.loads((fixture_root / ".specs/features/parallel-pilot/workflow.json").read_text(encoding="utf-8"))["git_head"]
-        state = parallel_execute.new_runtime_state(str(fixture_root.resolve()), "parallel-pilot", "safe", source_head)
+        state = parallel_execute.new_runtime_state(str(fixture_root.resolve()), "parallel-pilot", "assisted", source_head)
         state["lanes"]["slice-A"] = {"slice": "A", "task": "T1", "state": "serial", "resources": []}
         state["actions"]["worker-A"] = {
             "key": "worker-A", "action": "worker", "status": "pending", "lane": "slice-A",
@@ -373,7 +373,7 @@ def _prepare_authorized_fixture() -> tuple[str, Path, Path, dict[str, dict[str, 
             f"ack-{slice_id}": {"key": f"ack-{slice_id}", "action": "worker_ack", "status": "accepted", "lane": lane_id, "external_id": f"ack-{slice_id}", "receipt": {"acknowledged": True, "delivery_id": f"delivery-{slice_id}"}},
             f"release-{slice_id}": {"key": f"release-{slice_id}", "action": "worker_release", "status": "accepted", "lane": lane_id, "external_id": f"release-{slice_id}", "receipt": {"released": True, "dispatch_id": dispatch}},
         })
-    state = parallel_execute.new_runtime_state(str(fixture_root.resolve()), "parallel-pilot", "safe", source_head)
+    state = parallel_execute.new_runtime_state(str(fixture_root.resolve()), "parallel-pilot", "assisted", source_head)
     state["lanes"] = lanes
     state["actions"] = actions
     parallel_execute.atomic_write_json(parallel_execute.runtime_state_path(fixture_root, "parallel-pilot"), state)

@@ -19,10 +19,16 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from pathlib import PurePosixPath
 from typing import Any, Callable, Mapping, Sequence
 
+try:
+    import machine_health
+except ImportError:  # pragma: no cover - direct package execution supplies this path
+    machine_health = None  # type: ignore[assignment]
 
-MODES = {"disabled", "safe", "full"}
+
+MODES = {"disabled", "assisted"}
 LANE_STATES = {"ready", "needs_resources", "running", "waiting", "needs_sync", "invalidated", "gate_required", "complete", "failed", "serial"}
 TRANSITIONS: dict[str, set[str]] = {
     "ready": {"needs_resources", "running", "invalidated", "serial", "failed"},
@@ -51,6 +57,89 @@ class PathBoundaryError(ExecutorError):
     """A path leaves its declared root or crosses an unsafe symlink."""
 
 
+class LaneScheduler:
+    """Select compatible ready writers while growing capacity one healthy window at a time."""
+
+    def __init__(
+        self,
+        configured_cap: str | int,
+        *,
+        baseline: int = 2,
+        ceiling: int = 4,
+        health_reader: Callable[[], Mapping[str, Any] | None] | None = None,
+    ) -> None:
+        if configured_cap != "auto" and (type(configured_cap) is not int or configured_cap < 1):
+            raise ExecutorError("invalid writer cap")
+        if type(baseline) is not int or type(ceiling) is not int or baseline < 1 or ceiling < baseline:
+            raise ExecutorError("invalid writer admission bounds")
+        self.configured_cap = configured_cap
+        self.baseline = baseline
+        self.ceiling = ceiling if configured_cap == "auto" else configured_cap
+        self.cap = min(self.ceiling, baseline)
+        self.health_reader = health_reader
+
+    @staticmethod
+    def _overlaps(left: Mapping[str, Any], right: Mapping[str, Any]) -> bool:
+        left_paths = left.get("declared_paths", [])
+        right_paths = right.get("declared_paths", [])
+        if not isinstance(left_paths, list) or not isinstance(right_paths, list):
+            return True
+        for left_path in left_paths:
+            for right_path in right_paths:
+                left_parts, right_parts = PurePosixPath(str(left_path)).parts, PurePosixPath(str(right_path)).parts
+                if left_parts[: len(right_parts)] == right_parts or right_parts[: len(left_parts)] == left_parts:
+                    return True
+        return False
+
+    @classmethod
+    def _compatible(cls, candidate: Mapping[str, Any], selected: Sequence[Mapping[str, Any]]) -> bool:
+        resources = candidate.get("resources", [])
+        if not isinstance(resources, list):
+            return False
+        return not any(
+            cls._overlaps(candidate, other) or set(resources) & set(other.get("resources", []))
+            for other in selected
+        )
+
+    def _settle(self, active_count: int) -> None:
+        if active_count < self.baseline or self.cap >= self.ceiling:
+            return
+        try:
+            evidence = self.health_reader() if self.health_reader is not None else None
+        except Exception:
+            return
+        if machine_health is not None and machine_health.should_admit_lane(
+            active_count,
+            self.configured_cap,
+            evidence,
+            automatic_ceiling=self.ceiling,
+        ):
+            cap_limit = self.ceiling if self.configured_cap == "auto" else self.configured_cap
+            self.cap = min(self.cap + 1, cap_limit)
+
+    def select(
+        self,
+        candidates: Sequence[Mapping[str, Any]],
+        existing: Mapping[str, Mapping[str, Any]],
+    ) -> list[dict[str, Any]]:
+        active = [
+            lane for lane in existing.values()
+            if lane.get("state") in {"needs_resources", "running", "waiting", "needs_sync", "invalidated", "gate_required"}
+        ]
+        self._settle(len(active))
+        selected: list[dict[str, Any]] = []
+        active_tasks = {str(lane.get("task")) for lane in active if isinstance(lane.get("task"), str)}
+        for candidate in candidates:
+            task = candidate.get("task")
+            if not isinstance(task, str) or task in active_tasks:
+                continue
+            if len(active) + len(selected) >= self.cap:
+                break
+            if self._compatible(candidate, [*active, *selected]):
+                selected.append(dict(candidate))
+        return selected
+
+
 def _require_text(value: Any, label: str) -> str:
     if not isinstance(value, str) or not value:
         raise StateError(f"invalid {label}")
@@ -77,6 +166,119 @@ def _validate_technical_verifier_receipt(
         or receipt["author"] == receipt["implementer"]
     ):
         raise StateError("uncorrelated technical verifier receipt")
+
+
+_HEAVY_GATE_FIELDS = {
+    "feature", "slice", "task", "lane", "gate", "lease_id", "operation", "status",
+    "idempotency_key", "resources", "prepared_worktree", "environment_keys", "environment",
+    "released",
+}
+
+
+def _validate_heavy_gate_state(state: Mapping[str, Any], feature: str) -> None:
+    gates = state.get("heavy_gates")
+    if gates is None:
+        return
+    if not isinstance(gates, Mapping):
+        raise StateError("invalid heavy gate state")
+    lanes = state.get("lanes")
+    actions = state.get("actions")
+    if not isinstance(lanes, Mapping) or not isinstance(actions, Mapping):
+        raise StateError("heavy gate state lacks runtime maps")
+    source_head = _require_text(state.get("source_git_head"), "source git head")
+    seen_lease_ids: set[str] = set()
+    for gate_name, lease in gates.items():
+        if not isinstance(gate_name, str) or not _ID.fullmatch(gate_name) or not isinstance(lease, Mapping):
+            raise StateError("invalid heavy gate receipt")
+        if set(lease) != _HEAVY_GATE_FIELDS:
+            raise StateError("heavy gate receipt has an incomplete schema")
+        lane_id = lease.get("lane")
+        lane = lanes.get(lane_id) if isinstance(lane_id, str) else None
+        if not isinstance(lane_id, str) or not _ID.fullmatch(lane_id) or not isinstance(lane, Mapping):
+            raise StateError("heavy gate references unknown lane")
+        gate_id = lease.get("gate")
+        lease_id = lease.get("lease_id")
+        operation = lease.get("operation")
+        status = lease.get("status")
+        idempotency = lease.get("idempotency_key")
+        acquire_receipt = dict(lease)
+        acquire_receipt["status"] = "active"
+        acquire_receipt["released"] = False
+        if (
+            gate_id != gate_name
+            or lease.get("feature") != feature
+            or lease.get("slice") != lane.get("slice")
+            or lease.get("task") != lane.get("task")
+            or operation != "acquire"
+            or status not in {"active", "released"}
+            or type(lease.get("prepared_worktree")) is not bool
+            or lease.get("prepared_worktree") is not True
+            or type(lease.get("released")) is not bool
+            or lease.get("released") is not (status == "released")
+            or not isinstance(lease_id, str)
+            or not lease_id
+            or lease_id in seen_lease_ids
+        ):
+            raise StateError("uncorrelated heavy gate identity")
+        expected_key = idempotency_key(
+            feature, str(lane["slice"]), str(lane["task"]), f"gate-acquire-{gate_name}", source_head
+        )
+        if idempotency != expected_key:
+            raise StateError("uncorrelated heavy gate idempotency")
+        resources = lease.get("resources")
+        if (
+            not isinstance(resources, list)
+            or not resources
+            or any(not isinstance(item, str) or not item for item in resources)
+            or len(set(resources)) != len(resources)
+        ):
+            raise StateError("invalid heavy gate resources")
+        environment_keys = lease.get("environment_keys")
+        environment = lease.get("environment")
+        if (
+            not isinstance(environment_keys, list)
+            or any(not isinstance(item, str) or not item for item in environment_keys)
+            or environment_keys != sorted(set(environment_keys))
+            or not isinstance(environment, Mapping)
+            or sorted(str(item) for item in environment) != environment_keys
+            or any(value != "<redacted>" for value in environment.values())
+        ):
+            raise StateError("invalid heavy gate environment")
+        seen_lease_ids.add(lease_id)
+
+        acquire_key = expected_key
+        acquire_action = actions.get(acquire_key)
+        expected_request = {
+            "repository": state["repository_id"], "feature": feature, "slice": lane["slice"],
+            "task": lane["task"], "gate": gate_name, "worktree": lane.get("worktree_path", ""),
+            "idempotency_key": acquire_key, "resources": list(resources), "operation": "acquire",
+        }
+        if (
+            not isinstance(acquire_action, Mapping)
+            or acquire_action.get("action") != "gate_acquire"
+            or acquire_action.get("lane") != lane_id
+            or acquire_action.get("status") not in {"accepted", "released"}
+            or acquire_action.get("external_id") != lease_id
+            or acquire_action.get("request") != expected_request
+            or acquire_action.get("receipt") != acquire_receipt
+        ):
+            raise StateError("heavy gate acquire action is uncorrelated")
+        if status == "released":
+            release_key = idempotency_key(
+                feature, str(lane["slice"]), str(lane["task"]), f"gate-release-{gate_name}", source_head
+            )
+            release_action = actions.get(release_key)
+            release_request = {**expected_request, "idempotency_key": release_key, "operation": "release"}
+            if (
+                not isinstance(release_action, Mapping)
+                or release_action.get("action") != "gate_release"
+                or release_action.get("lane") != lane_id
+                or release_action.get("status") not in {"accepted", "released"}
+                or release_action.get("external_id") != lease_id
+                or release_action.get("request") != release_request
+                or release_action.get("receipt") != {"lease_id": lease_id, "released": True}
+            ):
+                raise StateError("heavy gate release action is uncorrelated")
 
 
 def new_runtime_state(repository_id: str, feature: str, mode: str, source_git_head: str) -> dict[str, Any]:
@@ -113,6 +315,15 @@ def validate_runtime_state(
     actions = state.get("actions")
     if not isinstance(lanes, Mapping) or not isinstance(actions, Mapping):
         raise StateError("runtime state lanes and actions must be objects")
+    scheduler = state.get("scheduler")
+    if scheduler is not None:
+        if (
+            not isinstance(scheduler, Mapping)
+            or set(scheduler) != {"cap", "active", "ready"}
+            or any(type(scheduler.get(field)) is not int or scheduler[field] < 0 for field in ("cap", "active", "ready"))
+            or scheduler["cap"] < 1
+        ):
+            raise StateError("invalid scheduler state")
     post_gate = state.get("post_integration_gate")
     if post_gate is not None:
         if (
@@ -177,7 +388,7 @@ def validate_runtime_state(
         if not isinstance(key, str) or not _ID.fullmatch(key) or not isinstance(action, Mapping):
             raise StateError("invalid action receipt")
         if action.get("key") != key or action.get("action") not in {
-            "worktree", "worktree_cleanup", "worker", "follow_up", "acquire", "release", "worker_ack", "worker_release", "sync", "gate", "integrate", "technical_verifier"
+            "worktree", "worktree_cleanup", "worker", "follow_up", "acquire", "release", "gate_acquire", "gate_release", "worker_ack", "worker_release", "sync", "gate", "integrate", "technical_verifier"
         }:
             raise StateError("invalid action receipt")
         if action.get("status") not in {"pending", "accepted", "released", "failed"}:
@@ -188,7 +399,9 @@ def validate_runtime_state(
         if action.get("status") in {"accepted", "released"}:
             external_id = _require_text(action.get("external_id"), "action external id")
             previous_action = seen_action_external_ids.get(external_id)
-            if previous_action is not None and {previous_action, action["action"]} != {"acquire", "release"}:
+            if previous_action is not None and {
+                previous_action, action["action"]
+            } not in ({"acquire", "release"}, {"gate_acquire", "gate_release"}):
                 raise StateError("duplicate external receipt")
             seen_action_external_ids[external_id] = str(action["action"])
             receipt = action.get("receipt")
@@ -220,6 +433,7 @@ def validate_runtime_state(
                 )
         elif action.get("receipt") is not None:
             raise StateError("pending action contains receipt")
+    _validate_heavy_gate_state(state, actual_feature)
 
 
 def transition_lane(
@@ -474,6 +688,7 @@ class Coordinator:
         gate_receipt_factory: Callable[[Mapping[str, Any]], Mapping[str, Any] | None] | None = None,
         provider_factory: Callable[[Path], ResourceProvider] | None = None,
         worktree_creator: Callable[[Path, str], Mapping[str, Any]] | None = None,
+        health_reader: Callable[[], Mapping[str, Any] | None] | None = None,
     ):
         self.root = Path(root).resolve()
         self.feature = feature
@@ -482,6 +697,7 @@ class Coordinator:
         self.gate_receipt_factory = gate_receipt_factory
         self.provider_factory = provider_factory
         self.worktree_creator = worktree_creator
+        self.health_reader = health_reader
         self.state_path: Path | None = None
 
     def _prepare_repository(self) -> None:
@@ -489,17 +705,33 @@ class Coordinator:
             self.root = _repository_root(self.root)
             self.state_path = runtime_state_path(self.root, self.feature)
 
-    def _workflow(self) -> dict[str, Any]:
+    def _workflow(self, *, validate: bool = True) -> dict[str, Any]:
         path = self.root / ".specs" / "features" / self.feature / "workflow.json"
         try:
             snapshot = json.loads(path.read_text(encoding="utf-8"))
-            if not isinstance(snapshot, dict) or snapshot.get("version") != 1 or snapshot.get("feature") != self.feature:
-                raise ValueError
-            mode = snapshot["parallelization"]["mode"]
-            head = snapshot["git_head"]
-            if mode not in MODES or not isinstance(head, str) or not head:
-                raise ValueError
-            return snapshot
+            if not validate:
+                if isinstance(snapshot, dict) and snapshot.get("version") in (1, 2):
+                    raise ExecutorError("workflow snapshot version is stale; rerun resolution with --refresh")
+                if not isinstance(snapshot, dict) or snapshot.get("version") != 3 or snapshot.get("feature") != self.feature:
+                    raise ValueError
+                parallelization = snapshot.get("parallelization")
+                if not isinstance(parallelization, Mapping) or parallelization.get("mode") not in MODES:
+                    raise ValueError
+                return snapshot
+            scripts = Path(__file__).resolve().parents[2] / "workflow-config" / "scripts"
+            if str(scripts) not in sys.path:
+                sys.path.insert(0, str(scripts))
+            import workflow_config
+
+            try:
+                return workflow_config.validate_snapshot(self.root, self.feature, snapshot)
+            except workflow_config.ConfigError as exc:
+                message = str(exc)
+                if "stale; rerun resolution" in message:
+                    raise ExecutorError(message.removeprefix("workflow-config: ")) from exc
+                raise ValueError() from exc
+        except ExecutorError:
+            raise
         except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
             raise ExecutorError("invalid workflow snapshot") from exc
 
@@ -513,6 +745,76 @@ class Coordinator:
             return parallel_plan.plan(root=self.root, feature=self.feature)
         except ValueError as exc:
             raise ExecutorError(str(exc)) from exc
+
+    def _plan_for_capacity(self, capacity: int, state: Mapping[str, Any]) -> dict[str, Any]:
+        """Recompute the ready queue while excluding tasks already completed in this run."""
+        scripts = Path(__file__).resolve().parents[2] / "workflow-config" / "scripts"
+        if str(scripts) not in sys.path:
+            sys.path.insert(0, str(scripts))
+        import parallel_plan
+
+        completed = {
+            str(lane.get("task"))
+            for lane in state.get("lanes", {}).values()
+            if isinstance(lane, Mapping) and lane.get("state") in {"complete", "failed", "serial"}
+        }
+        try:
+            return parallel_plan.plan(
+                root=self.root,
+                feature=self.feature,
+                completed_tasks=completed,
+                selection_cap=capacity,
+            )
+        except TypeError:
+            # Test doubles and consumers pinned to the point-in-time planner retain the
+            # original call shape; their supplied plan remains the source of truth.
+            return self._plan()
+        except ValueError as exc:
+            raise ExecutorError(str(exc)) from exc
+
+    def _schedule_lanes(
+        self,
+        snapshot: Mapping[str, Any],
+        plan: Mapping[str, Any],
+        state: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        configured = snapshot["parallelization"]["max_workers"]
+        scheduler = LaneScheduler(
+            configured,
+            baseline=snapshot["parallelization"]["automatic_baseline"],
+            ceiling=snapshot["parallelization"]["automatic_ceiling"],
+            health_reader=self.health_reader or (lambda: machine_health.collect_health(self.root) if machine_health else None),
+        )
+        saved = state.get("scheduler")
+        if saved is not None:
+            if not isinstance(saved, Mapping) or type(saved.get("cap")) is not int or saved["cap"] < 1:
+                raise StateError("invalid scheduler state")
+            if configured == "auto":
+                if saved["cap"] < scheduler.baseline or saved["cap"] > scheduler.ceiling:
+                    raise StateError("invalid scheduler capacity")
+                scheduler.cap = saved["cap"]
+            else:
+                scheduler.cap = min(saved["cap"], configured)
+        candidates = plan.get("ready_lanes")
+        if not isinstance(candidates, list):
+            candidates = plan.get("lanes", [])
+        active = [
+            lane for lane in state.get("lanes", {}).values()
+            if isinstance(lane, Mapping) and lane.get("state") in {"needs_resources", "running", "waiting", "needs_sync", "invalidated", "gate_required"}
+        ]
+        if len(active) > scheduler.cap:
+            raise StateError("active lanes exceed scheduler capacity")
+        selected = scheduler.select(
+            [candidate for candidate in candidates if isinstance(candidate, Mapping)],
+            {str(index): lane for index, lane in enumerate(active)},
+        )
+        active_ids = {str(lane.get("task")) for lane in active}
+        selected_ids = {str(lane.get("task")) for lane in selected}
+        for candidate in candidates:
+            if isinstance(candidate, Mapping) and str(candidate.get("task")) in active_ids and str(candidate.get("task")) not in selected_ids:
+                selected.insert(0, dict(candidate))
+        state["scheduler"] = {"cap": scheduler.cap, "active": len(active), "ready": len(candidates)}
+        return selected
 
     def _load_state(self, workflow: Mapping[str, Any]) -> dict[str, Any] | None:
         if self.state_path is None:
@@ -541,7 +843,7 @@ class Coordinator:
         return list(event.get("actions", [])) if isinstance(event.get("actions", []), list) else []
 
     def status(self) -> dict[str, Any]:
-        workflow = self._workflow()
+        workflow = self._workflow(validate=False)
         if workflow["parallelization"]["mode"] == "disabled":
             return {"version": 1, "feature": self.feature, "mode": "disabled", "state": None, "actions": []}
         self._prepare_repository()
@@ -790,19 +1092,61 @@ class Coordinator:
 
     def _record_producer_head(self, state: dict[str, Any], lane_id: str, lane: dict[str, Any]) -> str:
         worktree_path = lane.get("worktree_path")
-        if not isinstance(worktree_path, str) or not worktree_path:
+        if lane.get("worktree") is False:
+            if worktree_path != str(self.root):
+                raise ExecutorError("serial lane is not on the integration checkout")
+        elif not isinstance(worktree_path, str) or not worktree_path:
             raise ExecutorError("missing owned worktree for producer checkpoint")
         expected_head = lane.get("current_head") or lane.get("pre_head")
-        current_head = self._git_adapter().head(
-            worktree_path,
-            expected_receipt=dict(lane),
-            expected_head=expected_head if isinstance(expected_head, str) and lane.get("current_head") else None,
-        )
+        adapter = self._git_adapter()
+        if lane.get("worktree") is False:
+            current_head = adapter.head(self.root)
+        else:
+            current_head = adapter.head(
+                worktree_path,
+                expected_receipt=dict(lane),
+                expected_head=expected_head if isinstance(expected_head, str) and lane.get("current_head") else None,
+            )
         if not isinstance(current_head, str) or not current_head:
             raise ExecutorError("missing producer worktree HEAD")
         lane["current_head"] = current_head
         self._save(state)
         return current_head
+
+    def _serial_verifier_ready(self, state: Mapping[str, Any], lane_id: str, lane: Mapping[str, Any]) -> bool:
+        current_head = lane.get("current_head")
+        if not isinstance(current_head, str) or not current_head:
+            return False
+        key = idempotency_key(
+            self.feature, str(lane["slice"]), str(lane["task"]), "technical_verifier", state["source_git_head"]
+        )
+        action = state.get("actions", {}).get(key) if isinstance(state.get("actions"), Mapping) else None
+        if not isinstance(action, Mapping) or action.get("status") not in {"accepted", "released"}:
+            return False
+        receipt = action.get("receipt")
+        if not isinstance(receipt, Mapping):
+            return False
+        try:
+            _validate_technical_verifier_receipt(receipt, lane, feature=self.feature, current_head=current_head)
+        except StateError:
+            return False
+        return True
+
+    def _complete_verified_serial_lanes(self, state: dict[str, Any], plan: Mapping[str, Any]) -> list[str]:
+        completed: list[str] = []
+        for plan_lane in plan.get("lanes", []):
+            if not isinstance(plan_lane, Mapping) or plan_lane.get("worktree") is not False:
+                continue
+            lane_id = str(plan_lane.get("id", ""))
+            lane = state.get("lanes", {}).get(lane_id)
+            if not isinstance(lane, dict) or lane.get("state") != "running":
+                continue
+            if not lane.get("technical_verifier_pending") or not self._serial_verifier_ready(state, lane_id, lane):
+                continue
+            transition_lane(state, lane_id, "complete", expected="running")
+            lane.pop("technical_verifier_pending", None)
+            completed.append(lane_id)
+        return completed
 
     def _consume_technical_verifier_receipts(
         self, state: dict[str, Any], receipts: Sequence[Mapping[str, Any]] | None
@@ -844,9 +1188,12 @@ class Coordinator:
             self._save(state)
 
     def _integrate_verified_slices(self, state: dict[str, Any], plan: Mapping[str, Any]) -> str:
-        if state.get("mode") != "full":
+        if state.get("mode") != "assisted":
             return "not-applicable"
-        plan_lanes = [lane for lane in plan.get("lanes", []) if isinstance(lane, Mapping) and lane.get("id") != "serial"]
+        plan_lanes = [
+            lane for lane in plan.get("lanes", [])
+            if isinstance(lane, Mapping) and lane.get("id") != "serial" and lane.get("worktree") is True
+        ]
         if not plan_lanes:
             return "not-applicable"
         entries: list[dict[str, Any]] = []
@@ -1173,6 +1520,152 @@ class Coordinator:
         self._save(state)
         return {"released": True, "lease_id": lease_id, "idempotent": False}
 
+    def acquire_heavy_gate(
+        self,
+        snapshot: Mapping[str, Any],
+        state: dict[str, Any],
+        lane_id: str,
+        gate: str,
+        resources: Sequence[str],
+        provider: ResourceProvider | None,
+    ) -> dict[str, Any] | None:
+        """Acquire an exclusive gate through the existing provider, or park its claimant."""
+        validate_runtime_state(state, str(self.root), self.feature)
+        if (
+            not _ID.fullmatch(gate)
+            or not resources
+            or any(not isinstance(item, str) or not item for item in resources)
+            or len(set(resources)) != len(resources)
+        ):
+            raise ExecutorError("invalid heavy gate request")
+        lane = state.get("lanes", {}).get(lane_id)
+        if not isinstance(lane, Mapping):
+            raise ExecutorError("heavy gate references unknown lane")
+        gates = state.setdefault("heavy_gates", {})
+        if not isinstance(gates, dict):
+            raise StateError("invalid heavy gate state")
+        prior = gates.get(gate)
+        if isinstance(prior, Mapping):
+            if prior.get("lane") != lane_id or prior.get("resources") != list(resources):
+                raise ExecutorError("foreign or mismatched heavy gate lease")
+            if prior.get("released") is True:
+                return None
+            return dict(prior)
+        if any(
+            isinstance(value, Mapping)
+            and value.get("released") is not True
+            and set(value.get("resources", [])) & set(resources)
+            for value in gates.values()
+        ):
+            return None
+        if provider is None:
+            raise ExecutorError("missing resource provider")
+        key = idempotency_key(self.feature, str(lane["slice"]), str(lane["task"]), f"gate-acquire-{gate}", state["source_git_head"])
+        action = state["actions"].get(key)
+        created = action is None
+        if action is None:
+            action = {"key": key, "action": "gate_acquire", "status": "pending", "lane": lane_id}
+            state["actions"][key] = action
+        self._save(state)
+        request = {
+            "repository": str(self.root),
+            "feature": self.feature,
+            "slice": lane["slice"],
+            "task": lane["task"],
+            "gate": gate,
+            "worktree": lane.get("worktree_path", ""),
+            "idempotency_key": key,
+            "resources": list(resources),
+        }
+        action["request"] = {**request, "operation": "acquire"}
+        try:
+            if action.get("status") in {"accepted", "released"}:
+                receipt = action.get("receipt")
+            elif created:
+                receipt = provider.acquire(request, set())
+            else:
+                receipt = self._reconcile_pending(provider, action)
+            if not isinstance(receipt, Mapping):
+                raise ExecutorError("heavy gate lease is unavailable")
+            if receipt.get("gate", gate) != gate:
+                raise ExecutorError("foreign heavy gate receipt")
+            lease = normalize_lease_receipt(receipt, request, set())
+        except ExecutorError:
+            action["status"] = "failed"
+            self._save(state)
+            raise
+        lease.update({
+            "feature": self.feature,
+            "slice": lane["slice"],
+            "task": lane["task"],
+            "gate": gate,
+            "lane": lane_id,
+            "operation": "acquire",
+            "status": "active",
+            "released": False,
+        })
+        gates[gate] = lease
+        self._accept(action, external_id=lease["lease_id"], receipt=lease)
+        self._save(state)
+        return dict(lease)
+
+    def release_heavy_gate(
+        self,
+        snapshot: Mapping[str, Any],
+        state: dict[str, Any],
+        lane_id: str,
+        gate: str,
+        provider: ResourceProvider | None,
+    ) -> dict[str, Any]:
+        validate_runtime_state(state, str(self.root), self.feature)
+        gates = state.get("heavy_gates")
+        lease = gates.get(gate) if isinstance(gates, Mapping) else None
+        if not isinstance(lease, Mapping) or lease.get("lane") != lane_id:
+            raise ExecutorError("foreign or mismatched heavy gate lease")
+        lease_id = lease.get("lease_id")
+        resources = lease.get("resources")
+        if not isinstance(lease_id, str) or not isinstance(resources, list):
+            raise ExecutorError("malformed heavy gate lease")
+        if lease.get("released") is True:
+            return {"lease_id": lease_id, "released": True, "idempotent": True}
+        if provider is None:
+            raise ExecutorError("missing resource provider")
+        lane = state["lanes"].get(lane_id)
+        if not isinstance(lane, Mapping):
+            raise ExecutorError("heavy gate references unknown lane")
+        key = idempotency_key(self.feature, str(lane["slice"]), str(lane["task"]), f"gate-release-{gate}", state["source_git_head"])
+        action = state["actions"].get(key)
+        created = action is None
+        if action is None:
+            action = {"key": key, "action": "gate_release", "status": "pending", "lane": lane_id}
+            state["actions"][key] = action
+        self._save(state)
+        request = {
+            "repository": str(self.root), "feature": self.feature, "slice": lane["slice"],
+            "task": lane["task"], "gate": gate, "worktree": lane.get("worktree_path", ""),
+            "idempotency_key": key, "resources": resources,
+        }
+        action["request"] = {**request, "operation": "release"}
+        receipt = action.get("receipt") if action.get("status") in {"accepted", "released"} else (
+            provider.release(request, lease_id) if created else self._reconcile_pending(provider, action)
+        )
+        if not isinstance(receipt, Mapping) or receipt.get("lease_id") != lease_id or receipt.get("released") is not True:
+            action["status"] = "failed"
+            self._save(state)
+            raise ExecutorError("heavy gate release is uncorrelated")
+        lease = dict(lease)
+        lease["status"] = "released"
+        lease["released"] = True
+        gates[gate] = lease
+        self._accept(action, external_id=lease_id, receipt={"lease_id": lease_id, "released": True})
+        action["status"] = "released"
+        self._save(state)
+        return {"lease_id": lease_id, "released": True, "idempotent": False}
+
+    # Explicit names make the public executor surface easy for gate runners to discover.
+    acquire_gate_lease = acquire_heavy_gate
+    release_gate_lease = release_heavy_gate
+
     def start(
         self,
         *,
@@ -1192,6 +1685,8 @@ class Coordinator:
         self._prepare_repository()
         plan = self._plan()
         lanes = list(plan.get("lanes", []))
+        if plan.get("decision") == "blocked" and not lanes:
+            return _serial_result(self.feature, mode, "plan-blocked", lanes)
         if plan.get("fallback"):
             return _serial_result(self.feature, mode, "plan-fallback", lanes)
         try:
@@ -1202,6 +1697,21 @@ class Coordinator:
             state = new_runtime_state(str(self.root), self.feature, mode, snapshot["git_head"])
         if state["source_git_head"] != snapshot["git_head"]:
             return _serial_result(self.feature, mode, "source-head-changed", lanes)
+        if mode == "assisted" and any(
+            any(str(reason).startswith("writer-cap:") for reason in item.get("reasons", []))
+            for item in plan.get("blocked", [])
+            if isinstance(item, Mapping)
+        ):
+            configured_cap = snapshot["parallelization"]["max_workers"]
+            expanded_cap = (
+                snapshot["parallelization"]["automatic_ceiling"]
+                if configured_cap == "auto" else configured_cap
+            )
+            expanded = self._plan_for_capacity(expanded_cap, state)
+            if not expanded.get("fallback"):
+                plan = expanded
+                lanes = list(plan.get("lanes", []))
+        lanes = self._schedule_lanes(snapshot, plan, state)
         self._source_head = snapshot["git_head"]
         seen_slices: set[str] = set()
         provider: ResourceProvider | None = None
@@ -1211,11 +1721,12 @@ class Coordinator:
             if isinstance(slice_id, str):
                 seen_slices.add(slice_id)
             lane_id = str(plan_lane.get("id", ""))
-            try:
-                destination = self._worktree_destination(plan_lane)
-                destinations[lane_id] = bounded_path(_git_common_dir(self.root).parent.parent, destination)
-            except (ExecutorError, PathBoundaryError):
-                return _serial_result(self.feature, mode, "unsafe-worktree-path", lanes)
+            if plan_lane.get("worktree", True) is True:
+                try:
+                    destination = self._worktree_destination(plan_lane)
+                    destinations[lane_id] = bounded_path(_git_common_dir(self.root).parent.parent, destination)
+                except (ExecutorError, PathBoundaryError):
+                    return _serial_result(self.feature, mode, "unsafe-worktree-path", lanes)
             resources = self._lane_resources(plan_lane)
             if resources is None:
                 return _serial_result(self.feature, mode, "missing-resource-metadata", lanes)
@@ -1249,7 +1760,15 @@ class Coordinator:
                     continue
             prior_lane_ids.append(lane_id)
             if existing is None:
-                state["lanes"][lane_id] = {"slice": slice_id, "task": task_id, "state": "ready", "resources": resources}
+                state["lanes"][lane_id] = {
+                    "slice": slice_id,
+                    "task": task_id,
+                    "state": "ready",
+                    "resources": resources,
+                    "declared_paths": list(plan_lane.get("declared_paths", []))
+                    if isinstance(plan_lane.get("declared_paths", []), list) else [],
+                    "worktree": plan_lane.get("worktree", True) is True,
+                }
                 existing = state["lanes"][lane_id]
             elif existing.get("slice") != slice_id or existing.get("task") != task_id:
                 return _serial_result(self.feature, mode, "mismatched-lane-receipt", lanes)
@@ -1298,28 +1817,37 @@ class Coordinator:
                 retry_acquire_created = False
             if existing["state"] in {"complete", "failed", "serial"}:
                 continue
-            worktree_key, worktree_action, worktree_created = self._record_action(state, lane_id, existing, "worktree")
-            self._save(state)
-            if worktree_action["status"] == "pending":
-                try:
-                    if not worktree_created:
-                        receipt = self._reconcile_pending(adapter, worktree_action)
-                        if receipt is None:
-                            raise ExecutorError("unreconciled pending action: worktree")
-                    else:
-                        receipt = self._create_worktree(destinations[lane_id])
-                    if not isinstance(receipt, Mapping):
-                        raise ExecutorError("malformed worktree receipt")
-                    self._validate_worktree_receipt(receipt, destinations[lane_id], state["source_git_head"])
-                    bounded_path(_git_common_dir(self.root).parent.parent, receipt["worktree_path"])
-                    self._accept(worktree_action, external_id=receipt.get("worktree_id"), receipt=dict(receipt))
-                    existing.update({key: receipt[key] for key in ("worktree_id", "gitdir", "worktree_path", "branch", "pre_head") if key in receipt})
-                except Exception as exc:
-                    existing["fallback_reason"] = "worktree:" + str(exc)
-                    if existing["state"] in {"ready", "running"}:
-                        transition_lane(state, lane_id, "serial", expected=existing["state"])
-                    self._save(state)
-                    return _serial_result(self.feature, mode, "unreconciled-pending" if not worktree_created else "worktree-failed", lanes)
+            if plan_lane.get("worktree", True) is True:
+                worktree_key, worktree_action, worktree_created = self._record_action(state, lane_id, existing, "worktree")
+                self._save(state)
+                if worktree_action["status"] == "pending":
+                    try:
+                        if not worktree_created:
+                            receipt = self._reconcile_pending(adapter, worktree_action)
+                            if receipt is None:
+                                raise ExecutorError("unreconciled pending action: worktree")
+                        else:
+                            receipt = self._create_worktree(destinations[lane_id])
+                        if not isinstance(receipt, Mapping):
+                            raise ExecutorError("malformed worktree receipt")
+                        self._validate_worktree_receipt(receipt, destinations[lane_id], state["source_git_head"])
+                        bounded_path(_git_common_dir(self.root).parent.parent, receipt["worktree_path"])
+                        self._accept(worktree_action, external_id=receipt.get("worktree_id"), receipt=dict(receipt))
+                        existing.update({key: receipt[key] for key in ("worktree_id", "gitdir", "worktree_path", "branch", "pre_head") if key in receipt})
+                    except Exception as exc:
+                        existing["fallback_reason"] = "worktree:" + str(exc)
+                        if existing["state"] in {"ready", "running"}:
+                            transition_lane(state, lane_id, "serial", expected=existing["state"])
+                        self._save(state)
+                        return _serial_result(self.feature, mode, "unreconciled-pending" if not worktree_created else "worktree-failed", lanes)
+            else:
+                existing.update({
+                    "worktree_id": "integration",
+                    "worktree_path": str(self.root),
+                    "branch": "(integration)",
+                    "pre_head": state["source_git_head"],
+                })
+                self._save(state)
             if plan_lane.get("sync_after"):
                 try:
                     sync_status = self._sync_lane(state, lane_id, plan_lane, existing)
@@ -1359,6 +1887,13 @@ class Coordinator:
                         result = _serial_result(self.feature, mode, existing.get("fallback_reason", "worker-failed"), lanes)
                         result["state"] = state
                         return result
+                    continue
+            if existing.get("state") == "running":
+                worker_key = idempotency_key(self.feature, slice_id, task_id, "worker", state["source_git_head"])
+                worker_action = state["actions"].get(worker_key)
+                if isinstance(worker_action, Mapping) and worker_action.get("status") in {"accepted", "released"}:
+                    # A terminal serial worker waits here for its fresh verifier receipt;
+                    # never issue the same worker again just to consume that proof.
                     continue
             if resources:
                 if provider is None:
@@ -1468,7 +2003,11 @@ class Coordinator:
                     except ExecutorError:
                         return _serial_result(self.feature, mode, "cleanup-failed", lanes)
                 if terminal and existing["state"] == "running":
-                    if mode == "full" and not isinstance(existing.get("current_head"), str):
+                    if (
+                        mode == "assisted"
+                        and not isinstance(existing.get("current_head"), str)
+                        and (existing.get("worktree") is False or isinstance(existing.get("gitdir"), str))
+                    ):
                         try:
                             self._record_producer_head(state, lane_id, existing)
                         except ExecutorError as exc:
@@ -1476,8 +2015,25 @@ class Coordinator:
                             transition_lane(state, lane_id, "serial", expected="running")
                             self._save(state)
                             return _serial_result(self.feature, mode, "producer-head-failed", lanes)
-                    transition_lane(state, lane_id, "complete", expected="running")
+                    if existing.get("worktree") is False:
+                        existing["technical_verifier_pending"] = True
+                    else:
+                        transition_lane(state, lane_id, "complete", expected="running")
         self._consume_technical_verifier_receipts(state, technical_verifier_receipts)
+        self._complete_verified_serial_lanes(state, plan)
+        pending_serial = [
+            lane_id
+            for plan_lane in plan.get("lanes", [])
+            if isinstance(plan_lane, Mapping) and plan_lane.get("worktree") is False
+            for lane_id in [str(plan_lane.get("id", ""))]
+            if isinstance(state.get("lanes", {}).get(lane_id), Mapping)
+            and state["lanes"][lane_id].get("technical_verifier_pending") is True
+        ]
+        if pending_serial:
+            self._save(state)
+            result = _serial_result(self.feature, mode, "technical-verifier-required", lanes)
+            result["state"] = state
+            return result
         integration_status = self._integrate_verified_slices(state, plan)
         if integration_status == "serial":
             result = _serial_result(self.feature, mode, state.get("integration_recovery", {}).get("reason", "integration-failed"), lanes)

@@ -11,8 +11,8 @@ bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-24-parallel-slice-dispatch/session.md; docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/setup.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/resource-plan.json; docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/resource-status.json; docs/qa/evidence/2026-08-25-remediation-stall-bound/summary.json; docs/qa/evidence/2026-08-25-remediation-stall-bound/session.log
-last_report: docs/qa/reports/2026-08-25-remediation-stall-bound.md
+evidence: docs/qa/evidence/2026-08-29-hybrid-slice-execution/summary.json; docs/qa/evidence/2026-08-29-hybrid-slice-execution/commands.json
+last_report: docs/qa/reports/2026-08-29-hybrid-slice-execution.md
 overlaps:
 ---
 
@@ -26,6 +26,10 @@ resource-isolation claim is made.
 `SRH-02` adds a deliberate live-state exception: `remediation.stall_attempts` appears in current CLI
 JSON, never in `workflow.json`, and may change on resume without changing frozen route, cadence, or
 snapshot bytes.
+
+The hybrid-slice feature changes the public configuration to schema v3 with `assisted` and
+`disabled` modes and `max_workers`; this scenario is reset to `untested` pending fresh QA of the
+new surface.
 
 The 2026-08-24 evidence remains historical. The live-output and snapshot-boundary change at
 `cada159` was re-walked through the CLI/manual path on 2026-08-25. Resolution reported `4`, resume

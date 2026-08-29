@@ -2,14 +2,14 @@
 
 ## Handoff
 
-- **Feature**: `.specs/features/parallel-slice-executor`
-- **Phase / Task**: Complete / release v0.6.0
-- **Completed**: T1, T2, T2R1-T2R5, T3, T3R1, T3R2, TDR1, TDR2, T4, T4R1, T4R2, T5, T6, T7, T7R1-T7R5; grouped C-D round 1 and post-cap round 2 remediation; Slice A-C Technical Verifiers PASS; grouped deep-review A-B closed
+- **Feature**: `.specs/features/hybrid-slice-execution`
+- **Phase / Task**: Execute / T13 — authorize halted audit generations
+- **Completed**: T1-T7; CP-S1 and CP-S2 PASS; CP-S4 generation 1 halted after three failed remediations; resumed planning recorded in AD-016
 - **In-progress** (file:line): none
-- **Next step**: Deliver v0.6.0 locally; remote publication remains separately authorized.
-- **Blockers**: External Orca/Codex lifecycle remains terminal `BLOCKED-VERIFY`; this is non-blocking for local release readiness, and no author-run Orca pilot is claimed.
-- **Uncommitted files**: none.
-- **Branch**: `feat/parallel-slice-executor`
+- **Next step**: Implement T13, open generation 2 through the scripted authorization reference, then implement T14 and dispatch a fresh independent CP-S4 Technical Verifier.
+- **Blockers**: CP-S4 remains blocked until generation 2 receives independent PASS. Live Orca host verification remains `blocked-verify`; fake physical ledgers and adoption dry-run own automated evidence.
+- **Uncommitted files**: resumed planning package until commit `docs(workflow): plan assisted halt recovery`.
+- **Branch**: `feat/hybrid-slice-execution`
 
 ## Decisions
 
@@ -181,7 +181,7 @@
 - **Scope**: `.my-workflow.toml`, frozen feature workflow snapshots, workflow-config planning,
   autonomous orchestration, and Verifier/deep-review/QA integration.
 - **Date**: 2026-08-24
-- **Status**: active
+- **Status**: superseded by AD-015
 
 ### AD-012
 
@@ -220,3 +220,43 @@
   versions of one blocker remain bounded and all other halt conditions still apply.
 - **Scope**: Technical Verifier fix/reverify loops, autonomous halt decisions, TLC verifier guidance,
   review workflow documentation, and their contract tests.
+- **Date**: 2026-08-28
+- **Status**: superseded by AD-016
+
+### AD-015
+
+- **Decision**: Replace the vendored TLC phase-batch delegation with a workflow-owned,
+  CC-BY-4.0-attributed spec-driven skill that dispatches vertical slices through hybrid assisted
+  execution. Only concurrent writers receive worktrees; tasks within a slice remain sequential;
+  fresh Verifier, Deep Review, and QA sessions remain independent. Adaptive concurrency starts at
+  two workers and may scale one lane at a time to a default ceiling of four when a machine-only
+  health proof and resource leases permit it. Context cleanup and slice-scoped packets are part of
+  the foundation, not a later optimization. This decision supersedes AD-011's opt-in modes,
+  unchanged-TLC premise, and default-disabled policy; AD-012 through AD-014 remain active.
+- **Reason**: The current TLC skill teaches sequential phase batches, while the approved workflow
+  uses safe vertical slices as the unit of concurrent delivery. A single, lean contract removes
+  contradictory scheduling instructions and reduces repeated context.
+- **Trade-off**: The workflow owns a maintained adaptation and additional scheduler/resource
+  machinery. Independent proof still consumes tokens, and unavailable health evidence prevents
+  scaling above the safe baseline.
+- **Scope**: Agent instructions, spec-driven skill and references, role packets, workflow snapshot
+  schema, planner/executor scheduling, resource provider and health probe, worktree lifecycle,
+  adoption, verification, QA, and context-budget evidence.
+- **Date**: 2026-08-28
+- **Status**: active
+
+### AD-016
+
+- **Decision**: A halted blocker fingerprint may resume only after explicit human authorization
+  creates a new audit generation under that same fingerprint. The prior generation, cumulative
+  failure count, halt event, and authorization reference remain immutable; only the new
+  generation-local failure count starts at zero, and only a fresh independent PASS may close it.
+- **Reason**: A human must be able to authorize a redesigned remediation after a legitimate halt
+  without erasing why the autonomous run stopped or bypassing convergence by rewording the finding.
+- **Trade-off**: Convergence state gains generation history and an explicit resume operation; a
+  halted path cannot continue through JSON edits, a replacement fingerprint, or an ordinary result
+  record.
+- **Scope**: Technical Verifier convergence state, autonomous halt/resume decisions, review
+  guidance, and their contract tests. Supersedes AD-014.
+- **Date**: 2026-08-28
+- **Status**: active

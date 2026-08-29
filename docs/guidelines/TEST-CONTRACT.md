@@ -86,7 +86,7 @@ already owns it:
 
 ## Where this differs from what tlc ships
 
-`tlc-spec-driven` generates a Test Coverage Matrix during Tasks — a per-layer policy
+`workflow-spec-driven` generates a Test Coverage Matrix during Tasks — a per-layer policy
 (`Service → unit → all branches; 1:1 to spec ACs`). Keep it: it decides *which layer* and *which
 command*. This contract adds *which cases*, so the matrix's promise becomes countable. Both exist;
 the matrix sets the shape, `tests.md` enumerates the content.

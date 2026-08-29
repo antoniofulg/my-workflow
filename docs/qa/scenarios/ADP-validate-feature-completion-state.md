@@ -5,7 +5,7 @@ title: Validate a feature completion report through the public CLI
 persona: Workflow adopter
 journey: J-adopt-workflow
 expected: The public validate_state CLI honors an explicit Verdict over legacy Result text and accepts a supported legacy Result PASS report.
-entry_points: .agents/skills/tlc-spec-driven/scripts/validate_state.py
+entry_points: .agents/skills/workflow-spec-driven/scripts/validate_state.py
 qa_status: pass
 bug_ids:
 fix_status:
