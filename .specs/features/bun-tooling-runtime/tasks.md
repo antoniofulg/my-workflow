@@ -77,10 +77,10 @@ S2 and S3 may open together only after CP-S1 passes. Tasks inside each slice rem
 - Skill: ponytail
 
 **Done when**:
-- [ ] Knowledge script executes the TypeScript entrypoint with Bun.
-- [ ] External `yaml` dependency and import are absent.
-- [ ] Existing valid/malformed frontmatter outcomes remain exact.
-- [ ] `bun test tools/knowledge tools/shared` and the existing knowledge CLI contract executed through `bun run knowledge` exit 0.
+- [x] Knowledge script executes the TypeScript entrypoint with Bun.
+- [x] External `yaml` dependency and import are absent.
+- [x] Existing valid/malformed frontmatter outcomes remain exact.
+- [x] `bun test tools/knowledge tools/shared` and the existing knowledge CLI contract executed through `bun run knowledge` exit 0.
 
 **Tests**: UT-002, IT-005
 **Gate**: Quick

@@ -96,8 +96,8 @@ that the workflow never silently reintroduces npm or npx.
 | BUN-03 | P1: Bun-only tooling | Tasks | Verified by T1 |
 | BUN-04 | P1: Bun-only tooling | Tasks | Verified by T1 |
 | BUN-05 | P1: Bun-only tooling | Tasks | Verified by T1 |
-| BUN-06 | P1: Bun-only tooling | Tasks | In Tasks |
-| BUN-07 | P1: Bun-only tooling | Tasks | In Tasks |
+| BUN-06 | P1: Bun-only tooling | Tasks | Verified by T2 |
+| BUN-07 | P1: Bun-only tooling | Tasks | Verified by T2 |
 | BUN-08 | P1: Bun-only tooling | Tasks | Verified by T1 |
 | BUN-09 | P1: Bun package boundaries | Tasks | In Tasks |
 | BUN-10 | P1: Bun package boundaries | Tasks | In Tasks |

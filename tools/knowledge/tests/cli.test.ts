@@ -19,7 +19,7 @@ function makeBundle(files: Record<string, string>): string {
 }
 
 function runKnowledgeScript(...args: string[]) {
-  return spawnSync("npm", ["run", "--silent", "knowledge", "--", ...args], {
+  return spawnSync("bun", ["run", "knowledge", "--", ...args], {
     cwd: repositoryRoot,
     encoding: "utf8",
   });
@@ -31,18 +31,18 @@ afterEach(() => {
   }
 });
 
-// Each dedicated knowledge case shells out to `npm run knowledge`, so it pays npm and tsx startup
-// on top of the check itself. That is a couple of seconds alone during parallel
-// load, well past the 5s default. The timeout is generous on purpose: a regression here should
+// Each dedicated knowledge case shells out to `bun run knowledge`, so it pays Bun startup on top
+// of the check itself. The timeout is generous on purpose: a regression here should
 // read as a failed assertion, never as a flaky clock.
-describe("npm run knowledge", { timeout: 30_000 }, () => {
+describe("bun run knowledge", { timeout: 30_000 }, () => {
   it("keeps repository-bundle validation out of the full structural gate", () => {
     const manifest = JSON.parse(
       readFileSync(join(repositoryRoot, "package.json"), "utf8"),
-    ) as { scripts?: { test?: string } };
+    ) as { scripts?: { test?: string; knowledge?: string } };
 
     expect(manifest.scripts?.test).toContain("bun test");
     expect(manifest.scripts?.test).not.toContain("knowledge");
+    expect(manifest.scripts?.knowledge).toBe("bun tools/knowledge/src/cli.ts");
   });
 
   it("exits non-zero and names the offending concept when frontmatter is missing", () => {
