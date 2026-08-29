@@ -130,7 +130,7 @@ def plan_lines(locked: list[LockedSkill], target: Path) -> list[str]:
         "Plan (no network access and no target writes):",
     ]
     for skill in locked:
-        lines.append("  " + " ".join(cli_command(skill, "npx")))
+        lines.append("  " + " ".join(cli_command(skill, "bunx")))
     lines.append(f"Re-run for the authorized target: {target} --yes")
     return lines
 
@@ -519,10 +519,11 @@ def resolve_active_binary(
     raise InstallationError(f"trusted {name} executable unavailable")
 
 
-def cli_command(skill: LockedSkill, npx: str) -> list[str]:
+def cli_command(skill: LockedSkill, bunx: str) -> list[str]:
     return [
-        npx,
-        "--yes",
+        bunx,
+        "--bun",
+        "--no-install",
         f"skills@{CLI_VERSION}",
         "add",
         f"{skill.source}#{skill.ref}",
@@ -684,15 +685,15 @@ def perform_installation(target: Path, locked: list[LockedSkill], pack_root: Pat
                 Path(os.path.abspath(pack_root)),
                 pack_root.resolve(),
             )
-            npx, npx_directories = resolve_active_binary("npx", original_path, untrusted_roots)
+            bunx, bunx_directories = resolve_active_binary("bunx", original_path, untrusted_roots)
             git, git_directories = resolve_active_binary("git", original_path, untrusted_roots)
             environment = pinned_git_environment(
                 snapshot / "git-wrapper",
                 git,
-                tuple(dict.fromkeys((*npx_directories, *git_directories))),
+                tuple(dict.fromkeys((*bunx_directories, *git_directories))),
             )
             for skill in locked:
-                command = cli_command(skill, npx)
+                command = cli_command(skill, bunx)
                 result = subprocess.run(command, cwd=staging, check=False, env=environment)
                 if result.returncode != 0:
                     raise InstallationError(f"skills CLI failed for {skill.name}")

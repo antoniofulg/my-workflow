@@ -101,9 +101,9 @@ S2 and S3 may open together only after CP-S1 passes. Tasks inside each slice rem
 - Skill: ponytail
 
 **Done when**:
-- [ ] Every active skills CLI call uses exact locked Bun argv.
-- [ ] Missing local executable produces non-zero without install/fetch fallback.
-- [ ] Owning Python suite and `bun test` exit 0.
+- [x] Every active skills CLI call uses exact locked Bun argv.
+- [x] Missing local executable produces non-zero without install/fetch fallback.
+- [x] Owning Python suite and `bun test` exit 0.
 
 **Tests**: UT-003, IT-007, SEC-001
 **Gate**: Scoped

@@ -4,3 +4,4 @@
 - T1 leaves `tsx` and `yaml` installed for the T2 knowledge-boundary transition; Vitest and npm's lockfile are removed.
 - T2 removes `tsx` and `yaml`; `bun run knowledge` reports repository gaps as warnings and exits 0.
 - S1 verification requires durable Bun manifest/discovery/import/authority assertions and a fail-closed version sensor; adoption IT-005/BUN-13 belongs exclusively to T4.
+- T3 routes the pinned external security installer through trusted `bunx --bun --no-install` only; missing Bun tooling fails closed without npm/npx fallback.
