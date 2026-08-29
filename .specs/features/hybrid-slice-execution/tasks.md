@@ -544,9 +544,9 @@ ignored `docs/qa/evidence/2026-08-29-hybrid-slice-execution/`
 - [x] Nine edge probes pass; current scenario evidence and report paths reload independently.
 - [x] Live Orca, external skill installation, network publication, and product/runtime edits remain
   absent from this QA session.
-- [ ] Closing gate exits 0. Blocked by
-  `BUG-20260829-final-qa-pass-conflicts-with-adoption-gate`; current gate exits 1 after 114/114
-  Vitest tests because the adoption suite requires the freshly passing scenario to stay `untested`.
+- [ ] Closing gate exits 0. The adoption gate assertion now accepts the current `pass` verdict and
+  dated evidence/report while preserving the live Orca `blocked-verify` assertion; fresh QA retest
+  remains pending before this task can close.
 
 **Gate:** `npm_config_offline=true npm run test:all`
 **Commit:** `test(qa): verify hybrid adoption workflow`

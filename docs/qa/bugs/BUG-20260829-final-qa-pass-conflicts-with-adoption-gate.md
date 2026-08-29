@@ -1,6 +1,6 @@
 # BUG-20260829-final-qa-pass-conflicts-with-adoption-gate
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** major
 - **Scenario:** `ADP-adopt-workflow-safely`
 - **Expected:** After fresh QA proves adoption and updates its scenario to `qa_status: pass` with
@@ -30,3 +30,9 @@ Update the owning adoption suite to validate the terminal offline invariant: ado
 with the 2026-08-29 evidence/report, while live Orca remains `blocked-verify` with its upstream
 reason. Do not weaken or remove the live-host assertion. Run the full gate, then use a fresh QA
 Execute Verifier to re-walk the adoption charter and its package/configuration canaries.
+
+## Fix
+
+The canonical adoption assertion now accepts the current independently verified `pass` verdict and
+requires its dated evidence/report paths. The live Orca assertion remains `blocked-verify`. A fresh
+Verifier retest is still pending; this fix records no retest result.

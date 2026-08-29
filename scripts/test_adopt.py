@@ -538,7 +538,9 @@ def test_qa_registry_keeps_fake_proof_current_and_live_orca_blocked() -> None:
     fallback = (ROOT / "docs/qa/scenarios/CFG-fallback-unproven-parallel-execution.md").read_text(encoding="utf-8")
     live = (ROOT / "docs/qa/scenarios/QAS-run-resource-free-parallel-orca-slices.md").read_text(encoding="utf-8")
     assert "tools/orca_assisted_probe.py" in adoption
-    assert "qa_status: untested" in adoption
+    assert "qa_status: pass" in adoption
+    assert "docs/qa/evidence/2026-08-29-hybrid-slice-execution/summary.json" in adoption
+    assert "docs/qa/reports/2026-08-29-hybrid-slice-execution.md" in adoption
     assert "qa_status: pass" in fallback
     assert "qa_status: blocked-verify" in live
     assert "upstream" in live.lower()
