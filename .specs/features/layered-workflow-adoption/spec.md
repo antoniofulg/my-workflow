@@ -86,7 +86,7 @@ The adopter installs the entire workflow as one destructive bundle. Existing pro
 
 1. WHEN `status TARGET` reads a valid installation THEN it SHALL report each installed layer and every managed file as clean, missing, modified, or retained.
 2. WHEN all recorded managed bytes and blocks match THEN status SHALL exit `0`; WHEN any are missing, modified, or conflicting THEN it SHALL exit `1` without writes.
-3. IF the manifest is missing, malformed, has an unsupported schema, duplicate path, or path escaping the target THEN status and apply SHALL exit `2` without writes.
+3. IF the manifest is missing, malformed, has an unsupported schema, duplicate JSON key, non-normalized path, or path escaping the target THEN status and apply SHALL exit `2` without writes.
 
 **Independent Test**: Apply a layer, mutate and remove recorded files one at a time, and assert exact status output/codes with an unchanged target snapshot.
 

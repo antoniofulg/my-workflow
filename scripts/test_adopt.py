@@ -693,13 +693,46 @@ def test_public_publication_publishes_packets_before_manifest_last() -> None:
     target = temporary_target()
     published: list[str] = []
     try:
-        with patch.object(adopt, "_atomic_write", side_effect=lambda path, content: published.append(path.relative_to(target).as_posix())):
+        def record_write(path: Path, content: bytes) -> None:
+            published.append(f"write:{path.relative_to(target).as_posix()}")
+
+        def record_cleanup(root: Path) -> None:
+            published.append("cleanup:obsolete")
+
+        def record_legacy(root: Path) -> None:
+            published.append("cleanup:legacy")
+
+        def record_links(root: Path) -> None:
+            published.append("links:claude")
+
+        with patch.object(adopt, "_atomic_write", side_effect=record_write), patch.object(adopt, "remove_obsolete_managed_paths", side_effect=record_cleanup), patch.object(adopt, "remove_legacy_managed_tests", side_effect=record_legacy), patch.object(adopt, "_link_claude_skills", side_effect=record_links):
             assert adopt.main(["adopt.py", "apply", str(target), "--layers", "core", "--skip-agents"]) == 0
-        assert published[-1] == ".my-workflow/adoption.json"
-        runtime = [index for index, path in enumerate(published) if path.startswith((".claude/agents/", ".codex/agents/", ".cursor/agents/"))]
+        assert published[-1] == "write:.my-workflow/adoption.json"
+        runtime = [index for index, event in enumerate(published) if any(event.startswith(f"write:{prefix}") for prefix in (".claude/agents/", ".codex/agents/", ".cursor/agents/"))]
         assert runtime and max(runtime) < len(published) - 1
+        assert all(index < len(published) - 1 for index in range(len(published) - 1))
     finally:
         shutil.rmtree(target)
+
+
+def test_cleanup_or_link_failure_rolls_back_live_target_and_manifest() -> None:
+    for helper in ("remove_legacy_managed_tests", "_link_claude_skills"):
+        target = temporary_target()
+        try:
+            assert invoke(target, "apply", "--layers", "core").returncode == 0
+            before = snapshot(target)
+            stderr = io.StringIO()
+            with patch.object(adopt, helper, side_effect=RuntimeError("injected publication failure")), contextlib.redirect_stderr(stderr):
+                try:
+                    adopt.main(["adopt.py", "apply", str(target), "--layers", "core"])
+                except SystemExit as exc:
+                    assert exc.code == 2
+                else:
+                    raise AssertionError("injected publication failure must halt")
+            assert snapshot(target) == before
+            assert "publication failed" in stderr.getvalue()
+        finally:
+            shutil.rmtree(target)
 
 
 def test_distinct_manifest_keys_with_same_normalized_path_are_rejected() -> None:
@@ -856,6 +889,7 @@ TESTS = (
     test_existing_config_drives_all_native_values_and_preserves_non_model_bytes,
     test_invalid_fixed_dependency_graph_is_a_controlled_error_before_target_access,
     test_public_publication_publishes_packets_before_manifest_last,
+    test_cleanup_or_link_failure_rolls_back_live_target_and_manifest,
     test_distinct_manifest_keys_with_same_normalized_path_are_rejected,
 )
 

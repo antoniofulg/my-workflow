@@ -45,7 +45,7 @@ flowchart LR
 ### Manifest and action classifier
 
 - **Location**: `scripts/adopt.py`
-- **Purpose**: Validate schema/path/hash ownership and classify each effective file without writing.
+- **Purpose**: Validate schema, exact JSON-key uniqueness, canonical path/hash ownership and classify each effective file without writing.
 - **Rule**: A recorded managed file is writable only when current bytes equal `installed_sha256`; an unrecorded existing file is claimable only when equal to source.
 - **Consumer ownership**: Missing-only destinations are preserved and recorded as `consumer`; status does not hash their whole content as workflow-managed.
 

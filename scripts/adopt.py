@@ -248,12 +248,6 @@ def load_manifest(root: Path) -> dict[str, Any]:
         raise _error("manifest layers must be unique and catalog-ordered")
     if not isinstance(data["files"], dict) or not isinstance(data["blocks"], dict):
         raise _error("manifest files and blocks must be objects")
-    normalized_paths: set[str] = set()
-    for relative in data["files"]:
-        normalized = PurePosixPath(relative).as_posix()
-        if normalized in normalized_paths:
-            raise _error(f"manifest contains duplicate normalized path: {relative}")
-        normalized_paths.add(normalized)
     for relative, record in data["files"].items():
         _relative_path(relative)
         if not isinstance(record, dict) or set(record) != {"layer", "ownership", "source_sha256", "installed_sha256"}:
@@ -496,6 +490,43 @@ def _atomic_write(path: Path, content: bytes) -> None:
             temporary.unlink()
 
 
+def _tree_snapshot(root: Path) -> dict[str, tuple[str, bytes | str | None]]:
+    snapshot: dict[str, tuple[str, bytes | str | None]] = {}
+    for path in sorted(root.rglob("*")):
+        relative = path.relative_to(root).as_posix()
+        if path.is_symlink():
+            snapshot[relative] = ("symlink", os.readlink(path))
+        elif path.is_dir():
+            snapshot[relative] = ("directory", None)
+        else:
+            snapshot[relative] = ("file", path.read_bytes())
+    return snapshot
+
+
+def _remove_entry(path: Path) -> None:
+    if path.is_symlink() or path.is_file():
+        path.unlink()
+    elif path.is_dir():
+        for child in path.iterdir():
+            _remove_entry(child)
+        path.rmdir()
+
+
+def _restore_tree(root: Path, snapshot: dict[str, tuple[str, bytes | str | None]]) -> None:
+    for child in list(root.iterdir()):
+        _remove_entry(child)
+    for relative, (kind, value) in sorted(snapshot.items(), key=lambda item: (len(PurePosixPath(item[0]).parts), item[0])):
+        path = root / relative
+        if kind == "directory":
+            path.mkdir(parents=True, exist_ok=True)
+        elif kind == "symlink":
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.symlink_to(value)
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(value if isinstance(value, bytes) else b"")
+
+
 def _link_claude_skills(root: Path) -> None:
     agents = root / ".agents/skills"
     if not agents.is_dir():
@@ -652,11 +683,22 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, indent=2, sort_keys=True) if args.json else _text_result(result))
         if args.command == "plan" or result["conflicts"]:
             return 1 if result["conflicts"] else 0
-        for relative, content in sorted(staged.items(), key=lambda item: _publication_order(item[0])):
-            _atomic_write(root / relative, content)
-        remove_obsolete_managed_paths(root)
-        remove_legacy_managed_tests(root)
-        _link_claude_skills(root)
+        previous = _tree_snapshot(root)
+        try:
+            for relative, content in sorted(staged.items(), key=lambda item: _publication_order(item[0])):
+                if relative == ".my-workflow/adoption.json":
+                    continue
+                _atomic_write(root / relative, content)
+            remove_obsolete_managed_paths(root)
+            remove_legacy_managed_tests(root)
+            _link_claude_skills(root)
+            _atomic_write(root / ".my-workflow/adoption.json", staged[".my-workflow/adoption.json"])
+        except Exception as exc:
+            try:
+                _restore_tree(root, previous)
+            except OSError as rollback_error:
+                raise AdoptionError(f"publication failed and rollback failed: {rollback_error}") from exc
+            raise AdoptionError(f"publication failed before the adoption manifest was published: {exc}") from exc
         if not args.json:
             print(f"adopted layers into {root}")
             installer = source_root / "scripts/install_security_skills.py"

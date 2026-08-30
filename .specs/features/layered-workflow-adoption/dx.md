@@ -70,7 +70,7 @@ Arrays use deterministic layer/path ordering. Diagnostics never mix into stdout.
 }
 ```
 
-No timestamps. Paths are normalized repository-relative POSIX paths. Unknown keys, layers, ownership values, hashes, duplicate normalized paths, and escapes are failures.
+No timestamps. Paths are normalized repository-relative POSIX paths. Unknown keys, layers, ownership values, hashes, duplicate JSON keys, non-normalized paths, and escapes are failures.
 
 ## Managed instruction blocks
 

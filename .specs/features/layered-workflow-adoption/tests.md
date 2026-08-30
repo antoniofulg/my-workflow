@@ -7,7 +7,7 @@
 | UT-001 | Resolves fixed layers | duplicate/whitespace selections and `full` | deterministic dependency order; exact four-layer catalog |
 | UT-002 | Rejects invalid layers | unknown layer or invalid graph | exit/exception before target access |
 | UT-003 | Classifies managed actions | absent, identical, recorded-clean, recorded-drifted paths | add, claim, update, or conflict exactly |
-| UT-004 | Validates manifests | malformed schema, duplicate/escaping paths, unknown layer | rejected without target mutation |
+| UT-004 | Validates manifests | malformed schema, duplicate JSON keys, non-normalized/escaping paths, unknown layer | rejected without target mutation |
 | UT-005 | Parses managed blocks | valid, missing, duplicate, nested, edited markers | exact replace or conflict |
 
 ## Integration
@@ -38,6 +38,6 @@
 | ID | Abuse case | Attempt | Expected |
 | --- | --- | --- | --- |
 | SEC-001 | Escape through target symlink | selected leaf or parent symlink points outside | exit non-zero before writes; external referent unchanged |
-| SEC-002 | Escape through manifest path | `../`, absolute, duplicate, or symlinked managed path | manifest rejected; target and external paths unchanged |
+| SEC-002 | Escape through manifest path | `../`, absolute, duplicate JSON key, non-normalized, or symlinked managed path | manifest rejected; target and external paths unchanged |
 | SEC-003 | Hide a managed-file conflict | alter one recorded file then apply several layers | all conflicts listed; no other selected file or manifest changes |
 | SEC-004 | Corrupt instruction markers | duplicate/nest/remove a managed marker | conflict before writes; consumer prose unchanged |
