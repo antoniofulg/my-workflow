@@ -1,6 +1,6 @@
 # BUG-20260829-bun-history-gate-rejects-new-qa-charters
 
-- **Status:** open
+- **Status:** fixed
 - **Severity:** major
 - **Scenario:** `REL-report-current-workflow-release`
 - **Expected:** The documented `bun run test:all` command accepts new immutable QA charters created
@@ -32,3 +32,11 @@ Make the owning historical-integrity assertion distinguish a newly created chart
 cycle from modification of an artifact present at the frozen baseline. Keep the mutation sensor
 that changes an existing historical report. After the fix, dispatch a fresh QA Execute Verifier to
 rerun all three Bun charters from the opening gate.
+
+## Fix
+
+The historical-integrity assertion now compares changed QA paths with the paths present at the
+frozen baseline. New current-cycle charters are therefore accepted while edits and deletions of
+baseline artifacts remain rejected. The existing historical-report mutation sensor remains active.
+
+Fresh QA retest is pending; this fix does not change the scenario or retest status.

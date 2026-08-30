@@ -190,6 +190,16 @@ function changedHistoricalQaArtifacts(
   sourceRef = historicalQaBaseline,
 ): string[] {
   const gitOptions = { cwd: root, encoding: "utf8" as const };
+  const baselinePaths = new Set(
+    execFileSync(
+      "git",
+      ["ls-tree", "-r", "--name-only", sourceRef, "--", ...historicalQaRoots],
+      gitOptions,
+    )
+      .trim()
+      .split(/\r?\n/)
+      .filter(Boolean),
+  );
   const committed = execFileSync(
     "git",
     ["diff", "--name-only", `${sourceRef}...HEAD`, "--", ...historicalQaRoots],
@@ -207,6 +217,7 @@ function changedHistoricalQaArtifacts(
   );
   return [...new Set(`${committed}${working}${staged}`.split(/\r?\n/).filter(Boolean))]
     .filter(isHistoricalQaArtifact)
+    .filter((relativePath) => baselinePaths.has(relativePath))
     .sort();
 }
 
@@ -1176,6 +1187,8 @@ describe("Bun tooling runtime contract", () => {
       writeFileSync(join(root, "docs/qa/reports/historical.md"), "original\n", "utf8");
       const baseline = commitFixture(root, "baseline");
       writeFileSync(join(root, "docs/qa/reports/historical.md"), "changed\n", "utf8");
+      mkdirSync(join(root, "docs/qa/charters"), { recursive: true });
+      writeFileSync(join(root, "docs/qa/charters/current-cycle.md"), "new charter\n", "utf8");
       commitFixture(root, "historical change");
 
       expect(changedHistoricalQaArtifacts(root, baseline)).toEqual([
