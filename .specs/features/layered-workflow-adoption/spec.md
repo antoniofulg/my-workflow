@@ -143,4 +143,3 @@ The adopter installs the entire workflow as one destructive bundle. Existing pro
 - [ ] Adding `parallel` or `quality` changes only the resolved layer paths and managed instruction blocks.
 - [ ] Every conflict and unsafe path fails before mutation.
 - [ ] `full` retains the complete v0.7.0 capability set.
-

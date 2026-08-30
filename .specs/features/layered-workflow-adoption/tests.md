@@ -40,4 +40,3 @@
 | SEC-002 | Escape through manifest path | `../`, absolute, duplicate, or symlinked managed path | manifest rejected; target and external paths unchanged |
 | SEC-003 | Hide a managed-file conflict | alter one recorded file then apply several layers | all conflicts listed; no other selected file or manifest changes |
 | SEC-004 | Corrupt instruction markers | duplicate/nest/remove a managed marker | conflict before writes; consumer prose unchanged |
-

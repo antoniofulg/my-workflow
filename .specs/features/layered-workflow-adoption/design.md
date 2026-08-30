@@ -98,4 +98,3 @@ The manifest shape is frozen in `dx.md`. File records are keyed by normalized re
 | Implementation shape | Keep one Python module | Existing adopter is cohesive; a plugin/module framework is unnecessary. |
 | Update policy | Additive, conflict-safe, no removal | Meets existing-project need without destructive semantics. |
 | Ownership | Per-file hashes plus managed block hashes | Enough proof for safe update/status with stdlib only. |
-

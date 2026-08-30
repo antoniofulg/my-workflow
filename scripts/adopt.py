@@ -61,6 +61,7 @@ LEGACY_MANAGED_TEST_FILES = {
     "tools/shared/tests/workflow-config.test.ts": "63d738df1b8ffde8b594f152bd07af823e28a44dce121dda1e751217990e0dca",
 }
 LEGACY_MANAGED_TEST_DIRECTORIES = ("tools/knowledge/tests", "tools/shared/tests")
+OBSOLETE_MANAGED_PATHS = (".agents/skills/tlc-spec-driven", ".claude/skills/tlc-spec-driven")
 
 
 class AdoptionError(ValueError):
@@ -88,17 +89,36 @@ def remove_legacy_managed_tests(
     """Remove only the exact historical test bytes owned by the old adopter."""
     files = LEGACY_MANAGED_TEST_FILES if managed_files is None else managed_files
     directories = LEGACY_MANAGED_TEST_DIRECTORIES if managed_directories is None else managed_directories
+    def safe(relative: str) -> bool:
+        current = dest
+        for component in PurePosixPath(relative).parts:
+            current /= component
+            if current.is_symlink():
+                return False
+        return True
     for relative, expected in files.items():
         path = dest / relative
-        if path.is_file() and not path.is_symlink() and _sha(path.read_bytes()) == expected:
+        if safe(relative) and path.is_file() and not path.is_symlink() and _sha(path.read_bytes()) == expected:
             path.unlink()
     for relative in directories:
         path = dest / relative
-        if path.is_dir() and not path.is_symlink():
+        if safe(relative) and path.is_dir() and not path.is_symlink():
             try:
                 path.rmdir()
             except OSError:
                 pass
+
+
+def remove_obsolete_managed_paths(root: Path) -> None:
+    for relative in OBSOLETE_MANAGED_PATHS:
+        path = root / relative
+        current = root
+        if any((current := current / part).is_symlink() for part in PurePosixPath(relative).parts):
+            continue
+        if path.is_symlink() or path.is_file():
+            path.unlink()
+        elif path.is_dir() and not path.is_symlink():
+            shutil.rmtree(path)
 
 
 def _relative_path(value: str) -> str:
@@ -205,8 +225,15 @@ def load_manifest(root: Path) -> dict[str, Any]:
     if not path.exists():
         return _empty_manifest()
     _manifest_path(root)
+    def pairs(items: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in items:
+            if key in result:
+                raise _error(f"adoption manifest contains duplicate key: {key}")
+            result[key] = value
+        return result
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=pairs)
     except (OSError, json.JSONDecodeError) as exc:
         raise _error(f"invalid adoption manifest: {exc}") from exc
     if not isinstance(data, dict) or set(data) != {"schema", "workflow_version", "layers", "files", "blocks"}:
@@ -219,6 +246,12 @@ def load_manifest(root: Path) -> dict[str, Any]:
         raise _error("manifest layers must be unique and catalog-ordered")
     if not isinstance(data["files"], dict) or not isinstance(data["blocks"], dict):
         raise _error("manifest files and blocks must be objects")
+    normalized_paths: set[str] = set()
+    for relative in data["files"]:
+        normalized = PurePosixPath(relative).as_posix()
+        if normalized in normalized_paths:
+            raise _error(f"manifest contains duplicate normalized path: {relative}")
+        normalized_paths.add(normalized)
     for relative, record in data["files"].items():
         _relative_path(relative)
         if not isinstance(record, dict) or set(record) != {"layer", "ownership", "source_sha256", "installed_sha256"}:
@@ -252,11 +285,13 @@ def _classify(root: Path, source_root: Path, selected: list[str], manifest: dict
     conflicts: list[str] = []
     for relative, layer in sorted(catalog.items()):
         source = (source_root / relative).read_bytes()
+        installed_source = _adopted_bytes(relative, source)
         destination = _safe_path(root, relative, "managed destination")
         previous = manifest["files"].get(relative)
         exists = destination.exists()
-        if relative in missing_paths and exists and not previous:
-            actions.append({"path": relative, "action": "preserve", "layer": layer})
+        if relative in missing_paths:
+            action = "preserve" if exists else "add"
+            actions.append({"path": relative, "action": action, "layer": layer})
             records[relative] = _record(layer, "consumer", source, None)
             continue
         if previous and previous["ownership"] == "consumer":
@@ -270,17 +305,23 @@ def _classify(root: Path, source_root: Path, selected: list[str], manifest: dict
                 actions.append({"path": relative, "action": "conflict", "layer": layer})
                 records[relative] = previous
                 continue
-            action = "retain" if exists and destination.read_bytes() == source else "update"
+            action = "retain" if exists and destination.read_bytes() == installed_source else "update"
         elif not exists:
             action = "add"
-        elif destination.read_bytes() == source:
+        elif destination.read_bytes() == installed_source:
             action = "claim"
         else:
             conflicts.append(relative)
             action = "conflict"
         actions.append({"path": relative, "action": action, "layer": layer})
-        records[relative] = _record(layer, "managed", source, source)
+        records[relative] = _record(layer, "managed", source, installed_source)
     return actions, records, conflicts
+
+
+def _adopted_bytes(relative: str, source: bytes) -> bytes:
+    if relative != "docs/workflow/README.md":
+        return source
+    return b"".join(line for line in source.splitlines(keepends=True) if b"(pack.md)" not in line)
 
 
 def _block_span(text: str, layer: str) -> tuple[int, int] | None:
@@ -384,7 +425,10 @@ def _prepare_sync(source_root: Path, root: Path) -> dict[str, bytes]:
             (scratch / ".my-workflow.toml.example").write_bytes((source_root / ".my-workflow.toml.example").read_bytes())
         sys.path.insert(0, str((scratch / ".agents/skills/workflow-config/scripts").resolve()))
         import workflow_config  # type: ignore
-        workflow_config.sync_agents(scratch)
+        try:
+            workflow_config.sync_agents(scratch)
+        except Exception as exc:  # workflow-config exposes its own ConfigError type.
+            raise _error(str(exc)) from exc
         generated: dict[str, bytes] = {}
         for provider in workflow_config.PROVIDERS:
             for role in workflow_config.ROLES:
@@ -475,7 +519,8 @@ def _build_plan(source_root: Path, root: Path, selected: list[str], skip_agents:
     }
     for action in actions:
         if action["action"] in {"add", "update"}:
-            special[action["path"]] = (source_root / action["path"]).read_bytes()
+            source = (source_root / action["path"]).read_bytes()
+            special[action["path"]] = _adopted_bytes(action["path"], source)
     generated = {} if conflicts else _prepare_sync(source_root, root)
     for relative, content in generated.items():
         _safe_path(root, relative, "generated runtime")
@@ -510,11 +555,29 @@ def _status(source_root: Path, root: Path, as_json: bool) -> int:
     if not manifest["layers"]:
         _die("adoption manifest is missing or has no installed layers", 2)
     installed = resolve_layers(manifest["layers"])
-    actions, _, conflicts = _classify(root, source_root, installed, manifest)
+    actions: list[dict[str, str]] = []
+    conflicts: list[str] = []
+    for relative, record in sorted(manifest["files"].items()):
+        path = _safe_path(root, relative, "managed destination")
+        if not path.exists():
+            state = "missing"
+        elif record["ownership"] == "consumer":
+            state = "retained"
+        elif _sha(path.read_bytes()) == record["installed_sha256"]:
+            state = "clean"
+        else:
+            state = "modified"
+        actions.append({"path": relative, "action": state, "layer": record["layer"]})
+        if state in {"missing", "modified"}:
+            conflicts.append(relative)
     for filename in ("AGENTS.md", "CLAUDE.md"):
         path = root / filename
         if not path.exists():
-            conflicts.extend(key for key in manifest["blocks"] if key.startswith(filename + ":"))
+            for key in manifest["blocks"]:
+                if key.startswith(filename + ":"):
+                    layer = key.rsplit(":", 1)[1]
+                    actions.append({"path": key, "action": "missing", "layer": layer})
+                    conflicts.append(key)
             continue
         text = path.read_text(encoding="utf-8")
         for layer in BLOCK_LAYERS:
@@ -524,15 +587,18 @@ def _status(source_root: Path, root: Path, as_json: bool) -> int:
             try:
                 span = _block_span(text, layer)
             except AdoptionError:
+                actions.append({"path": key, "action": "modified", "layer": layer})
                 conflicts.append(key)
                 continue
             if span is None:
+                state = "missing"
+            else:
+                block = text[span[0]:span[1]].encode("utf-8")
+                state = "clean" if _sha(block) == manifest["blocks"][key]["sha256"] else "modified"
+            actions.append({"path": key, "action": state, "layer": key.rsplit(":", 1)[1]})
+            if state in {"missing", "modified"}:
                 conflicts.append(key)
-                continue
-            block = text[span[0]:span[1]].encode("utf-8")
-            if _sha(block) != manifest["blocks"][key]["sha256"]:
-                conflicts.append(key)
-    result = {"command": "status", "target": str(root), "requested_layers": [], "resolved_layers": installed, "status": "drift" if conflicts or any(item["action"] in {"conflict", "update", "add"} for item in actions) else "clean", "actions": actions, "conflicts": sorted(set(conflicts))}
+    result = {"command": "status", "target": str(root), "requested_layers": [], "resolved_layers": installed, "status": "drift" if conflicts else "clean", "actions": sorted(actions, key=lambda item: item["path"]), "conflicts": sorted(set(conflicts))}
     print(json.dumps(result, indent=2, sort_keys=True) if as_json else _text_result(result))
     return 1 if result["status"] == "drift" else 0
 
@@ -556,8 +622,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = _parser()
     try:
         args = parser.parse_args((argv or sys.argv)[1:])
-        root = args.target.resolve()
-        if not root.is_dir() or root.is_symlink():
+        root = Path(os.path.abspath(args.target))
+        if root.is_symlink() or not root.is_dir():
             raise _error(f"not a safe target directory: {root}")
         source_root = Path(__file__).resolve().parent.parent
         if args.command == "status":
@@ -570,6 +636,8 @@ def main(argv: list[str] | None = None) -> int:
             return 1 if result["conflicts"] else 0
         for relative, content in sorted(staged.items()):
             _atomic_write(root / relative, content)
+        remove_obsolete_managed_paths(root)
+        remove_legacy_managed_tests(root)
         _link_claude_skills(root)
         if not args.json:
             print(f"adopted layers into {root}")

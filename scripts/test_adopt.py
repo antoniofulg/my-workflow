@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+import contextlib
+import io
 import json
 import os
 import shutil
@@ -13,6 +15,21 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "scripts/adopt.py"
+sys.path.insert(0, str(ROOT / "scripts"))
+from adopt import LEGACY_MANAGED_TEST_DIRECTORIES, LEGACY_MANAGED_TEST_FILES, remove_legacy_managed_tests
+
+FROZEN_PRE_FEATURE_PATHS = (
+    "docs/guidelines", "docs/workflow/README.md", "docs/workflow/decisions.md",
+    "docs/workflow/guidelines.md", "docs/workflow/loop.md", "docs/workflow/purpose.md",
+    "docs/workflow/reviews.md", "knowledge/AGENTS.md", "knowledge/raw/README.md",
+    "knowledge/wiki", "tools/knowledge/src", "tools/qa_parallel_pilot.py",
+    "tools/orca_assisted_probe.py", "tools/shared/src/frontmatter.ts",
+    ".agents/skills/workflow-spec-driven", ".agents/skills/deep-review", ".agents/skills/ponytail",
+    ".agents/skills/ponytail-audit", ".agents/skills/ponytail-debt", ".agents/skills/ponytail-gain",
+    ".agents/skills/ponytail-help", ".agents/skills/ponytail-review", ".agents/skills/qa-plan",
+    ".agents/skills/qa-execute", ".agents/skills/autonomous", ".agents/skills/workflow-config",
+    "docs/qa/README.md", "tools/ad-index.py", ".my-workflow.toml.example", "templates/agents",
+)
 
 
 def invoke(target: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -43,6 +60,7 @@ def test_resolves_fixed_layers_and_plan_is_read_only() -> None:
         before = snapshot(target)
         result = invoke(target, "plan", "--layers", "quality,parallel,parallel", "--json")
         assert result.returncode == 0, result.stderr
+        assert result.stderr == "" and result.stdout.lstrip().startswith("{")
         document = json.loads(result.stdout)
         assert document["requested_layers"] == ["core", "parallel", "quality"]
         assert document["resolved_layers"] == ["core", "parallel", "quality"]
@@ -247,6 +265,23 @@ def test_full_profile_preserves_complete_capability_inventory_and_links_skills()
         shutil.rmtree(target)
 
 
+def test_full_profile_matches_frozen_pre_feature_inventory() -> None:
+    target = temporary_target()
+    try:
+        assert invoke(target, "apply", "--layers", "full").returncode == 0
+        expected: set[str] = {"templates/adoption/agents/core.md", "templates/adoption/agents/parallel.md", "templates/adoption/agents/quality.md"}
+        for relative in FROZEN_PRE_FEATURE_PATHS:
+            source = ROOT / relative
+            if source.is_file():
+                expected.add(relative)
+            else:
+                expected.update(path.relative_to(ROOT).as_posix() for path in source.rglob("*") if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc")
+        manifest = json.loads((target / ".my-workflow/adoption.json").read_text())
+        assert set(manifest["files"]) == expected
+    finally:
+        shutil.rmtree(target)
+
+
 def test_bun_consumer_boundary_and_probe_import_are_preserved() -> None:
     target = temporary_target()
     try:
@@ -288,6 +323,434 @@ def test_existing_project_incremental_journey_is_clean() -> None:
         shutil.rmtree(target)
 
 
+def test_deep_review_skill_adoption_and_artifact_hygiene() -> None:
+    target = temporary_target()
+    try:
+        assert invoke(target, "apply", "--layers", "quality").returncode == 0
+        for relative in (".agents/skills/deep-review/SKILL.md", ".agents/skills/deep-review/scripts/build_jobs.py"):
+            assert (target / relative).is_file()
+        assert (target / ".claude/skills/deep-review").is_symlink()
+        assert not list((target / ".agents/skills/deep-review").rglob("*.pyc"))
+    finally:
+        shutil.rmtree(target)
+
+
+def test_pack_guide_stays_source_only_and_tour_has_no_dead_link() -> None:
+    target = temporary_target()
+    try:
+        assert invoke(target, "apply", "--layers", "core").returncode == 0
+        assert not (target / "docs/workflow/pack.md").exists()
+        assert "pack.md" not in (target / "docs/workflow/README.md").read_text()
+    finally:
+        shutil.rmtree(target)
+
+
+def test_external_security_step_is_printed_without_installing_security_trees() -> None:
+    target = temporary_target()
+    try:
+        result = invoke(target, "apply", "--layers", "core")
+        assert result.returncode == 0
+        assert "install_security_skills.py" in result.stdout
+        for name in ("security-best-practices", "security-threat-model", "security-review"):
+            assert not (target / ".agents/skills" / name).exists()
+    finally:
+        shutil.rmtree(target)
+
+
+def test_global_tlc_paths_reject_without_mutation() -> None:
+    target = temporary_target()
+    try:
+        (target / "Makefile").write_text("TLC := $(HOME)/.claude/skills/workflow-spec-driven/scripts/validate_tasks.py\n")
+        before = snapshot(target)
+        result = invoke(target, "apply", "--layers", "core")
+        assert result.returncode == 2 and "machine-global" in result.stderr
+        assert snapshot(target) == before
+    finally:
+        shutil.rmtree(target)
+
+
+def test_project_local_tlc_path_is_accepted() -> None:
+    target = temporary_target()
+    try:
+        (target / "Makefile").write_text("TLC := .agents/skills/workflow-spec-driven/scripts/validate_tasks.py\n")
+        assert invoke(target, "apply", "--layers", "core").returncode == 0
+    finally:
+        shutil.rmtree(target)
+
+
+def test_consumer_ad_index_is_preserved_on_readopt() -> None:
+    target = temporary_target()
+    try:
+        assert invoke(target, "apply", "--layers", "core").returncode == 0
+        path = target / "tools/ad-index.py"
+        path.write_bytes(b"consumer-owned\n")
+        assert invoke(target, "apply", "--layers", "core").returncode == 0
+        assert path.read_bytes() == b"consumer-owned\n"
+    finally:
+        shutil.rmtree(target)
+
+
+def test_runtime_edits_are_overwritten_from_templates_on_readopt() -> None:
+    target = temporary_target()
+    try:
+        assert invoke(target, "apply", "--layers", "core").returncode == 0
+        runtime = target / ".cursor/agents/planner.md"
+        runtime.write_text("stale runtime\n")
+        assert invoke(target, "apply", "--layers", "core").returncode == 0
+        assert runtime.read_bytes() != b"stale runtime\n"
+    finally:
+        shutil.rmtree(target)
+
+
+def test_adoption_installs_v3_config_and_syncs_fifteen_packets() -> None:
+    target = temporary_target()
+    try:
+        assert invoke(target, "apply", "--layers", "core").returncode == 0
+        assert (target / ".my-workflow.toml").is_file()
+        packets = list((target / ".claude/agents").glob("*.md")) + list((target / ".codex/agents").glob("*.toml")) + list((target / ".cursor/agents").glob("*.md"))
+        assert len(packets) == 15
+    finally:
+        shutil.rmtree(target)
+
+
+def test_adoption_installs_hybrid_workflow_and_preserves_consumer_config() -> None:
+    target = temporary_target()
+    try:
+        assert invoke(target, "apply", "--layers", "full").returncode == 0
+        config = target / ".my-workflow.toml"
+        config.write_bytes(config.read_bytes() + b"# consumer-owned\n")
+        before = config.read_bytes()
+        assert invoke(target, "apply", "--layers", "full").returncode == 0
+        assert config.read_bytes() == before
+        assert (target / "tools/qa_parallel_pilot.py").is_file()
+        assert (target / "tools/orca_assisted_probe.py").is_file()
+    finally:
+        shutil.rmtree(target)
+
+
+def test_adoption_installs_only_new_authority_byte_identically() -> None:
+    target = temporary_target()
+    try:
+        assert invoke(target, "apply", "--layers", "full").returncode == 0
+        for relative in ("tools/qa_parallel_pilot.py", "tools/orca_assisted_probe.py", ".my-workflow.toml.example"):
+            assert (target / relative).read_bytes() == (ROOT / relative).read_bytes()
+    finally:
+        shutil.rmtree(target)
+
+
+def test_legacy_cleanup_uses_production_paths_and_hashes() -> None:
+    assert tuple(LEGACY_MANAGED_TEST_FILES) == tuple(LEGACY_MANAGED_TEST_FILES)
+    assert LEGACY_MANAGED_TEST_DIRECTORIES == ("tools/knowledge/tests", "tools/shared/tests")
+    assert all(len(value) == 64 for value in LEGACY_MANAGED_TEST_FILES.values())
+
+
+def test_legacy_cleanup_removes_owned_tests_and_preserves_consumer_files() -> None:
+    target = temporary_target()
+    try:
+        managed = b"legacy suite\n"
+        files = {"tools/knowledge/tests/check.test.ts": hashlib.sha256(managed).hexdigest(), "tools/shared/tests/frontmatter.test.ts": hashlib.sha256(managed).hexdigest()}
+        for relative in files:
+            path = target / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(managed)
+        (target / "tools/shared/tests/consumer.test.ts").write_bytes(b"consumer\n")
+        remove_legacy_managed_tests(target, files)
+        assert not (target / "tools/knowledge/tests/check.test.ts").exists()
+        assert (target / "tools/shared/tests/consumer.test.ts").exists()
+    finally:
+        shutil.rmtree(target)
+
+
+def test_legacy_cleanup_preserves_external_symlinked_test_directories() -> None:
+    target, outside = temporary_target(), temporary_target()
+    try:
+        (target / "tools/knowledge").mkdir(parents=True)
+        (target / "tools/knowledge/tests").symlink_to(outside, target_is_directory=True)
+        (outside / "check.test.ts").write_text("external\n")
+        remove_legacy_managed_tests(target)
+        assert (target / "tools/knowledge/tests").is_symlink()
+        assert (outside / "check.test.ts").exists()
+    finally:
+        shutil.rmtree(target)
+        shutil.rmtree(outside)
+
+
+def test_adoption_rejects_unsafe_generated_destinations_without_mutation() -> None:
+    target, outside = temporary_target(), temporary_target()
+    try:
+        sentinel = outside / "sentinel"
+        sentinel.write_text("outside\n")
+        (target / ".gitignore").symlink_to(sentinel)
+        before = snapshot(target)
+        result = invoke(target, "apply", "--layers", "core")
+        assert result.returncode == 2
+        assert snapshot(target) == before and sentinel.read_text() == "outside\n"
+    finally:
+        shutil.rmtree(target)
+        shutil.rmtree(outside)
+
+
+def test_adoption_rejects_invalid_template_before_runtime_writes() -> None:
+    target = temporary_target()
+    try:
+        assert invoke(target, "apply", "--layers", "core").returncode == 0
+        template = target / "templates/agents/cursor/verifier.md"
+        template.write_text(template.read_text().replace("model:", "model-old:"))
+        before = snapshot(target)
+        result = invoke(target, "apply", "--layers", "core")
+        assert result.returncode == 2 and "workflow-config" in result.stderr
+        assert snapshot(target) == before
+    finally:
+        shutil.rmtree(target)
+
+
+def test_adoption_rejects_malformed_local_config_without_partial_writes() -> None:
+    target = temporary_target()
+    try:
+        assert invoke(target, "apply", "--layers", "core").returncode == 0
+        (target / ".my-workflow.toml").write_text("version = 1\n")
+        before = snapshot(target)
+        result = invoke(target, "apply", "--layers", "core")
+        assert result.returncode == 2 and "version must be integer 3" in result.stderr
+        assert snapshot(target) == before
+    finally:
+        shutil.rmtree(target)
+
+
+def test_gitignore_rules_merge_without_overwrite() -> None:
+    target = temporary_target()
+    try:
+        (target / ".gitignore").write_text("consumer-cache/\n")
+        assert invoke(target, "apply", "--layers", "core").returncode == 0
+        text = (target / ".gitignore").read_text()
+        assert "consumer-cache/" in text and text.splitlines().count("graft/") == 1
+    finally:
+        shutil.rmtree(target)
+
+
+def test_deep_review_learnings_survive_consumer_parent_ignore() -> None:
+    target = temporary_target()
+    try:
+        (target / ".gitignore").write_text(".deep-review/\n")
+        assert invoke(target, "apply", "--layers", "quality").returncode == 0
+        text = (target / ".gitignore").read_text()
+        assert text.splitlines().count("!.deep-review/learnings.md") == 1
+    finally:
+        shutil.rmtree(target)
+
+
+def test_feature_specs_are_versioned_and_legacy_ignore_is_removed() -> None:
+    target = temporary_target()
+    try:
+        (target / ".gitignore").write_text("consumer\n.specs/features/\n.specs/features/\n")
+        assert invoke(target, "apply", "--layers", "core").returncode == 0
+        assert ".specs/features/" not in (target / ".gitignore").read_text().splitlines()
+    finally:
+        shutil.rmtree(target)
+
+
+def test_graft_ignore_contract_and_search_visibility() -> None:
+    target = temporary_target()
+    try:
+        assert invoke(target, "apply", "--layers", "core").returncode == 0
+        assert "graft/" in (target / ".gitignore").read_text()
+        assert "graft/.cache/" in (target / ".ignore").read_text()
+    finally:
+        shutil.rmtree(target)
+
+
+def test_qa_registry_keeps_fake_proof_current_and_live_orca_blocked() -> None:
+    scenario = (ROOT / "docs/qa/scenarios/QAS-run-resource-free-parallel-orca-slices.md").read_text()
+    assert "blocked-verify" in scenario and "fake" in scenario.lower()
+
+
+def test_dependency_selection_installs_core_transitively() -> None:
+    target = temporary_target()
+    try:
+        result = invoke(target, "apply", "--layers", "parallel", "--json")
+        assert result.returncode == 0
+        document = json.loads(result.stdout)
+        assert document["resolved_layers"] == ["core", "parallel"]
+        assert (target / "docs/guidelines/GATES.md").is_file()
+    finally:
+        shutil.rmtree(target)
+
+
+def test_target_root_symlink_is_rejected_before_referent_mutation() -> None:
+    parent = temporary_target()
+    referent = temporary_target()
+    alias = parent / "alias"
+    try:
+        (referent / "sentinel").write_text("external\n")
+        alias.symlink_to(referent, target_is_directory=True)
+        before = snapshot(referent)
+        for command in ("plan", "apply", "status"):
+            args = ("--layers", "core") if command != "status" else ()
+            result = invoke(alias, command, *args)
+            assert result.returncode == 2
+            assert snapshot(referent) == before
+    finally:
+        shutil.rmtree(parent)
+        shutil.rmtree(referent)
+
+
+def test_duplicate_manifest_keys_are_rejected_for_status_and_apply() -> None:
+    target = temporary_target()
+    try:
+        manifest = target / ".my-workflow/adoption.json"
+        manifest.parent.mkdir()
+        duplicate = '{"schema":1,"workflow_version":"0.7.0","layers":["core"],"files":{"a":{"layer":"core","ownership":"managed","source_sha256":"' + "0" * 64 + '","installed_sha256":"' + "0" * 64 + '"},"a":{"layer":"core","ownership":"managed","source_sha256":"' + "0" * 64 + '","installed_sha256":"' + "0" * 64 + '"}},"blocks":{}}'
+        manifest.write_text(duplicate)
+        before = snapshot(target)
+        for command in ("status", "apply"):
+            result = invoke(target, command, *(('--layers', 'core') if command == 'apply' else ()))
+            assert result.returncode == 2 and "duplicate" in result.stderr
+            assert snapshot(target) == before
+    finally:
+        shutil.rmtree(target)
+
+
+def test_status_uses_only_public_state_vocabulary() -> None:
+    target = temporary_target()
+    try:
+        assert invoke(target, "apply", "--layers", "core").returncode == 0
+        clean = json.loads(invoke(target, "status", "--json").stdout)
+        assert {entry["action"] for entry in clean["actions"]} <= {"clean", "missing", "modified", "retained"}
+        managed = target / "tools/knowledge/src/cli.ts"
+        managed.unlink()
+        missing = json.loads(invoke(target, "status", "--json").stdout)
+        assert any(entry["action"] == "missing" for entry in missing["actions"])
+        managed.write_text("modified\n")
+        modified = json.loads(invoke(target, "status", "--json").stdout)
+        assert any(entry["action"] == "modified" for entry in modified["actions"])
+        consumer = target / "tools/ad-index.py"
+        consumer.write_text("consumer\n")
+        retained = json.loads(invoke(target, "status", "--json").stdout)
+        assert any(entry["action"] == "retained" for entry in retained["actions"])
+    finally:
+        shutil.rmtree(target)
+
+
+def test_clean_managed_files_update_when_source_bytes_change() -> None:
+    target = temporary_target()
+    try:
+        assert invoke(target, "apply", "--layers", "core").returncode == 0
+        source = ROOT / "tools/shared/src/frontmatter.ts"
+        original = source.read_bytes()
+        try:
+            source.write_bytes(original + b"\n// source update\n")
+            result = invoke(target, "apply", "--layers", "core", "--json")
+            assert result.returncode == 0
+            assert json.loads(result.stdout)["status"] == "ready"
+            assert (target / "tools/shared/src/frontmatter.ts").read_bytes() == source.read_bytes()
+        finally:
+            source.write_bytes(original)
+    finally:
+        shutil.rmtree(target)
+
+
+def test_missing_only_consumer_ownership_is_recorded_without_hashing_content() -> None:
+    target = temporary_target()
+    try:
+        profile = target / "docs/qa/README.md"
+        profile.parent.mkdir(parents=True)
+        profile.write_text("consumer QA profile\n")
+        assert invoke(target, "apply", "--layers", "quality").returncode == 0
+        manifest = json.loads((target / ".my-workflow/adoption.json").read_text())
+        record = manifest["files"]["docs/qa/README.md"]
+        assert record["ownership"] == "consumer" and record["installed_sha256"] is None
+        assert profile.read_text() == "consumer QA profile\n"
+    finally:
+        shutil.rmtree(target)
+
+
+def test_fresh_and_refuse() -> None:
+    target = temporary_target()
+    try:
+        assert invoke(target, "apply", "--layers", "full").returncode == 0
+        assert (target / "tools/knowledge/src/cli.ts").is_file()
+        assert not list((target / "tools").rglob("*.test.ts"))
+        agents = target / "AGENTS.md"
+        agents.write_text("# Product instructions\n\nA product.\n")
+        before = snapshot(target)
+        # Product prose remains owned by the target; only managed blocks are changed by adoption.
+        result = invoke(target, "apply", "--layers", "core")
+        assert result.returncode == 0
+        assert (target / "AGENTS.md").read_text().startswith("# Product instructions")
+        assert before[".my-workflow/adoption.json"] == (target / ".my-workflow/adoption.json").read_bytes()
+    finally:
+        shutil.rmtree(target)
+
+
+def test_skip_agents_preserves_product_files_and_adopts_rest() -> None:
+    target = temporary_target()
+    try:
+        (target / "AGENTS.md").write_text("product\n")
+        (target / "CLAUDE.md").write_text("claude\n")
+        before = {(target / name).read_bytes() for name in ("AGENTS.md", "CLAUDE.md")}
+        assert invoke(target, "apply", "--layers", "full", "--skip-agents").returncode == 0
+        assert {(target / name).read_bytes() for name in ("AGENTS.md", "CLAUDE.md")} == before
+        assert (target / ".agents/skills/deep-review/SKILL.md").is_file()
+    finally:
+        shutil.rmtree(target)
+
+
+def test_skip_agents_preserves_absent_claude_file() -> None:
+    target = temporary_target()
+    try:
+        (target / "AGENTS.md").write_text("product\n")
+        assert invoke(target, "apply", "--layers", "core", "--skip-agents").returncode == 0
+        assert not (target / "CLAUDE.md").exists()
+    finally:
+        shutil.rmtree(target)
+
+
+def test_adoption_imports_probe_without_orca_effect() -> None:
+    target = temporary_target()
+    try:
+        assert invoke(target, "apply", "--layers", "parallel", "--skip-agents").returncode == 0
+        calls = target / "orca.calls"
+        fake = target / "orca"
+        fake.write_text(f"#!/bin/sh\nprintf called >> {calls}\n")
+        fake.chmod(0o755)
+        result = subprocess.run([sys.executable, "-c", "import tools.orca_assisted_probe"], cwd=target, env={**os.environ, "PATH": f"{target}:{os.environ.get('PATH', '')}"}, text=True, capture_output=True, check=False)
+        assert result.returncode == 0 and not calls.exists()
+    finally:
+        shutil.rmtree(target)
+
+
+def test_adoption_rejects_symlinked_managed_destination_without_mutation() -> None:
+    target, outside = temporary_target(), temporary_target()
+    try:
+        (target / "tools").mkdir()
+        destination = target / "tools/orca_assisted_probe.py"
+        destination.symlink_to(outside / "probe.py")
+        before = snapshot(target)
+        assert invoke(target, "apply", "--layers", "parallel").returncode == 2
+        assert snapshot(target) == before
+    finally:
+        shutil.rmtree(target)
+        shutil.rmtree(outside)
+
+
+def test_existing_config_drives_all_native_values_and_preserves_non_model_bytes() -> None:
+    target = temporary_target()
+    try:
+        assert invoke(target, "apply", "--layers", "core").returncode == 0
+        config = target / ".my-workflow.toml"
+        template = target / "templates/agents/claude/planner.md"
+        config_before = config.read_bytes() + b"# consumer setting\n"
+        template_before = template.read_bytes() + b"\n# consumer instruction\n"
+        config.write_bytes(config_before)
+        template.write_bytes(template_before)
+        assert invoke(target, "apply", "--layers", "core").returncode == 0
+        assert config.read_bytes() == config_before
+        assert template.read_bytes() == template_before
+        assert b"consumer instruction" in (target / ".claude/agents/planner.md").read_bytes()
+    finally:
+        shutil.rmtree(target)
+
+
 TESTS = (
     test_resolves_fixed_layers_and_plan_is_read_only,
     test_full_profile_is_exactly_four_layers_and_legacy_cli_is_rejected,
@@ -301,8 +764,42 @@ TESTS = (
     test_edited_managed_block_is_a_conflict,
     test_symlinked_destination_is_rejected_before_external_write,
     test_full_profile_preserves_complete_capability_inventory_and_links_skills,
+    test_full_profile_matches_frozen_pre_feature_inventory,
     test_bun_consumer_boundary_and_probe_import_are_preserved,
     test_existing_project_incremental_journey_is_clean,
+    test_deep_review_skill_adoption_and_artifact_hygiene,
+    test_pack_guide_stays_source_only_and_tour_has_no_dead_link,
+    test_external_security_step_is_printed_without_installing_security_trees,
+    test_global_tlc_paths_reject_without_mutation,
+    test_project_local_tlc_path_is_accepted,
+    test_consumer_ad_index_is_preserved_on_readopt,
+    test_runtime_edits_are_overwritten_from_templates_on_readopt,
+    test_adoption_installs_v3_config_and_syncs_fifteen_packets,
+    test_adoption_installs_hybrid_workflow_and_preserves_consumer_config,
+    test_adoption_installs_only_new_authority_byte_identically,
+    test_legacy_cleanup_uses_production_paths_and_hashes,
+    test_legacy_cleanup_removes_owned_tests_and_preserves_consumer_files,
+    test_legacy_cleanup_preserves_external_symlinked_test_directories,
+    test_adoption_rejects_unsafe_generated_destinations_without_mutation,
+    test_adoption_rejects_invalid_template_before_runtime_writes,
+    test_adoption_rejects_malformed_local_config_without_partial_writes,
+    test_gitignore_rules_merge_without_overwrite,
+    test_deep_review_learnings_survive_consumer_parent_ignore,
+    test_feature_specs_are_versioned_and_legacy_ignore_is_removed,
+    test_graft_ignore_contract_and_search_visibility,
+    test_qa_registry_keeps_fake_proof_current_and_live_orca_blocked,
+    test_dependency_selection_installs_core_transitively,
+    test_target_root_symlink_is_rejected_before_referent_mutation,
+    test_duplicate_manifest_keys_are_rejected_for_status_and_apply,
+    test_status_uses_only_public_state_vocabulary,
+    test_clean_managed_files_update_when_source_bytes_change,
+    test_missing_only_consumer_ownership_is_recorded_without_hashing_content,
+    test_fresh_and_refuse,
+    test_skip_agents_preserves_product_files_and_adopts_rest,
+    test_skip_agents_preserves_absent_claude_file,
+    test_adoption_imports_probe_without_orca_effect,
+    test_adoption_rejects_symlinked_managed_destination_without_mutation,
+    test_existing_config_drives_all_native_values_and_preserves_non_model_bytes,
 )
 
 

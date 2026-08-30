@@ -82,4 +82,3 @@ The adopter appends an absent block after existing consumer prose and replaces o
 - Remove `python3 scripts/adopt.py TARGET`.
 - Remove whole-file `AGENTS.md` replacement and whole-file `CLAUDE.md` recreation.
 - Remove the monolithic `COPY_PATHS`/`COPY_MISSING_PATHS` public adoption model.
-
