@@ -39,6 +39,19 @@ The historical-integrity assertion now compares changed QA paths with the paths 
 frozen baseline. New current-cycle charters are therefore accepted while edits and deletions of
 baseline artifacts remain rejected. The existing historical-report mutation sensor remains active.
 
-Fresh QA retest is pending; this fix does not change the scenario or retest status.
+The implementation fix did not itself change scenario or retest status; the fresh QA retest below
+owns that transition.
 
 - **Technical verification:** PASS — `.specs/features/bun-tooling-runtime/validation-qa-fix.md`
+
+## QA retest
+
+PASS at `761d188`. `bun run test:all` accepted all current-cycle QA artifacts and completed with
+122 Bun tests, 0 failures, 1113 assertions, and every tracked Python suite passing. All three Bun
+charters then reached their authorized endpoints; package, adoption, knowledge, probe-import, and
+security refusal readbacks matched their contracts. The remote external-skill success leg remained
+untested because network/write authorization was not granted.
+
+- **Fix commit:** `fb4c61f`
+- **Evidence:** `docs/qa/evidence/2026-08-29-bun-tooling-runtime-retest/opening-gate.txt`
+- **Report:** `docs/qa/reports/2026-08-29-bun-tooling-runtime-retest.md`
