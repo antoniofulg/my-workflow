@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "bun:test";
@@ -104,6 +104,14 @@ const historicalQaArtifactAllowlist = [
   /^docs\/qa\/scenarios\/(?!REL-report-current-workflow-release\.md$)/,
 ] as const;
 
+const historicalQaRoots = [
+  "docs/qa/evidence",
+  "docs/qa/reports",
+  "docs/qa/charters",
+  "docs/qa/bugs",
+  "docs/qa/scenarios",
+] as const;
+
 function trackedRepositoryPaths(): string[] {
   return execFileSync("git", ["ls-files"], {
     cwd: repositoryRoot,
@@ -147,7 +155,7 @@ function forbiddenAuthorityViolations(
 ): string[] {
   const scannedPaths = activeAuthorityPaths(paths);
   const forbiddenCommands = [
-    /\b(?:npm|npx)\s+(?:run|test|exec|install|ci|pack|publish|ls|config)\b/i,
+    /(?:^|[`$>#;&|]\s*)(?:npm|npx)\s+\S+/i,
     /\bvitest\s+(?:run|--|[A-Za-z])/i,
     /\btsx\s+(?:--|[A-Za-z])/i,
     /(?:from|require)\s*[(]?['"]yaml['"]/i,
@@ -175,35 +183,53 @@ function documentedBunScripts(
   return [...scripts].sort();
 }
 
-function changedHistoricalQaArtifacts(): string[] {
-  const sourceRef = execFileSync("git", ["merge-base", "origin/main", "HEAD"], {
-    cwd: repositoryRoot,
-    encoding: "utf8",
-  }).trim();
-  const roots = [
-    "docs/qa/evidence",
-    "docs/qa/reports",
-    "docs/qa/charters",
-    "docs/qa/bugs",
-    "docs/qa/scenarios",
-  ];
+const historicalQaBaseline = "69914e831cb8001307dfa69219265c8e2e9700fb";
+
+function changedHistoricalQaArtifacts(
+  root = repositoryRoot,
+  sourceRef = historicalQaBaseline,
+): string[] {
+  const gitOptions = { cwd: root, encoding: "utf8" as const };
   const committed = execFileSync(
     "git",
-    ["diff", "--name-only", `${sourceRef}...HEAD`, "--", ...roots],
-    { cwd: repositoryRoot, encoding: "utf8" },
+    ["diff", "--name-only", `${sourceRef}...HEAD`, "--", ...historicalQaRoots],
+    gitOptions,
   );
-  const working = execFileSync("git", ["diff", "--name-only", "HEAD", "--", ...roots], {
-    cwd: repositoryRoot,
-    encoding: "utf8",
-  });
+  const working = execFileSync(
+    "git",
+    ["diff", "--name-only", "HEAD", "--", ...historicalQaRoots],
+    gitOptions,
+  );
   const staged = execFileSync(
     "git",
-    ["diff", "--cached", "--name-only", "--", ...roots],
-    { cwd: repositoryRoot, encoding: "utf8" },
+    ["diff", "--cached", "--name-only", "--", ...historicalQaRoots],
+    gitOptions,
   );
   return [...new Set(`${committed}${working}${staged}`.split(/\r?\n/).filter(Boolean))]
     .filter(isHistoricalQaArtifact)
     .sort();
+}
+
+function commitFixture(root: string, message: string): string {
+  execFileSync("git", ["add", "--", "."], { cwd: root, stdio: "ignore" });
+  execFileSync(
+    "git",
+    [
+      "-c",
+      "user.name=QA fixture",
+      "-c",
+      "user.email=qa-fixture@example.invalid",
+      "commit",
+      "--quiet",
+      "-m",
+      message,
+    ],
+    { cwd: root, stdio: "ignore" },
+  );
+  return execFileSync("git", ["rev-parse", "HEAD"], {
+    cwd: root,
+    encoding: "utf8",
+  }).trim();
 }
 
 const verifierPacketPaths = [
@@ -1109,13 +1135,25 @@ describe("Bun tooling runtime contract", () => {
       ".agents/skills/ponytail/SKILL.md",
       "templates/agents/codex/planner.toml",
     ]) {
-      const mutated = new Map([[relativePath, `${readRepositoryFile(relativePath)}\nnpm run forbidden\n`]]);
-      const mutationViolations = forbiddenAuthorityViolations(
-        [relativePath],
-        (path) => mutated.get(path) ?? readRepositoryFile(path),
-      );
-      expect(mutationViolations).toHaveLength(1);
-      expect(mutationViolations[0]).toContain(relativePath);
+      for (const command of ["npm run forbidden", "npm start", "npx foo"]) {
+        const mutated = new Map([[relativePath, `${readRepositoryFile(relativePath)}\n${command}\n`]]);
+        const mutationViolations = forbiddenAuthorityViolations(
+          [relativePath],
+          (path) => mutated.get(path) ?? readRepositoryFile(path),
+        );
+        expect(mutationViolations).toHaveLength(1);
+        expect(mutationViolations[0]).toContain(relativePath);
+      }
+
+      const descriptive = new Map([
+        [relativePath, `${readRepositoryFile(relativePath)}\nThe npm and npx commands are historical mentions.\n`],
+      ]);
+      expect(
+        forbiddenAuthorityViolations(
+          [relativePath],
+          (path) => descriptive.get(path) ?? readRepositoryFile(path),
+        ),
+      ).toEqual([]);
     }
 
     const manifest = JSON.parse(readRepositoryFile("package.json")) as {
@@ -1127,6 +1165,25 @@ describe("Bun tooling runtime contract", () => {
       expect.arrayContaining(documentedScripts),
     );
     expect(changedHistoricalQaArtifacts()).toEqual([]);
+  });
+
+  it("detects historical QA changes from a local baseline without a remote ref", () => {
+    const root = mkdtempSync(join(tmpdir(), "historical-qa-baseline-"));
+
+    try {
+      execFileSync("git", ["init", "--quiet", "--initial-branch=main"], { cwd: root });
+      mkdirSync(join(root, "docs/qa/reports"), { recursive: true });
+      writeFileSync(join(root, "docs/qa/reports/historical.md"), "original\n", "utf8");
+      const baseline = commitFixture(root, "baseline");
+      writeFileSync(join(root, "docs/qa/reports/historical.md"), "changed\n", "utf8");
+      commitFixture(root, "historical change");
+
+      expect(changedHistoricalQaArtifacts(root, baseline)).toEqual([
+        "docs/qa/reports/historical.md",
+      ]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it("fails closed for unsupported and malformed Bun versions before a suite marker runs", () => {

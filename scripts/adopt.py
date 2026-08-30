@@ -148,16 +148,46 @@ def remove_obsolete_managed_paths(dest: Path) -> None:
             shutil.rmtree(path)
 
 
-def remove_legacy_managed_tests(dest: Path) -> None:
-    for relative, expected_hash in LEGACY_MANAGED_TEST_FILES.items():
+def _legacy_path_is_safe(root: Path, path: Path) -> bool:
+    """Check every component without following a legacy cleanup path."""
+    if root.is_symlink():
+        return False
+    try:
+        relative = path.relative_to(root)
+    except ValueError:
+        return False
+    current = root
+    for component in relative.parts:
+        current /= component
+        if current.is_symlink():
+            return False
+    return True
+
+
+def remove_legacy_managed_tests(
+    dest: Path,
+    managed_files: dict[str, str] | None = None,
+    managed_directories: tuple[str, ...] | None = None,
+) -> None:
+    files = LEGACY_MANAGED_TEST_FILES if managed_files is None else managed_files
+    directories = (
+        LEGACY_MANAGED_TEST_DIRECTORIES
+        if managed_directories is None
+        else managed_directories
+    )
+    for relative, expected_hash in files.items():
         path = dest / relative
+        if not _legacy_path_is_safe(dest, path):
+            continue
         if not path.is_file() or path.is_symlink():
             continue
         if hashlib.sha256(path.read_bytes()).hexdigest() == expected_hash:
             path.unlink()
 
-    for relative in LEGACY_MANAGED_TEST_DIRECTORIES:
+    for relative in directories:
         path = dest / relative
+        if not _legacy_path_is_safe(dest, path):
+            continue
         if not path.is_dir() or path.is_symlink():
             continue
         try:

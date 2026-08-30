@@ -542,11 +542,12 @@ def cli_version_command(bunx: str) -> list[str]:
     return [bunx, "--bun", "--no-install", "skills", "--version"]
 
 
-def verify_cli_version(bunx: str, environment: dict[str, str]) -> None:
+def verify_cli_version(bunx: str, environment: dict[str, str], cwd: Path) -> None:
     """Fail closed before any mutating skills command can run."""
 
     result = subprocess.run(
         cli_version_command(bunx),
+        cwd=cwd,
         check=False,
         capture_output=True,
         text=True,
@@ -694,7 +695,10 @@ def perform_installation(target: Path, locked: list[LockedSkill], pack_root: Pat
     try:
         for relative in affected:
             snapshot_path(target, relative, snapshot)
-        staging = Path(tempfile.mkdtemp(prefix="my-workflow-security-staging-", dir=target.parent))
+        # Keep the CLI's working directory under the pack so Bun resolves the
+        # locked `skills` package from pack_root/node_modules.  The target
+        # remains untouched until the descriptor-relative publish step.
+        staging = Path(tempfile.mkdtemp(prefix="my-workflow-security-staging-", dir=pack_root))
         try:
             (snapshot / "git-wrapper").mkdir(parents=True, exist_ok=True)
             original_path = os.environ.get("PATH", "")
@@ -710,18 +714,16 @@ def perform_installation(target: Path, locked: list[LockedSkill], pack_root: Pat
                 pack_root.resolve(),
             )
             bunx, bunx_directories = resolve_active_binary("bunx", original_path, untrusted_roots)
-            _skills, skills_directories = resolve_active_binary(
-                "skills",
-                os.pathsep.join((*bunx_directories, original_path)),
-                untrusted_roots,
-            )
             git, git_directories = resolve_active_binary("git", original_path, untrusted_roots)
             environment = pinned_git_environment(
                 snapshot / "git-wrapper",
                 git,
-                tuple(dict.fromkeys((*bunx_directories, *skills_directories, *git_directories))),
+                tuple(dict.fromkeys((*bunx_directories, *git_directories))),
             )
-            verify_cli_version(bunx, environment)
+            environment["HOME"] = str(staging)
+            environment["CODEX_HOME"] = str(staging / ".codex")
+            environment["XDG_STATE_HOME"] = str(staging / ".state")
+            verify_cli_version(bunx, environment, staging)
             for skill in locked:
                 command = cli_command(skill, bunx)
                 result = subprocess.run(command, cwd=staging, check=False, env=environment)

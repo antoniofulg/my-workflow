@@ -6,13 +6,13 @@ persona: Repository reader
 journey: J-review-workflow-release
 expected: The newest changelog release matches the package manifest and Bun lockfile, while `bun run test:all` scopes discovery to canonical tests under scripts and tools.
 entry_points: CHANGELOG.md; package.json; bun.lock
-qa_status: pass
+qa_status: untested
 bug_ids: BUG-20260824-release-overstates-lifecycle-qa; BUG-20260825-adoption-omits-parallel-pilot
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-29-release-0-7-0/package-summary.json; docs/qa/evidence/2026-08-29-release-0-7-0/adoption-summary.json; docs/qa/evidence/2026-08-29-release-0-7-0/installed-probe-dispatch-summary.json
-last_report: docs/qa/reports/2026-08-29-release-0-7-0.md
+evidence:
+last_report:
 overlaps:
 ---
 
@@ -30,11 +30,9 @@ claim a completed pilot.
 The prior `0.6.0` verdict and its evidence remain historical record below; this release reset
 clears only the current metadata pointers until the independent `0.7.0` release walk completes.
 
-Fresh QA on 2026-08-29 passed release `0.7.0` through one package identity, a 410-file
-`bun pm pack --dry-run` package check, disposable adoption and re-adoption, independently reloaded installed files,
-pointer-only fake-provider dispatch, hybrid planner/executor canaries, and zero owned residue. The
-real Orca/Codex lifecycle and completed-pilot cleanup remain `blocked-verify`; no publication,
-tag, GitHub release, remote delivery, deploy, or live Orca action occurred. See the current report.
+The 2026-08-29 `0.7.0` release report and its raw evidence remain preserved as historical
+artifacts; they do not establish the current verdict. Fresh QA must rerun the release walk before
+this scenario can leave `untested`.
 
 QA on 2026-08-25 failed release `0.6.0` during fresh adoption: the package contains the public
 parallel-pilot helper, but `scripts/adopt.py` does not install it. The release walk stopped at the

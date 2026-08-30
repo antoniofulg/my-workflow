@@ -14,7 +14,13 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from adopt import LEGACY_MANAGED_TEST_FILES, STENCIL, main
+from adopt import (
+    LEGACY_MANAGED_TEST_DIRECTORIES,
+    LEGACY_MANAGED_TEST_FILES,
+    STENCIL,
+    main,
+    remove_legacy_managed_tests,
+)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / ".agents/skills/workflow-config/scripts"))
 import workflow_config
 
@@ -474,29 +480,51 @@ def test_adoption_imports_probe_without_orca_effect() -> None:
         shutil.rmtree(tmp)
 
 
-def test_readopt_removes_owned_legacy_tests_and_preserves_consumer_files() -> None:
+def test_legacy_cleanup_uses_production_paths_and_hashes() -> None:
+    assert tuple(LEGACY_MANAGED_TEST_FILES) == (
+        "tools/knowledge/tests/check.test.ts",
+        "tools/knowledge/tests/cli.test.ts",
+        "tools/shared/tests/autonomous-parallelization.test.ts",
+        "tools/shared/tests/deep-review-installation.test.ts",
+        "tools/shared/tests/frontmatter.test.ts",
+        "tools/shared/tests/qa-skills.test.ts",
+        "tools/shared/tests/security-skills-installation.test.ts",
+        "tools/shared/tests/workflow-config.test.ts",
+    )
+    assert LEGACY_MANAGED_TEST_DIRECTORIES == (
+        "tools/knowledge/tests",
+        "tools/shared/tests",
+    )
+    assert all(
+        re.fullmatch(r"[0-9a-f]{64}", value)
+        for value in LEGACY_MANAGED_TEST_FILES.values()
+    )
+
+
+def test_legacy_cleanup_removes_owned_tests_and_preserves_consumer_files() -> None:
     tmp = Path(tempfile.mkdtemp())
     try:
-        legacy = {}
-        for relative in LEGACY_MANAGED_TEST_FILES:
-            result = subprocess.run(
-                ["git", "show", f"origin/main:{relative}"],
-                cwd=ROOT,
-                capture_output=True,
-                check=True,
+        managed_bytes = b"legacy suite\n"
+        legacy = {
+            relative: hashlib.sha256(managed_bytes).hexdigest()
+            for relative in (
+                "tools/knowledge/tests/check.test.ts",
+                "tools/shared/tests/autonomous-parallelization.test.ts",
+                "tools/shared/tests/frontmatter.test.ts",
             )
-            legacy[relative] = result.stdout
+        }
+        for relative in legacy:
             path = tmp / relative
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(result.stdout)
+            path.write_bytes(managed_bytes)
 
         modified = "tools/shared/tests/frontmatter.test.ts"
-        modified_bytes = legacy[modified] + b"\n// consumer edit\n"
+        modified_bytes = managed_bytes + b"\n// consumer edit\n"
         (tmp / modified).write_bytes(modified_bytes)
         unknown = tmp / "tools/shared/tests/consumer.test.ts"
         unknown.write_bytes(b"// consumer-owned suite\n")
 
-        run(tmp)
+        remove_legacy_managed_tests(tmp, legacy)
 
         for relative in legacy:
             path = tmp / relative
@@ -508,20 +536,47 @@ def test_readopt_removes_owned_legacy_tests_and_preserves_consumer_files() -> No
         assert not (tmp / "tools/knowledge/tests").exists()
         assert (tmp / "tools/shared/tests").is_dir()
 
-        knowledge = subprocess.run(
-            ["bun", str(tmp / "tools/knowledge/src/cli.ts"), str(tmp)],
-            cwd=tmp,
-            capture_output=True,
-            text=True,
-            check=False,
+        remove_legacy_managed_tests(tmp, legacy)
+        assert snapshot_tree(tmp)["tools/shared/tests/consumer.test.ts"] == (
+            "file",
+            b"// consumer-owned suite\n",
         )
-        assert knowledge.returncode == 0, knowledge.stderr
-
-        after_first = snapshot_tree(tmp)
-        run(tmp)
-        assert snapshot_tree(tmp) == after_first
     finally:
         shutil.rmtree(tmp)
+
+
+def test_legacy_cleanup_preserves_external_symlinked_test_directories() -> None:
+    tmp = Path(tempfile.mkdtemp())
+    outside = Path(tempfile.mkdtemp())
+    try:
+        knowledge_outside = outside / "knowledge-tests"
+        shared_outside = outside / "shared-tests"
+        knowledge_outside.mkdir()
+        shared_outside.mkdir()
+        (knowledge_outside / "check.test.ts").write_bytes(b"external knowledge\n")
+        (shared_outside / "frontmatter.test.ts").write_bytes(b"external shared\n")
+        (tmp / "tools/knowledge").mkdir(parents=True)
+        (tmp / "tools/shared").mkdir(parents=True)
+        (tmp / "tools/knowledge/tests").symlink_to(
+            knowledge_outside, target_is_directory=True
+        )
+        (tmp / "tools/shared/tests").symlink_to(
+            shared_outside, target_is_directory=True
+        )
+
+        knowledge_before = snapshot_tree(knowledge_outside)
+        shared_before = snapshot_tree(shared_outside)
+        run(tmp)
+
+        assert snapshot_tree(knowledge_outside) == knowledge_before
+        assert snapshot_tree(shared_outside) == shared_before
+        assert (tmp / "tools/knowledge/tests").is_symlink()
+        assert (tmp / "tools/shared/tests").is_symlink()
+    finally:
+        shutil.rmtree(tmp)
+        shutil.rmtree(outside)
+
+
 def test_adoption_rejects_symlinked_managed_destination_without_mutation() -> None:
     tmp = Path(tempfile.mkdtemp())
     outside = Path(tempfile.mkdtemp())
@@ -902,7 +957,9 @@ TESTS = (
     "test_adoption_installs_hybrid_workflow_and_preserves_consumer_config",
     "test_adoption_installs_only_new_authority_byte_identically",
     "test_adoption_imports_probe_without_orca_effect",
-    "test_readopt_removes_owned_legacy_tests_and_preserves_consumer_files",
+    "test_legacy_cleanup_uses_production_paths_and_hashes",
+    "test_legacy_cleanup_removes_owned_tests_and_preserves_consumer_files",
+    "test_legacy_cleanup_preserves_external_symlinked_test_directories",
     "test_adoption_rejects_symlinked_managed_destination_without_mutation",
     "test_adoption_rejects_unsafe_generated_destinations_without_mutation",
     "test_qa_registry_keeps_fake_proof_current_and_live_orca_blocked",

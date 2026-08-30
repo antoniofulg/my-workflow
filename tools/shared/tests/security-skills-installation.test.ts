@@ -60,7 +60,6 @@ function runInstaller(target: string, args: string[] = [], env: NodeJS.ProcessEn
 
 function writeFakeCli(directory: string, content = "fixture\n"): string {
   const cli = join(directory, "bunx");
-  writeFileSync(join(directory, "skills"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
   writeFileSync(
     cli,
     `#!/usr/bin/env python3
@@ -109,17 +108,16 @@ function writeConfiguredBunx(
   } = {},
 ): string {
   const bunx = join(directory, "bunx");
-  writeFileSync(join(directory, "skills"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
   const script = [
     "#!/usr/bin/env python3\n",
     "import os, pathlib, sys, subprocess\n",
     'if sys.argv[-1] == "--version":\n',
     options.log
-      ? '    pathlib.Path(' + JSON.stringify(options.log) + ').open("a").write(" ".join(sys.argv[1:]) + " path=" + os.environ.get("PATH", "") + " env=" + os.environ.get("MY_WORKFLOW_TARGET", "<missing>") + " secrets=" + ",".join(name + "=" + str(name in os.environ) for name in ("GITHUB_TOKEN", "GH_TOKEN", "NPM_TOKEN", "AWS_SECRET_ACCESS_KEY")) + "\\n")\n'
+      ? '    pathlib.Path(' + JSON.stringify(options.log) + ').open("a").write(" ".join(sys.argv[1:]) + " path=" + os.environ.get("PATH", "") + " env=" + os.environ.get("MY_WORKFLOW_TARGET", "<missing>") + " secrets=" + ",".join(name + "=" + str(name in os.environ) for name in ("GITHUB_TOKEN", "GH_TOKEN", "NPM_TOKEN", "AWS_SECRET_ACCESS_KEY")) + " cwd=" + os.getcwd() + " codex=" + os.environ.get("CODEX_HOME", "<missing>") + "\\n")\n'
       : "",
     options.preflightFail ? "    sys.exit(7)\n" : '    print("' + (options.preflightVersion ?? "1.5.23") + '")\n    sys.exit(0)\n',
     options.log
-      ? 'pathlib.Path(' + JSON.stringify(options.log) + ').open("a").write(" ".join(sys.argv[1:]) + " path=" + os.environ.get("PATH", "") + " env=" + os.environ.get("MY_WORKFLOW_TARGET", "<missing>") + " secrets=" + ",".join(name + "=" + str(name in os.environ) for name in ("GITHUB_TOKEN", "GH_TOKEN", "NPM_TOKEN", "AWS_SECRET_ACCESS_KEY")) + "\\n")\n'
+      ? 'pathlib.Path(' + JSON.stringify(options.log) + ').open("a").write(" ".join(sys.argv[1:]) + " path=" + os.environ.get("PATH", "") + " env=" + os.environ.get("MY_WORKFLOW_TARGET", "<missing>") + " secrets=" + ",".join(name + "=" + str(name in os.environ) for name in ("GITHUB_TOKEN", "GH_TOKEN", "NPM_TOKEN", "AWS_SECRET_ACCESS_KEY")) + " cwd=" + os.getcwd() + " codex=" + os.environ.get("CODEX_HOME", "<missing>") + "\\n")\n'
       : "",
     options.fail ? "sys.exit(7)\n" : "",
     'skill = sys.argv[sys.argv.index("--skill") + 1]\n',
@@ -306,14 +304,17 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
   });
 
   it("uses Bun no-install as a real no-network boundary", () => {
-    const missingBinary = `my-workflow-missing-skills-${process.pid}-${Date.now()}`;
-    const result = spawnSync("bunx", ["--bun", "--no-install", missingBinary, "--version"], {
+    const pathWithoutStandaloneSkills = (process.env.PATH ?? "")
+      .split(pathDelimiter)
+      .filter((directory) => !existsSync(join(directory, "skills")))
+      .join(pathDelimiter);
+    const result = spawnSync("bunx", ["--bun", "--no-install", "skills", "--version"], {
       cwd: repositoryRoot,
       encoding: "utf8",
-      env: process.env,
+      env: { ...process.env, PATH: pathWithoutStandaloneSkills },
     });
-    expect(result.status).not.toBe(0);
-    expect(`${result.stdout}\n${result.stderr}`).toContain("--no-install");
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim()).toBe("1.5.23");
   });
 
   it.each([
@@ -400,6 +401,7 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
         },
       });
       expect(result.status).toBe(0);
+      expect(existsSync(join(fixture, "skills"))).toBe(false);
       const installedLock = JSON.parse(readFileSync(join(target, "skills-lock.json"), "utf8"));
       expect(installedLock.skills.unrelated).toEqual(originalLock.skills.unrelated);
       expect(installedLock.metadata.skills).toEqual(originalLock.metadata.skills);
@@ -434,6 +436,11 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
           ),
         ],
       );
+      const firstLog = readFileSync(log, "utf8").trim().split("\n")[0];
+      const stagedCwd = firstLog.split(" cwd=")[1].split(" codex=")[0];
+      expect(stagedCwd).toContain("my-workflow-security-staging-");
+      expect(stagedCwd).not.toContain(target);
+      expect(firstLog.split(" codex=")[1]).toBe(join(stagedCwd, ".codex"));
     } finally {
       rmSync(fixture, { recursive: true, force: true });
     }
