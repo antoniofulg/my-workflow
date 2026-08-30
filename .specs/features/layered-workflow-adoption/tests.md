@@ -7,14 +7,14 @@
 | UT-001 | Resolves fixed layers | duplicate/whitespace selections and `full` | deterministic dependency order; exact four-layer catalog |
 | UT-002 | Rejects invalid layers | unknown layer or invalid graph | exit/exception before target access |
 | UT-003 | Classifies managed actions | absent, identical, recorded-clean, recorded-drifted paths | add, claim, update, or conflict exactly |
-| UT-004 | Validates manifests | malformed schema, duplicate JSON keys, non-normalized/escaping paths, unknown layer | rejected without target mutation |
+| UT-004 | Validates manifests | malformed schema, duplicate JSON keys, non-normalized/escaping paths, unknown layer, unsupported/uninstalled block topology, oversized semver | rejected without target mutation |
 | UT-005 | Parses managed blocks | valid, missing, duplicate, nested, edited markers | exact replace or conflict |
 
 ## Integration
 
 | ID | Behaviour | Given / When | Expected |
 | --- | --- | --- | --- |
-| IT-001 | Plans without writes | text and JSON plan for `parallel,quality` | core included; stable actions/output; target byte-identical |
+| IT-001 | Plans without writes | text and JSON plan for `parallel,quality` | core included; stable, unique actions with owning layers/output; target byte-identical |
 | IT-002 | Applies core to an existing project | consumer prose/config/package files exist | core files and blocks installed; consumer content preserved |
 | IT-003 | Adds layers cumulatively | core, then parallel, then quality/extras | manifest union grows; omitted installed layers retained |
 | IT-004 | Aborts conflicts atomically | managed drift and unowned differing destination | all conflicts reported; zero target writes |

@@ -18,6 +18,7 @@ STENCIL = "<!-- product-stencil:"
 MANIFEST_SCHEMA = 1
 WORKFLOW_VERSION = "0.7.0"
 SEMVER_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
+MAX_SEMVER_COMPONENT_DIGITS = 9
 LAYERS = ("core", "parallel", "quality", "extras")
 DEPENDENCIES = {"core": (), "parallel": ("core",), "quality": ("core",), "extras": ("core",)}
 
@@ -250,6 +251,8 @@ def load_manifest(root: Path) -> dict[str, Any]:
     match = SEMVER_RE.fullmatch(version) if isinstance(version, str) else None
     if data["schema"] != 1 or not match:
         raise _error("adoption manifest schema must be version 1")
+    if any(len(component) > MAX_SEMVER_COMPONENT_DIGITS for component in match.groups()):
+        raise _error("adoption manifest workflow version component is too large")
     if tuple(map(int, match.groups())) > tuple(map(int, SEMVER_RE.fullmatch(WORKFLOW_VERSION).groups())):
         raise _error(f"adoption manifest workflow version {version} is newer than {WORKFLOW_VERSION}")
     if not isinstance(data["layers"], list) or not data["layers"] or any(layer not in LAYERS for layer in data["layers"]):
@@ -275,10 +278,12 @@ def load_manifest(root: Path) -> dict[str, Any]:
             raise _error(f"manifest block record is invalid: {key}")
         relative, layer = key.rsplit(":", 1)
         _relative_path(relative)
-        if layer not in BLOCK_LAYERS:
-            raise _error(f"manifest block has invalid layer: {key}")
+        if relative not in {"AGENTS.md", "CLAUDE.md"}:
+            raise _error(f"manifest block has unsupported path: {key}")
+        if layer not in BLOCK_LAYERS or layer not in data["layers"]:
+            raise _error(f"manifest block has uninstalled or invalid layer: {key}")
         if relative == "CLAUDE.md" and layer != "core":
-            raise _error(f"CLAUDE.md may contain only the core managed block")
+            raise _error("CLAUDE.md may contain only the core managed block")
         _validate_hash(record["sha256"], f"block {key}")
     return data
 
@@ -599,10 +604,21 @@ def _managed_skill_names(layers: list[str]) -> set[str]:
     return {PurePosixPath(path).name for layer in layers for path in LAYER_PATHS[layer] if path.startswith(prefix)}
 
 
-def _effect_actions(root: Path, special: dict[str, bytes], block_outputs: dict[str, bytes], manifest: dict[str, Any], new_manifest: dict[str, Any], resolved: list[str], sync: bool) -> list[dict[str, str]]:
+def _managed_skill_owners(layers: list[str]) -> dict[str, str]:
+    prefix = ".agents/skills/"
+    owners: dict[str, str] = {}
+    for layer in layers:
+        for path in LAYER_PATHS[layer]:
+            if path.startswith(prefix):
+                owners.setdefault(PurePosixPath(path).name, layer)
+    return owners
+
+
+def _effect_actions(root: Path, special: dict[str, bytes], block_outputs: dict[str, bytes], manifest: dict[str, Any], new_manifest: dict[str, Any], resolved: list[str], sync: bool, classified: list[dict[str, str]]) -> list[dict[str, str]]:
     actions: list[dict[str, str]] = []
+    classified_paths = {item["path"] for item in classified}
     for relative, content in sorted(special.items()):
-        if relative == ".my-workflow/adoption.json":
+        if relative in {".my-workflow/adoption.json", *classified_paths, *block_outputs}:
             continue
         path = root / relative
         if relative.startswith((".claude/agents/", ".codex/agents/", ".cursor/agents/")):
@@ -629,9 +645,8 @@ def _effect_actions(root: Path, special: dict[str, bytes], block_outputs: dict[s
             actions.append({"path": key, "action": action, "layer": layer})
             if key not in manifest["blocks"] and old_text and not old_text.endswith(("\n", "\r")):
                 actions.append({"path": f"{filename}:separator", "action": "add", "layer": layer})
-    names = _managed_skill_names(resolved)
-    for name in sorted(names):
-        actions.append({"path": f".claude/skills/{name}", "action": "link", "layer": "core"})
+    for name, layer in sorted(_managed_skill_owners(resolved).items()):
+        actions.append({"path": f".claude/skills/{name}", "action": "link", "layer": layer})
     for relative, expected in LEGACY_MANAGED_TEST_FILES.items():
         path = root / relative
         if path.is_file() and not path.is_symlink() and _sha(path.read_bytes()) == expected:
@@ -667,7 +682,9 @@ def _build_plan(source_root: Path, root: Path, requested: list[str], selected: l
     new_manifest = {"schema": 1, "workflow_version": WORKFLOW_VERSION, "layers": effective, "files": records, "blocks": block_records}
     special[".my-workflow/adoption.json"] = _manifest_bytes(new_manifest)
     special.update(block_outputs)
-    effect_actions = actions + _effect_actions(root, special, block_outputs, manifest, new_manifest, effective, sync)
+    effect_actions = actions + _effect_actions(root, special, block_outputs, manifest, new_manifest, effective, sync, actions)
+    if len({item["path"] for item in effect_actions}) != len(effect_actions):
+        raise _error("plan contains duplicate publication paths")
     result = {
         "command": "",
         "target": str(root),

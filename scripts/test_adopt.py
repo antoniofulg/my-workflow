@@ -70,6 +70,13 @@ def test_resolves_fixed_layers_and_plan_is_read_only() -> None:
         assert any(item["path"] == "tools/orca_assisted_probe.py" for item in document["actions"])
         expected_effects = {".gitignore", ".ignore", ".my-workflow.toml", ".my-workflow/adoption.json", ".claude/agents/planner.md", "AGENTS.md:core", ".claude/skills/workflow-config"}
         assert expected_effects <= {item["path"] for item in document["actions"]}
+        assert len(document["actions"]) == len({item["path"] for item in document["actions"]})
+        assert next(item["layer"] for item in document["actions"] if item["path"] == "tools/orca_assisted_probe.py") == "parallel"
+        assert next(item["layer"] for item in document["actions"] if item["path"] == "docs/guidelines/DX.md") == "core"
+        text_result = invoke(target, "plan", "--layers", "parallel")
+        assert text_result.returncode == 0
+        assert "add      tools/orca_assisted_probe.py (parallel)" in text_result.stdout
+        assert "add      docs/guidelines/DX.md (core)" in text_result.stdout
         assert snapshot(target) == before
     finally:
         shutil.rmtree(target)
@@ -275,6 +282,27 @@ def test_manifest_version_and_dependency_closed_layers_are_strict() -> None:
             manifest.write_text(json.dumps(payload))
             result = invoke(target, "status", "--json")
             assert result.returncode == expected
+        manifest.write_text(json.dumps({"schema": 1, "workflow_version": "1" * 5001 + ".0.0", "layers": ["core"], "files": {}, "blocks": {}}))
+        result = invoke(target, "status", "--json")
+        assert result.returncode == 2 and "Traceback" not in result.stderr and "too large" in result.stderr
+    finally:
+        shutil.rmtree(target)
+
+
+def test_manifest_block_topology_is_installed_and_supported() -> None:
+    target = temporary_target()
+    try:
+        manifest = target / ".my-workflow/adoption.json"
+        manifest.parent.mkdir()
+        record = '{"sha256":"' + "0" * 64 + '"}'
+        for key in ("README.md:core", "AGENTS.md:parallel", "CLAUDE.md:parallel"):
+            payload = {"schema": 1, "workflow_version": "0.7.0", "layers": ["core"], "files": {}, "blocks": {key: json.loads(record)}}
+            manifest.write_text(json.dumps(payload))
+            before = snapshot(target)
+            for command in ("status", "apply"):
+                result = invoke(target, command, *(('--layers', 'core') if command == 'apply' else ()))
+                assert result.returncode == 2 and "block" in result.stderr
+                assert snapshot(target) == before
     finally:
         shutil.rmtree(target)
 
@@ -1018,6 +1046,7 @@ TESTS = (
     test_symlinked_local_config_is_rejected_before_read,
     test_status_rejects_symlinked_instruction_before_external_read,
     test_manifest_version_and_dependency_closed_layers_are_strict,
+    test_manifest_block_topology_is_installed_and_supported,
     test_apply_is_cumulative_and_idempotent,
     test_conflicts_abort_every_write_and_report_all_paths,
     test_skip_agents_leaves_both_instruction_files_byte_identical,
