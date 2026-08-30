@@ -1,10 +1,10 @@
 # Layered Workflow Adoption QA Execute
 
-**Date:** 2026-08-30  
-**Candidate:** `714716c419874fdb85de24c34f741ecfa96550e8`  
-**Adapter:** CLI/manual through `scripts/adopt.py` and independent filesystem reads  
-**Environment:** checkout-local disposable targets; Bun 1.4.0; Python 3; fake `orca` only  
-**Opening gate:** `bun run test:all` — exit 0; 123 Bun tests passed, 0 failed across 8 files; Python adoption suite ended `ok (64 tests)`  
+**Date:** 2026-08-30
+**Candidate:** `714716c419874fdb85de24c34f741ecfa96550e8`
+**Adapter:** CLI/manual through `scripts/adopt.py` and independent filesystem reads
+**Environment:** checkout-local disposable targets; Bun 1.4.0; Python 3; fake `orca` only
+**Opening gate:** `bun run test:all` — exit 0; 123 Bun tests passed, 0 failed across 8 files; Python adoption suite ended `ok (64 tests)`
 **Raw evidence:** `docs/qa/evidence/2026-08-30-layered-workflow-adoption/`
 
 ## Matrix
