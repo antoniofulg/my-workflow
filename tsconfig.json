@@ -7,7 +7,7 @@
     "strict": true,
     "skipLibCheck": true,
     "noUncheckedIndexedAccess": true,
-    "types": ["node", "vitest/globals"]
+    "types": ["bun", "node"]
   },
   "include": ["tools/knowledge/**/*.ts", "tools/shared/**/*.ts"]
 }

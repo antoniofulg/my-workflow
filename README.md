@@ -60,24 +60,31 @@ Copy the loop, not the product. For a new project, replace the stencil paragraph
 project is** in `AGENTS.md` and fill product documentation only as the product earns it. For an
 existing project, preserve its filled product paragraph and product-owned documentation.
 
+Choose a fixed capability layer. `core` contains the operating loop and Bun tooling, `parallel`
+adds assisted slice execution, `quality` adds review and QA skills, and `extras` adds optional
+Ponytail utilities. Selecting `parallel`, `quality`, or `extras` automatically includes `core`;
+`full` resolves all four layers. Planning is read-only and should precede
+every apply:
+
 ```bash
-python3 scripts/adopt.py /path/to/target-project
+python3 scripts/adopt.py plan /path/to/target-project --layers core --json
+python3 scripts/adopt.py apply /path/to/target-project --layers core
+python3 scripts/adopt.py status /path/to/target-project
 ```
 
-For an existing project with a filled product paragraph, pass `--skip-agents` to preserve
-`AGENTS.md` and `CLAUDE.md` byte-for-byte while installing the rest of the workflow:
+Add capabilities later with another apply; installed layers are cumulative and omitted layers are
+never removed. `--skip-agents` preserves both instruction files byte-for-byte. Without it, adoption
+appends managed `core`, `parallel`, and `quality` blocks while preserving consumer prose. A differing
+managed file or unowned destination is reported as a conflict and causes zero writes.
 
-```bash
-python3 scripts/adopt.py --skip-agents /path/to/target-project
-```
-
-This is an explicit opt-in. It skips only the two agent instruction files; merge the workflow loop
-into `AGENTS.md` and update `CLAUDE.md` manually later.
+The old positional `adopt.py TARGET` command is intentionally removed. `plan` and `apply` require
+`--layers`; `status` reports clean state with exit 0, drift with exit 1, and invalid state or
+invocation with exit 2.
 
 Prerequisites: the target directory must already exist, and `adopt.py` requires Python 3. Adoption
 does not require a Git `HEAD`. Before running the workflow-config resolver, the target must be a Git
-repository with at least one commit. Node.js and npm are needed only to validate this source pack's
-gates, not to adopt it.
+repository with at least one commit. Bun 1.4.x is the JavaScript/TypeScript runtime for this pack;
+it is needed only to validate the source pack's gates, not to adopt it.
 
 Adoption is a review before it is a command. [`docs/adoption-prompt.md`](docs/adoption-prompt.md)
 carries the prompt for the read-only inspection, adoption command, and diff review.
@@ -167,29 +174,28 @@ The complete contract is in the
 ## Update an adopted project
 
 Start from a clean tree and a dedicated update branch. Read the changelog since the version the
-project adopted, run adoption with the appropriate agent-file choice, then inspect the complete diff
-before committing:
+project adopted, plan the smallest layer update, then inspect the complete diff before committing:
 
 ```bash
 cd /path/to/target-project
 git status --short
 git switch -c chore/update-my-workflow
-python3 /path/to/my-workflow/scripts/adopt.py --skip-agents .
+python3 /path/to/my-workflow/scripts/adopt.py plan . --layers full
+python3 /path/to/my-workflow/scripts/adopt.py apply . --layers full --skip-agents
 git diff
 ```
 
-Use the default command for a new project or a target that still has the product stencil. Use
-`--skip-agents` when the target has a product-specific `AGENTS.md`; it preserves `AGENTS.md` and
-`CLAUDE.md`, so merge workflow instruction changes manually. Read [`CHANGELOG.md`](CHANGELOG.md)
-between the adopted version and the current package version before accepting the update.
+Use `--skip-agents` when the target has product-specific instructions. Read
+[`CHANGELOG.md`](CHANGELOG.md) between the adopted version and the current package version before
+accepting the update. Apply is additive: it does not remove an installed layer or consumer file.
 
 ## Managed paths
 
-Review the managed paths: adoption replaces workflow-owned documentation, knowledge scaffolding, and bundled skills. It
-creates missing `docs/qa/README.md`, `tools/ad-index.py`, `.my-workflow.toml.example`, and
-`templates/agents/`; an existing consumer QA profile remains untouched. It merges workflow ignore
-entries and relinks Claude skill pointers. Product documentation, `.specs/`, and an existing local
-`.my-workflow.toml` remain consumer-owned.
+Review the managed paths and the plan's per-file actions. Adoption updates only workflow-owned files, preserves unknown
+consumer files, creates missing `docs/qa/README.md`, `tools/ad-index.py`, `.my-workflow.toml.example`,
+and `templates/agents/`, and records ownership in `.my-workflow/adoption.json`. It never removes an
+installed layer or consumer file. Product documentation, `.specs/`, `package.json`, `bun.lock`, and
+an existing local `.my-workflow.toml` remain consumer-owned.
 
 The local config is the source for generated provider packets. Adoption preserves an existing
 `.my-workflow.toml`, installs tracked templates when missing, and runs `--sync-agents`; sync creates
@@ -199,14 +205,14 @@ tracked templates, not generated runtime packets.
 
 ## Troubleshooting
 
-**`refusing to overwrite AGENTS.md: What this project is is not the stencil.`** The target has a
-product-specific description. Re-run with `--skip-agents`, then merge workflow changes into
-`AGENTS.md` and `CLAUDE.md` manually.
+**`conflict` in a plan or apply.** Review every listed path. Restore an owned file to its recorded
+hash or resolve an unowned collision, then run the plan again. Apply is all-preflight: no selected
+file or manifest is written while any conflict remains.
 
 **`refusing adoption: Makefile:N uses machine-global workflow skill path`** Point the target's gate at
 the vendored `.agents/skills/workflow-spec-driven/scripts/...` path.
 
-**Claude skill symlinks point nowhere.** Re-run `adopt.py`; it recreates the `.claude/skills/`
+**Claude skill symlinks point nowhere.** Re-run `apply --layers ...`; it recreates the `.claude/skills/`
 links into `.agents/skills/`.
 
 **A runtime packet has the wrong model or effort.** Edit the local `.my-workflow.toml`, then run
@@ -228,11 +234,11 @@ available:
 No integration is mandatory or installed by adoption. Keep daemon, port, CLI and version details in
 the relevant integration documentation.
 
-The script merges the workflow-owned ignore entries, copies missing example/templates, generates
-local runtime packets, and creates the QA profile only when the target does not already have one.
-By default it refuses to overwrite a
-non-stencil `AGENTS.md` product paragraph. With `--skip-agents`, it leaves both `AGENTS.md` and
-`CLAUDE.md` untouched. Always review the resulting diff before accepting managed-path replacements.
+The adopter merges workflow-owned ignore entries, copies missing example/templates, generates
+local runtime packets, and records per-file ownership in `.my-workflow/adoption.json`. It preserves
+consumer prose through managed blocks, never removes an installed layer, and leaves package
+metadata, local config, and unknown files untouched. Always review the plan and resulting diff
+before accepting managed-path updates.
 Adoption itself does not install external security skills. It prints the exact command for the
 separate authorized step and leaves the security gate uncovered until that command succeeds.
 
@@ -243,8 +249,9 @@ Codex and OpenCode consume `.agents`. Do not add `.cursor/skills` or other agent
 project-owned `qa-plan` and `qa-execute` skills use the consuming project's profile in
 `docs/qa/README.md`; they do not select a framework or replace the project's gate.
 
-`adopt.py` installs and updates only the bundled TLC, Ponytail, Deep Review, QA, workflow-config,
-and autonomous skills. Keep those canonical copies in `.agents/skills/` and the Claude Code
+`adopt.py` installs and updates only the workflow-owned `workflow-spec-driven`, Ponytail, Deep
+Review, QA, workflow-config, and autonomous skills. Keep those canonical copies in
+`.agents/skills/` and the Claude Code
 symlinks in `.claude/skills/`. The three external security skills are a separate authorized step:
 
 ```bash
@@ -264,9 +271,9 @@ explorer and verifier runtimes live under the ignored `.cursor/agents/`, `.claud
 ## Knowledge checker
 
 ```bash
-npm install
-npm run test:all
-npm run knowledge
+bun install --frozen-lockfile
+bun run test:all
+bun run knowledge
 ```
 
 The consuming project's full gate should not include this checker. Run it when writing to the

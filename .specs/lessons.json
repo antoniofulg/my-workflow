@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 31,
+  "next_id": 33,
   "lessons": [
     {
       "id": "L-001",
@@ -544,6 +544,44 @@
       ],
       "created": "2026-08-28T23:43:48Z",
       "last_seen": "2026-08-28T23:43:48Z"
+    },
+    {
+      "id": "L-031",
+      "key": "surviving_mutant::assert normalized path aliases separately from ordinary path normalization rejection",
+      "text": "Assert normalized path aliases separately from ordinary path normalization rejection.",
+      "signal": "surviving_mutant",
+      "scope": "adoption-manifest",
+      "status": "candidate",
+      "features": [
+        "layered-workflow-adoption"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s1.md:70 (adoption-manifest)",
+        "validation-s1.md:67 (adoption-manifest)"
+      ],
+      "created": "2026-08-30T04:13:39Z",
+      "last_seen": "2026-08-30T04:28:35Z"
+    },
+    {
+      "id": "L-032",
+      "key": "ac_gap::instrument every live publication mutation and assert the authority manifest is last",
+      "text": "Instrument every live publication mutation and assert the authority manifest is last.",
+      "signal": "ac_gap",
+      "scope": "adoption",
+      "status": "candidate",
+      "features": [
+        "layered-workflow-adoption"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s1.md:125 (adoption)",
+        "validation-s1.md:115 (adoption)"
+      ],
+      "created": "2026-08-30T04:13:39Z",
+      "last_seen": "2026-08-30T04:28:36Z"
     }
   ]
 }

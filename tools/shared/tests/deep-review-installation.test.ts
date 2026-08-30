@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, relative, sep } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 const repositoryRoot = process.cwd();
 const skillDirectory = join(repositoryRoot, ".agents", "skills", "deep-review");
@@ -61,18 +61,14 @@ describe("deep-review installation", { timeout: 30_000 }, () => {
 
     const packageManifest = readJson(join(repositoryRoot, "package.json")) as {
       version?: string;
+      packageManager?: string;
       devDependencies?: Record<string, string>;
     };
-    const packageLock = readJson(join(repositoryRoot, "package-lock.json")) as {
-      version?: string;
-      packages?: Record<string, { version?: string; devDependencies?: Record<string, string> }>;
-    };
     expect(packageManifest.version).toBe("0.7.0");
-    expect(packageLock.version).toBe("0.7.0");
-    expect(packageLock.packages?.[""]?.version).toBe("0.7.0");
+    expect(packageManifest.packageManager).toBe("bun@1.4.0");
+    expect(existsSync(join(repositoryRoot, "bun.lock"))).toBe(true);
+    expect(existsSync(join(repositoryRoot, "package-lock.json"))).toBe(false);
     expect(packageManifest.devDependencies?.skills).toBe("1.5.23");
-    expect(packageLock.packages?.[""]?.devDependencies?.skills).toBe("1.5.23");
-    expect(packageLock.packages?.["node_modules/skills"]?.version).toBe("1.5.23");
     expect(
       (readJson(join(repositoryRoot, "node_modules", "skills", "package.json")) as {
         version?: string;

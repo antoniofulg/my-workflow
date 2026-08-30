@@ -1,0 +1,3 @@
+- Active command documentation now names Bun 1.4.x, `bun install --frozen-lockfile`, `bun run test:all`, `bun run knowledge`, and `bun pm pack --dry-run`.
+- The canonical Bun contract suite scans active README/workflow/guideline, QA-profile, package, script, and tool authority while explicitly allowing dated QA evidence, superseded feature artifacts, and the changelog to retain their original commands.
+- Historical evidence was not rewritten; the active QA profile was updated because it is an operational authority, not a historical report.

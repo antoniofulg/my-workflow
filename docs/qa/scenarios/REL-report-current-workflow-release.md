@@ -4,37 +4,50 @@ area: REL
 title: Report the current workflow release consistently
 persona: Repository reader
 journey: J-review-workflow-release
-expected: The newest changelog release matches both package authorities and shipped public contracts, while the full test command scopes discovery to canonical tests under tools.
-entry_points: CHANGELOG.md; package.json; package-lock.json
+expected: The newest changelog release matches the package manifest and Bun lockfile, while the documented Bun 1.4 install, knowledge, full-gate, and package commands expose the current source pack without checkout residue.
+entry_points: CHANGELOG.md; README.md; package.json; bun.lock; bunfig.toml
 qa_status: pass
-bug_ids: BUG-20260824-release-overstates-lifecycle-qa; BUG-20260825-adoption-omits-parallel-pilot
-fix_status:
-retest_status:
-fix_commits:
-evidence: docs/qa/evidence/2026-08-29-release-0-7-0/package-summary.json; docs/qa/evidence/2026-08-29-release-0-7-0/adoption-summary.json; docs/qa/evidence/2026-08-29-release-0-7-0/installed-probe-dispatch-summary.json
-last_report: docs/qa/reports/2026-08-29-release-0-7-0.md
+bug_ids: BUG-20260824-release-overstates-lifecycle-qa; BUG-20260825-adoption-omits-parallel-pilot; BUG-20260829-bun-history-gate-rejects-new-qa-charters
+fix_status: fixed
+retest_status: pass
+fix_commits: 61f2e74; 816afd6; fb4c61f
+evidence: docs/qa/evidence/2026-08-29-bun-tooling-runtime-retest/opening-gate.txt; docs/qa/evidence/2026-08-29-bun-tooling-runtime-retest/release-readback.txt; docs/qa/evidence/2026-08-29-bun-tooling-runtime-retest/package-dry-run.txt; docs/qa/evidence/2026-08-29-bun-tooling-runtime-retest/adoption-summary.json; docs/qa/evidence/2026-08-29-bun-tooling-runtime-retest/security-summary.json
+last_report: docs/qa/reports/2026-08-29-bun-tooling-runtime-retest.md
 overlaps:
 ---
 
 Version-neutral owner for public release consistency. For release `0.7.0`, the reader compares the
-newest changelog heading with both package authorities and checks its claims against the shipped
-public contracts. The release walk reuses the current ai-memory handoff and adoption verdicts as
+newest changelog heading with the package manifest and Bun lockfile and checks its claims against
+the shipped public contracts. The release walk reuses the current ai-memory handoff and adoption verdicts as
 canaries instead of repeating their feature-level runtime probes.
 
 Release `0.7.0` changes this promise and resets it to `untested`. The next independent QA Execute
-session must verify identity, package membership, adoption, the full test command, and every
+session must verify identity, package membership, adoption, `bun run test:all`, and every
 hybrid-slice release-note claim. The real Orca/Codex two-lane lifecycle and completed-pilot cleanup
 remain `blocked-verify`; release QA may confirm that boundary but cannot convert it to a pass or
 claim a completed pilot.
 
+The 2026-08-29 Bun tooling cycle refreshes this still-`untested` promise: Bun 1.4 now owns install,
+TypeScript execution, structural tests, the mixed-language gate, knowledge parsing, executable
+resolution, and package inspection. This plan records no execution verdict.
+
 The prior `0.6.0` verdict and its evidence remain historical record below; this release reset
 clears only the current metadata pointers until the independent `0.7.0` release walk completes.
 
-Fresh QA on 2026-08-29 passed release `0.7.0` through one package identity, a 410-file offline
-package dry-run, disposable adoption and re-adoption, independently reloaded installed files,
-pointer-only fake-provider dispatch, hybrid planner/executor canaries, and zero owned residue. The
-real Orca/Codex lifecycle and completed-pilot cleanup remain `blocked-verify`; no publication,
-tag, GitHub release, remote delivery, deploy, or live Orca action occurred. See the current report.
+The 2026-08-29 `0.7.0` release report and its raw evidence remain preserved as historical
+artifacts; they do not establish the current verdict. Fresh QA must rerun the release walk before
+this scenario can leave `untested`.
+
+QA Execute on 2026-08-29 stopped at the opening documented `bun run test:all` command. The gate
+misclassified the three new Bun-cycle charters as changed historical evidence, producing 121
+passes and 1 failure before any adoption, package, or installer walk. See
+`BUG-20260829-bun-history-gate-rejects-new-qa-charters`.
+
+Fresh QA retest at `761d188` passed the repaired opening gate, all documented Bun 1.4 source-pack
+commands, dry-run package inspection, disposable adoption and re-adoption, adopted knowledge
+execution, probe import with zero Orca calls, and the authorized-boundary security preflights. The
+networked external-skill success leg was not authorized and remains explicitly untested; no
+publication, release, live Orca operation, or remote action occurred.
 
 QA on 2026-08-25 failed release `0.6.0` during fresh adoption: the package contains the public
 parallel-pilot helper, but `scripts/adopt.py` does not install it. The release walk stopped at the

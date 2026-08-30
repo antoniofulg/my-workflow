@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shutil
 import json
+import subprocess
 import sys
 import tempfile
 from copy import deepcopy
@@ -70,12 +71,19 @@ def test_matching_previous_fingerprint_and_green_gate_closes_without_increment()
         shutil.rmtree(root)
 
 
-def test_python_gate_discovers_every_tools_test_suite() -> None:
-    package = json.loads((Path(__file__).resolve().parent.parent / "package.json").read_text(encoding="utf-8"))
+def test_python_gate_discovers_every_tracked_python_suite() -> None:
+    root = Path(__file__).resolve().parent.parent
+    package = json.loads((root / "package.json").read_text(encoding="utf-8"))
     script = package["scripts"]["test:python"]
-    assert "find tools" in script and "test_*.py" in script and "sort" in script
-    discovered = sorted(path.name for path in (Path(__file__).resolve().parent).rglob("test_*.py"))
-    assert Path(__file__).name in discovered
+    assert "git ls-files" in script
+    assert "scripts/test_*.py" in script and "tools/test_*.py" in script and "sort" in script
+    discovered = subprocess.check_output(
+        ["git", "ls-files", "--", "scripts/test_*.py", "tools/test_*.py"],
+        cwd=root,
+        text=True,
+    ).splitlines()
+    assert "scripts/test_ai_memory.py" in discovered
+    assert Path(__file__).relative_to(root).as_posix() in discovered
 
 
 def test_same_fingerprint_counts_failed_verifier_even_when_gate_is_green_and_halts_third() -> None:

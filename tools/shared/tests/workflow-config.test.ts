@@ -2,7 +2,7 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 const repositoryRoot = process.cwd();
 const skillPath = ".agents/skills/workflow-config/SKILL.md";
@@ -23,6 +23,33 @@ function isIgnored(relativePath: string): boolean {
     return true;
   } catch {
     return false;
+  }
+}
+
+function checkoutPorcelain(): string {
+  return execFileSync("git", ["status", "--porcelain=v1", "--untracked-files=all"], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+  });
+}
+
+function packagedFiles(): string[] {
+  const destination = mkdtempSync(join(tmpdir(), "workflow-package-"));
+  const tarball = join(destination, "workflow.tgz");
+  const before = checkoutPorcelain();
+  try {
+    execFileSync("bun", ["pm", "pack", "--filename", tarball, "--ignore-scripts"], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    });
+    return execFileSync("tar", ["-tzf", tarball], { encoding: "utf8" })
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((path) => path.replace(/^package\//, ""));
+  } finally {
+    rmSync(destination, { recursive: true, force: true });
+    expect(checkoutPorcelain()).toBe(before);
   }
 }
 
@@ -67,13 +94,7 @@ describe("workflow configuration skill", () => {
     ]) {
       expect(isIgnored(relativePath), relativePath).toBe(true);
     }
-    const packageManifest = JSON.parse(
-      execFileSync("npm", ["pack", "--dry-run", "--json"], {
-        cwd: repositoryRoot,
-        encoding: "utf8",
-      }),
-    ) as Array<{ files: Array<{ path: string }> }>;
-    const packaged = packageManifest[0].files.map(({ path }) => path);
+    const packaged = packagedFiles();
     expect(packaged).toContain(".my-workflow.toml.example");
     expect(packaged).toContain("templates/agents/claude/planner.md");
     expect(packaged).toContain("templates/agents/codex/planner.toml");

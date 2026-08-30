@@ -45,18 +45,23 @@ Empty on purpose. Machinery only: operating schema, `raw/` README, stub indexes,
 | `knowledge/AGENTS.md` | OKF v0.2 schema (frontmatter, ingest, harvest, lint) |
 | `knowledge/wiki/` | Concepts, when the consuming project earns them |
 | `knowledge/raw/` | Immutable originals. Privacy surface — committed, so strip personal data |
-| `npm run knowledge` | Conformance, drift, gaps. Run when writing to the bundle, not as the product gate |
+| `bun run knowledge` | Conformance, drift, gaps. Run when writing to the bundle, not as the product gate |
 
 ## Adopt
 
-`python3 scripts/adopt.py <target>` copies the loop into another repo and refuses to overwrite a
-non-stencil **What this project is** paragraph. It writes `@AGENTS.md` as `CLAUDE.md`, copies the
-bundled skills (including `deep-review`) without shipping `__pycache__` or `*.pyc`, and creates
-`docs/qa/README.md` only when the target has no profile. It copies missing
+`python3 scripts/adopt.py plan <target> --layers core` previews a fixed layer before application.
+Use `apply <target> --layers core|parallel|quality|extras|full` to install additive capabilities,
+then `status <target>` to inspect drift. The catalog includes the operating loop, Bun-native
+knowledge tooling, assisted slice probe, review/QA skills, and optional Ponytail utilities. `full`
+resolves all four layers; subsequent applies union requested and installed layers and never remove
+files. Existing consumer prose remains outside managed `AGENTS.md`/`CLAUDE.md` blocks, and
+`--skip-agents` leaves both instruction files byte-identical. Adoption preserves package metadata,
+`.my-workflow.toml`, and unknown files. It copies missing
 `.my-workflow.toml.example` and `templates/agents/`, preserves an existing local
 `.my-workflow.toml`, and generates ignored runtime packets from those sources. Adoption rejects
 Makefile references to machine-global `$(HOME)/.claude/...`,
-`${HOME}/.claude/...`, `$HOME/.claude/...`, or `~/.claude/...`; point TLC gates at the adopted
+`${HOME}/.claude/...`, `$HOME/.claude/...`, or `~/.claude/...`; point
+`workflow-spec-driven` gates at the adopted
 `.agents/skills/workflow-spec-driven/scripts/...` path instead.
 
 Adoption does not install the external security dependencies. After the bundled workflow is

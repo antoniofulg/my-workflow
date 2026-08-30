@@ -1,5 +1,3 @@
-import { parse as parseYaml } from "yaml";
-
 /**
  * The result of reading a document's leading `---` delimited YAML block.
  *
@@ -32,7 +30,7 @@ export function readFrontmatter(source: string): Frontmatter {
 
   let parsed: unknown;
   try {
-    parsed = parseYaml(lines.slice(1, closing).join("\n"));
+    parsed = Bun.YAML.parse(lines.slice(1, closing).join("\n"));
   } catch (cause) {
     const detail = cause instanceof Error ? cause.message.split("\n")[0] : String(cause);
     return { present: true, data: null, error: `unparseable YAML: ${detail}` };
