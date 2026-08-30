@@ -38,10 +38,13 @@ One ready writer means serial execution in the integration checkout. S2 is docum
 
 ### T1: Model layers, plans, manifests, and status
 
+**Status:** pending
+**Slice:** S1
 **What**: Replace the monolithic public model with the fixed catalog, pure resolver/inventory/action helpers, manifest validation, and read-only `plan`/`status` subcommands.
-**Where**: `scripts/adopt.py`
+**Where:** scripts/adopt.py
 **Test owner**: `scripts/test_adopt.py`
-**Depends on**: None
+**Depends on:** None
+**Resources:** none
 **Reuses**: Existing path containment, hash, snapshot, CLI subprocess helpers.
 **Requirement**: LAY-01, LAY-02, LAY-03, LAY-04, LAY-11, LAY-12, LAY-13, LAY-15, LAY-18
 
@@ -58,11 +61,14 @@ One ready writer means serial execution in the integration checkout. S2 is docum
 
 ### T2: Apply managed layers safely
 
+**Status:** pending
+**Slice:** S1
 **What**: Implement additive apply, per-file ownership hashes, conflict preflight, managed instruction blocks, individual-file writes, idempotence, and safe agent synchronization.
-**Where**: `scripts/adopt.py`
+**Where:** scripts/adopt.py
 **Test owner**: `scripts/test_adopt.py`
 **Assets**: `templates/adoption/agents/core.md`, `templates/adoption/agents/parallel.md`, `templates/adoption/agents/quality.md`
-**Depends on**: T1
+**Depends on:** T1
+**Resources:** none
 **Reuses**: Current ignore merge, legacy cleanup, skill links, workflow-config validation/sync.
 **Requirement**: LAY-05, LAY-06, LAY-07, LAY-08, LAY-09, LAY-10, LAY-14, LAY-16, LAY-17
 
@@ -79,10 +85,13 @@ One ready writer means serial execution in the integration checkout. S2 is docum
 
 ### T3: Preserve full and Bun-native adoption
 
+**Status:** pending
+**Slice:** S1
 **What**: Map every current adoption path to one layer, prove full-profile equivalence, update package/active-authority contracts, and run the existing-project journey.
-**Where**: `scripts/adopt.py`
+**Where:** scripts/adopt.py
 **Test owners**: `scripts/test_adopt.py`, `tools/shared/tests/workflow-config.test.ts`, `tools/shared/tests/qa-skills.test.ts`
-**Depends on**: T2
+**Depends on:** T2
+**Resources:** none
 **Reuses**: Current path inventory, Bun pack test, knowledge/probe adoption checks.
 **Requirement**: LAY-14, LAY-15, LAY-16, LAY-17
 
@@ -99,10 +108,13 @@ One ready writer means serial execution in the integration checkout. S2 is docum
 
 ### T4: Document layered adoption
 
+**Status:** pending
+**Slice:** S1
 **What**: Replace monolithic public commands with layer selection, plan/apply/status examples, migration guidance for existing projects, and QA scenario/charter handoff.
-**Where**: `README.md`
+**Where:** README.md
 **Related docs**: `docs/adoption-prompt.md`, `docs/workflow/pack.md`, affected QA artifacts, task/spec traceability
-**Depends on**: T3
+**Depends on:** T3
+**Resources:** none
 **Reuses**: `dx.md` as the single command contract.
 **Requirement**: LAY-02, LAY-11, LAY-14, LAY-15, LAY-18
 
