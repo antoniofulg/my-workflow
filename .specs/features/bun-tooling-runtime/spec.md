@@ -9,9 +9,9 @@ runtime capability the workflow needs.
 
 ## Goals
 
-- [ ] Make Bun 1.4.x the only JavaScript/TypeScript package, runtime, test, pack, and executable authority.
-- [ ] Keep the Python workflow, adoption, parallelization, and release gates green without Node/npm fallbacks.
-- [ ] Preserve historical evidence while removing active npm/Vitest/tsx/yaml authority.
+- [x] Make Bun 1.4.x the only JavaScript/TypeScript package, runtime, test, pack, and executable authority.
+- [x] Keep the Python workflow, adoption, parallelization, and release gates green without Node/npm fallbacks.
+- [x] Preserve historical evidence while removing active npm/Vitest/tsx/yaml authority.
 
 ## Out of Scope
 
@@ -91,24 +91,24 @@ that the workflow never silently reintroduces npm or npx.
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| BUN-01 | P1: Bun-only tooling | Tasks | Verified by T1 |
-| BUN-02 | P1: Bun-only tooling | Tasks | Verified by T1 |
-| BUN-03 | P1: Bun-only tooling | Tasks | Verified by T1 |
-| BUN-04 | P1: Bun-only tooling | Tasks | Verified by T1 |
-| BUN-05 | P1: Bun-only tooling | Tasks | Verified by T1 |
-| BUN-06 | P1: Bun-only tooling | Tasks | Verified by T2 |
-| BUN-07 | P1: Bun-only tooling | Tasks | Verified by T2 |
-| BUN-08 | P1: Bun-only tooling | Tasks | Verified by T1 |
-| BUN-09 | P1: Bun package boundaries | Tasks | Verified by T3 |
-| BUN-10 | P1: Bun package boundaries | Tasks | Verified by T3 |
-| BUN-11 | P1: Bun package boundaries | Tasks | Verified by T4 |
-| BUN-12 | P1: Bun package boundaries | Tasks | Verified by T4 |
-| BUN-13 | P1: Bun package boundaries | Tasks | Verified by T4 |
-| BUN-14 | P1: Bun package boundaries | Tasks | Verified by T5 |
-| BUN-15 | P1: Bun package boundaries | Tasks | Verified by T5 |
-| BUN-16 | P1: Bun package boundaries | Tasks | Verified by T5 |
-| BUN-17 | Edge case | Tasks | Verified by T1 |
-| BUN-18 | Edge case | Tasks | Verified by T4 |
+| BUN-01 | P1: Bun-only tooling | Validate | ✅ Verified |
+| BUN-02 | P1: Bun-only tooling | Validate | ✅ Verified |
+| BUN-03 | P1: Bun-only tooling | Validate | ✅ Verified |
+| BUN-04 | P1: Bun-only tooling | Validate | ✅ Verified |
+| BUN-05 | P1: Bun-only tooling | Validate | ✅ Verified |
+| BUN-06 | P1: Bun-only tooling | Validate | ✅ Verified |
+| BUN-07 | P1: Bun-only tooling | Validate | ✅ Verified |
+| BUN-08 | P1: Bun-only tooling | Validate | ✅ Verified |
+| BUN-09 | P1: Bun package boundaries | Validate | ✅ Verified |
+| BUN-10 | P1: Bun package boundaries | Validate | ✅ Verified |
+| BUN-11 | P1: Bun package boundaries | Validate | ✅ Verified |
+| BUN-12 | P1: Bun package boundaries | Validate | ✅ Verified |
+| BUN-13 | P1: Bun package boundaries | Validate | ✅ Verified |
+| BUN-14 | P1: Bun package boundaries | Validate | ✅ Verified |
+| BUN-15 | P1: Bun package boundaries | Validate | ✅ Verified |
+| BUN-16 | P1: Bun package boundaries | Validate | ✅ Verified |
+| BUN-17 | Edge case | Validate | ✅ Verified |
+| BUN-18 | Edge case | Validate | ✅ Verified |
 
 **Coverage:** 18 total, 18 mapped to tasks, 0 unmapped.
 
@@ -116,6 +116,6 @@ that the workflow never silently reintroduces npm or npx.
 
 ## Success Criteria
 
-- [ ] `bun install --frozen-lockfile` and `bun run test:all` exit 0 on the final tree.
-- [ ] Active authority scan finds zero forbidden npm/Vitest/tsx/yaml paths outside the historical allowlist.
-- [ ] Bun package/adoption checks leave zero tracked or ignored residue in the checkout.
+- [x] `bun install --frozen-lockfile` and `bun run test:all` exit 0 on the final tree.
+- [x] Active authority scan finds zero forbidden npm/Vitest/tsx/yaml paths outside the historical allowlist.
+- [x] Bun package/adoption checks leave zero tracked or ignored residue in the checkout.

@@ -65,7 +65,7 @@ S2 and S3 may open together only after CP-S1 passes. Tasks inside each slice rem
 - [x] `bun.lock` is committed and `package-lock.json` and Vitest are absent; `tsx` remains only for T2's knowledge boundary.
 - [x] `bunfig.toml` limits discovery to `tools` and preloads a 1.4.x guard.
 - [x] Every structural suite imports `bun:test`.
-- [x] `bun install --frozen-lockfile && bun test` exits 0 with the canonical suite count (114 passed).
+- [x] The T1 checkpoint passed 114 Bun cases; the final integrated gate passes 122 cases across the same eight canonical suites.
 
 **Tests**: IT-001, IT-002, UT-001
 **Gate**: Full
