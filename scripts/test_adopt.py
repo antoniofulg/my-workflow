@@ -118,12 +118,109 @@ def test_manifest_hashes_are_lowercase_sha256() -> None:
         shutil.rmtree(target)
 
 
+def test_apply_preserves_consumer_prose_and_writes_managed_blocks() -> None:
+    target = temporary_target()
+    try:
+        (target / "AGENTS.md").write_text("# Product instructions\n\nConsumer-owned prose.\n", encoding="utf-8")
+        (target / "CLAUDE.md").write_text("# Consumer Claude\n", encoding="utf-8")
+        agents_before = (target / "AGENTS.md").read_bytes()
+        claude_before = (target / "CLAUDE.md").read_bytes()
+        result = invoke(target, "apply", "--layers", "core", "--json")
+        assert result.returncode == 0, result.stderr
+        agents = (target / "AGENTS.md").read_text(encoding="utf-8")
+        assert agents.startswith(agents_before.decode())
+        assert "my-workflow:core:start" in agents
+        claude = (target / "CLAUDE.md").read_text(encoding="utf-8")
+        assert claude.startswith(claude_before.decode())
+        assert "@AGENTS.md" in claude
+        manifest = json.loads((target / ".my-workflow/adoption.json").read_text(encoding="utf-8"))
+        assert "AGENTS.md:core" in manifest["blocks"]
+        assert "CLAUDE.md:core" in manifest["blocks"]
+    finally:
+        shutil.rmtree(target)
+
+
+def test_apply_is_cumulative_and_idempotent() -> None:
+    target = temporary_target()
+    try:
+        assert invoke(target, "apply", "--layers", "core").returncode == 0
+        assert invoke(target, "apply", "--layers", "parallel").returncode == 0
+        first = snapshot(target)
+        manifest = json.loads((target / ".my-workflow/adoption.json").read_text(encoding="utf-8"))
+        assert manifest["layers"] == ["core", "parallel"]
+        assert invoke(target, "apply", "--layers", "quality,extras").returncode == 0
+        complete = snapshot(target)
+        manifest = json.loads((target / ".my-workflow/adoption.json").read_text(encoding="utf-8"))
+        assert manifest["layers"] == ["core", "parallel", "quality", "extras"]
+        assert invoke(target, "apply", "--layers", "quality").returncode == 0
+        assert snapshot(target) == complete
+        assert first["tools/orca_assisted_probe.py"] == (ROOT / "tools/orca_assisted_probe.py").read_bytes()
+    finally:
+        shutil.rmtree(target)
+
+
+def test_conflicts_abort_every_write_and_report_all_paths() -> None:
+    target = temporary_target()
+    try:
+        assert invoke(target, "apply", "--layers", "core").returncode == 0
+        first = target / "tools/knowledge/src/cli.ts"
+        first.write_bytes(first.read_bytes() + b"\nconsumer edit\n")
+        unowned = target / "tools/orca_assisted_probe.py"
+        unowned.parent.mkdir(parents=True, exist_ok=True)
+        unowned.write_bytes(b"consumer-owned\n")
+        before = snapshot(target)
+        result = invoke(target, "apply", "--layers", "parallel", "--json")
+        assert result.returncode == 1
+        document = json.loads(result.stdout)
+        assert "tools/knowledge/src/cli.ts" in document["conflicts"]
+        assert "tools/orca_assisted_probe.py" in document["conflicts"]
+        assert snapshot(target) == before
+    finally:
+        shutil.rmtree(target)
+
+
+def test_skip_agents_leaves_both_instruction_files_byte_identical() -> None:
+    target = temporary_target()
+    try:
+        (target / "AGENTS.md").write_text("consumer agents\n", encoding="utf-8")
+        (target / "CLAUDE.md").write_text("consumer claude\n", encoding="utf-8")
+        before = {(target / name).read_bytes() for name in ("AGENTS.md", "CLAUDE.md")}
+        result = invoke(target, "apply", "--layers", "core", "--skip-agents")
+        assert result.returncode == 0, result.stderr
+        assert {(target / name).read_bytes() for name in ("AGENTS.md", "CLAUDE.md")} == before
+        assert json.loads((target / ".my-workflow/adoption.json").read_text())["blocks"] == {}
+    finally:
+        shutil.rmtree(target)
+
+
+def test_symlinked_destination_is_rejected_before_external_write() -> None:
+    target = temporary_target()
+    outside = temporary_target()
+    try:
+        (target / "tools").mkdir()
+        (outside / "probe.py").write_text("outside\n", encoding="utf-8")
+        (target / "tools/orca_assisted_probe.py").symlink_to(outside / "probe.py")
+        before = snapshot(target)
+        result = invoke(target, "apply", "--layers", "parallel", "--json")
+        assert result.returncode == 2
+        assert snapshot(target) == before
+        assert (outside / "probe.py").read_text(encoding="utf-8") == "outside\n"
+    finally:
+        shutil.rmtree(target)
+        shutil.rmtree(outside)
+
+
 TESTS = (
     test_resolves_fixed_layers_and_plan_is_read_only,
     test_full_profile_is_exactly_four_layers_and_legacy_cli_is_rejected,
     test_unknown_layer_and_invalid_manifest_fail_before_target_mutation,
     test_core_apply_records_schema_and_status_detects_drift_without_writes,
     test_manifest_hashes_are_lowercase_sha256,
+    test_apply_preserves_consumer_prose_and_writes_managed_blocks,
+    test_apply_is_cumulative_and_idempotent,
+    test_conflicts_abort_every_write_and_report_all_paths,
+    test_skip_agents_leaves_both_instruction_files_byte_identical,
+    test_symlinked_destination_is_rejected_before_external_write,
 )
 
 

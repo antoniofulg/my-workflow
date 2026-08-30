@@ -34,6 +34,7 @@ CORE_PATHS = (
     "docs/guidelines", *WORKFLOW_DOCS, "knowledge/AGENTS.md", "knowledge/raw/README.md",
     "knowledge/wiki", "tools/knowledge/src", "tools/shared/src/frontmatter.ts",
     ".agents/skills/workflow-spec-driven", ".agents/skills/ponytail", ".agents/skills/workflow-config",
+    "templates/adoption/agents",
 )
 CORE_MISSING_PATHS = ("tools/ad-index.py", ".my-workflow.toml.example", "templates/agents")
 PARALLEL_PATHS = ("tools/qa_parallel_pilot.py", "tools/orca_assisted_probe.py", ".agents/skills/autonomous")
@@ -471,6 +472,27 @@ def _status(source_root: Path, root: Path, as_json: bool) -> int:
         _die("adoption manifest is missing or has no installed layers", 2)
     installed = resolve_layers(manifest["layers"])
     actions, _, conflicts = _classify(root, source_root, installed, manifest)
+    for filename in ("AGENTS.md", "CLAUDE.md"):
+        path = root / filename
+        if not path.exists():
+            conflicts.extend(key for key in manifest["blocks"] if key.startswith(filename + ":"))
+            continue
+        text = path.read_text(encoding="utf-8")
+        for layer in BLOCK_LAYERS:
+            key = f"{filename}:{layer}"
+            if key not in manifest["blocks"]:
+                continue
+            try:
+                span = _block_span(text, layer)
+            except AdoptionError:
+                conflicts.append(key)
+                continue
+            if span is None:
+                conflicts.append(key)
+                continue
+            block = text[span[0]:span[1]].encode("utf-8")
+            if _sha(block) != manifest["blocks"][key]["sha256"]:
+                conflicts.append(key)
     result = {"command": "status", "target": str(root), "requested_layers": [], "resolved_layers": installed, "status": "drift" if conflicts or any(item["action"] in {"conflict", "update", "add"} for item in actions) else "clean", "actions": actions, "conflicts": sorted(set(conflicts))}
     print(json.dumps(result, indent=2, sort_keys=True) if as_json else _text_result(result))
     return 1 if result["status"] == "drift" else 0

@@ -61,7 +61,7 @@ One ready writer means serial execution in the integration checkout. S2 is docum
 
 ### T2: Apply managed layers safely
 
-**Status:** pending
+**Status:** complete
 **Slice:** S1
 **What**: Implement additive apply, per-file ownership hashes, conflict preflight, managed instruction blocks, individual-file writes, idempotence, and safe agent synchronization.
 **Where:** scripts/adopt.py
@@ -74,10 +74,10 @@ One ready writer means serial execution in the integration checkout. S2 is docum
 
 **Done when**:
 
-- [ ] Core and incremental layer applies preserve consumer files/prose and record deterministic ownership.
-- [ ] All conflicts and unsafe paths fail before writes; sync failure retains prior state.
-- [ ] Reapply is byte-stable and omitted installed layers remain.
-- [ ] Managed AGENTS/CLAUDE blocks and `--skip-agents` match `dx.md`.
+- [x] Core and incremental layer applies preserve consumer files/prose and record deterministic ownership.
+- [x] All conflicts and unsafe paths fail before writes; sync failure retains prior state.
+- [x] Reapply is byte-stable and omitted installed layers remain.
+- [x] Managed AGENTS/CLAUDE blocks and `--skip-agents` match `dx.md`.
 
 **Tests**: UT-005, IT-002, IT-003, IT-004, IT-005, IT-007, IT-008, SEC-001, SEC-003, SEC-004
 **Gate**: full
