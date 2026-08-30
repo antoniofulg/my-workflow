@@ -25,7 +25,7 @@ FROZEN_PRE_FEATURE_PATHS = (
     "docs/workflow/guidelines.md", "docs/workflow/loop.md", "docs/workflow/purpose.md",
     "docs/workflow/reviews.md", "knowledge/AGENTS.md", "knowledge/raw/README.md",
     "knowledge/wiki", "tools/knowledge/src", "tools/qa_parallel_pilot.py",
-    "tools/orca_assisted_probe.py", "tools/shared/src/frontmatter.ts",
+    "tools/orca_assisted_probe.py", "tools/resource_lock.py", "tools/shared/src/frontmatter.ts",
     ".agents/skills/workflow-spec-driven", ".agents/skills/deep-review", ".agents/skills/ponytail",
     ".agents/skills/ponytail-audit", ".agents/skills/ponytail-debt", ".agents/skills/ponytail-gain",
     ".agents/skills/ponytail-help", ".agents/skills/ponytail-review", ".agents/skills/qa-plan",
@@ -604,6 +604,36 @@ def test_adoption_installs_hybrid_workflow_and_preserves_consumer_config() -> No
         shutil.rmtree(target)
 
 
+def test_parallel_adoption_installs_and_tracks_resource_lock() -> None:
+    target = temporary_target()
+    try:
+        assert invoke(target, "apply", "--layers", "core", "--skip-agents").returncode == 0
+        core_manifest = json.loads((target / ".my-workflow/adoption.json").read_text(encoding="utf-8"))
+        assert not (target / "tools/resource_lock.py").exists()
+        assert "tools/resource_lock.py" not in core_manifest["files"]
+
+        applied = invoke(target, "apply", "--layers", "parallel", "--skip-agents", "--json")
+        assert applied.returncode == 0, applied.stderr
+        installed = target / "tools/resource_lock.py"
+        assert installed.read_bytes() == (ROOT / "tools/resource_lock.py").read_bytes()
+        manifest_path = target / ".my-workflow/adoption.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        record = manifest["files"]["tools/resource_lock.py"]
+        assert record["layer"] == "parallel" and record["ownership"] == "managed"
+
+        before = installed.read_bytes(), manifest_path.read_bytes()
+        assert invoke(target, "apply", "--layers", "parallel", "--skip-agents").returncode == 0
+        assert (installed.read_bytes(), manifest_path.read_bytes()) == before
+
+        installed.write_bytes(installed.read_bytes() + b"\nconsumer change\n")
+        conflict = invoke(target, "apply", "--layers", "parallel", "--skip-agents", "--json")
+        assert conflict.returncode == 1
+        assert "tools/resource_lock.py" in json.loads(conflict.stdout)["conflicts"]
+        assert installed.read_bytes().endswith(b"consumer change\n")
+    finally:
+        shutil.rmtree(target)
+
+
 def test_adoption_installs_only_new_authority_byte_identically() -> None:
     target = temporary_target()
     try:
@@ -1066,6 +1096,7 @@ TESTS = (
     test_runtime_edits_are_overwritten_from_templates_on_readopt,
     test_adoption_installs_v3_config_and_syncs_fifteen_packets,
     test_adoption_installs_hybrid_workflow_and_preserves_consumer_config,
+    test_parallel_adoption_installs_and_tracks_resource_lock,
     test_adoption_installs_only_new_authority_byte_identically,
     test_legacy_cleanup_uses_production_paths_and_hashes,
     test_legacy_cleanup_removes_owned_tests_and_preserves_consumer_files,

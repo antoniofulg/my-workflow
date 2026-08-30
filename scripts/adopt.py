@@ -39,7 +39,10 @@ CORE_PATHS = (
     "templates/adoption/agents",
 )
 CORE_MISSING_PATHS = ("tools/ad-index.py", ".my-workflow.toml.example", "templates/agents")
-PARALLEL_PATHS = ("tools/qa_parallel_pilot.py", "tools/orca_assisted_probe.py", ".agents/skills/autonomous")
+PARALLEL_PATHS = (
+    "tools/qa_parallel_pilot.py", "tools/orca_assisted_probe.py", "tools/resource_lock.py",
+    ".agents/skills/autonomous",
+)
 QUALITY_PATHS = (".agents/skills/deep-review", ".agents/skills/qa-plan", ".agents/skills/qa-execute")
 QUALITY_MISSING_PATHS = ("docs/qa/README.md",)
 EXTRAS_PATHS = (

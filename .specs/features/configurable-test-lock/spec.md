@@ -120,7 +120,7 @@ and assert the installed path and absence boundary.
 | CTL-06 | Bound acquisition timeout | Tasks | Verified by T1 |
 | CTL-07 | Recover after holder exit | Tasks | Verified by T1 |
 | CTL-08 | Validate CLI and execute direct argv | Tasks | Verified by T1 |
-| CTL-09 | Install through parallel adoption | Tasks | In Tasks |
+| CTL-09 | Install through parallel adoption | Tasks | Verified by T2 |
 | SEC-001 | Prevent shell interpolation | Tasks | Verified by T1 |
 | SEC-002 | Reject unsafe resource paths | Tasks | Verified by T1 |
 | SEC-003 | Protect the lock directory | Tasks | Verified by T1 |

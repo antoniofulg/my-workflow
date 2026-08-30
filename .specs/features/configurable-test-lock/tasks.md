@@ -78,6 +78,7 @@ IT-006, IT-007, SEC-001, SEC-002, SEC-003, SEC-004
 ### T2: Install the lock through parallel adoption
 
 **Slice**: S2
+**Status**: complete — `rtk python3 scripts/test_adopt.py` (65 tests passed); Build gate exit 0
 **What**: Add the wrapper to the parallel inventory and extend the adoption-owned integration suite.
 **Where**: `scripts/adopt.py`
 **Depends on**: T1
@@ -91,10 +92,10 @@ IT-006, IT-007, SEC-001, SEC-002, SEC-003, SEC-004
 
 **Done when**:
 
-- [ ] `core` adoption omits the wrapper.
-- [ ] `parallel` adoption installs and tracks the wrapper.
-- [ ] Re-adoption preserves the existing ownership and conflict contract.
-- [ ] Full and Build gates exit zero.
+- [x] `core` adoption omits the wrapper.
+- [x] `parallel` adoption installs and tracks the wrapper.
+- [x] Re-adoption preserves the existing ownership and conflict contract.
+- [x] Full and Build gates exit zero (`npm_config_offline=true rtk bun run test:all && rtk bun run knowledge && rtk git diff --check origin/main...HEAD`).
 
 **Tests**: IT-008
 **Gate**: Build
