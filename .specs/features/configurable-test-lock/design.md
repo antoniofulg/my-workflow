@@ -11,7 +11,7 @@ returns the child's status. It is separate from the existing lane-wide `resource
 
 ```mermaid
 flowchart LR
-    A[Consumer heavy gate] --> B[test_resource_lock.py run]
+    A[Consumer heavy gate] --> B[resource_lock.py run]
     B --> C{scope}
     C -->|project| D[Git common-dir hash]
     C -->|machine| E[machine namespace]
@@ -44,7 +44,7 @@ flowchart LR
 ### Test resource lock CLI
 
 - **Purpose**: Serialize one named heavy command at project or machine scope.
-- **Location**: `tools/test_resource_lock.py`
+- **Location**: `tools/resource_lock.py`
 - **Interfaces**:
   - `run --resource NAME [--scope SCOPE] [--timeout-seconds N] -- COMMAND...`
   - `main(argv: Sequence[str] | None) -> int`

@@ -1098,6 +1098,7 @@ describe("Bun tooling runtime contract", () => {
       "tools/test_orca_assisted_probe.py",
       "tools/test_parallel_executor.py",
       "tools/test_parallel_plan.py",
+      "tools/test_parallel_resource_lock.py",
       "tools/test_qa_parallel_pilot.py",
       "tools/test_review_convergence.py",
       "tools/test_tlc_validators.py",

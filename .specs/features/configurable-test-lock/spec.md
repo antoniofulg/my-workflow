@@ -86,8 +86,8 @@ can opt heavy gates into it without receiving another adoption framework.
 
 **Acceptance Criteria**:
 
-1. WHEN the `parallel` layer is applied THEN the system SHALL install `tools/test_resource_lock.py` and track it in the adoption manifest.
-2. WHEN the `core` layer is applied without `parallel` THEN the system SHALL omit `tools/test_resource_lock.py`.
+1. WHEN the `parallel` layer is applied THEN the system SHALL install `tools/resource_lock.py` and track it in the adoption manifest.
+2. WHEN the `core` layer is applied without `parallel` THEN the system SHALL omit `tools/resource_lock.py`.
 3. WHILE the installed wrapper is not invoked the system SHALL leave every consumer command and gate unchanged.
 
 **Independent Test**: Existing adoption tests apply `core` and `parallel` into disposable projects

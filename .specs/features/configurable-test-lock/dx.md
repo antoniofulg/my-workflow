@@ -2,10 +2,10 @@
 
 ## CLI
 
-### `python3 tools/test_resource_lock.py run`
+### `python3 tools/resource_lock.py run`
 
 ```text
-python3 tools/test_resource_lock.py run \
+python3 tools/resource_lock.py run \
   --resource <name> \
   [--scope project|machine] \
   [--timeout-seconds <number>] \
@@ -32,7 +32,7 @@ python3 tools/test_resource_lock.py run \
 
 ## Adoption
 
-`scripts/adopt.py apply <target> --layers parallel` installs `tools/test_resource_lock.py` and
+`scripts/adopt.py apply <target> --layers parallel` installs `tools/resource_lock.py` and
 records it in `.my-workflow/adoption.json`. `core` alone omits the file. Installation changes no
 consumer-owned command; maintainers opt in by wrapping chosen heavy gates.
 

@@ -51,7 +51,7 @@ T1 -> T2 -> T3 -> T4
 **Slice**: S1
 **Status**: complete
 **What**: Add the command wrapper and its subprocess-level contract test.
-**Where**: `tools/test_resource_lock.py`
+**Where**: `tools/resource_lock.py`
 **Depends on**: None
 **Reuses**: CRM holder diagnostics and inherited-descriptor behavior; repository Python test runner.
 **Requirements**: CTL-01, CTL-02, CTL-03, CTL-04, CTL-05, CTL-06, CTL-07, CTL-08,
@@ -68,7 +68,7 @@ SEC-001, SEC-002, SEC-003, SEC-004
 - [x] Different resources remain concurrent.
 - [x] Timeout, abnormal holder exit, direct argv, exact exit status, and secret-free diagnostics match `dx.md`.
 - [x] Unsafe resource and filesystem inputs fail before the wrapped command.
-- [x] Quick and Build gates exit zero.
+- [x] Quick and Build gates exit zero after verification remediation.
 
 **Tests**: UT-001, UT-002, UT-003, UT-004, IT-001, IT-002, IT-003, IT-004, IT-005,
 IT-006, IT-007, SEC-001, SEC-002, SEC-003, SEC-004
