@@ -112,19 +112,19 @@ and assert the installed path and absence boundary.
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| CTL-01 | Serialize project resource | Tasks | In Tasks |
-| CTL-02 | Serialize machine resource | Tasks | In Tasks |
-| CTL-03 | Preserve unrelated concurrency | Tasks | In Tasks |
-| CTL-04 | Default project scope | Tasks | In Tasks |
-| CTL-05 | Preserve command exit status | Tasks | In Tasks |
-| CTL-06 | Bound acquisition timeout | Tasks | In Tasks |
-| CTL-07 | Recover after holder exit | Tasks | In Tasks |
-| CTL-08 | Validate CLI and execute direct argv | Tasks | In Tasks |
+| CTL-01 | Serialize project resource | Tasks | Verified by T1 |
+| CTL-02 | Serialize machine resource | Tasks | Verified by T1 |
+| CTL-03 | Preserve unrelated concurrency | Tasks | Verified by T1 |
+| CTL-04 | Default project scope | Tasks | Verified by T1 |
+| CTL-05 | Preserve command exit status | Tasks | Verified by T1 |
+| CTL-06 | Bound acquisition timeout | Tasks | Verified by T1 |
+| CTL-07 | Recover after holder exit | Tasks | Verified by T1 |
+| CTL-08 | Validate CLI and execute direct argv | Tasks | Verified by T1 |
 | CTL-09 | Install through parallel adoption | Tasks | In Tasks |
-| SEC-001 | Prevent shell interpolation | Tasks | In Tasks |
-| SEC-002 | Reject unsafe resource paths | Tasks | In Tasks |
-| SEC-003 | Protect the lock directory | Tasks | In Tasks |
-| SEC-004 | Keep command and environment secrets out of diagnostics | Tasks | In Tasks |
+| SEC-001 | Prevent shell interpolation | Tasks | Verified by T1 |
+| SEC-002 | Reject unsafe resource paths | Tasks | Verified by T1 |
+| SEC-003 | Protect the lock directory | Tasks | Verified by T1 |
+| SEC-004 | Keep command and environment secrets out of diagnostics | Tasks | Verified by T1 |
 
 **Coverage:** 13 total, 13 mapped to tasks, 0 unmapped.
 

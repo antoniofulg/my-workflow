@@ -32,6 +32,8 @@ dependent slice consumes it.
 
 ### Slice S1: Command-level resource lock
 
+**Status:** complete
+
 ```text
 T1
 ```
@@ -47,6 +49,7 @@ T1 -> T2 -> T3 -> T4
 ### T1: Implement the portable command lock
 
 **Slice**: S1
+**Status**: complete
 **What**: Add the command wrapper and its subprocess-level contract test.
 **Where**: `tools/test_resource_lock.py`
 **Depends on**: None
@@ -61,11 +64,11 @@ SEC-001, SEC-002, SEC-003, SEC-004
 
 **Done when**:
 
-- [ ] Same-resource commands serialize at project and machine scope.
-- [ ] Different resources remain concurrent.
-- [ ] Timeout, abnormal holder exit, direct argv, exact exit status, and secret-free diagnostics match `dx.md`.
-- [ ] Unsafe resource and filesystem inputs fail before the wrapped command.
-- [ ] Quick and Build gates exit zero.
+- [x] Same-resource commands serialize at project and machine scope.
+- [x] Different resources remain concurrent.
+- [x] Timeout, abnormal holder exit, direct argv, exact exit status, and secret-free diagnostics match `dx.md`.
+- [x] Unsafe resource and filesystem inputs fail before the wrapped command.
+- [x] Quick and Build gates exit zero.
 
 **Tests**: UT-001, UT-002, UT-003, UT-004, IT-001, IT-002, IT-003, IT-004, IT-005,
 IT-006, IT-007, SEC-001, SEC-002, SEC-003, SEC-004
