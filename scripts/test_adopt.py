@@ -210,6 +210,66 @@ def test_symlinked_destination_is_rejected_before_external_write() -> None:
         shutil.rmtree(outside)
 
 
+def test_full_profile_preserves_complete_capability_inventory_and_links_skills() -> None:
+    target = temporary_target()
+    try:
+        result = invoke(target, "apply", "--layers", "full", "--json")
+        assert result.returncode == 0, result.stderr
+        manifest = json.loads((target / ".my-workflow/adoption.json").read_text(encoding="utf-8"))
+        expected: set[str] = set()
+        from adopt import LAYER_MISSING_PATHS, LAYER_PATHS, _source_files
+
+        for layer in ("core", "parallel", "quality", "extras"):
+            for relative in (*LAYER_PATHS[layer], *LAYER_MISSING_PATHS[layer]):
+                expected.update(_source_files(ROOT, relative))
+        assert set(manifest["files"]) == expected
+        assert (target / ".claude/skills/autonomous").is_symlink()
+        assert os.readlink(target / ".claude/skills/autonomous") == "../../.agents/skills/autonomous"
+    finally:
+        shutil.rmtree(target)
+
+
+def test_bun_consumer_boundary_and_probe_import_are_preserved() -> None:
+    target = temporary_target()
+    try:
+        package = target / "package.json"
+        lock = target / "bun.lock"
+        package.write_text('{"name":"consumer","scripts":{"test":"bun test"}}\n', encoding="utf-8")
+        lock.write_text("consumer lock\n", encoding="utf-8")
+        package_before, lock_before = package.read_bytes(), lock.read_bytes()
+        assert invoke(target, "apply", "--layers", "full").returncode == 0
+        assert package.read_bytes() == package_before
+        assert lock.read_bytes() == lock_before
+        knowledge = subprocess.run(["bun", str(target / "tools/knowledge/src/cli.ts"), str(target)], cwd=target, text=True, capture_output=True, check=False)
+        assert knowledge.returncode == 0, knowledge.stderr
+        calls = target / "orca.calls"
+        fake = target / "orca"
+        fake.write_text(f"#!/bin/sh\nprintf '%s\\n' called >> {calls}\n", encoding="utf-8")
+        fake.chmod(0o755)
+        env = {**os.environ, "PATH": f"{target}:{os.environ.get('PATH', '')}"}
+        imported = subprocess.run([sys.executable, "-c", "import tools.orca_assisted_probe"], cwd=target, env=env, text=True, capture_output=True, check=False)
+        assert imported.returncode == 0, imported.stderr
+        assert not calls.exists()
+    finally:
+        shutil.rmtree(target)
+
+
+def test_existing_project_incremental_journey_is_clean() -> None:
+    target = temporary_target()
+    try:
+        plan_core = invoke(target, "plan", "--layers", "core", "--json")
+        assert plan_core.returncode == 0
+        assert invoke(target, "apply", "--layers", "core").returncode == 0
+        assert invoke(target, "status", "--json").returncode == 0
+        plan_more = invoke(target, "plan", "--layers", "parallel,quality,extras", "--json")
+        assert plan_more.returncode == 0
+        assert json.loads(plan_more.stdout)["resolved_layers"] == ["core", "parallel", "quality", "extras"]
+        assert invoke(target, "apply", "--layers", "parallel,quality,extras").returncode == 0
+        assert invoke(target, "status", "--json").returncode == 0
+    finally:
+        shutil.rmtree(target)
+
+
 TESTS = (
     test_resolves_fixed_layers_and_plan_is_read_only,
     test_full_profile_is_exactly_four_layers_and_legacy_cli_is_rejected,
@@ -221,6 +281,9 @@ TESTS = (
     test_conflicts_abort_every_write_and_report_all_paths,
     test_skip_agents_leaves_both_instruction_files_byte_identical,
     test_symlinked_destination_is_rejected_before_external_write,
+    test_full_profile_preserves_complete_capability_inventory_and_links_skills,
+    test_bun_consumer_boundary_and_probe_import_are_preserved,
+    test_existing_project_incremental_journey_is_clean,
 )
 
 

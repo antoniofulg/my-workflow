@@ -85,7 +85,7 @@ One ready writer means serial execution in the integration checkout. S2 is docum
 
 ### T3: Preserve full and Bun-native adoption
 
-**Status:** pending
+**Status:** complete
 **Slice:** S1
 **What**: Map every current adoption path to one layer, prove full-profile equivalence, update package/active-authority contracts, and run the existing-project journey.
 **Where:** scripts/adopt.py
@@ -97,10 +97,10 @@ One ready writer means serial execution in the integration checkout. S2 is docum
 
 **Done when**:
 
-- [ ] Full resolves the exact complete capability inventory and agent synchronization.
-- [ ] Adopted knowledge runs with Bun without changing consumer package metadata.
-- [ ] E2E-001 passes with zero Orca calls and zero disposable residue.
-- [ ] Full build gate passes.
+- [x] Full resolves the exact complete capability inventory and agent synchronization.
+- [x] Adopted knowledge runs with Bun without changing consumer package metadata.
+- [x] E2E-001 passes with zero Orca calls and zero disposable residue.
+- [x] Full build gate passes.
 
 **Tests**: IT-009, IT-010, E2E-001
 **Gate**: build

@@ -957,6 +957,18 @@ describe("adoption and public setup", () => {
     expect(adopt).toContain('"templates/agents"');
   });
 
+  it("IT-009 exposes the fixed layered adoption boundary", () => {
+    const adopt = readRepositoryFile("scripts/adopt.py");
+
+    expect(adopt).toContain('LAYERS = ("core", "parallel", "quality", "extras")');
+    expect(adopt).toContain('for name in ("plan", "apply")');
+    expect(adopt).toContain("commands.add_parser(name)");
+    expect(adopt).toContain('commands.add_parser("status")');
+    expect(adopt).toContain("resolve_layers");
+    expect(adopt).toContain('MANIFEST_SCHEMA = 1');
+    expect(adopt).not.toContain("COPY_PATHS");
+  });
+
   it("IT-019 keeps README installation prerequisites and bundled skills authoritative", () => {
     const readme = readRepositoryFile("README.md");
 

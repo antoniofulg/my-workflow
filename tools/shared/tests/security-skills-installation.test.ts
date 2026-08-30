@@ -250,7 +250,7 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
   it("adopts bundled workflow without security trees and prints the authorized second step", () => {
     const fixture = mkdtempSync(join(tmpdir(), "my-workflow-adopt-"));
     try {
-      const result = spawnSync("python3", [join(repositoryRoot, "scripts/adopt.py"), fixture], {
+      const result = spawnSync("python3", [join(repositoryRoot, "scripts/adopt.py"), "apply", fixture, "--layers", "full"], {
         cwd: repositoryRoot,
         encoding: "utf8",
       });

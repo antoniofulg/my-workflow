@@ -396,6 +396,20 @@ def _preflight_special(root: Path, skip_agents: bool) -> None:
     if not skip_agents:
         for relative in ("AGENTS.md", "CLAUDE.md"):
             _safe_path(root, relative, "instruction destination")
+    skills_root = root / ".claude/skills"
+    if skills_root.is_symlink():
+        raise _error("generated skills directory must not be a symlink")
+    if skills_root.exists() and not skills_root.is_dir():
+        raise _error("generated skills directory must be a directory")
+    if skills_root.exists():
+        for layer in LAYERS:
+            for skill in LAYER_PATHS[layer]:
+                prefix = ".agents/skills/"
+                if not skill.startswith(prefix):
+                    continue
+                pointer = skills_root / skill.removeprefix(prefix)
+                if pointer.exists() and not pointer.is_symlink() and not pointer.is_file():
+                    raise _error(f"generated skill pointer {pointer.relative_to(root)} must be a file or symlink")
     makefile = root / "Makefile"
     if makefile.is_file():
         for line_number, line in enumerate(makefile.read_text(encoding="utf-8").splitlines(), 1):
@@ -420,6 +434,23 @@ def _atomic_write(path: Path, content: bytes) -> None:
     finally:
         if temporary.exists():
             temporary.unlink()
+
+
+def _link_claude_skills(root: Path) -> None:
+    agents = root / ".agents/skills"
+    if not agents.is_dir():
+        return
+    skills_root = root / ".claude/skills"
+    skills_root.mkdir(parents=True, exist_ok=True)
+    for skill in sorted(agents.iterdir()):
+        if not skill.is_dir() or skill.is_symlink():
+            continue
+        pointer = skills_root / skill.name
+        if pointer.exists() or pointer.is_symlink():
+            if pointer.is_dir() and not pointer.is_symlink():
+                raise _error(f"generated skill pointer {pointer.relative_to(root)} must be a file or symlink")
+            pointer.unlink()
+        pointer.symlink_to(Path("../../.agents/skills") / skill.name)
 
 
 def _build_plan(source_root: Path, root: Path, selected: list[str], skip_agents: bool) -> tuple[dict[str, Any], dict[str, bytes]]:
@@ -531,8 +562,13 @@ def main(argv: list[str] | None = None) -> int:
             return 1 if result["conflicts"] else 0
         for relative, content in sorted(staged.items()):
             _atomic_write(root / relative, content)
+        _link_claude_skills(root)
         if not args.json:
             print(f"adopted layers into {root}")
+            installer = source_root / "scripts/install_security_skills.py"
+            print("Security skills are external dependencies, not bundled skills.")
+            print(f"After explicit authorization, run exactly: python3 {installer} {root} --yes")
+            print("Until then, the SECURITY.md security gate remains uncovered.")
         return 0
     except AdoptionError as exc:
         _die(str(exc), 2)
