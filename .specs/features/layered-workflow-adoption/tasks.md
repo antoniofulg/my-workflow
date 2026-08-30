@@ -36,6 +36,8 @@ One ready writer means serial execution in the integration checkout. S2 is docum
 
 **CP-S1**: PASS — independent verification at `71175b8` matched LAY-01..LAY-18, killed all three discrimination mutants, observed `.my-workflow/adoption.json` as the final event across 104 live publication mutations, and proved byte-identical rollback for obsolete cleanup, legacy cleanup, and Claude-link failures. S2 may proceed.
 
+**CP-FINAL**: PASS — final independent verification at `fc13769` matched LAY-01..LAY-18, passed the 64-test adopter suite and full Bun build gate, killed three high-risk mutants, and completed the real incremental adoption journey without residue.
+
 ## Task Breakdown
 
 ### T1: Model layers, plans, manifests, and status

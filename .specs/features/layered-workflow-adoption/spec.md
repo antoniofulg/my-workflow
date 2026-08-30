@@ -6,10 +6,10 @@ The adopter installs the entire workflow as one destructive bundle. Existing pro
 
 ## Goals
 
-- [ ] A project can inspect and apply only the workflow capabilities it wants.
-- [ ] Re-adoption updates workflow-owned bytes without overwriting consumer changes.
-- [ ] Existing project instructions survive adoption through managed blocks.
-- [ ] The `full` profile preserves the capabilities of the current complete adoption.
+- [x] A project can inspect and apply only the workflow capabilities it wants.
+- [x] Re-adoption updates workflow-owned bytes without overwriting consumer changes.
+- [x] Existing project instructions survive adoption through managed blocks.
+- [x] The `full` profile preserves the capabilities of the current complete adoption.
 
 ## Out of Scope
 
@@ -116,30 +116,30 @@ The adopter installs the entire workflow as one destructive bundle. Existing pro
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| LAY-01 | Inspect | Design | In Design |
-| LAY-02 | Inspect | Design | In Design |
-| LAY-03 | Inspect | Design | In Design |
-| LAY-04 | Inspect | Design | In Design |
-| LAY-05 | Apply | Design | In Design |
-| LAY-06 | Apply | Design | In Design |
-| LAY-07 | Apply | Design | In Design |
-| LAY-08 | Apply | Design | In Design |
-| LAY-09 | Apply | Design | In Design |
-| LAY-10 | Apply | Design | In Design |
-| LAY-11 | Status | Design | In Design |
-| LAY-12 | Status | Design | In Design |
-| LAY-13 | Status | Design | In Design |
-| LAY-14 | Complete/Bun | Design | In Design |
-| LAY-15 | Complete/Bun | Design | In Design |
-| LAY-16 | Complete/Bun | Design | In Design |
-| LAY-17 | Complete/Bun | Design | In Design |
-| LAY-18 | Complete/Bun | Design | In Design |
+| LAY-01 | Inspect | Validation | Verified |
+| LAY-02 | Inspect | Validation | Verified |
+| LAY-03 | Inspect | Validation | Verified |
+| LAY-04 | Inspect | Validation | Verified |
+| LAY-05 | Apply | Validation | Verified |
+| LAY-06 | Apply | Validation | Verified |
+| LAY-07 | Apply | Validation | Verified |
+| LAY-08 | Apply | Validation | Verified |
+| LAY-09 | Apply | Validation | Verified |
+| LAY-10 | Apply | Validation | Verified |
+| LAY-11 | Status | Validation | Verified |
+| LAY-12 | Status | Validation | Verified |
+| LAY-13 | Status | Validation | Verified |
+| LAY-14 | Complete/Bun | Validation | Verified |
+| LAY-15 | Complete/Bun | Validation | Verified |
+| LAY-16 | Complete/Bun | Validation | Verified |
+| LAY-17 | Complete/Bun | Validation | Verified |
+| LAY-18 | Complete/Bun | Validation | Verified |
 
 **Coverage:** 18 total, 18 mapped to the test contract, 0 unmapped.
 
 ## Success Criteria
 
-- [ ] An existing project can adopt `core` without replacing consumer prose or package metadata.
-- [ ] Adding `parallel` or `quality` changes only the resolved layer paths and managed instruction blocks.
-- [ ] Every conflict and unsafe path fails before mutation.
-- [ ] `full` retains the complete v0.7.0 capability set.
+- [x] An existing project can adopt `core` without replacing consumer prose or package metadata.
+- [x] Adding `parallel` or `quality` changes only the resolved layer paths and managed instruction blocks.
+- [x] Every conflict and unsafe path fails before mutation.
+- [x] `full` retains the complete v0.7.0 capability set.
