@@ -4,8 +4,8 @@ area: REL
 title: Report the current workflow release consistently
 persona: Repository reader
 journey: J-review-workflow-release
-expected: The newest changelog release matches the package manifest and Bun lockfile, while `bun run test:all` scopes discovery to canonical tests under scripts and tools.
-entry_points: CHANGELOG.md; package.json; bun.lock
+expected: The newest changelog release matches the package manifest and Bun lockfile, while the documented Bun 1.4 install, knowledge, full-gate, and package commands expose the current source pack without checkout residue.
+entry_points: CHANGELOG.md; README.md; package.json; bun.lock; bunfig.toml
 qa_status: untested
 bug_ids: BUG-20260824-release-overstates-lifecycle-qa; BUG-20260825-adoption-omits-parallel-pilot
 fix_status:
@@ -26,6 +26,10 @@ session must verify identity, package membership, adoption, `bun run test:all`, 
 hybrid-slice release-note claim. The real Orca/Codex two-lane lifecycle and completed-pilot cleanup
 remain `blocked-verify`; release QA may confirm that boundary but cannot convert it to a pass or
 claim a completed pilot.
+
+The 2026-08-29 Bun tooling cycle refreshes this still-`untested` promise: Bun 1.4 now owns install,
+TypeScript execution, structural tests, the mixed-language gate, knowledge parsing, executable
+resolution, and package inspection. This plan records no execution verdict.
 
 The prior `0.6.0` verdict and its evidence remain historical record below; this release reset
 clears only the current metadata pointers until the independent `0.7.0` release walk completes.

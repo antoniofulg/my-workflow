@@ -12,11 +12,13 @@
    unrelated consumer rules intact.
 3. Adopt into a checkout-local disposable target through the documented CLI.
 4. Confirm bundled workflow assets are discoverable, including the workflow-owned
-   `workflow-spec-driven` skill and pointer-only assisted probe; the installed instructions activate Ponytail
-   at workflow start and keep it active through the full cycle, the copied workflow tour omits the
-   source-only pack guide and its links, all three external security skills remain absent, and
-   adoption prints their separate authorized installation command. Import the installed probe
-   with a fake `orca` on `PATH` and confirm it performs no call.
+   `workflow-spec-driven` skill, pointer-only assisted probe, and Bun-native knowledge sources; the
+   installed instructions activate Ponytail at workflow start and keep it active through the full
+   cycle, the copied workflow tour omits the source-only pack guide and its links, repository-only
+   TypeScript tests remain absent, all three external security skills remain absent, and adoption
+   prints their separate authorized installation command. Import the installed probe with a fake
+   `orca` on `PATH` and confirm it performs no call; run the installed knowledge CLI with Bun without
+   consumer Node packages.
 5. Re-adopt a target with a consumer-owned `.my-workflow.toml`, QA profile, model settings,
    template bodies, `tools/ad-index.py`, and unrelated ignore entries.
 6. Confirm the local config and consumer-owned template/profile state survive byte-for-byte, runtime

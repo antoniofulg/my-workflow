@@ -24,8 +24,8 @@ remote-delivery authority, published capability version, and honestly bounded pa
    and zero-effect serial fallback when dependency, health, ownership, or isolation proof is missing.
 7. Reconcile the parallel release claims with durable QA status. Keep the real Orca/Codex two-lane
    lifecycle and completed-pilot cleanup as `blocked-verify`, never as completed-pilot evidence.
-8. Inspect the package and lockfile root metadata, full test command, and package membership for the
-   published workflow version.
+8. Inspect the Bun 1.4 package and lockfile root metadata, Bun-native knowledge and full-test
+   commands, and disposable `bun pm pack` membership for the published workflow version.
 
 ## Promises
 
