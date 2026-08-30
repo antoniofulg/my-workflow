@@ -16,4 +16,3 @@
 | Invoke the locked external CLI as `bunx --bun --no-install skills` after an exact version preflight. | A version-qualified package spec cannot resolve locally with `--no-install`. | Network resolution or a standalone `skills` executable on PATH. | Change the security installer and its fail-closed tests. | The pack-local dependency and lock must be present. |
 | Adopt runtime sources but not repository-only TypeScript tests. | Consumers need the tooling, not this repository's validation suite. | Copying all `tools/` content. | Expand the adoption inventory and consumer prerequisites. | Consumer projects do not receive internal tests. |
 | Keep active-command enforcement separate from immutable historical records. | Current instructions must be Bun-native without falsifying history. | Repository-wide blind replacement. | Update the explicit authority roots and historical boundary. | New active roots must be added to the scanner deliberately. |
-
