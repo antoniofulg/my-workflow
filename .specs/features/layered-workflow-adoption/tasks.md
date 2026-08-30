@@ -38,7 +38,7 @@ One ready writer means serial execution in the integration checkout. S2 is docum
 
 ### T1: Model layers, plans, manifests, and status
 
-**Status:** pending
+**Status:** complete
 **Slice:** S1
 **What**: Replace the monolithic public model with the fixed catalog, pure resolver/inventory/action helpers, manifest validation, and read-only `plan`/`status` subcommands.
 **Where:** scripts/adopt.py
@@ -50,10 +50,10 @@ One ready writer means serial execution in the integration checkout. S2 is docum
 
 **Done when**:
 
-- [ ] Fixed catalog/DAG/full profile resolve deterministically.
-- [ ] Plan text/JSON and status codes match `dx.md` and perform zero writes/sync/Orca.
-- [ ] Manifest rejects malformed, duplicate, unknown, and escaping state.
-- [ ] Legacy positional invocation exits 2 with new-command guidance.
+- [x] Fixed catalog/DAG/full profile resolve deterministically.
+- [x] Plan text/JSON and status codes match `dx.md` and perform zero writes/sync/Orca.
+- [x] Manifest rejects malformed, duplicate, unknown, and escaping state.
+- [x] Legacy positional invocation exits 2 with new-command guidance.
 
 **Tests**: UT-001, UT-002, UT-003, UT-004, IT-001, IT-006, IT-011, SEC-002
 **Gate**: quick
