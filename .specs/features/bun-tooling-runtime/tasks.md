@@ -43,6 +43,9 @@ S2 and S3 may open together only after CP-S1 passes. Tasks inside each slice rem
 
 **CP-S2**: PASS — T3 independently verified in `validation-s2.md`; T5 may consume this checkpoint.
 
+**CP-S3**: PASS — T4/T5 and all integrated Bun boundaries independently re-verified in
+`validation-s3.md`; both IT-006 authority mutants were killed.
+
 ## Task Breakdown
 
 ### T1: Migrate the structural toolchain atomically

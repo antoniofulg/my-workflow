@@ -104,9 +104,9 @@ that the workflow never silently reintroduces npm or npx.
 | BUN-11 | P1: Bun package boundaries | Tasks | Verified by T4 |
 | BUN-12 | P1: Bun package boundaries | Tasks | Verified by T4 |
 | BUN-13 | P1: Bun package boundaries | Tasks | Verified by T4 |
-| BUN-14 | P1: Bun package boundaries | Tasks | Implemented by T5 |
-| BUN-15 | P1: Bun package boundaries | Tasks | Implemented by T5 |
-| BUN-16 | P1: Bun package boundaries | Tasks | Implemented by T5 |
+| BUN-14 | P1: Bun package boundaries | Tasks | Verified by T5 |
+| BUN-15 | P1: Bun package boundaries | Tasks | Verified by T5 |
+| BUN-16 | P1: Bun package boundaries | Tasks | Verified by T5 |
 | BUN-17 | Edge case | Tasks | Verified by T1 |
 | BUN-18 | Edge case | Tasks | Verified by T4 |
 
