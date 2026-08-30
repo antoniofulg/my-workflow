@@ -1,0 +1,23 @@
+---
+id: ADP-layered-workflow-adoption
+area: ADP
+title: Adopt workflow capabilities incrementally
+persona: Workflow adopter
+journey: J-adopt-workflow
+expected: A project can plan and apply fixed core, parallel, quality, and extras layers incrementally; conflicts fail before writes, consumer prose and Bun package metadata survive, and status reports clean state.
+entry_points: README.md#adopt-the-workflow; docs/adoption-prompt.md; scripts/adopt.py
+qa_status: untested
+bug_ids:
+fix_status: fixed
+retest_status: pending
+fix_commits:
+evidence:
+last_report:
+overlaps: ADP-adopt-workflow-safely
+---
+
+This feature-specific handoff supersedes no historical result. Fresh QA must start with a read-only
+`plan`, apply `core`, then add dependent layers. Verify manifest ownership, managed instruction
+blocks, all-preflight conflict refusal, no-removal semantics, preserved `package.json` and
+`bun.lock`, Bun knowledge execution, and `status` exit codes. Record new evidence after the public
+journey is executed.

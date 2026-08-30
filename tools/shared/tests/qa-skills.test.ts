@@ -944,7 +944,7 @@ describe("adoption and public setup", () => {
     expect(prompt).toContain("managed paths");
     expect(prompt).toContain("complete diff");
     expect(prompt).toContain("declared full gate");
-    expect(prompt).toContain("If `docs/qa/README.md` is absent, create it");
+    expect(prompt).toContain("If `docs/qa/README.md` is absent, create it when `quality` is selected");
     expect(prompt).toContain("If it exists, merge only newly discovered facts");
     expect(prompt).toContain("never overwrite existing content");
     expect(prompt).toContain("qa-plan");
@@ -977,9 +977,7 @@ describe("adoption and public setup", () => {
     expect(readme).toMatch(/Adoption\s+does not require a Git `HEAD`/);
     expect(readme).toMatch(/the target must be a Git\s+repository with at least one commit/);
     expect(readme).toMatch(/Bun 1\.4\.x is the JavaScript\/TypeScript runtime for this pack;\s+it is needed only to validate the source pack's gates/);
-    expect(readme).toMatch(
-      /`adopt\.py` installs and updates only the bundled TLC, Ponytail, Deep Review, QA, workflow-config,\s+and autonomous skills/,
-    );
+    expect(readme).toContain("records per-file ownership in `.my-workflow/adoption.json`");
     expect(readme).toContain("The three external security skills are a separate authorized step");
     expect(readme).toContain("install_security_skills.py");
     expect(readme).not.toContain("@tech-leads-club/agent-skills install");
@@ -1014,7 +1012,7 @@ describe("adoption and public setup", () => {
     const pack = readRepositoryFile("docs/workflow/pack.md");
 
     expect(tour).toContain("[Skills, knowledge, adopt](pack.md)");
-    expect(pack).toContain("`python3 scripts/adopt.py <target>`");
+    expect(pack).toContain("`python3 scripts/adopt.py plan <target> --layers core`");
   });
 
   it("IT-011 keeps stack-specific QA capabilities in the operational profile", () => {

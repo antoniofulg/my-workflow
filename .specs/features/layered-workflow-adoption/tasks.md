@@ -108,7 +108,7 @@ One ready writer means serial execution in the integration checkout. S2 is docum
 
 ### T4: Document layered adoption
 
-**Status:** pending
+**Status:** complete
 **Slice:** S1
 **What**: Replace monolithic public commands with layer selection, plan/apply/status examples, migration guidance for existing projects, and QA scenario/charter handoff.
 **Where:** README.md
@@ -120,10 +120,10 @@ One ready writer means serial execution in the integration checkout. S2 is docum
 
 **Done when**:
 
-- [ ] Every active adoption command uses the new subcommands and fixed layers.
-- [ ] Existing-project guide starts with read-only plan and explains conflict/no-removal semantics.
-- [ ] QA scenario is flagged for fresh execution.
-- [ ] Build gate and command-authority scan pass.
+- [x] Every active adoption command uses the new subcommands and fixed layers.
+- [x] Existing-project guide starts with read-only plan and explains conflict/no-removal semantics.
+- [x] QA scenario is flagged for fresh execution.
+- [x] Build gate and command-authority scan pass.
 
 **Tests**: documentation contract extends existing adoption authority assertions; no prose-only duplicate suite
 **Gate**: build

@@ -2,7 +2,7 @@
 
 **Persona:** Workflow adopter
 **Goal:** Adopt the workflow without losing consumer-owned repository state.
-**Entry point:** `README.md` → **Adopt the workflow** → `scripts/adopt.py`
+**Entry point:** `README.md` → **Adopt the workflow** → `scripts/adopt.py plan/apply/status`
 
 ## Flow
 
@@ -10,7 +10,8 @@
 2. Confirm `.specs/features/` is versioned workflow state that travels through worktrees and CI;
    task status commits with its task, while adoption removes exact legacy ignore entries and keeps
    unrelated consumer rules intact.
-3. Adopt into a checkout-local disposable target through the documented CLI.
+3. Run a read-only `plan` for the smallest required layer, review the per-file actions, then
+   `apply` it into a checkout-local disposable target. Use `status` after each incremental apply.
 4. Confirm bundled workflow assets are discoverable, including the workflow-owned
    `workflow-spec-driven` skill, pointer-only assisted probe, and Bun-native knowledge sources; the
    installed instructions activate Ponytail at workflow start and keep it active through the full
@@ -27,6 +28,10 @@
    config/runtime packets do not, then regenerate the checkout-local packets from tracked sources.
 8. Continue to [`J-enable-external-security-skills`](J-enable-external-security-skills.md) only after
    explicitly authorizing its networked installer step.
+
+For an existing project, start with `core`, add `parallel`, `quality`, and `extras` only when the
+project needs them, and keep consumer prose outside the managed instruction blocks. Conflicts stop
+the complete apply before any write; this workflow has no layer-removal command.
 
 ## Promises
 
