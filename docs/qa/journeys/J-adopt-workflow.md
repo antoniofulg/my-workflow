@@ -10,8 +10,9 @@
 2. Confirm `.specs/features/` is versioned workflow state that travels through worktrees and CI;
    task status commits with its task, while adoption removes exact legacy ignore entries and keeps
    unrelated consumer rules intact.
-3. Run a read-only `plan` for the smallest required layer, review the per-file actions, then
-   `apply` it into a checkout-local disposable target. Use `status` after each incremental apply.
+3. Run a read-only `plan` for the smallest required layer, confirm the target is unchanged, review
+   the per-file actions, then `apply` it into a checkout-local disposable target. Use `status` after
+   each incremental apply and after one reversible managed-file drift.
 4. Confirm bundled workflow assets are discoverable, including the workflow-owned
    `workflow-spec-driven` skill, pointer-only assisted probe, and Bun-native knowledge sources; the
    installed instructions activate Ponytail at workflow start and keep it active through the full
@@ -36,6 +37,7 @@ the complete apply before any write; this workflow has no layer-removal command.
 ## Promises
 
 - [`ADP-adopt-workflow-safely`](../scenarios/ADP-adopt-workflow-safely.md)
+- [`ADP-layered-workflow-adoption`](../scenarios/ADP-layered-workflow-adoption.md)
 - [`ADP-separate-external-security-skills`](../scenarios/ADP-separate-external-security-skills.md)
 - [`ADP-validate-generated-feature-contracts`](../scenarios/ADP-validate-generated-feature-contracts.md)
 - [`ADP-validate-feature-completion-state`](../scenarios/ADP-validate-feature-completion-state.md)

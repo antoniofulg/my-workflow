@@ -8,8 +8,8 @@ expected: A project can plan and apply fixed core, parallel, quality, and extras
 entry_points: README.md#adopt-the-workflow; docs/adoption-prompt.md; scripts/adopt.py
 qa_status: untested
 bug_ids:
-fix_status: fixed
-retest_status: pending
+fix_status:
+retest_status:
 fix_commits:
 evidence:
 last_report:
@@ -21,3 +21,8 @@ This feature-specific handoff supersedes no historical result. Fresh QA must sta
 blocks, all-preflight conflict refusal, no-removal semantics, preserved `package.json` and
 `bun.lock`, Bun knowledge execution, and `status` exit codes. Record new evidence after the public
 journey is executed.
+
+The current cycle also covers `full`, legacy-command refusal, JSON stdout isolation, staged provider
+packet synchronization, and importing the installed assisted probe through a call-counting fake
+`orca`. Exact hash, path-containment, manifest-schema, and publication-order mechanics remain
+technical-verification evidence; QA observes their public no-write and atomic-publication outcomes.
