@@ -66,7 +66,7 @@ def _normalize_fixes(fixes: Iterable[Any]) -> list[str]:
 
 
 def _previous_tests(previous: Mapping[str, Any]) -> tuple[bool, list[str]]:
-    if "failing_tests" not in previous:
+    if "failing_tests" not in previous or int(previous.get("attempt_count", 0)) == 0:
         return False, []
     return True, normalize_failing_tests(previous.get("failing_tests", []))
 

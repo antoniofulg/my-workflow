@@ -467,8 +467,8 @@ describe("canonical QA skills", () => {
 
     const reviewRounds = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
     expect(reviewRounds).toContain("fingerprint = requirement + root cause + failure path");
-    expect(reviewRounds).toContain("independent failed-remediation counter for each fingerprint");
-    expect(reviewRounds).toContain("third failed remediation of the same fingerprint");
+    expect(reviewRounds).toContain("independent cumulative failed-remediation counter and append-only generation history");
+    expect(reviewRounds).toContain("live `[remediation].stall_attempts` threshold");
     expect(reviewRounds).toContain("every failed post-fix Verifier result, whether or not the build gate is green");
     expect(reviewRounds).toContain("Rewording or reopening a finding preserves its fingerprint and counter");
     expect(reviewRounds).toContain("A distinct blocker starts at count zero and does not consume another fingerprint's counter");
@@ -1099,6 +1099,7 @@ describe("Bun tooling runtime contract", () => {
       "tools/test_parallel_executor.py",
       "tools/test_parallel_plan.py",
       "tools/test_qa_parallel_pilot.py",
+      "tools/test_remediation.py",
       "tools/test_review_convergence.py",
       "tools/test_tlc_validators.py",
       "tools/test_workflow_config.py",
