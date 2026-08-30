@@ -88,12 +88,20 @@ const activeAuthorityRoots = [
   "bunfig.toml",
   "scripts",
   "tools",
+  ".agents/skills",
+  "templates/agents",
 ] as const;
 
 const historicalAuthorityAllowlist = [
   /^CHANGELOG\.md$/,
   /^\.specs\//,
-  /^docs\/qa\/(?:evidence|reports|charters|bugs|scenarios)\//,
+  /^docs\/qa\/(?:evidence|reports|charters|bugs)\//,
+  /^docs\/qa\/scenarios\/(?!REL-report-current-workflow-release\.md$)/,
+] as const;
+
+const historicalQaArtifactAllowlist = [
+  /^docs\/qa\/(?:evidence|reports|charters|bugs)\//,
+  /^docs\/qa\/scenarios\/(?!REL-report-current-workflow-release\.md$)/,
 ] as const;
 
 function trackedRepositoryPaths(): string[] {
@@ -114,8 +122,88 @@ function isHistoricalAuthority(relativePath: string): boolean {
   return historicalAuthorityAllowlist.some((pattern) => pattern.test(relativePath));
 }
 
+function isHistoricalQaArtifact(relativePath: string): boolean {
+  return historicalQaArtifactAllowlist.some((pattern) => pattern.test(relativePath));
+}
+
 function isTestSource(relativePath: string): boolean {
   return /(?:^|\/)(?:test_[^/]*\.py|[^/]*\.test\.ts)$/.test(relativePath);
+}
+
+type RepositoryReader = (relativePath: string) => string;
+
+function activeAuthorityPaths(paths: string[]): string[] {
+  return paths.filter(
+    (relativePath) =>
+      activeAuthorityRoots.some((root) => isUnderRoot(relativePath, root)) &&
+      !isHistoricalAuthority(relativePath) &&
+      !isTestSource(relativePath),
+  );
+}
+
+function forbiddenAuthorityViolations(
+  paths: string[],
+  read: RepositoryReader = readRepositoryFile,
+): string[] {
+  const scannedPaths = activeAuthorityPaths(paths);
+  const forbiddenCommands = [
+    /\b(?:npm|npx)\s+(?:run|test|exec|install|ci|pack|publish|ls|config)\b/i,
+    /\bvitest\s+(?:run|--|[A-Za-z])/i,
+    /\btsx\s+(?:--|[A-Za-z])/i,
+    /(?:from|require)\s*[(]?['"]yaml['"]/i,
+  ];
+  return scannedPaths.flatMap((relativePath) => {
+    const lines = read(relativePath).split(/\r?\n/);
+    return lines.flatMap((line, index) =>
+      forbiddenCommands.some((pattern) => pattern.test(line))
+        ? [`${relativePath}:${index + 1}: ${line.trim()}`]
+        : [],
+    );
+  });
+}
+
+function documentedBunScripts(
+  paths: string[],
+  read: RepositoryReader = readRepositoryFile,
+): string[] {
+  const scripts = new Set<string>();
+  for (const relativePath of activeAuthorityPaths(paths)) {
+    for (const match of read(relativePath).matchAll(/\bbun run ([A-Za-z0-9][A-Za-z0-9:_-]*)\b/g)) {
+      scripts.add(match[1]);
+    }
+  }
+  return [...scripts].sort();
+}
+
+function changedHistoricalQaArtifacts(): string[] {
+  const sourceRef = execFileSync("git", ["merge-base", "origin/main", "HEAD"], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+  }).trim();
+  const roots = [
+    "docs/qa/evidence",
+    "docs/qa/reports",
+    "docs/qa/charters",
+    "docs/qa/bugs",
+    "docs/qa/scenarios",
+  ];
+  const committed = execFileSync(
+    "git",
+    ["diff", "--name-only", `${sourceRef}...HEAD`, "--", ...roots],
+    { cwd: repositoryRoot, encoding: "utf8" },
+  );
+  const working = execFileSync("git", ["diff", "--name-only", "HEAD", "--", ...roots], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+  });
+  const staged = execFileSync(
+    "git",
+    ["diff", "--cached", "--name-only", "--", ...roots],
+    { cwd: repositoryRoot, encoding: "utf8" },
+  );
+  return [...new Set(`${committed}${working}${staged}`.split(/\r?\n/).filter(Boolean))]
+    .filter(isHistoricalQaArtifact)
+    .sort();
 }
 
 const verifierPacketPaths = [
@@ -944,15 +1032,12 @@ describe("Bun tooling runtime contract", () => {
       scripts?: { test?: string; [name: string]: string | undefined };
     };
     const bunfig = readRepositoryFile("bunfig.toml");
-    const pythonSuites = execFileSync("find", ["tools", "-type", "f", "-name", "test_*.py"], {
-      cwd: repositoryRoot,
-      encoding: "utf8",
-    })
-      .trim()
-      .split("\n")
-      .filter(Boolean)
+    const pythonSuites = trackedRepositoryPaths()
+      .filter((relativePath) => /^(?:scripts|tools)\/test_[^/]+\.py$/.test(relativePath))
       .sort();
     const expectedPythonSuites = [
+      "scripts/test_adopt.py",
+      "scripts/test_ai_memory.py",
       "tools/test_ad_index.py",
       "tools/test_deep_review_contract.py",
       "tools/test_deep_review_symlink_manifest.py",
@@ -969,7 +1054,7 @@ describe("Bun tooling runtime contract", () => {
       "tools/test_workflow_config.py",
       "tools/test_workflow_spec_driven.py",
     ];
-    const pythonLoop = "find tools -type f -name 'test_*.py' -print | sort | while read test; do python3 \"$test\" || exit $?; done";
+    const pythonLoop = "git ls-files -- 'scripts/test_*.py' 'tools/test_*.py' | sort | while read test; do python3 \"$test\" || exit $?; done";
 
     expect(manifest.engines?.bun).toBe(">=1.4.0 <1.5.0");
     expect(bunfig).toContain("[test]");
@@ -977,9 +1062,8 @@ describe("Bun tooling runtime contract", () => {
     expect(bunfig).toContain('preload = ["./tools/shared/src/bun-version.ts"]');
     expect(manifest.scripts?.test).toBe("bun test");
     expect(manifest.scripts?.["test:all"]).toBe("bun run test && bun run test:python");
-    expect(manifest.scripts?.["test:python"]).toContain("python3 scripts/test_adopt.py");
     expect(pythonSuites).toEqual(expectedPythonSuites);
-    expect(manifest.scripts?.["test:python"]).toContain(pythonLoop);
+    expect(manifest.scripts?.["test:python"]).toBe(pythonLoop);
   });
 
   it("keeps every tools test on bun:test and removes forbidden active runner authority", () => {
@@ -1003,30 +1087,46 @@ describe("Bun tooling runtime contract", () => {
 
   it("IT-006 keeps Bun as the active command authority while allowing historical evidence", () => {
     const trackedPaths = trackedRepositoryPaths();
-    const activePaths = trackedPaths.filter((relativePath) =>
-      activeAuthorityRoots.some((root) => isUnderRoot(relativePath, root)),
-    );
-    const scannedPaths = activePaths.filter(
-      (relativePath) => !isHistoricalAuthority(relativePath) && !isTestSource(relativePath),
-    );
-    const forbiddenAuthority = /\b(?:npm|npx|vitest|tsx)\b|package-lock\.json|(?:from|require)\s*[(]?['"]yaml['"]/i;
-    const violations = scannedPaths.flatMap((relativePath) => {
-      const lines = readRepositoryFile(relativePath).split(/\r?\n/);
-      return lines.flatMap((line, index) =>
-        forbiddenAuthority.test(line) ? [`${relativePath}:${index + 1}: ${line.trim()}`] : [],
-      );
-    });
+    const scannedPaths = activeAuthorityPaths(trackedPaths);
+    const violations = forbiddenAuthorityViolations(trackedPaths);
 
     expect(scannedPaths).toContain("README.md");
     expect(scannedPaths).toContain("docs/qa/README.md");
     expect(scannedPaths).toContain("knowledge/AGENTS.md");
+    expect(scannedPaths).toContain(".agents/skills/ponytail/SKILL.md");
+    expect(scannedPaths).toContain("templates/agents/codex/planner.toml");
     expect(violations).toEqual([]);
 
     const historicalPaths = trackedPaths.filter(isHistoricalAuthority);
     expect(historicalPaths.length).toBeGreaterThan(0);
     expect(
-      historicalPaths.some((relativePath) => /\b(?:npm|npx|vitest|tsx)\b|package-lock\.json/i.test(readRepositoryFile(relativePath))),
+      historicalPaths.some((relativePath) =>
+        /\b(?:npm|npx|vitest|tsx)\b|package-lock\.json/i.test(readRepositoryFile(relativePath)),
+      ),
     ).toBe(true);
+
+    for (const relativePath of [
+      ".agents/skills/ponytail/SKILL.md",
+      "templates/agents/codex/planner.toml",
+    ]) {
+      const mutated = new Map([[relativePath, `${readRepositoryFile(relativePath)}\nnpm run forbidden\n`]]);
+      const mutationViolations = forbiddenAuthorityViolations(
+        [relativePath],
+        (path) => mutated.get(path) ?? readRepositoryFile(path),
+      );
+      expect(mutationViolations).toHaveLength(1);
+      expect(mutationViolations[0]).toContain(relativePath);
+    }
+
+    const manifest = JSON.parse(readRepositoryFile("package.json")) as {
+      scripts?: Record<string, string>;
+    };
+    const documentedScripts = documentedBunScripts(trackedPaths);
+    expect(documentedScripts.length).toBeGreaterThan(0);
+    expect(Object.keys(manifest.scripts ?? {})).toEqual(
+      expect.arrayContaining(documentedScripts),
+    );
+    expect(changedHistoricalQaArtifacts()).toEqual([]);
   });
 
   it("fails closed for unsupported and malformed Bun versions before a suite marker runs", () => {

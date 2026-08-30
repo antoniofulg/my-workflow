@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 import shlex
 import shutil
@@ -78,6 +79,24 @@ OBSOLETE_MANAGED_PATHS = (
     ".claude/skills/tlc-spec-driven",
 )
 
+# These suites were copied by the v0.7.0 workflow. Remove only unchanged bytes from that
+# release; anything edited or added by the consuming project stays in place.
+LEGACY_MANAGED_TEST_FILES = {
+    "tools/knowledge/tests/check.test.ts": "a77101af4814655f3159f5d231dfcd955f24fbdca4d5c4ecfd173072be61e353",
+    "tools/knowledge/tests/cli.test.ts": "849c706b08b358ee978b23d54509acc3eb0ba4eb4977ddb9932106d6b6651dbf",
+    "tools/shared/tests/autonomous-parallelization.test.ts": "45c8c57e1774f90c08c3184d4af667426bb3f339acb88cd6f18fee02499e97b1",
+    "tools/shared/tests/deep-review-installation.test.ts": "12e13c114d3f998db74431ec9ad7507f5cb570dbb103b40dd39678842d397a07",
+    "tools/shared/tests/frontmatter.test.ts": "6f71b2310772ac8ec6afb3542036a5eb3be7ba55387049f458631f8b82f91225",
+    "tools/shared/tests/qa-skills.test.ts": "d6cd354f44bbf8dc233bf91237d72490e6e98d07ee155177589b95b06080d101",
+    "tools/shared/tests/security-skills-installation.test.ts": "2bf473160592f9121f522129f44cd8dad27831a75da65ec9bd64d64583dcd838",
+    "tools/shared/tests/workflow-config.test.ts": "63d738df1b8ffde8b594f152bd07af823e28a44dce121dda1e751217990e0dca",
+}
+
+LEGACY_MANAGED_TEST_DIRECTORIES = (
+    "tools/knowledge/tests",
+    "tools/shared/tests",
+)
+
 
 GLOBAL_CLAUDE_ROOT = re.compile(
     r"(?:\$\(HOME\)|\$\{HOME\}|\$HOME|~)/\.claude(?:/|$)"
@@ -127,6 +146,24 @@ def remove_obsolete_managed_paths(dest: Path) -> None:
             path.unlink()
         elif path.is_dir():
             shutil.rmtree(path)
+
+
+def remove_legacy_managed_tests(dest: Path) -> None:
+    for relative, expected_hash in LEGACY_MANAGED_TEST_FILES.items():
+        path = dest / relative
+        if not path.is_file() or path.is_symlink():
+            continue
+        if hashlib.sha256(path.read_bytes()).hexdigest() == expected_hash:
+            path.unlink()
+
+    for relative in LEGACY_MANAGED_TEST_DIRECTORIES:
+        path = dest / relative
+        if not path.is_dir() or path.is_symlink():
+            continue
+        try:
+            path.rmdir()
+        except OSError:
+            pass
 
 
 def _reject_unsafe_destination(
@@ -334,6 +371,7 @@ def main(argv: list[str]) -> None:
     if not skip_agents:
         adopt_agents(src, dest)
     remove_obsolete_managed_paths(dest)
+    remove_legacy_managed_tests(dest)
     for rel in COPY_PATHS:
         origin = src / rel
         if not origin.exists():

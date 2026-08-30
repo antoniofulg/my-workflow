@@ -4,8 +4,8 @@ area: REL
 title: Report the current workflow release consistently
 persona: Repository reader
 journey: J-review-workflow-release
-expected: The newest changelog release matches both package authorities and shipped public contracts, while the full test command scopes discovery to canonical tests under tools.
-entry_points: CHANGELOG.md; package.json; package-lock.json
+expected: The newest changelog release matches the package manifest and Bun lockfile, while `bun run test:all` scopes discovery to canonical tests under scripts and tools.
+entry_points: CHANGELOG.md; package.json; bun.lock
 qa_status: pass
 bug_ids: BUG-20260824-release-overstates-lifecycle-qa; BUG-20260825-adoption-omits-parallel-pilot
 fix_status:
@@ -17,12 +17,12 @@ overlaps:
 ---
 
 Version-neutral owner for public release consistency. For release `0.7.0`, the reader compares the
-newest changelog heading with both package authorities and checks its claims against the shipped
-public contracts. The release walk reuses the current ai-memory handoff and adoption verdicts as
+newest changelog heading with the package manifest and Bun lockfile and checks its claims against
+the shipped public contracts. The release walk reuses the current ai-memory handoff and adoption verdicts as
 canaries instead of repeating their feature-level runtime probes.
 
 Release `0.7.0` changes this promise and resets it to `untested`. The next independent QA Execute
-session must verify identity, package membership, adoption, the full test command, and every
+session must verify identity, package membership, adoption, `bun run test:all`, and every
 hybrid-slice release-note claim. The real Orca/Codex two-lane lifecycle and completed-pilot cleanup
 remain `blocked-verify`; release QA may confirm that boundary but cannot convert it to a pass or
 claim a completed pilot.
@@ -30,8 +30,8 @@ claim a completed pilot.
 The prior `0.6.0` verdict and its evidence remain historical record below; this release reset
 clears only the current metadata pointers until the independent `0.7.0` release walk completes.
 
-Fresh QA on 2026-08-29 passed release `0.7.0` through one package identity, a 410-file offline
-package dry-run, disposable adoption and re-adoption, independently reloaded installed files,
+Fresh QA on 2026-08-29 passed release `0.7.0` through one package identity, a 410-file
+`bun pm pack --dry-run` package check, disposable adoption and re-adoption, independently reloaded installed files,
 pointer-only fake-provider dispatch, hybrid planner/executor canaries, and zero owned residue. The
 real Orca/Codex lifecycle and completed-pilot cleanup remain `blocked-verify`; no publication,
 tag, GitHub release, remote delivery, deploy, or live Orca action occurred. See the current report.

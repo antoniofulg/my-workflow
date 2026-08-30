@@ -14,7 +14,7 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from adopt import STENCIL, main
+from adopt import LEGACY_MANAGED_TEST_FILES, STENCIL, main
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / ".agents/skills/workflow-config/scripts"))
 import workflow_config
 
@@ -185,8 +185,7 @@ def test_fresh_and_refuse() -> None:
         run(tmp)
         assert (tmp / "tools/knowledge/src/check.ts").is_file()
         assert (tmp / "tools/knowledge/src/cli.ts").is_file()
-        assert not (tmp / "tools/knowledge/tests").exists()
-        assert not (tmp / "tools/shared/tests").exists()
+        assert not list((tmp / "tools").rglob("*.test.ts"))
         knowledge = subprocess.run(
             ["bun", str(tmp / "tools/knowledge/src/cli.ts"), str(tmp)],
             cwd=tmp,
@@ -475,6 +474,54 @@ def test_adoption_imports_probe_without_orca_effect() -> None:
         shutil.rmtree(tmp)
 
 
+def test_readopt_removes_owned_legacy_tests_and_preserves_consumer_files() -> None:
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        legacy = {}
+        for relative in LEGACY_MANAGED_TEST_FILES:
+            result = subprocess.run(
+                ["git", "show", f"origin/main:{relative}"],
+                cwd=ROOT,
+                capture_output=True,
+                check=True,
+            )
+            legacy[relative] = result.stdout
+            path = tmp / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(result.stdout)
+
+        modified = "tools/shared/tests/frontmatter.test.ts"
+        modified_bytes = legacy[modified] + b"\n// consumer edit\n"
+        (tmp / modified).write_bytes(modified_bytes)
+        unknown = tmp / "tools/shared/tests/consumer.test.ts"
+        unknown.write_bytes(b"// consumer-owned suite\n")
+
+        run(tmp)
+
+        for relative in legacy:
+            path = tmp / relative
+            if relative == modified:
+                assert path.read_bytes() == modified_bytes
+            else:
+                assert not path.exists(), relative
+        assert unknown.read_bytes() == b"// consumer-owned suite\n"
+        assert not (tmp / "tools/knowledge/tests").exists()
+        assert (tmp / "tools/shared/tests").is_dir()
+
+        knowledge = subprocess.run(
+            ["bun", str(tmp / "tools/knowledge/src/cli.ts"), str(tmp)],
+            cwd=tmp,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert knowledge.returncode == 0, knowledge.stderr
+
+        after_first = snapshot_tree(tmp)
+        run(tmp)
+        assert snapshot_tree(tmp) == after_first
+    finally:
+        shutil.rmtree(tmp)
 def test_adoption_rejects_symlinked_managed_destination_without_mutation() -> None:
     tmp = Path(tempfile.mkdtemp())
     outside = Path(tempfile.mkdtemp())
@@ -855,6 +902,7 @@ TESTS = (
     "test_adoption_installs_hybrid_workflow_and_preserves_consumer_config",
     "test_adoption_installs_only_new_authority_byte_identically",
     "test_adoption_imports_probe_without_orca_effect",
+    "test_readopt_removes_owned_legacy_tests_and_preserves_consumer_files",
     "test_adoption_rejects_symlinked_managed_destination_without_mutation",
     "test_adoption_rejects_unsafe_generated_destinations_without_mutation",
     "test_qa_registry_keeps_fake_proof_current_and_live_orca_blocked",

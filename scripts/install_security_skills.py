@@ -524,7 +524,7 @@ def cli_command(skill: LockedSkill, bunx: str) -> list[str]:
         bunx,
         "--bun",
         "--no-install",
-        f"skills@{CLI_VERSION}",
+        "skills",
         "add",
         f"{skill.source}#{skill.ref}",
         "--skill",
@@ -534,6 +534,30 @@ def cli_command(skill: LockedSkill, bunx: str) -> list[str]:
         "--copy",
         "--yes",
     ]
+
+
+def cli_version_command(bunx: str) -> list[str]:
+    """Ask the locally resolvable skills binary for its exact version."""
+
+    return [bunx, "--bun", "--no-install", "skills", "--version"]
+
+
+def verify_cli_version(bunx: str, environment: dict[str, str]) -> None:
+    """Fail closed before any mutating skills command can run."""
+
+    result = subprocess.run(
+        cli_version_command(bunx),
+        check=False,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+    if result.returncode != 0:
+        raise InstallationError("skills CLI preflight failed")
+    if result.stdout.strip() != CLI_VERSION:
+        raise InstallationError(
+            f"skills CLI preflight reported {result.stdout.strip()!r}, expected {CLI_VERSION}"
+        )
 
 
 def child_environment(
@@ -686,12 +710,18 @@ def perform_installation(target: Path, locked: list[LockedSkill], pack_root: Pat
                 pack_root.resolve(),
             )
             bunx, bunx_directories = resolve_active_binary("bunx", original_path, untrusted_roots)
+            _skills, skills_directories = resolve_active_binary(
+                "skills",
+                os.pathsep.join((*bunx_directories, original_path)),
+                untrusted_roots,
+            )
             git, git_directories = resolve_active_binary("git", original_path, untrusted_roots)
             environment = pinned_git_environment(
                 snapshot / "git-wrapper",
                 git,
-                tuple(dict.fromkeys((*bunx_directories, *git_directories))),
+                tuple(dict.fromkeys((*bunx_directories, *skills_directories, *git_directories))),
             )
+            verify_cli_version(bunx, environment)
             for skill in locked:
                 command = cli_command(skill, bunx)
                 result = subprocess.run(command, cwd=staging, check=False, env=environment)

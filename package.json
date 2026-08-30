@@ -12,7 +12,7 @@
     "review:graft:build": "graft build",
     "review:graft:version": "graft --version",
     "test": "bun test",
-    "test:python": "python3 scripts/test_adopt.py && find tools -type f -name 'test_*.py' -print | sort | while read test; do python3 \"$test\" || exit $?; done",
+    "test:python": "git ls-files -- 'scripts/test_*.py' 'tools/test_*.py' | sort | while read test; do python3 \"$test\" || exit $?; done",
     "test:all": "bun run test && bun run test:python"
   },
   "devDependencies": {

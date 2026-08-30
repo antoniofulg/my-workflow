@@ -60,10 +60,14 @@ function runInstaller(target: string, args: string[] = [], env: NodeJS.ProcessEn
 
 function writeFakeCli(directory: string, content = "fixture\n"): string {
   const cli = join(directory, "bunx");
+  writeFileSync(join(directory, "skills"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
   writeFileSync(
     cli,
     `#!/usr/bin/env python3
 import os, pathlib, sys
+if sys.argv[-1] == "--version":
+    print("1.5.23")
+    raise SystemExit(0)
 skill = sys.argv[sys.argv.index("--skill") + 1]
 root = pathlib.Path.cwd()
 installed = root / ".agents" / "skills" / skill
@@ -93,6 +97,8 @@ function writeConfiguredBunx(
   content = "fixture\n",
   options: {
     fail?: boolean;
+    preflightFail?: boolean;
+    preflightVersion?: string;
     fifo?: boolean;
     symlinkTarget?: string;
     ignoredNames?: string[];
@@ -103,9 +109,18 @@ function writeConfiguredBunx(
   } = {},
 ): string {
   const bunx = join(directory, "bunx");
+  writeFileSync(join(directory, "skills"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
   const script = [
     "#!/usr/bin/env python3\n",
     "import os, pathlib, sys, subprocess\n",
+    'if sys.argv[-1] == "--version":\n',
+    options.log
+      ? '    pathlib.Path(' + JSON.stringify(options.log) + ').open("a").write(" ".join(sys.argv[1:]) + " path=" + os.environ.get("PATH", "") + " env=" + os.environ.get("MY_WORKFLOW_TARGET", "<missing>") + " secrets=" + ",".join(name + "=" + str(name in os.environ) for name in ("GITHUB_TOKEN", "GH_TOKEN", "NPM_TOKEN", "AWS_SECRET_ACCESS_KEY")) + "\\n")\n'
+      : "",
+    options.preflightFail ? "    sys.exit(7)\n" : '    print("' + (options.preflightVersion ?? "1.5.23") + '")\n    sys.exit(0)\n',
+    options.log
+      ? 'pathlib.Path(' + JSON.stringify(options.log) + ').open("a").write(" ".join(sys.argv[1:]) + " path=" + os.environ.get("PATH", "") + " env=" + os.environ.get("MY_WORKFLOW_TARGET", "<missing>") + " secrets=" + ",".join(name + "=" + str(name in os.environ) for name in ("GITHUB_TOKEN", "GH_TOKEN", "NPM_TOKEN", "AWS_SECRET_ACCESS_KEY")) + "\\n")\n'
+      : "",
     options.fail ? "sys.exit(7)\n" : "",
     'skill = sys.argv[sys.argv.index("--skill") + 1]\n',
     "root = pathlib.Path.cwd()\n",
@@ -129,9 +144,6 @@ function writeConfiguredBunx(
     'if claude.exists() or claude.is_symlink(): claude.unlink()\n',
     'claude.symlink_to(pathlib.Path("../../.agents/skills") / skill)\n',
     options.invokeGit ? 'subprocess.run(["git", "--version"], check=True)\n' : "",
-    options.log
-      ? 'pathlib.Path(' + JSON.stringify(options.log) + ').open("a").write(" ".join(sys.argv[1:]) + " path=" + os.environ.get("PATH", "") + " env=" + os.environ.get("MY_WORKFLOW_TARGET", "<missing>") + " secrets=" + ",".join(name + "=" + str(name in os.environ) for name in ("GITHUB_TOKEN", "GH_TOKEN", "NPM_TOKEN", "AWS_SECRET_ACCESS_KEY")) + "\\n")\n'
-      : "",
     options.sleep ? "import time\ntime.sleep(" + String(options.sleep) + ")\n" : "",
   ].join("");
   writeFileSync(bunx, script, { mode: 0o755 });
@@ -283,11 +295,47 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
       ).toEqual(
         Object.entries(securitySkills).map(
           ([name, expected]) =>
-            `bunx --bun --no-install skills@1.5.23 add ${expected.source}#${expected.ref} --skill ${name} --agent universal --copy --yes`,
+            `bunx --bun --no-install skills add ${expected.source}#${expected.ref} --skill ${name} --agent universal --copy --yes`,
         ),
       );
       expect(existsSync(join(fixture, ".agents"))).toBe(false);
       expect(readFileSync(join(fixture, "consumer.txt"), "utf8")).toBe("keep\n");
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
+  it("uses Bun no-install as a real no-network boundary", () => {
+    const missingBinary = `my-workflow-missing-skills-${process.pid}-${Date.now()}`;
+    const result = spawnSync("bunx", ["--bun", "--no-install", missingBinary, "--version"], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+      env: process.env,
+    });
+    expect(result.status).not.toBe(0);
+    expect(`${result.stdout}\n${result.stderr}`).toContain("--no-install");
+  });
+
+  it.each([
+    ["a non-zero preflight", { preflightFail: true }],
+    ["an unexpected preflight version", { preflightVersion: "1.5.22" }],
+  ] as const)("fails closed before mutation after %s", (_failure, options) => {
+    const fixture = mkdtempSync(join(tmpdir(), "my-workflow-cli-preflight-"));
+    const target = join(fixture, "target");
+    const log = join(fixture, "cli.log");
+    mkdirSync(target);
+    const cli = writeConfiguredBunx(fixture, "fixture\n", { ...options, log });
+    const pack = writePack(fixture, validLock());
+    writeFileSync(join(target, "consumer.txt"), "keep\n");
+    try {
+      const result = runPackInstaller(pack, target, cli);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("skills CLI preflight");
+      expect(readFileSync(join(target, "consumer.txt"), "utf8")).toBe("keep\n");
+      expect(existsSync(join(target, ".agents"))).toBe(false);
+      expect(readFileSync(log, "utf8").split(" path=")[0]).toBe(
+        "--bun --no-install skills --version",
+      );
     } finally {
       rmSync(fixture, { recursive: true, force: true });
     }
@@ -376,12 +424,15 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
         .trim()
         .split("\n")
         .map((line) => line.split(" path=")[0]);
-      expect(commands).toHaveLength(3);
+      expect(commands).toHaveLength(4);
       expect(commands).toEqual(
-        Object.entries(securitySkills).map(
-          ([name, expected]) =>
-            `--bun --no-install skills@1.5.23 add ${expected.source}#${expected.ref} --skill ${name} --agent universal --copy --yes`,
-        ),
+        [
+          "--bun --no-install skills --version",
+          ...Object.entries(securitySkills).map(
+            ([name, expected]) =>
+              `--bun --no-install skills add ${expected.source}#${expected.ref} --skill ${name} --agent universal --copy --yes`,
+          ),
+        ],
       );
     } finally {
       rmSync(fixture, { recursive: true, force: true });
@@ -441,7 +492,8 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
     const target = join(fixture, "target");
     mkdirSync(target);
     const pack = writePack(fixture, validLock());
-    const cli = writeConfiguredBunx(fixture, "fixture\n", { fail: true });
+    const log = join(fixture, "cli.log");
+    const cli = writeConfiguredBunx(fixture, "fixture\n", { fail: true, log });
     const consumerBytes = Buffer.from([9, 2, 6, 5, 3, 5]);
     writeFileSync(join(target, "consumer.bin"), consumerBytes);
     const lockBytes = Buffer.from('{"version":1,"skills":{"consumer":{"source":"local"}}}\n');
@@ -454,6 +506,10 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
       expect(readFileSync(join(target, "consumer.bin"))).toEqual(consumerBytes);
       expect(readFileSync(join(target, "skills-lock.json"))).toEqual(lockBytes);
       expect(existsSync(join(target, ".agents"))).toBe(false);
+      expect(readFileSync(log, "utf8").split("\n").filter(Boolean).map((line) => line.split(" path=")[0])).toEqual([
+        "--bun --no-install skills --version",
+        `--bun --no-install skills add openai/skills#${securitySkills["security-best-practices"].ref} --skill security-best-practices --agent universal --copy --yes`,
+      ]);
     } finally {
       rmSync(fixture, { recursive: true, force: true });
     }
@@ -854,14 +910,15 @@ describe("external security skill installation", { timeout: 30_000 }, () => {
       expect(result.status).toBe(0);
       expect(readFileSync(trustedGitMarker, "utf8")).toBe("trusted-git\n");
       const lines = readFileSync(log, "utf8").trim().split("\n");
-      expect(lines).toHaveLength(3);
-      expect(lines.map((line) => line.split(" path=")[0])).toEqual(
-        Object.entries(securitySkills).map(
+      expect(lines).toHaveLength(4);
+      expect(lines.map((line) => line.split(" path=")[0])).toEqual([
+        "--bun --no-install skills --version",
+        ...Object.entries(securitySkills).map(
           ([name, expected]) =>
-            `--bun --no-install skills@1.5.23 add ${expected.source}#${expected.ref} --skill ${name} --agent universal --copy --yes`,
+            `--bun --no-install skills add ${expected.source}#${expected.ref} --skill ${name} --agent universal --copy --yes`,
         ),
-      );
-      const recordedPath = lines[0].split(" path=")[1].split(" env=")[0];
+      ]);
+      const recordedPath = lines[1].split(" path=")[1].split(" env=")[0];
       const pathParts = recordedPath.split(pathDelimiter);
       expect(pathParts.slice(1)).toEqual([
         shims,
