@@ -11,11 +11,13 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from unittest.mock import patch
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "scripts/adopt.py"
 sys.path.insert(0, str(ROOT / "scripts"))
+import adopt
 from adopt import LEGACY_MANAGED_TEST_DIRECTORIES, LEGACY_MANAGED_TEST_FILES, remove_legacy_managed_tests
 
 FROZEN_PRE_FEATURE_PATHS = (
@@ -618,7 +620,10 @@ def test_status_uses_only_public_state_vocabulary() -> None:
         assert {entry["action"] for entry in clean["actions"]} <= {"clean", "missing", "modified", "retained"}
         managed = target / "tools/knowledge/src/cli.ts"
         managed.unlink()
-        missing = json.loads(invoke(target, "status", "--json").stdout)
+        before = snapshot(target)
+        missing_result = invoke(target, "status", "--json")
+        missing = json.loads(missing_result.stdout)
+        assert missing_result.returncode == 1 and snapshot(target) == before and missing_result.stderr == ""
         assert any(entry["action"] == "missing" for entry in missing["actions"])
         managed.write_text("modified\n")
         modified = json.loads(invoke(target, "status", "--json").stdout)
@@ -660,6 +665,55 @@ def test_missing_only_consumer_ownership_is_recorded_without_hashing_content() -
         record = manifest["files"]["docs/qa/README.md"]
         assert record["ownership"] == "consumer" and record["installed_sha256"] is None
         assert profile.read_text() == "consumer QA profile\n"
+    finally:
+        shutil.rmtree(target)
+
+
+def test_invalid_fixed_dependency_graph_is_a_controlled_error_before_target_access() -> None:
+    target = temporary_target()
+    original = adopt.DEPENDENCIES["parallel"]
+    try:
+        adopt.DEPENDENCIES["parallel"] = ("ghost",)
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            try:
+                adopt.main(["adopt.py", "plan", str(target), "--layers", "parallel", "--json"])
+            except SystemExit as exc:
+                assert exc.code == 2
+            else:
+                raise AssertionError("invalid dependency graph must fail")
+        assert "invalid dependency graph" in stderr.getvalue()
+        assert snapshot(target) == {}
+    finally:
+        adopt.DEPENDENCIES["parallel"] = original
+        shutil.rmtree(target)
+
+
+def test_public_publication_publishes_packets_before_manifest_last() -> None:
+    target = temporary_target()
+    published: list[str] = []
+    try:
+        with patch.object(adopt, "_atomic_write", side_effect=lambda path, content: published.append(path.relative_to(target).as_posix())):
+            assert adopt.main(["adopt.py", "apply", str(target), "--layers", "core", "--skip-agents"]) == 0
+        assert published[-1] == ".my-workflow/adoption.json"
+        runtime = [index for index, path in enumerate(published) if path.startswith((".claude/agents/", ".codex/agents/", ".cursor/agents/"))]
+        assert runtime and max(runtime) < len(published) - 1
+    finally:
+        shutil.rmtree(target)
+
+
+def test_distinct_manifest_keys_with_same_normalized_path_are_rejected() -> None:
+    target = temporary_target()
+    try:
+        manifest = target / ".my-workflow/adoption.json"
+        manifest.parent.mkdir()
+        record = '{"layer":"core","ownership":"managed","source_sha256":"' + "0" * 64 + '","installed_sha256":"' + "0" * 64 + '"}'
+        manifest.write_text('{"schema":1,"workflow_version":"0.7.0","layers":["core"],"files":{"a//b":' + record + ',"a/./b":' + record + '},"blocks":{}}')
+        before = snapshot(target)
+        for command in ("status", "apply"):
+            result = invoke(target, command, *(('--layers', 'core') if command == 'apply' else ()))
+            assert result.returncode == 2 and "normalized" in result.stderr
+            assert snapshot(target) == before
     finally:
         shutil.rmtree(target)
 
@@ -800,6 +854,9 @@ TESTS = (
     test_adoption_imports_probe_without_orca_effect,
     test_adoption_rejects_symlinked_managed_destination_without_mutation,
     test_existing_config_drives_all_native_values_and_preserves_non_model_bytes,
+    test_invalid_fixed_dependency_graph_is_a_controlled_error_before_target_access,
+    test_public_publication_publishes_packets_before_manifest_last,
+    test_distinct_manifest_keys_with_same_normalized_path_are_rejected,
 )
 
 

@@ -23,6 +23,7 @@
 | IT-007 | Re-applies idempotently | same layers and source twice | byte-identical target and manifest |
 | IT-008 | Preserves missing-only files | existing QA profile/config template destinations | consumer bytes preserved and ownership recorded |
 | IT-009 | Preserves full capability set | full plan/apply | exact pre-feature path inventory plus sync and links |
+| IT-012 | Publishes packets before authority marker | observe apply publication paths | generated packets are published before `.my-workflow/adoption.json`, which is last |
 | IT-010 | Keeps Bun consumer boundary | adopted knowledge runtime in target with its own package metadata | direct Bun CLI passes; package files byte-identical; forbidden authorities absent |
 | IT-011 | Rejects legacy CLI | positional target invocation | exit 2 with new-subcommand guidance; zero writes |
 

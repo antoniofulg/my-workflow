@@ -6,7 +6,7 @@
 
 ## Architecture Overview
 
-Keep the adopter as one standard-library Python module. Fixed data tables define layer paths and dependencies; pure helpers resolve layers, expand source files, parse/validate the manifest, classify actions, and parse managed blocks. `plan` and `status` call those helpers without mutation. `apply` runs the same plan, rejects every conflict/unsafe path, stages manifest and instruction results, writes selected files, synchronizes packets, then atomically replaces the manifest.
+Keep the adopter as one standard-library Python module. Fixed data tables define layer paths and dependencies; pure helpers resolve layers, expand source files, parse/validate the manifest, classify actions, and parse managed blocks. `plan` and `status` call those helpers without mutation. `apply` runs the same plan, rejects every conflict/unsafe path, builds a complete private target staging area, synchronizes packets against that staged target, then publishes selected files, generated packets, and the manifest last.
 
 ```mermaid
 flowchart LR
@@ -18,8 +18,9 @@ flowchart LR
     Classify --> Plan[deterministic result]
     Plan -->|plan/status| Output[stdout]
     Plan -->|apply, no conflicts| Write[contained file and block writes]
-    Write --> Sync[sync agents]
-    Sync --> Manifest[atomic adoption.json replace]
+    Stage[complete private staging] --> Sync[sync agents]
+    Sync --> Publish[selected files + packets]
+    Publish --> Manifest[atomic adoption.json replace last]
 ```
 
 ## Layer Catalog
@@ -58,7 +59,7 @@ flowchart LR
 ### Apply coordinator
 
 - **Location**: `scripts/adopt.py`
-- **Purpose**: Convert a conflict-free plan into writes, relative skill links, ignore merges, agent sync, and atomic manifest replacement.
+- **Purpose**: Convert a conflict-free plan into a complete private staging tree, synchronize there, then publish deterministic file/packet buckets and atomically replace the manifest last.
 - **Failure boundary**: Validation and conflicts precede writes. Temporary files stay inside the target parent and are replaced atomically. No layer removal exists.
 
 ### Canonical tests
@@ -87,7 +88,7 @@ The manifest shape is frozen in `dx.md`. File records are keyed by normalized re
 | --- | --- | --- | --- |
 | Current directory replacement can erase consumer files | `scripts/adopt.py` copy flow | Data loss in existing projects | Expand and manage individual files; preserve unknown paths. |
 | Instruction ownership is whole-file/stencil-based | `scripts/adopt.py` agents flow | Existing project adoption aborts or overwrites | Exact managed blocks with conflict detection. |
-| Sync currently happens after live writes | `scripts/adopt.py` main flow | Partial update on sync failure | Validate config/templates first and stage generated outputs before manifest commit. |
+| Sync must observe selected staged files before publication | `scripts/adopt.py` main flow | Packets can describe stale templates or layers | Build the complete staging tree, synchronize there, publish managed files then packets, and publish the manifest last. |
 | One core module concentrates writers | `scripts/adopt.py` | Parallel implementation conflicts | Execute core tasks sequentially; parallelize only independent review/QA roles. |
 
 ## Tech Decisions

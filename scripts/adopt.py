@@ -186,10 +186,12 @@ def resolve_layers(values: str | list[str]) -> list[str]:
         raise _error(f"unknown layer(s): {', '.join(unknown)}; choose core, parallel, quality, extras, or full")
     if not selected:
         raise _error("--layers must name core, parallel, quality, extras, or full")
-    closure = _dependency_closure(selected)
     for layer, dependencies in DEPENDENCIES.items():
-        if layer not in LAYERS or any(dep not in LAYERS for dep in dependencies):
+        if layer not in LAYERS or any(dep not in LAYERS or dep not in DEPENDENCIES for dep in dependencies):
             raise _error(f"invalid dependency graph at {layer}")
+    if any(layer not in DEPENDENCIES for layer in selected):
+        raise _error("invalid dependency graph: selected layer is not catalogued")
+    closure = _dependency_closure(selected)
     return [layer for layer in LAYERS if layer in closure]
 
 
@@ -405,7 +407,7 @@ def _merge_ignore(existing: bytes | None, entries: tuple[str, ...], remove: tupl
     return (merged + "\n".join(entries) + "\n").encode("utf-8")
 
 
-def _prepare_sync(source_root: Path, root: Path) -> dict[str, bytes]:
+def _prepare_sync(source_root: Path, root: Path, staged: dict[str, bytes]) -> dict[str, bytes]:
     """Validate and render ignored packets in a scratch root before target writes."""
     resolver_root = source_root / ".agents/skills/workflow-config"
     if not (resolver_root / "scripts/workflow_config.py").is_file():
@@ -423,6 +425,12 @@ def _prepare_sync(source_root: Path, root: Path) -> dict[str, bytes]:
             (scratch / local.name).write_bytes(local.read_bytes())
         else:
             (scratch / ".my-workflow.toml.example").write_bytes((source_root / ".my-workflow.toml.example").read_bytes())
+        for relative, content in staged.items():
+            if relative == ".my-workflow/adoption.json" or relative.startswith((".claude/agents/", ".codex/agents/", ".cursor/agents/")):
+                continue
+            staged_path = scratch / relative
+            staged_path.parent.mkdir(parents=True, exist_ok=True)
+            staged_path.write_bytes(content)
         sys.path.insert(0, str((scratch / ".agents/skills/workflow-config/scripts").resolve()))
         import workflow_config  # type: ignore
         try:
@@ -505,6 +513,14 @@ def _link_claude_skills(root: Path) -> None:
         pointer.symlink_to(Path("../../.agents/skills") / skill.name)
 
 
+def _publication_order(relative: str) -> tuple[int, str]:
+    if relative == ".my-workflow/adoption.json":
+        return (2, relative)
+    if relative == ".my-workflow.toml" or relative.startswith((".claude/agents/", ".codex/agents/", ".cursor/agents/")):
+        return (1, relative)
+    return (0, relative)
+
+
 def _build_plan(source_root: Path, root: Path, selected: list[str], skip_agents: bool) -> tuple[dict[str, Any], dict[str, bytes]]:
     _preflight_special(root, skip_agents)
     manifest = load_manifest(root)
@@ -521,7 +537,9 @@ def _build_plan(source_root: Path, root: Path, selected: list[str], skip_agents:
         if action["action"] in {"add", "update"}:
             source = (source_root / action["path"]).read_bytes()
             special[action["path"]] = _adopted_bytes(action["path"], source)
-    generated = {} if conflicts else _prepare_sync(source_root, root)
+    staged = dict(special)
+    staged.update(block_outputs)
+    generated = {} if conflicts else _prepare_sync(source_root, root, staged)
     for relative, content in generated.items():
         _safe_path(root, relative, "generated runtime")
         special[relative] = content
@@ -634,7 +652,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, indent=2, sort_keys=True) if args.json else _text_result(result))
         if args.command == "plan" or result["conflicts"]:
             return 1 if result["conflicts"] else 0
-        for relative, content in sorted(staged.items()):
+        for relative, content in sorted(staged.items(), key=lambda item: _publication_order(item[0])):
             _atomic_write(root / relative, content)
         remove_obsolete_managed_paths(root)
         remove_legacy_managed_tests(root)

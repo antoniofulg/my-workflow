@@ -98,7 +98,7 @@ The adopter installs the entire workflow as one destructive bundle. Existing pro
 
 1. WHEN `apply TARGET --layers full` succeeds THEN the installed capability set SHALL equal the prior complete adopter's core, parallel, quality, and extras paths, including missing-only ownership and agent synchronization.
 2. WHEN a selected layer does not include `core` explicitly THEN dependency resolution SHALL still install core before dependent layer paths.
-3. WHEN core is installed THEN provider packet synchronization SHALL run only after all selected writes and manifest replacement succeed.
+3. WHEN core is installed THEN provider packet synchronization SHALL run against the fully staged target before live publication; after it succeeds, selected files and packets SHALL publish before `.my-workflow/adoption.json` is published last.
 4. WHEN adopted knowledge tooling is invoked THEN `bun tools/knowledge/src/cli.ts` SHALL run without npm, npx, tsx, package-lock, or changes to the consumer's package metadata.
 5. WHEN the old positional `adopt.py TARGET` form is used THEN the adopter SHALL reject it with exit `2` and direct the caller to the new subcommands.
 
@@ -110,7 +110,7 @@ The adopter installs the entire workflow as one destructive bundle. Existing pro
 - IF a manifest records a layer no longer requested THEN status SHALL report it as installed and apply SHALL retain it.
 - IF a managed block marker is missing, duplicated, nested, or altered THEN apply SHALL report a conflict and perform zero writes.
 - IF a consumer-owned missing-only file already exists THEN apply SHALL preserve it and record consumer ownership without hashing the whole file as managed.
-- IF synchronization fails after selected files were staged THEN apply SHALL leave the prior target and manifest unchanged.
+- IF synchronization or staging fails before publication THEN apply SHALL leave the prior target and manifest unchanged.
 
 ## Requirement Traceability
 

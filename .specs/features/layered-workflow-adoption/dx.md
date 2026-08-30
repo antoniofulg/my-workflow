@@ -10,10 +10,17 @@
 
 ### `python3 scripts/adopt.py apply TARGET --layers LIST [--json] [--skip-agents]`
 
-- **Success:** exit `0`; cumulative layers installed, manifest atomically replaced, provider packets synchronized when core is present.
+- **Success:** exit `0`; cumulative layers installed, provider packets synchronized against the fully staged target, selected files and packets published deterministically, and the manifest atomically published last as the authority marker.
 - **Conflict:** exit `1`; all conflicts reported; zero target writes.
 - **Failures:** exit `2` for invalid invocation, unsafe path, unsupported/malformed manifest, or synchronization precondition; zero writes.
 - **Idempotency:** repeated apply with unchanged inputs is byte-stable.
+
+### Publication order
+
+Apply stages the complete target in a private directory and runs provider synchronization there.
+Only after staging and synchronization succeed does it publish the selected managed files, then
+generated provider packets, and finally `.my-workflow/adoption.json`. A staging or synchronization
+failure publishes nothing and leaves the previous target and manifest unchanged.
 
 ### `python3 scripts/adopt.py status TARGET [--json]`
 
