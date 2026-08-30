@@ -17,16 +17,20 @@
 
 ### Publication order
 
-Apply stages the complete target in a private directory and runs provider synchronization there.
-Only after staging and synchronization succeed does it publish the selected managed files, then
-generated provider packets, and finally `.my-workflow/adoption.json`. A staging or synchronization
-failure publishes nothing and leaves the previous target and manifest unchanged.
+Apply stages the complete adoption input set in a private directory and runs provider
+synchronization there. Only after staging and synchronization succeed does it publish, in
+deterministic buckets, selected managed and missing-only files, instruction blocks and separators,
+ignore edits, local config initialization/preservation, legacy cleanup, managed Claude skill links,
+and generated Claude/Codex/Cursor packets. It then atomically publishes
+`.my-workflow/adoption.json` as the final live-target mutation. A staging, synchronization,
+cleanup, or link failure publishes nothing and leaves the previous target and manifest unchanged.
 
 ### `python3 scripts/adopt.py status TARGET [--json]`
 
 - **Clean:** exit `0`; installed layers plus clean/retained managed entries.
 - **Drift:** exit `1`; missing/modified/conflicting entries.
-- **Failures:** exit `2`; missing or invalid manifest/target.
+- **Failures:** exit `2`; missing or invalid manifest/target. A missing manifest is invalid for
+  `status`, while a fresh `apply` without one is valid.
 - **Idempotency:** read-only; never synchronizes agents or invokes Orca.
 
 ## JSON

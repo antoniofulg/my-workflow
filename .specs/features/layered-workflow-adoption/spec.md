@@ -32,7 +32,7 @@ The adopter installs the entire workflow as one destructive bundle. Existing pro
 | Existing identical file | Claim it as managed when its bytes equal the source | This supports projects that copied workflow files manually. | y |
 | Existing differing workflow path | Report conflict and perform zero writes | Ownership is unknown until the human resolves it. | y |
 | Consumer instruction files | Preserve prose and manage only delimited workflow blocks; `--skip-agents` touches neither `AGENTS.md` nor `CLAUDE.md` | Existing projects own their instructions. | y |
-| Status exit codes | `0` clean, `1` drift/missing/conflict, `2` invalid invocation or manifest | Stable codes make status usable in CI. | y |
+| Status exit codes | `0` clean, `1` drift/missing, `2` invalid invocation or manifest | Stable codes make status usable in CI. | y |
 | Bun boundary | The consumer supplies Bun 1.4.x; adoption never edits product package metadata | All consuming projects already execute with Bun. | y |
 
 **Open questions:** none.
@@ -86,7 +86,7 @@ The adopter installs the entire workflow as one destructive bundle. Existing pro
 
 1. WHEN `status TARGET` reads a valid installation THEN it SHALL report each installed layer and every managed file as clean, missing, modified, or retained.
 2. WHEN all recorded managed bytes and blocks match THEN status SHALL exit `0`; WHEN any are missing, modified, or conflicting THEN it SHALL exit `1` without writes.
-3. IF the manifest is missing, malformed, has an unsupported schema, duplicate JSON key, non-normalized path, or path escaping the target THEN status and apply SHALL exit `2` without writes.
+3. IF `status` reads a missing manifest, or `status`/`apply` reads a malformed, unsupported-schema, duplicate-key, non-normalized, or escaping manifest THEN it SHALL exit `2` without writes. A fresh `apply` with no manifest SHALL be valid and create the first manifest only after the staged publication succeeds.
 
 **Independent Test**: Apply a layer, mutate and remove recorded files one at a time, and assert exact status output/codes with an unchanged target snapshot.
 

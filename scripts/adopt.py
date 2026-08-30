@@ -17,11 +17,12 @@ from typing import Any
 STENCIL = "<!-- product-stencil:"
 MANIFEST_SCHEMA = 1
 WORKFLOW_VERSION = "0.7.0"
+SEMVER_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 LAYERS = ("core", "parallel", "quality", "extras")
 DEPENDENCIES = {"core": (), "parallel": ("core",), "quality": ("core",), "extras": ("core",)}
 
 WORKFLOW_GITIGNORE_ENTRIES = (
-    ".my-workflow.toml", ".claude/agents/", ".codex/agents/",
+    ".my-workflow.toml", ".claude/agents/", ".codex/agents/", ".cursor/agents/",
     "!.deep-review/", ".deep-review/*", "!.deep-review/learnings.md", "graft/"
 )
 LEGACY_WORKFLOW_GITIGNORE_ENTRIES = (".specs/features/",)
@@ -47,6 +48,11 @@ EXTRAS_PATHS = (
 LAYER_PATHS = {"core": CORE_PATHS, "parallel": PARALLEL_PATHS, "quality": QUALITY_PATHS, "extras": EXTRAS_PATHS}
 LAYER_MISSING_PATHS = {"core": CORE_MISSING_PATHS, "parallel": (), "quality": QUALITY_MISSING_PATHS, "extras": ()}
 BLOCK_LAYERS = ("core", "parallel", "quality")
+RUNTIME_PATHS = tuple(
+    f".{provider}/agents/{role}.{('toml' if provider == 'codex' else 'md')}"
+    for provider in ("claude", "codex", "cursor")
+    for role in ("planner", "implementer", "verifier", "explorer", "deep-reviewer")
+)
 GLOBAL_CLAUDE_ROOT = re.compile(r"(?:\$\(HOME\)|\$\{HOME\}|\$HOME|~)/\.claude(?:/|$)")
 
 # Retained as private migration helpers for consumers that still have unchanged v0.7 suites.
@@ -61,7 +67,6 @@ LEGACY_MANAGED_TEST_FILES = {
     "tools/shared/tests/workflow-config.test.ts": "63d738df1b8ffde8b594f152bd07af823e28a44dce121dda1e751217990e0dca",
 }
 LEGACY_MANAGED_TEST_DIRECTORIES = ("tools/knowledge/tests", "tools/shared/tests")
-OBSOLETE_MANAGED_PATHS = (".agents/skills/tlc-spec-driven", ".claude/skills/tlc-spec-driven")
 
 
 class AdoptionError(ValueError):
@@ -107,18 +112,6 @@ def remove_legacy_managed_tests(
                 path.rmdir()
             except OSError:
                 pass
-
-
-def remove_obsolete_managed_paths(root: Path) -> None:
-    for relative in OBSOLETE_MANAGED_PATHS:
-        path = root / relative
-        current = root
-        if any((current := current / part).is_symlink() for part in PurePosixPath(relative).parts):
-            continue
-        if path.is_symlink() or path.is_file():
-            path.unlink()
-        elif path.is_dir() and not path.is_symlink():
-            shutil.rmtree(path)
 
 
 def _relative_path(value: str) -> str:
@@ -195,6 +188,19 @@ def resolve_layers(values: str | list[str]) -> list[str]:
     return [layer for layer in LAYERS if layer in closure]
 
 
+def requested_layers(values: str | list[str]) -> list[str]:
+    raw = values.split(",") if isinstance(values, str) else values
+    selected = {item.strip() for item in raw if item.strip()}
+    unknown = sorted(selected - set(LAYERS) - {"full"})
+    if unknown or not selected:
+        raise _error("--layers must name core, parallel, quality, extras, or full")
+    if "full" in selected:
+        if len(selected) != 1:
+            raise _error("full cannot be combined with another layer")
+        return ["full"]
+    return [layer for layer in LAYERS if layer in selected]
+
+
 def _catalog(root: Path, layers: list[str]) -> dict[str, str]:
     entries: dict[str, str] = {}
     for layer in layers:
@@ -236,16 +242,22 @@ def load_manifest(root: Path) -> dict[str, Any]:
         return result
     try:
         data = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=pairs)
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise _error(f"invalid adoption manifest: {exc}") from exc
     if not isinstance(data, dict) or set(data) != {"schema", "workflow_version", "layers", "files", "blocks"}:
         raise _error("adoption manifest has an unsupported schema")
-    if data["schema"] != 1 or not isinstance(data["workflow_version"], str):
+    version = data["workflow_version"]
+    match = SEMVER_RE.fullmatch(version) if isinstance(version, str) else None
+    if data["schema"] != 1 or not match:
         raise _error("adoption manifest schema must be version 1")
-    if not isinstance(data["layers"], list) or any(layer not in LAYERS for layer in data["layers"]):
+    if tuple(map(int, match.groups())) > tuple(map(int, SEMVER_RE.fullmatch(WORKFLOW_VERSION).groups())):
+        raise _error(f"adoption manifest workflow version {version} is newer than {WORKFLOW_VERSION}")
+    if not isinstance(data["layers"], list) or not data["layers"] or any(layer not in LAYERS for layer in data["layers"]):
         raise _error("manifest contains an unknown layer")
     if data["layers"] != sorted(set(data["layers"]), key=LAYERS.index):
         raise _error("manifest layers must be unique and catalog-ordered")
+    if resolve_layers(data["layers"]) != data["layers"]:
+        raise _error("manifest layers must include every fixed dependency")
     if not isinstance(data["files"], dict) or not isinstance(data["blocks"], dict):
         raise _error("manifest files and blocks must be objects")
     for relative, record in data["files"].items():
@@ -265,6 +277,8 @@ def load_manifest(root: Path) -> dict[str, Any]:
         _relative_path(relative)
         if layer not in BLOCK_LAYERS:
             raise _error(f"manifest block has invalid layer: {key}")
+        if relative == "CLAUDE.md" and layer != "core":
+            raise _error(f"CLAUDE.md may contain only the core managed block")
         _validate_hash(record["sha256"], f"block {key}")
     return data
 
@@ -323,10 +337,19 @@ def _adopted_bytes(relative: str, source: bytes) -> bytes:
 def _block_span(text: str, layer: str) -> tuple[int, int] | None:
     start = f"<!-- my-workflow:{layer}:start -->"
     end = f"<!-- my-workflow:{layer}:end -->"
-    starts = [match.start() for match in re.finditer(re.escape(start), text)]
-    ends = [match.start() for match in re.finditer(re.escape(end), text)]
     valid_marker = re.compile(r"<!-- my-workflow:(?:core|parallel|quality):(?:start|end) -->")
     malformed = [line for line in text.splitlines() if "my-workflow:" in line and not valid_marker.fullmatch(line.strip())]
+    stack: list[str] = []
+    for match in re.finditer(r"<!-- my-workflow:(core|parallel|quality):(start|end) -->", text):
+        marker_layer, marker_kind = match.groups()
+        if marker_kind == "start":
+            stack.append(marker_layer)
+        elif not stack or stack.pop() != marker_layer:
+            raise _error("managed instruction blocks are nested or out of order")
+    if stack:
+        raise _error("managed instruction blocks are incomplete")
+    starts = [match.start() for match in re.finditer(re.escape(start), text)]
+    ends = [match.start() for match in re.finditer(re.escape(end), text)]
     if malformed or len(starts) > 1 or len(ends) > 1:
         raise _error(f"managed {layer} block is duplicated or altered")
     if not starts and not ends:
@@ -357,13 +380,17 @@ def _compose_blocks(source_root: Path, root: Path, installed: list[str], skip_ag
         path = root / filename
         if path.exists():
             _safe_path(root, filename, filename)
-            original = path.read_text(encoding="utf-8")
+            try:
+                original = path.read_bytes().decode("utf-8")
+            except UnicodeDecodeError as exc:
+                raise _error(f"invalid UTF-8 in {filename}") from exc
         elif filename == "AGENTS.md":
             original = (source_root / filename).read_text(encoding="utf-8")
         else:
             original = ""
         rendered = original
-        for layer in BLOCK_LAYERS:
+        block_layers = BLOCK_LAYERS if filename == "AGENTS.md" else ("core",)
+        for layer in block_layers:
             if layer not in installed:
                 continue
             try:
@@ -380,7 +407,7 @@ def _compose_blocks(source_root: Path, root: Path, installed: list[str], skip_ag
                     continue
                 rendered = rendered[:span[0]] + block + rendered[span[1]:]
             else:
-                if rendered and not rendered.endswith("\n"):
+                if rendered and not rendered.endswith(("\n", "\r")):
                     rendered += "\n"
                 if rendered:
                     rendered += "\n"
@@ -410,11 +437,14 @@ def _prepare_sync(source_root: Path, root: Path, staged: dict[str, bytes]) -> di
         scratch = Path(name)
         for relative in ("templates/agents", ".agents/skills/workflow-config"):
             source = root / relative
+            if source.exists() or source.is_symlink():
+                _preflight_tree(root, relative, "sync input")
             if not source.exists():
                 source = source_root / relative
             target = scratch / relative
             shutil.copytree(source, target, symlinks=False)
         local = root / ".my-workflow.toml"
+        _safe_path(root, ".my-workflow.toml", "local config")
         if local.is_file():
             (scratch / local.name).write_bytes(local.read_bytes())
         else:
@@ -441,7 +471,22 @@ def _prepare_sync(source_root: Path, root: Path, staged: dict[str, bytes]) -> di
         return generated
 
 
-def _preflight_special(root: Path, skip_agents: bool) -> None:
+def _preflight_tree(root: Path, relative: str, label: str) -> None:
+    current = root
+    for part in PurePosixPath(relative).parts:
+        current /= part
+        if current.is_symlink():
+            raise _error(f"{label} {relative} uses symlink {current.relative_to(root)}")
+    path = root / relative
+    if path.exists() and not path.is_dir():
+        raise _error(f"{label} {relative} must be a directory")
+    if path.is_dir():
+        for node in path.rglob("*"):
+            if node.is_symlink():
+                raise _error(f"{label} {relative} contains symlink {node.relative_to(root)}")
+
+
+def _preflight_special(root: Path, skip_agents: bool, managed_skills: set[str]) -> None:
     for relative in (".gitignore", ".ignore", ".my-workflow/adoption.json"):
         _safe_path(root, relative, "generated destination")
     if not skip_agents:
@@ -453,17 +498,13 @@ def _preflight_special(root: Path, skip_agents: bool) -> None:
     if skills_root.exists() and not skills_root.is_dir():
         raise _error("generated skills directory must be a directory")
     if skills_root.exists():
-        for layer in LAYERS:
-            for skill in LAYER_PATHS[layer]:
-                prefix = ".agents/skills/"
-                if not skill.startswith(prefix):
-                    continue
-                pointer = skills_root / skill.removeprefix(prefix)
-                expected = "../../.agents/skills/" + pointer.name
-                if pointer.is_symlink() and os.readlink(pointer) != expected:
-                    raise _error(f"generated skill pointer {pointer.relative_to(root)} has an unexpected target")
-                if pointer.exists() and not pointer.is_symlink() and not pointer.is_file():
-                    raise _error(f"generated skill pointer {pointer.relative_to(root)} must be a file or symlink")
+        for skill_name in managed_skills:
+            pointer = skills_root / skill_name
+            expected = "../../.agents/skills/" + skill_name
+            if pointer.is_symlink() and os.readlink(pointer) != expected:
+                raise _error(f"generated skill pointer {pointer.relative_to(root)} has an unexpected target")
+            if pointer.exists() and not pointer.is_symlink():
+                raise _error(f"generated skill pointer {pointer.relative_to(root)} is consumer-owned")
     makefile = root / "Makefile"
     if makefile.is_file():
         for line_number, line in enumerate(makefile.read_text(encoding="utf-8").splitlines(), 1):
@@ -527,21 +568,22 @@ def _restore_tree(root: Path, snapshot: dict[str, tuple[str, bytes | str | None]
             path.write_bytes(value if isinstance(value, bytes) else b"")
 
 
-def _link_claude_skills(root: Path) -> None:
+def _link_claude_skills(root: Path, managed_skills: set[str]) -> None:
     agents = root / ".agents/skills"
     if not agents.is_dir():
         return
     skills_root = root / ".claude/skills"
     skills_root.mkdir(parents=True, exist_ok=True)
-    for skill in sorted(agents.iterdir()):
+    for skill_name in sorted(managed_skills):
+        skill = agents / skill_name
         if not skill.is_dir() or skill.is_symlink():
             continue
-        pointer = skills_root / skill.name
+        pointer = skills_root / skill_name
         if pointer.exists() or pointer.is_symlink():
             if pointer.is_dir() and not pointer.is_symlink():
                 raise _error(f"generated skill pointer {pointer.relative_to(root)} must be a file or symlink")
             pointer.unlink()
-        pointer.symlink_to(Path("../../.agents/skills") / skill.name)
+        pointer.symlink_to(Path("../../.agents/skills") / skill_name)
 
 
 def _publication_order(relative: str) -> tuple[int, str]:
@@ -552,11 +594,59 @@ def _publication_order(relative: str) -> tuple[int, str]:
     return (0, relative)
 
 
-def _build_plan(source_root: Path, root: Path, selected: list[str], skip_agents: bool) -> tuple[dict[str, Any], dict[str, bytes]]:
-    _preflight_special(root, skip_agents)
+def _managed_skill_names(layers: list[str]) -> set[str]:
+    prefix = ".agents/skills/"
+    return {PurePosixPath(path).name for layer in layers for path in LAYER_PATHS[layer] if path.startswith(prefix)}
+
+
+def _effect_actions(root: Path, special: dict[str, bytes], block_outputs: dict[str, bytes], manifest: dict[str, Any], new_manifest: dict[str, Any], resolved: list[str], sync: bool) -> list[dict[str, str]]:
+    actions: list[dict[str, str]] = []
+    for relative, content in sorted(special.items()):
+        if relative == ".my-workflow/adoption.json":
+            continue
+        path = root / relative
+        if relative.startswith((".claude/agents/", ".codex/agents/", ".cursor/agents/")):
+            action = "add" if not path.exists() else "update"
+        elif relative == ".my-workflow.toml":
+            action = "init" if not path.exists() else "preserve"
+        else:
+            action = "add" if not path.exists() else "update"
+        actions.append({"path": relative, "action": action, "layer": "core"})
+    if not sync:
+        config = root / ".my-workflow.toml"
+        actions.append({"path": ".my-workflow.toml", "action": "preserve" if config.exists() else "init", "layer": "core"})
+        for relative in RUNTIME_PATHS:
+            path = root / relative
+            actions.append({"path": relative, "action": "update" if path.exists() else "add", "layer": "core"})
+    for filename, content in sorted(block_outputs.items()):
+        old = root / filename
+        old_text = old.read_bytes().decode("utf-8") if old.is_file() else ""
+        for key in sorted(new_manifest["blocks"]):
+            if not key.startswith(filename + ":"):
+                continue
+            layer = key.rsplit(":", 1)[1]
+            action = "update" if key in manifest["blocks"] else "add"
+            actions.append({"path": key, "action": action, "layer": layer})
+            if key not in manifest["blocks"] and old_text and not old_text.endswith(("\n", "\r")):
+                actions.append({"path": f"{filename}:separator", "action": "add", "layer": layer})
+    names = _managed_skill_names(resolved)
+    for name in sorted(names):
+        actions.append({"path": f".claude/skills/{name}", "action": "link", "layer": "core"})
+    for relative, expected in LEGACY_MANAGED_TEST_FILES.items():
+        path = root / relative
+        if path.is_file() and not path.is_symlink() and _sha(path.read_bytes()) == expected:
+            actions.append({"path": relative, "action": "remove", "layer": "core"})
+    manifest_bytes = _manifest_bytes(new_manifest)
+    manifest_path = root / ".my-workflow/adoption.json"
+    actions.append({"path": ".my-workflow/adoption.json", "action": "retain" if manifest_path.is_file() and manifest_path.read_bytes() == manifest_bytes else "add" if not manifest_path.exists() else "update", "layer": "core"})
+    return actions
+
+
+def _build_plan(source_root: Path, root: Path, requested: list[str], selected: list[str], skip_agents: bool, sync: bool) -> tuple[dict[str, Any], dict[str, bytes]]:
     manifest = load_manifest(root)
     installed = resolve_layers(manifest["layers"]) if manifest["layers"] else []
-    effective = resolve_layers(selected + installed)
+    effective = resolve_layers(list(LAYERS if requested == ["full"] else requested) + installed)
+    _preflight_special(root, skip_agents, _managed_skill_names(effective))
     actions, records, conflicts = _classify(root, source_root, effective, manifest)
     block_outputs, block_records, block_conflicts = _compose_blocks(source_root, root, effective, skip_agents, manifest)
     conflicts.extend(block_conflicts)
@@ -570,20 +660,21 @@ def _build_plan(source_root: Path, root: Path, selected: list[str], skip_agents:
             special[action["path"]] = _adopted_bytes(action["path"], source)
     staged = dict(special)
     staged.update(block_outputs)
-    generated = {} if conflicts else _prepare_sync(source_root, root, staged)
+    generated = {} if conflicts or not sync else _prepare_sync(source_root, root, staged)
     for relative, content in generated.items():
         _safe_path(root, relative, "generated runtime")
         special[relative] = content
     new_manifest = {"schema": 1, "workflow_version": WORKFLOW_VERSION, "layers": effective, "files": records, "blocks": block_records}
     special[".my-workflow/adoption.json"] = _manifest_bytes(new_manifest)
     special.update(block_outputs)
+    effect_actions = actions + _effect_actions(root, special, block_outputs, manifest, new_manifest, effective, sync)
     result = {
         "command": "",
         "target": str(root),
-        "requested_layers": selected,
+        "requested_layers": requested,
         "resolved_layers": effective,
         "status": "conflict" if conflicts else "ready",
-        "actions": sorted(actions, key=lambda item: (item["path"], item["action"])),
+        "actions": sorted(effect_actions, key=lambda item: (item["path"], item["action"])),
         "conflicts": sorted(set(conflicts)),
     }
     return result, special
@@ -620,7 +711,7 @@ def _status(source_root: Path, root: Path, as_json: bool) -> int:
         if state in {"missing", "modified"}:
             conflicts.append(relative)
     for filename in ("AGENTS.md", "CLAUDE.md"):
-        path = root / filename
+        path = _safe_path(root, filename, "instruction")
         if not path.exists():
             for key in manifest["blocks"]:
                 if key.startswith(filename + ":"):
@@ -628,8 +719,12 @@ def _status(source_root: Path, root: Path, as_json: bool) -> int:
                     actions.append({"path": key, "action": "missing", "layer": layer})
                     conflicts.append(key)
             continue
-        text = path.read_text(encoding="utf-8")
-        for layer in BLOCK_LAYERS:
+        try:
+            text = path.read_bytes().decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise _error(f"invalid UTF-8 in {filename}") from exc
+        block_layers = BLOCK_LAYERS if filename == "AGENTS.md" else ("core",)
+        for layer in block_layers:
             key = f"{filename}:{layer}"
             if key not in manifest["blocks"]:
                 continue
@@ -677,8 +772,9 @@ def main(argv: list[str] | None = None) -> int:
         source_root = Path(__file__).resolve().parent.parent
         if args.command == "status":
             return _status(source_root, root, args.json)
-        selected = resolve_layers(args.layers)
-        result, staged = _build_plan(source_root, root, selected, args.skip_agents)
+        requested = requested_layers(args.layers)
+        selected = resolve_layers(requested)
+        result, staged = _build_plan(source_root, root, requested, selected, args.skip_agents, args.command == "apply")
         result["command"] = args.command
         print(json.dumps(result, indent=2, sort_keys=True) if args.json else _text_result(result))
         if args.command == "plan" or result["conflicts"]:
@@ -689,10 +785,11 @@ def main(argv: list[str] | None = None) -> int:
                 if relative == ".my-workflow/adoption.json":
                     continue
                 _atomic_write(root / relative, content)
-            remove_obsolete_managed_paths(root)
             remove_legacy_managed_tests(root)
-            _link_claude_skills(root)
-            _atomic_write(root / ".my-workflow/adoption.json", staged[".my-workflow/adoption.json"])
+            _link_claude_skills(root, _managed_skill_names(result["resolved_layers"]))
+            manifest_path = root / ".my-workflow/adoption.json"
+            if not manifest_path.is_file() or manifest_path.read_bytes() != staged[".my-workflow/adoption.json"]:
+                _atomic_write(manifest_path, staged[".my-workflow/adoption.json"])
         except Exception as exc:
             try:
                 _restore_tree(root, previous)

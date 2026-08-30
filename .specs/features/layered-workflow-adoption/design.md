@@ -52,14 +52,14 @@ flowchart LR
 ### Managed instruction composer
 
 - **Locations**: `scripts/adopt.py`, `templates/adoption/agents/{core,parallel,quality}.md`
-- **Purpose**: Append or replace one exact block per selected layer while preserving all surrounding bytes.
+- **Purpose**: Append or replace one exact block per selected layer while preserving all surrounding bytes. Existing consumer bytes remain an unchanged prefix; when they do not end in a newline, the adopter may append only the separator needed before its marker.
 - **CLAUDE**: core block contains only `@AGENTS.md`; `--skip-agents` bypasses both files and their manifest block records.
 - **Reuse**: Existing product prose extraction is removed; no stencil dependency remains.
 
 ### Apply coordinator
 
 - **Location**: `scripts/adopt.py`
-- **Purpose**: Convert a conflict-free plan into a complete private staging tree, synchronize there, then publish deterministic file/packet buckets and atomically replace the manifest last.
+- **Purpose**: Convert a conflict-free plan into a complete private staging tree, synchronize there, then publish deterministic file/packet buckets and atomically replace the manifest last. All fallible live effects, including cleanup and managed links, precede that final manifest replace.
 - **Failure boundary**: Validation and conflicts precede writes. Temporary files stay inside the target parent and are replaced atomically. No layer removal exists.
 
 ### Canonical tests

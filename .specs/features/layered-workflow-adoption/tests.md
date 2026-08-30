@@ -26,6 +26,8 @@
 | IT-012 | Publishes packets before authority marker | observe apply publication paths | generated packets are published before `.my-workflow/adoption.json`, which is last |
 | IT-010 | Keeps Bun consumer boundary | adopted knowledge runtime in target with its own package metadata | direct Bun CLI passes; package files byte-identical; forbidden authorities absent |
 | IT-011 | Rejects legacy CLI | positional target invocation | exit 2 with new-subcommand guidance; zero writes |
+| IT-013 | Distinguishes fresh apply from installed status | fresh target with no manifest | apply succeeds; status exits 2 without writes |
+| IT-014 | Rejects non-directory parent | selected `tools/` parent is a regular file | exit 2 before writes |
 
 ## End-to-end
 
@@ -41,3 +43,4 @@
 | SEC-002 | Escape through manifest path | `../`, absolute, duplicate JSON key, non-normalized, or symlinked managed path | manifest rejected; target and external paths unchanged |
 | SEC-003 | Hide a managed-file conflict | alter one recorded file then apply several layers | all conflicts listed; no other selected file or manifest changes |
 | SEC-004 | Corrupt instruction markers | duplicate/nest/remove a managed marker | conflict before writes; consumer prose unchanged |
+| SEC-005 | Redirect through a non-directory parent | selected destination parent is a regular file | exit 2; target remains unchanged |

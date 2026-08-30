@@ -57,7 +57,7 @@ One ready writer means serial execution in the integration checkout. S2 is docum
 - [x] Manifest rejects malformed, duplicate, unknown, and escaping state.
 - [x] Legacy positional invocation exits 2 with new-command guidance.
 
-**Tests**: UT-001, UT-002, UT-003, UT-004, IT-001, IT-006, IT-011, SEC-002
+**Tests**: UT-001, UT-002, UT-003, UT-004, IT-001, IT-006, IT-011, IT-013, SEC-002
 **Gate**: quick
 **Commit**: `feat(adopt): model layered workflow state`
 
@@ -81,7 +81,7 @@ One ready writer means serial execution in the integration checkout. S2 is docum
 - [x] Reapply is byte-stable and omitted installed layers remain.
 - [x] Managed AGENTS/CLAUDE blocks and `--skip-agents` match `dx.md`.
 
-**Tests**: UT-005, IT-002, IT-003, IT-004, IT-005, IT-007, IT-008, SEC-001, SEC-003, SEC-004
+**Tests**: UT-005, IT-002, IT-003, IT-004, IT-005, IT-007, IT-008, IT-012, IT-014, SEC-001, SEC-003, SEC-004, SEC-005
 **Gate**: full
 **Commit**: `feat(adopt): apply workflow layers safely`
 

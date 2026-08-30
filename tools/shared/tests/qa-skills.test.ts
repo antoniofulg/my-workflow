@@ -958,15 +958,13 @@ describe("adoption and public setup", () => {
   });
 
   it("IT-009 exposes the fixed layered adoption boundary", () => {
-    const adopt = readRepositoryFile("scripts/adopt.py");
+    const readme = readRepositoryFile("README.md");
 
-    expect(adopt).toContain('LAYERS = ("core", "parallel", "quality", "extras")');
-    expect(adopt).toContain('for name in ("plan", "apply")');
-    expect(adopt).toContain("commands.add_parser(name)");
-    expect(adopt).toContain('commands.add_parser("status")');
-    expect(adopt).toContain("resolve_layers");
-    expect(adopt).toContain('MANIFEST_SCHEMA = 1');
-    expect(adopt).not.toContain("COPY_PATHS");
+    expect(readme).toContain("`core`");
+    expect(readme).toContain("`parallel`");
+    expect(readme).toContain("`quality`");
+    expect(readme).toContain("`extras`");
+    expect(readme).toContain("`full` resolves all four layers");
   });
 
   it("IT-019 keeps README installation prerequisites and bundled skills authoritative", () => {
@@ -978,6 +976,11 @@ describe("adoption and public setup", () => {
     expect(readme).toMatch(/the target must be a Git\s+repository with at least one commit/);
     expect(readme).toMatch(/Bun 1\.4\.x is the JavaScript\/TypeScript runtime for this pack;\s+it is needed only to validate the source pack's gates/);
     expect(readme).toContain("records per-file ownership in `.my-workflow/adoption.json`");
+    expect(readme).toContain("`core` contains the operating loop and Bun tooling");
+    expect(readme).toMatch(/`parallel`\s+adds assisted slice execution/);
+    expect(readme).toMatch(/`quality`\s+adds review and QA skills/);
+    expect(readme).toMatch(/`extras`\s+adds optional/);
+    expect(readme).toContain("`full` resolves all four layers");
     expect(readme).toContain("The three external security skills are a separate authorized step");
     expect(readme).toContain("install_security_skills.py");
     expect(readme).not.toContain("@tech-leads-club/agent-skills install");

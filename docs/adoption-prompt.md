@@ -12,7 +12,8 @@ manifests, declared gates, CI jobs, production-parity start and health paths, pu
 authentication, fixtures or seed data, cleanup and residue checks, and installed QA tooling. Never
 invent a command or install a QA framework during adoption.
 
-Before writing, run `python3 /path/to/my-workflow/scripts/adopt.py plan /path/to/target-project --layers core --json` and review its actions. Report the managed paths and every target path that could be replaced. Preserve
+Before writing, set `<selected-layers>` to the requested fixed layers (`core`, `parallel`, `quality`,
+`extras`, or `full`). Run `python3 /path/to/my-workflow/scripts/adopt.py plan /path/to/target-project --layers <selected-layers> --json` and review its actions. Report the managed paths and every target path that could be replaced. Preserve
 product-owned product, architecture, design, and stack documentation. For a new project, replace
 the AGENTS.md product stencil and create product docs only as the product earns them. For an
 existing project, use `--skip-agents` when the product paragraph is filled; it preserves `AGENTS.md`
@@ -22,8 +23,8 @@ and `CLAUDE.md`, so merge workflow instruction changes manually. Preserve an exi
 from the tracked templates and local config; sync may overwrite those generated packets.
 
 Read the pack's `CHANGELOG.md` from the target's adopted version to the current package version
-before an update. Run `python3 /path/to/my-workflow/scripts/adopt.py apply /path/to/target-project --layers core` only
-after the review. Add `parallel`, `quality`, or `extras` explicitly as needed; `full` selects all four.
+before an update. Run `python3 /path/to/my-workflow/scripts/adopt.py apply /path/to/target-project --layers <selected-layers>` only
+after the review. Use the same `<selected-layers>` value in plan and apply; `full` selects all four.
 For a filled product paragraph, pass `--skip-agents`. Adoption also runs the
 target's explicit `--sync-agents` command after installing missing example/templates.
 

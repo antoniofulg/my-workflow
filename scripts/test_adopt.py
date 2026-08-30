@@ -64,10 +64,12 @@ def test_resolves_fixed_layers_and_plan_is_read_only() -> None:
         assert result.returncode == 0, result.stderr
         assert result.stderr == "" and result.stdout.lstrip().startswith("{")
         document = json.loads(result.stdout)
-        assert document["requested_layers"] == ["core", "parallel", "quality"]
+        assert document["requested_layers"] == ["parallel", "quality"]
         assert document["resolved_layers"] == ["core", "parallel", "quality"]
         assert document["status"] == "ready"
         assert any(item["path"] == "tools/orca_assisted_probe.py" for item in document["actions"])
+        expected_effects = {".gitignore", ".ignore", ".my-workflow.toml", ".my-workflow/adoption.json", ".claude/agents/planner.md", "AGENTS.md:core", ".claude/skills/workflow-config"}
+        assert expected_effects <= {item["path"] for item in document["actions"]}
         assert snapshot(target) == before
     finally:
         shutil.rmtree(target)
@@ -102,6 +104,32 @@ def test_unknown_layer_and_invalid_manifest_fail_before_target_mutation() -> Non
         manifest.write_text(json.dumps({"schema": 1, "workflow_version": "0.7.0", "layers": ["unknown"], "files": {}, "blocks": {}}), encoding="utf-8")
         result = invoke(target, "status", "--json")
         assert result.returncode == 2
+    finally:
+        shutil.rmtree(target)
+
+
+def test_fresh_apply_is_valid_but_missing_manifest_status_is_invalid() -> None:
+    target = temporary_target()
+    try:
+        plan = invoke(target, "plan", "--layers", "core", "--json")
+        assert plan.returncode == 0
+        status = invoke(target, "status", "--json")
+        assert status.returncode == 2 and "manifest" in status.stderr
+        applied = invoke(target, "apply", "--layers", "core", "--json")
+        assert applied.returncode == 0
+        assert (target / ".my-workflow/adoption.json").is_file()
+    finally:
+        shutil.rmtree(target)
+
+
+def test_plan_does_not_sync_or_read_malformed_consumer_config() -> None:
+    target = temporary_target()
+    try:
+        (target / ".my-workflow.toml").write_text("version = 1\n")
+        before = snapshot(target)
+        result = invoke(target, "plan", "--layers", "core", "--json")
+        assert result.returncode == 0 and result.stderr == ""
+        assert snapshot(target) == before
     finally:
         shutil.rmtree(target)
 
@@ -163,6 +191,94 @@ def test_apply_preserves_consumer_prose_and_writes_managed_blocks() -> None:
         shutil.rmtree(target)
 
 
+def test_no_newline_and_crlf_consumer_prose_remain_exact_prefixes() -> None:
+    for content in (b"consumer prose", b"consumer\r\nprose\r\n"):
+        target = temporary_target()
+        try:
+            agents = target / "AGENTS.md"
+            agents.write_bytes(content)
+            assert invoke(target, "apply", "--layers", "core").returncode == 0
+            assert agents.read_bytes().startswith(content)
+        finally:
+            shutil.rmtree(target)
+
+
+def test_nested_cross_layer_markers_abort_before_writes() -> None:
+    target = temporary_target()
+    try:
+        (target / "AGENTS.md").write_text("<!-- my-workflow:core:start -->\n<!-- my-workflow:parallel:start -->\n<!-- my-workflow:core:end -->\n<!-- my-workflow:parallel:end -->\n")
+        before = snapshot(target)
+        result = invoke(target, "apply", "--layers", "parallel", "--json")
+        assert result.returncode == 1 and "AGENTS.md:core" in json.loads(result.stdout)["conflicts"]
+        assert snapshot(target) == before
+    finally:
+        shutil.rmtree(target)
+
+
+def test_claude_receives_only_core_block_and_custom_skill_pointer_survives() -> None:
+    target = temporary_target()
+    try:
+        (target / "AGENTS.md").write_text("consumer\n")
+        (target / "CLAUDE.md").write_text("consumer claude\n")
+        custom = target / ".agents/skills/custom"
+        custom.mkdir(parents=True)
+        pointer = target / ".claude/skills/custom"
+        pointer.parent.mkdir(parents=True)
+        pointer.write_text("consumer pointer\n")
+        before = pointer.read_bytes()
+        result = invoke(target, "apply", "--layers", "full", "--json")
+        assert result.returncode == 0, result.stderr
+        assert pointer.read_bytes() == before
+        assert "parallel:start" not in (target / "CLAUDE.md").read_text()
+    finally:
+        shutil.rmtree(target)
+
+
+def test_symlinked_local_config_is_rejected_before_read() -> None:
+    target, outside = temporary_target(), temporary_target()
+    try:
+        (outside / "config").write_text("version = 1\n")
+        (target / ".my-workflow.toml").symlink_to(outside / "config")
+        before = snapshot(target)
+        result = invoke(target, "apply", "--layers", "core")
+        assert result.returncode == 2 and "symlink" in result.stderr
+        assert snapshot(target) == before and (outside / "config").read_text() == "version = 1\n"
+    finally:
+        shutil.rmtree(target)
+        shutil.rmtree(outside)
+
+
+def test_status_rejects_symlinked_instruction_before_external_read() -> None:
+    target, outside = temporary_target(), temporary_target()
+    try:
+        assert invoke(target, "apply", "--layers", "core").returncode == 0
+        external = outside / "AGENTS.md"
+        external.write_bytes((target / "AGENTS.md").read_bytes())
+        (target / "AGENTS.md").unlink()
+        (target / "AGENTS.md").symlink_to(external)
+        before = snapshot(outside)
+        result = invoke(target, "status", "--json")
+        assert result.returncode == 2 and "symlink" in result.stderr
+        assert snapshot(outside) == before
+    finally:
+        shutil.rmtree(target)
+        shutil.rmtree(outside)
+
+
+def test_manifest_version_and_dependency_closed_layers_are_strict() -> None:
+    target = temporary_target()
+    try:
+        manifest = target / ".my-workflow/adoption.json"
+        manifest.parent.mkdir()
+        for version, layers, expected in (("1.0", ["core"], 2), ("0.8.0", ["parallel"], 2), ("0.6.0", ["core"], 0)):
+            payload = {"schema": 1, "workflow_version": version, "layers": layers, "files": {}, "blocks": {}}
+            manifest.write_text(json.dumps(payload))
+            result = invoke(target, "status", "--json")
+            assert result.returncode == expected
+    finally:
+        shutil.rmtree(target)
+
+
 def test_apply_is_cumulative_and_idempotent() -> None:
     target = temporary_target()
     try:
@@ -175,9 +291,27 @@ def test_apply_is_cumulative_and_idempotent() -> None:
         complete = snapshot(target)
         manifest = json.loads((target / ".my-workflow/adoption.json").read_text(encoding="utf-8"))
         assert manifest["layers"] == ["core", "parallel", "quality", "extras"]
+        manifest_path = target / ".my-workflow/adoption.json"
+        manifest_mtime = manifest_path.stat().st_mtime_ns
         assert invoke(target, "apply", "--layers", "quality").returncode == 0
         assert snapshot(target) == complete
+        assert manifest_path.stat().st_mtime_ns == manifest_mtime
         assert first["tools/orca_assisted_probe.py"] == (ROOT / "tools/orca_assisted_probe.py").read_bytes()
+    finally:
+        shutil.rmtree(target)
+
+
+def test_invalid_utf8_manifest_is_controlled_and_read_only() -> None:
+    target = temporary_target()
+    try:
+        manifest = target / ".my-workflow/adoption.json"
+        manifest.parent.mkdir()
+        manifest.write_bytes(b"{\xff")
+        before = snapshot(target)
+        for command in ("status", "apply"):
+            result = invoke(target, command, *(('--layers', 'core') if command == 'apply' else ()))
+            assert result.returncode == 2 and "UnicodeDecodeError" not in result.stderr and "Traceback" not in result.stderr
+            assert snapshot(target) == before
     finally:
         shutil.rmtree(target)
 
@@ -246,6 +380,18 @@ def test_symlinked_destination_is_rejected_before_external_write() -> None:
     finally:
         shutil.rmtree(target)
         shutil.rmtree(outside)
+
+
+def test_non_directory_parent_is_rejected_before_writes() -> None:
+    target = temporary_target()
+    try:
+        (target / "tools").write_bytes(b"consumer file\n")
+        before = snapshot(target)
+        result = invoke(target, "apply", "--layers", "parallel")
+        assert result.returncode == 2 and "must be a directory" in result.stderr
+        assert snapshot(target) == before
+    finally:
+        shutil.rmtree(target)
 
 
 def test_full_profile_preserves_complete_capability_inventory_and_links_skills() -> None:
@@ -441,7 +587,13 @@ def test_adoption_installs_only_new_authority_byte_identically() -> None:
 
 
 def test_legacy_cleanup_uses_production_paths_and_hashes() -> None:
-    assert tuple(LEGACY_MANAGED_TEST_FILES) == tuple(LEGACY_MANAGED_TEST_FILES)
+    assert tuple(LEGACY_MANAGED_TEST_FILES) == (
+        "tools/knowledge/tests/check.test.ts", "tools/knowledge/tests/cli.test.ts",
+        "tools/shared/tests/autonomous-parallelization.test.ts",
+        "tools/shared/tests/deep-review-installation.test.ts", "tools/shared/tests/frontmatter.test.ts",
+        "tools/shared/tests/qa-skills.test.ts", "tools/shared/tests/security-skills-installation.test.ts",
+        "tools/shared/tests/workflow-config.test.ts",
+    )
     assert LEGACY_MANAGED_TEST_DIRECTORIES == ("tools/knowledge/tests", "tools/shared/tests")
     assert all(len(value) == 64 for value in LEGACY_MANAGED_TEST_FILES.values())
 
@@ -696,16 +848,13 @@ def test_public_publication_publishes_packets_before_manifest_last() -> None:
         def record_write(path: Path, content: bytes) -> None:
             published.append(f"write:{path.relative_to(target).as_posix()}")
 
-        def record_cleanup(root: Path) -> None:
-            published.append("cleanup:obsolete")
-
         def record_legacy(root: Path) -> None:
             published.append("cleanup:legacy")
 
-        def record_links(root: Path) -> None:
+        def record_links(root: Path, managed_skills: set[str]) -> None:
             published.append("links:claude")
 
-        with patch.object(adopt, "_atomic_write", side_effect=record_write), patch.object(adopt, "remove_obsolete_managed_paths", side_effect=record_cleanup), patch.object(adopt, "remove_legacy_managed_tests", side_effect=record_legacy), patch.object(adopt, "_link_claude_skills", side_effect=record_links):
+        with patch.object(adopt, "_atomic_write", side_effect=record_write), patch.object(adopt, "remove_legacy_managed_tests", side_effect=record_legacy), patch.object(adopt, "_link_claude_skills", side_effect=record_links):
             assert adopt.main(["adopt.py", "apply", str(target), "--layers", "core", "--skip-agents"]) == 0
         assert published[-1] == "write:.my-workflow/adoption.json"
         runtime = [index for index, event in enumerate(published) if any(event.startswith(f"write:{prefix}") for prefix in (".claude/agents/", ".codex/agents/", ".cursor/agents/"))]
@@ -735,17 +884,33 @@ def test_cleanup_or_link_failure_rolls_back_live_target_and_manifest() -> None:
             shutil.rmtree(target)
 
 
-def test_distinct_manifest_keys_with_same_normalized_path_are_rejected() -> None:
+def test_non_normalized_manifest_paths_are_rejected_independently() -> None:
     target = temporary_target()
     try:
         manifest = target / ".my-workflow/adoption.json"
         manifest.parent.mkdir()
         record = '{"layer":"core","ownership":"managed","source_sha256":"' + "0" * 64 + '","installed_sha256":"' + "0" * 64 + '"}'
-        manifest.write_text('{"schema":1,"workflow_version":"0.7.0","layers":["core"],"files":{"a//b":' + record + ',"a/./b":' + record + '},"blocks":{}}')
+        manifest.write_text('{"schema":1,"workflow_version":"0.7.0","layers":["core"],"files":{"a//b":' + record + '},"blocks":{}}')
         before = snapshot(target)
         for command in ("status", "apply"):
             result = invoke(target, command, *(('--layers', 'core') if command == 'apply' else ()))
             assert result.returncode == 2 and "normalized" in result.stderr
+            assert snapshot(target) == before
+    finally:
+        shutil.rmtree(target)
+
+
+def test_exact_duplicate_manifest_keys_are_rejected_during_parsing() -> None:
+    target = temporary_target()
+    try:
+        manifest = target / ".my-workflow/adoption.json"
+        manifest.parent.mkdir()
+        record = '{"layer":"core","ownership":"managed","source_sha256":"' + "0" * 64 + '","installed_sha256":"' + "0" * 64 + '"}'
+        manifest.write_text('{"schema":1,"workflow_version":"0.7.0","layers":["core"],"files":{"a/b":' + record + ',"a/b":' + record + '},"blocks":{}}')
+        before = snapshot(target)
+        for command in ("status", "apply"):
+            result = invoke(target, command, *(('--layers', 'core') if command == 'apply' else ()))
+            assert result.returncode == 2 and "duplicate key" in result.stderr
             assert snapshot(target) == before
     finally:
         shutil.rmtree(target)
@@ -842,14 +1007,23 @@ TESTS = (
     test_resolves_fixed_layers_and_plan_is_read_only,
     test_full_profile_is_exactly_four_layers_and_legacy_cli_is_rejected,
     test_unknown_layer_and_invalid_manifest_fail_before_target_mutation,
+    test_fresh_apply_is_valid_but_missing_manifest_status_is_invalid,
+    test_plan_does_not_sync_or_read_malformed_consumer_config,
     test_core_apply_records_schema_and_status_detects_drift_without_writes,
     test_manifest_hashes_are_lowercase_sha256,
     test_apply_preserves_consumer_prose_and_writes_managed_blocks,
+    test_no_newline_and_crlf_consumer_prose_remain_exact_prefixes,
+    test_nested_cross_layer_markers_abort_before_writes,
+    test_claude_receives_only_core_block_and_custom_skill_pointer_survives,
+    test_symlinked_local_config_is_rejected_before_read,
+    test_status_rejects_symlinked_instruction_before_external_read,
+    test_manifest_version_and_dependency_closed_layers_are_strict,
     test_apply_is_cumulative_and_idempotent,
     test_conflicts_abort_every_write_and_report_all_paths,
     test_skip_agents_leaves_both_instruction_files_byte_identical,
     test_edited_managed_block_is_a_conflict,
     test_symlinked_destination_is_rejected_before_external_write,
+    test_non_directory_parent_is_rejected_before_writes,
     test_full_profile_preserves_complete_capability_inventory_and_links_skills,
     test_full_profile_matches_frozen_pre_feature_inventory,
     test_bun_consumer_boundary_and_probe_import_are_preserved,
@@ -890,7 +1064,9 @@ TESTS = (
     test_invalid_fixed_dependency_graph_is_a_controlled_error_before_target_access,
     test_public_publication_publishes_packets_before_manifest_last,
     test_cleanup_or_link_failure_rolls_back_live_target_and_manifest,
-    test_distinct_manifest_keys_with_same_normalized_path_are_rejected,
+    test_non_normalized_manifest_paths_are_rejected_independently,
+    test_exact_duplicate_manifest_keys_are_rejected_during_parsing,
+    test_invalid_utf8_manifest_is_controlled_and_read_only,
 )
 
 
