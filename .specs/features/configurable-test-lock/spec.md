@@ -69,7 +69,7 @@ each heavy gate uses the smallest safe contention boundary.
 **Acceptance Criteria**:
 
 1. WHEN a maintainer invokes `run --resource <name> --scope <project|machine> --timeout-seconds <n> -- <command>` THEN the system SHALL apply those exact lock settings to that command.
-2. WHILE an invocation waits for an occupied resource the system SHALL emit bounded diagnostics containing the resource, scope, holder PID, holder project identifier, and holder start time.
+2. WHILE an invocation waits for an occupied resource the system SHALL emit one immediate JSON wait diagnostic, then at most one additional diagnostic per 60-second interval; every line SHALL be at most 2,048 characters and contain the resource, scope, holder PID, holder project identifier, and holder start time.
 3. IF scope, resource, timeout, or command input is invalid THEN the system SHALL exit non-zero before executing the command.
 4. The system SHALL pass command arguments directly without shell interpolation.
 5. The system SHALL omit wrapped command arguments and environment values from lock metadata and diagnostics.

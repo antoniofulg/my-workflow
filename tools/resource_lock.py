@@ -178,7 +178,6 @@ def _acquire(fd: int, scope: str, resource: str, timeout: float) -> bool:
                 announced = True
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                _diagnostic("timeout", scope, resource, fd)
                 return False
             time.sleep(min(0.1, remaining))
 

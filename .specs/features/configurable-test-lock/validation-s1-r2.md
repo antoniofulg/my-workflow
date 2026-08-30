@@ -73,7 +73,7 @@ All mutations ran in detached scratch worktree `/tmp/my-workflow-lock-verify-r2.
 | Timeout fallthrough | `tools/resource_lock.py:212-213` | Timed-out waiter continues toward holder metadata/command instead of returning `75`. | `tools/test_parallel_resource_lock.py:151` requires exact timeout status (with sentinel absence at `:152`). | ✅ Killed; suite exit 1 |
 | Removed inherited descriptor | `tools/resource_lock.py:186-190` | Wrapper death releases exclusivity while child remains alive. | `tools/test_parallel_resource_lock.py:160` requires the next waiter to remain blocked. | ✅ Killed; suite exit 1 |
 
-**Sensor depth**: high-risk S1 boundaries.  
+**Sensor depth**: high-risk S1 boundaries.
 **Result**: 3/3 killed. Baseline after reversal: `ok (5 tests)`, exit 0.
 
 ## Security Residual

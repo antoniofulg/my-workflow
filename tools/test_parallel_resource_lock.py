@@ -230,6 +230,8 @@ with path.open('a', encoding='utf-8') as f:
         assert waiter.returncode == 75
         assert secret not in waiter.stderr
         diagnostics = [json.loads(line) for line in waiter.stderr.splitlines()]
+        assert len(diagnostics) == 1
+        assert all(len(line) <= 2048 for line in waiter.stderr.splitlines())
         assert diagnostics[0]["resource"] == "diagnostic"
         assert diagnostics[0]["scope"] == "project"
         assert isinstance(diagnostics[0]["holder_pid"], int)
