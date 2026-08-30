@@ -40,3 +40,5 @@ frozen baseline. New current-cycle charters are therefore accepted while edits a
 baseline artifacts remain rejected. The existing historical-report mutation sensor remains active.
 
 Fresh QA retest is pending; this fix does not change the scenario or retest status.
+
+- **Technical verification:** PASS — `.specs/features/bun-tooling-runtime/validation-qa-fix.md`
