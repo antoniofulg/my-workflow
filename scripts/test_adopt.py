@@ -79,6 +79,9 @@ def test_unknown_layer_and_invalid_manifest_fail_before_target_mutation() -> Non
         result = invoke(target, "status", "--json")
         assert result.returncode == 2
         assert snapshot(target) == before
+        manifest.write_text(json.dumps({"schema": 1, "workflow_version": "0.7.0", "layers": ["unknown"], "files": {}, "blocks": {}}), encoding="utf-8")
+        result = invoke(target, "status", "--json")
+        assert result.returncode == 2
     finally:
         shutil.rmtree(target)
 
@@ -193,6 +196,21 @@ def test_skip_agents_leaves_both_instruction_files_byte_identical() -> None:
         shutil.rmtree(target)
 
 
+def test_edited_managed_block_is_a_conflict() -> None:
+    target = temporary_target()
+    try:
+        assert invoke(target, "apply", "--layers", "core").returncode == 0
+        agents = target / "AGENTS.md"
+        agents.write_bytes(agents.read_bytes().replace(b"Run the adopted", b"Consumer changed the adopted", 1))
+        before = snapshot(target)
+        result = invoke(target, "apply", "--layers", "parallel", "--json")
+        assert result.returncode == 1
+        assert "AGENTS.md:core" in json.loads(result.stdout)["conflicts"]
+        assert snapshot(target) == before
+    finally:
+        shutil.rmtree(target)
+
+
 def test_symlinked_destination_is_rejected_before_external_write() -> None:
     target = temporary_target()
     outside = temporary_target()
@@ -280,6 +298,7 @@ TESTS = (
     test_apply_is_cumulative_and_idempotent,
     test_conflicts_abort_every_write_and_report_all_paths,
     test_skip_agents_leaves_both_instruction_files_byte_identical,
+    test_edited_managed_block_is_a_conflict,
     test_symlinked_destination_is_rejected_before_external_write,
     test_full_profile_preserves_complete_capability_inventory_and_links_skills,
     test_bun_consumer_boundary_and_probe_import_are_preserved,

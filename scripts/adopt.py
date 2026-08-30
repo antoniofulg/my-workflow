@@ -213,10 +213,10 @@ def load_manifest(root: Path) -> dict[str, Any]:
         raise _error("adoption manifest has an unsupported schema")
     if data["schema"] != 1 or not isinstance(data["workflow_version"], str):
         raise _error("adoption manifest schema must be version 1")
-    if not isinstance(data["layers"], list) or data["layers"] != sorted(set(data["layers"]), key=LAYERS.index):
-        raise _error("manifest layers must be unique and catalog-ordered")
-    if any(layer not in LAYERS for layer in data["layers"]):
+    if not isinstance(data["layers"], list) or any(layer not in LAYERS for layer in data["layers"]):
         raise _error("manifest contains an unknown layer")
+    if data["layers"] != sorted(set(data["layers"]), key=LAYERS.index):
+        raise _error("manifest layers must be unique and catalog-ordered")
     if not isinstance(data["files"], dict) or not isinstance(data["blocks"], dict):
         raise _error("manifest files and blocks must be objects")
     for relative, record in data["files"].items():
@@ -310,7 +310,7 @@ def _block_content(source_root: Path, layer: str, filename: str) -> str:
     return f"<!-- my-workflow:{layer}:start -->\n{body}\n<!-- my-workflow:{layer}:end -->"
 
 
-def _compose_blocks(source_root: Path, root: Path, installed: list[str], skip_agents: bool) -> tuple[dict[str, bytes], dict[str, Any], list[str]]:
+def _compose_blocks(source_root: Path, root: Path, installed: list[str], skip_agents: bool, manifest: dict[str, Any]) -> tuple[dict[str, bytes], dict[str, Any], list[str]]:
     if skip_agents:
         return {}, {}, []
     outputs: dict[str, bytes] = {}
@@ -336,6 +336,11 @@ def _compose_blocks(source_root: Path, root: Path, installed: list[str], skip_ag
                 continue
             block = _block_content(source_root, layer, filename)
             if span:
+                key = f"{filename}:{layer}"
+                recorded = manifest["blocks"].get(key)
+                if recorded and _sha(rendered[span[0]:span[1]].encode("utf-8")) != recorded["sha256"]:
+                    conflicts.append(key)
+                    continue
                 rendered = rendered[:span[0]] + block + rendered[span[1]:]
             else:
                 if rendered and not rendered.endswith("\n"):
@@ -408,6 +413,9 @@ def _preflight_special(root: Path, skip_agents: bool) -> None:
                 if not skill.startswith(prefix):
                     continue
                 pointer = skills_root / skill.removeprefix(prefix)
+                expected = "../../.agents/skills/" + pointer.name
+                if pointer.is_symlink() and os.readlink(pointer) != expected:
+                    raise _error(f"generated skill pointer {pointer.relative_to(root)} has an unexpected target")
                 if pointer.exists() and not pointer.is_symlink() and not pointer.is_file():
                     raise _error(f"generated skill pointer {pointer.relative_to(root)} must be a file or symlink")
     makefile = root / "Makefile"
@@ -459,7 +467,7 @@ def _build_plan(source_root: Path, root: Path, selected: list[str], skip_agents:
     installed = resolve_layers(manifest["layers"]) if manifest["layers"] else []
     effective = resolve_layers(selected + installed)
     actions, records, conflicts = _classify(root, source_root, effective, manifest)
-    block_outputs, block_records, block_conflicts = _compose_blocks(source_root, root, effective, skip_agents)
+    block_outputs, block_records, block_conflicts = _compose_blocks(source_root, root, effective, skip_agents, manifest)
     conflicts.extend(block_conflicts)
     special = {
         ".gitignore": _merge_ignore((root / ".gitignore").read_bytes() if (root / ".gitignore").is_file() else None, WORKFLOW_GITIGNORE_ENTRIES, LEGACY_WORKFLOW_GITIGNORE_ENTRIES),
