@@ -180,6 +180,14 @@ Then leave, in the pull request and in the final message: what shipped, the full
 `decisions.md`, including the ones that felt too small to mention, which are the ones a reader most
 needs to see.
 
+Post-cap remediation uses `.agents/skills/autonomous/remediation.py` as the executable state owner.
+It normalizes the failing-test signature, compares only the normalized set size, resets consecutive
+stalls only for a strictly smaller set, and treats equal-size reordered or different-name sets as
+stalls. `stall_attempts` defaults to `3`; positive integers set the threshold and `0` is unbounded.
+An unavailable scoped gate halts immediately without incrementing the stall count. This helper has
+no remote-action authority; the local two-round deep-review cap remains owned by
+`docs/guidelines/REVIEW-ROUNDS.md`.
+
 ## Halt conditions
 
 Stop, write up what exists, and do not continue delivery:
