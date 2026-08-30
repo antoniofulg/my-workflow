@@ -194,6 +194,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: .specs/features/hybrid-slice-execution/validation-s6.md:30 (adoption)
 - last seen: 2026-08-28T23:43:48Z
 
+### L-031 - Assert normalized path aliases separately from ordinary path normalization rejection.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `adoption-manifest` · harmful: 0
+- features: layered-workflow-adoption
+- evidence: validation-s1.md:70 (adoption-manifest) (+1 more)
+- last seen: 2026-08-30T04:28:35Z
+
+### L-032 - Instrument every live publication mutation and assert the authority manifest is last.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `adoption` · harmful: 0
+- features: layered-workflow-adoption
+- evidence: validation-s1.md:125 (adoption) (+1 more)
+- last seen: 2026-08-30T04:28:36Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

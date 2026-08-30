@@ -34,6 +34,8 @@ S1: T1 -> T2 -> T3 -> T4
 
 One ready writer means serial execution in the integration checkout. S2 is documentation/QA contract work after the public behavior is frozen.
 
+**CP-S1**: PASS — independent verification at `71175b8` matched LAY-01..LAY-18, killed all three discrimination mutants, observed `.my-workflow/adoption.json` as the final event across 104 live publication mutations, and proved byte-identical rollback for obsolete cleanup, legacy cleanup, and Claude-link failures. S2 may proceed.
+
 ## Task Breakdown
 
 ### T1: Model layers, plans, manifests, and status
