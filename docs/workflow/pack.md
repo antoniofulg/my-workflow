@@ -60,7 +60,8 @@ files. Existing consumer prose remains outside managed `AGENTS.md`/`CLAUDE.md` b
 `.my-workflow.toml.example` and `templates/agents/`, preserves an existing local
 `.my-workflow.toml`, and generates ignored runtime packets from those sources. Adoption rejects
 Makefile references to machine-global `$(HOME)/.claude/...`,
-`${HOME}/.claude/...`, `$HOME/.claude/...`, or `~/.claude/...`; point TLC gates at the adopted
+`${HOME}/.claude/...`, `$HOME/.claude/...`, or `~/.claude/...`; point
+`workflow-spec-driven` gates at the adopted
 `.agents/skills/workflow-spec-driven/scripts/...` path instead.
 
 Adoption does not install the external security dependencies. After the bundled workflow is

@@ -62,7 +62,8 @@ existing project, preserve its filled product paragraph and product-owned docume
 
 Choose a fixed capability layer. `core` contains the operating loop and Bun tooling, `parallel`
 adds assisted slice execution, `quality` adds review and QA skills, and `extras` adds optional
-Ponytail utilities. `full` resolves all four layers. Planning is read-only and should precede
+Ponytail utilities. Selecting `parallel`, `quality`, or `extras` automatically includes `core`;
+`full` resolves all four layers. Planning is read-only and should precede
 every apply:
 
 ```bash
@@ -248,8 +249,9 @@ Codex and OpenCode consume `.agents`. Do not add `.cursor/skills` or other agent
 project-owned `qa-plan` and `qa-execute` skills use the consuming project's profile in
 `docs/qa/README.md`; they do not select a framework or replace the project's gate.
 
-`adopt.py` installs and updates only the bundled TLC, Ponytail, Deep Review, QA, workflow-config,
-and autonomous skills. Keep those canonical copies in `.agents/skills/` and the Claude Code
+`adopt.py` installs and updates only the workflow-owned `workflow-spec-driven`, Ponytail, Deep
+Review, QA, workflow-config, and autonomous skills. Keep those canonical copies in
+`.agents/skills/` and the Claude Code
 symlinks in `.claude/skills/`. The three external security skills are a separate authorized step:
 
 ```bash
