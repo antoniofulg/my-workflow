@@ -185,7 +185,10 @@ def test_argv_status_validation_and_secret_free_diagnostics() -> None:
             assert result.returncode == 2
             assert not (temporary / "invalid-command-ran").exists()
             assert not (temporary / f"my-workflow-test-lock-{os.getuid()}").exists()
-        assert run_lock(project, temporary, "browser", invalid_command, scope="invalid").returncode == 2
+        invalid_scope = run_lock(project, temporary, "browser", invalid_command, scope="invalid")
+        assert invalid_scope.returncode == 2
+        assert "resource_lock.py" in invalid_scope.stderr
+        assert "test_resource_lock.py" not in invalid_scope.stderr
 
         recorder = temporary / "argv.json"
         literals = ["$(touch injected)", "; touch injected", "*.txt", "$SECRET"]

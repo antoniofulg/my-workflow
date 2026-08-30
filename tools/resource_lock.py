@@ -52,7 +52,7 @@ def _is_finite(value: float) -> bool:
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="test_resource_lock.py")
+    parser = argparse.ArgumentParser(prog="resource_lock.py")
     commands = parser.add_subparsers(dest="action", required=True)
     run = commands.add_parser("run", help="run a command while holding a resource lock")
     run.add_argument("--resource", required=True, type=_resource)
