@@ -9,10 +9,10 @@ ownership.
 
 ## Goals
 
-- [ ] Resolve a legacy no-manifest adoption through explicit path-by-path authorization.
-- [ ] Preserve the existing zero-write conflict contract until every current file conflict is authorized.
-- [ ] Require a clean Git baseline so every replaced tracked byte remains recoverable.
-- [ ] Reuse the existing staged publication, rollback, and manifest-last authority boundary.
+- [x] Resolve a legacy no-manifest adoption through explicit path-by-path authorization. (Verified)
+- [x] Preserve the existing zero-write conflict contract until every current file conflict is authorized. (Verified)
+- [x] Require a clean Git baseline so every replaced tracked byte remains recoverable. (Verified)
+- [x] Reuse the existing staged publication, rollback, and manifest-last authority boundary. (Verified)
 
 ## Out of Scope
 
@@ -83,23 +83,23 @@ conflict set and reaches clean adopted status while preserving instruction files
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| LAR-01 | Public resolve command | Specify | Implemented |
-| LAR-02 | Exact complete authorization | Specify | Implemented |
-| LAR-03 | Deterministic replace output and clean status | Specify | Implemented |
-| LAR-04 | Reject incomplete or invalid authorization | Specify | Implemented |
-| LAR-05 | Require clean Git baseline | Specify | Implemented |
-| LAR-06 | Reuse staged rollback | Specify | Implemented |
-| LAR-07 | Preserve instruction files | Specify | Implemented |
-| LAR-08 | Reject manifest-backed targets | Specify | Implemented |
-| SEC-001 | Reject unsafe replacement paths | Specify | Implemented |
-| SEC-002 | Preserve no-follow containment | Specify | Implemented |
-| SEC-003 | Avoid shell interpolation | Specify | Implemented |
+| LAR-01 | Public resolve command | Specify | Verified |
+| LAR-02 | Exact complete authorization | Specify | Verified |
+| LAR-03 | Deterministic replace output and clean status | Specify | Verified |
+| LAR-04 | Reject incomplete or invalid authorization | Specify | Verified |
+| LAR-05 | Require clean Git baseline | Specify | Verified |
+| LAR-06 | Reuse staged rollback | Specify | Verified |
+| LAR-07 | Preserve instruction files | Specify | Verified |
+| LAR-08 | Reject manifest-backed targets | Specify | Verified |
+| SEC-001 | Reject unsafe replacement paths | Specify | Verified |
+| SEC-002 | Preserve no-follow containment | Specify | Verified |
+| SEC-003 | Avoid shell interpolation | Specify | Verified |
 
 **Coverage:** 11 total, 11 mapped to the test contract, 0 unmapped.
 
 ## Success Criteria
 
-- [ ] The canonical adoption suite proves zero writes for every rejected resolution.
-- [ ] A disposable pre-manifest project reaches clean modular adoption with exact reviewed paths.
-- [ ] CRM and Creatista dry-run plans can produce explicit replacement lists without touching active checkouts.
-- [ ] The full repository gate exits zero.
+- [x] The canonical adoption suite proves zero writes for every rejected resolution. (Verified)
+- [x] A disposable pre-manifest project reaches clean modular adoption with exact reviewed paths. (Verified)
+- [x] CRM and Creatista dry-run plans can produce explicit replacement lists without touching active checkouts. (Verified from recorded read-only canary plans; active checkouts were not touched.)
+- [x] The full repository gate exits zero. (Verified)
