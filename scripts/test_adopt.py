@@ -178,6 +178,7 @@ def test_core_apply_records_schema_and_status_detects_drift_without_writes() -> 
         assert applied.returncode == 0, applied.stderr
         manifest = json.loads((target / ".my-workflow/adoption.json").read_text(encoding="utf-8"))
         assert manifest["schema"] == 1
+        assert manifest["workflow_version"] == "0.8.0"
         assert manifest["layers"] == ["core"]
         assert all(len(record["source_sha256"]) == 64 for record in manifest["files"].values())
         clean = invoke(target, "status", "--json")

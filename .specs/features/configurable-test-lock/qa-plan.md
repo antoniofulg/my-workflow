@@ -6,7 +6,7 @@
 **Diff range:** `origin/main..8a7730b`
 **Profile:** `docs/qa/README.md`
 **Adapter:** Checkout-local CLI/manual; no browser, server, live Orca, network, or real consumer repository
-**Technical prerequisite:** PASS in `.specs/features/configurable-test-lock/validation.md` (13/13 requirements; 3/3 mutants killed)
+**Technical prerequisite:** PASS in `.specs/features/configurable-test-lock/validation.md` (14/14 requirements; 3/3 mutants killed)
 **Deep Review prerequisite:** Round 2 `SHIP` in `.deep-review/configurable-test-lock/review.md`; final remediation is included at HEAD
 
 ## Criterion disposition
@@ -22,13 +22,15 @@
 | `CTL-07` | Public CLI lifecycle: holder exit and waiter interruption preserve safe recovery | `J-execute-parallel-slices` -> `QAS-serialize-heavy-test-resources` |
 | `CTL-08` | Public CLI configuration, validation, literal separator, and direct argv | `J-execute-parallel-slices` -> `QAS-serialize-heavy-test-resources` |
 | `CTL-09` | Public adoption: parallel installs/tracks the inert wrapper; core omits it and commands remain unchanged | `J-execute-parallel-slices` -> `QAS-serialize-heavy-test-resources`; overlap canary `ADP-layered-workflow-adoption` |
+| `CTL-10` | Public CLI: two first-use invocations serialize an absent lock file and execute each command exactly once | Fresh release QA first-use cross-project probe; technical contract `IT-009` |
 | `SEC-001` | Public CLI safety observable: metacharacters remain literal argv | `J-execute-parallel-slices` -> `QAS-serialize-heavy-test-resources` |
 | `SEC-002` | Public invalid-resource refusal observable before mutation | `J-execute-parallel-slices` -> `QAS-serialize-heavy-test-resources` |
 | `SEC-003` | Internal filesystem/race hardening; no user-level walk can discriminate it without replacing implementation internals | Technical PASS in `.specs/features/configurable-test-lock/validation.md`; excluded from QA Execute |
 | `SEC-004` | Public diagnostic privacy observable while waiting | `J-execute-parallel-slices` -> `QAS-serialize-heavy-test-resources` |
 
-Every one of 13 requirements has one explicit disposition: 12 public-observable mappings and one
-technical-only security mapping. The scenario remains `untested` until a fresh QA Execute session
+Every one of 14 requirements has one explicit disposition: 13 public-observable mappings and one
+technical-only security mapping. The fresh release QA first-use probe covers the synchronized absent-lock
+path; the scenario remains `untested` until a fresh QA Execute session
 walks the public interfaces.
 
 ## QA context and outputs

@@ -24,7 +24,7 @@ import workflow_config
 MAX_FAILURES = 3
 GENERATION_STATUSES = {"open", "halted", "closed"}
 REMEDIATION_FIELDS = (
-    "failing_tests", "failing_signature", "minimum_failing_count",
+    "failing_tests", "failing_signature", "minimum_failing_tests", "minimum_failing_count",
     "consecutive_stalls", "attempt_count", "fixes_tried",
 )
 
@@ -61,6 +61,7 @@ def _generation(number: int, failures: int, status: str, **extra: Any) -> dict[s
         "status": status,
         "failing_tests": [],
         "failing_signature": "",
+        "minimum_failing_tests": [],
         "minimum_failing_count": 0,
         "consecutive_stalls": 0,
         "attempt_count": 0,
@@ -105,6 +106,8 @@ def _validate_generation(generation: Any, expected_number: int) -> dict[str, Any
         if field not in generation:
             if field == "failing_tests":
                 generation[field] = []
+            elif field == "minimum_failing_tests":
+                generation[field] = list(generation.get("failing_tests", []))
             elif field == "failing_signature":
                 generation[field] = ""
             elif field == "fixes_tried":
@@ -113,6 +116,8 @@ def _validate_generation(generation: Any, expected_number: int) -> dict[str, Any
                 generation[field] = 0
     if not isinstance(generation["failing_tests"], list) or any(not isinstance(value, str) for value in generation["failing_tests"]):
         raise ValueError("invalid remediation failing tests")
+    if not isinstance(generation["minimum_failing_tests"], list) or any(not isinstance(value, str) for value in generation["minimum_failing_tests"]):
+        raise ValueError("invalid remediation minimum failing tests")
     if not isinstance(generation["failing_signature"], str):
         raise ValueError("invalid remediation failing signature")
     for field in ("minimum_failing_count", "consecutive_stalls", "attempt_count"):

@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "bun:test";
@@ -1086,6 +1086,22 @@ describe("adoption and public setup", () => {
     expect(latestRelease).toContain("convergence ledger");
     expect(latestRelease).toContain("trust boundary");
     expect(latestRelease).toContain("blocked-verify");
+
+    const pack = spawnSync(process.execPath, ["pm", "pack", "--dry-run", "--ignore-scripts"], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    });
+    expect(pack.status).toBe(0);
+    const packOutput = `${pack.stdout}${pack.stderr}`;
+    for (const requiredPath of [
+      "tools/resource_lock.py",
+      "tools/orca_assisted_probe.py",
+      ".agents/skills/autonomous/remediation.py",
+      "scripts/adopt.py",
+    ]) {
+      expect(packOutput).toContain(requiredPath);
+    }
+    expect(readdirSync(repositoryRoot).filter((entry) => entry.endsWith(".tgz"))).toEqual([]);
   });
 });
 

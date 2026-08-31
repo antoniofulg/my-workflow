@@ -125,6 +125,7 @@ def test_public_flow_persists_live_remediation_and_keeps_gate_unavailable_distin
         generation = first["generations"][-1]
         assert generation["attempt_count"] == 1
         assert generation["minimum_failing_count"] == 2
+        assert generation["minimum_failing_tests"] == ["case.test.ts > alpha", "case.test.ts > beta"]
         assert generation["consecutive_stalls"] == 0
         assert generation["failing_signature"] == "case.test.ts > alpha | case.test.ts > beta"
 
@@ -143,6 +144,7 @@ def test_public_flow_persists_live_remediation_and_keeps_gate_unavailable_distin
         )
         generation = progress["generations"][-1]
         assert generation["minimum_failing_count"] == 1
+        assert generation["minimum_failing_tests"] == ["case.test.ts > alpha"]
         assert generation["consecutive_stalls"] == 0
         assert generation["attempt_count"] == 3
         assert generation["fixes_tried"] == ["guard input", "retry", "split test"]
@@ -176,6 +178,7 @@ def test_public_flow_persists_live_remediation_and_keeps_gate_unavailable_distin
         payload = json.loads(review_convergence.state_path(root, "fixture").read_text(encoding="utf-8"))
         stored = payload["fingerprints"][fingerprint]
         assert stored["generations"][-1]["minimum_failing_count"] == 1
+        assert stored["generations"][-1]["minimum_failing_tests"] == ["case.test.ts > alpha"]
         assert stored["generations"][-1]["failed_remediations"] == 4
         assert len(payload["fingerprints"]) == 2
     finally:
@@ -199,6 +202,26 @@ def test_same_fingerprint_counts_failed_verifier_and_halts_after_three_stalls() 
         assert third["status"] == "open"
         assert fourth["failed_remediations"] == 4
         assert fourth["status"] == "halted"
+    finally:
+        shutil.rmtree(root)
+
+
+def test_unrelated_smaller_failure_set_stalls_in_persisted_ledger() -> None:
+    root = configured_root()
+    try:
+        first = review_convergence.record_failure(
+            root, "fixture", "EXE-08", "release ordering", "worker-release",
+            failing_tests=["suite/a.js:1", "suite/b.py:2", "suite/c.ts:3"],
+        )
+        second = review_convergence.record_failure(
+            root, "fixture", "EXE-08", "release ordering", "worker-release",
+            previous_fingerprint=first["fingerprint"], failing_tests=["other/x.js:9", "other/y.py:8"],
+        )
+        generation = second["generations"][-1]
+        assert generation["status"] == "open"
+        assert generation["consecutive_stalls"] == 1
+        assert generation["minimum_failing_tests"] == ["a.js", "b.py", "c.ts"]
+        assert generation["minimum_failing_count"] == 3
     finally:
         shutil.rmtree(root)
 

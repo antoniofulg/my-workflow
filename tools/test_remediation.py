@@ -22,6 +22,22 @@ def test_normalizes_failing_identifiers_to_a_stable_signature() -> None:
     assert result["failing_signature"] == "case.test.ts > alpha | case.test.ts > beta"
 
 
+def test_normalizes_mixed_language_and_ordinary_path_identifiers() -> None:
+    result = remediation.normalize_failing_tests(
+        [
+            "/tmp/project/tools/test_adopt.py:123:4 > python",
+            "tests/unit/widget.js(12,4): javascript",
+            "relative/widget.js:8 > javascript",
+            "tests/fixtures/ordinary.js > plain",
+        ]
+    )
+    assert result == [
+        "ordinary.js > plain",
+        "test_adopt.py > python",
+        "widget.js > javascript",
+    ]
+
+
 def test_uses_live_threshold_and_zero_is_unbounded() -> None:
     initial = remediation.transition_remediation(None, ["a"], stall_attempts=3)
     unbounded = remediation.transition_remediation(initial, ["a"], stall_attempts=0)
@@ -41,6 +57,16 @@ def test_equal_size_or_larger_sets_stall_and_strict_subset_resets() -> None:
     assert renamed["consecutive_stalls"] == 2
     assert reset["status"] == "progress" and reset["consecutive_stalls"] == 0
     assert reset["minimum_failing_count"] == 1
+    assert reset["minimum_failing_tests"] == ["a"]
+
+
+def test_unrelated_smaller_set_is_a_stall_and_retains_the_minimum_set() -> None:
+    initial = remediation.transition_remediation(None, ["a", "b", "c"])
+    unrelated = remediation.transition_remediation(initial, ["x", "y"])
+    assert unrelated["status"] == "stalled"
+    assert unrelated["consecutive_stalls"] == 1
+    assert unrelated["minimum_failing_tests"] == ["a", "b", "c"]
+    assert unrelated["minimum_failing_count"] == 3
 
 
 def test_halts_with_signature_attempt_count_and_fixes() -> None:

@@ -24,6 +24,8 @@ feature handles no network traffic, credentials, product data, or privileged ser
 - An untrusted repository may supply malicious resource names or command arguments.
 - Another local process may race to create or replace paths in the temporary parent.
 - Processes owned by another OS user must not control the current user's lock files.
+- Processes owned by the same OS user are assumed cooperative when using the wrapper; a hostile
+  same-UID process can skip the wrapper or rewrite the lock namespace and is outside the guarantee.
 - A same-user process can terminate its own wrapper; the surviving child must retain exclusivity.
 
 ## Threats and Controls
@@ -43,3 +45,6 @@ feature handles no network traffic, credentials, product data, or privileged ser
   waiters time out. The finite timeout exposes the denial instead of bypassing exclusivity.
 - Consumers can omit the wrapper or choose an overly broad resource name. Adoption remains inert by
   design; project gate configuration owns activation and granularity.
+- A hostile same-UID process can unlink or replace a lock name, bypass the wrapper, or otherwise
+  coordinate outside `flock`; the kernel lock protects cooperating clients and cannot provide an
+  OS-level guarantee against the owner of the lock namespace.

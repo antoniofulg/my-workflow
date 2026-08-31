@@ -14,7 +14,11 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 
 DEFAULT_STALL_ATTEMPTS = 3
-_LOCATION = re.compile(r"(?P<path>(?:[A-Za-z]:[\\/]|/)?[^()\s]+?\.(?:test|spec)\.[^()\s:]+):\d+(?::\d+)?")
+_LOCATION = re.compile(
+    r"(?P<path>(?:(?:[A-Za-z]:)?[\\/]|(?:[^()\s:]+[\\/]))?[^()\s:]*\.[^()\s:]+)"
+    r"(?::\d+(?::\d+)?|\(\d+,\d+\):?)"
+)
+_PATH = re.compile(r"(?P<path>(?:(?:[A-Za-z]:)?[\\/]|(?:[^()\s:]+[\\/]))[^()\s:]+)")
 _TIMING = re.compile(r"\s*\(?\d+(?:\.\d+)?\s*(?:ms|s)\)?", re.IGNORECASE)
 _WHITESPACE = re.compile(r"\s+")
 
@@ -35,9 +39,10 @@ def _normalize_test_name(value: Any) -> str:
 
     def strip_location(match: re.Match[str]) -> str:
         path = match.group("path").replace("\\", "/").rsplit("/", 1)[-1]
-        return path
+        return f"{path} >" if match.group(0).endswith(":") else path
 
     text = _LOCATION.sub(strip_location, text)
+    text = _PATH.sub(strip_location, text)
     return _WHITESPACE.sub(" ", text).strip()
 
 
@@ -68,7 +73,7 @@ def _normalize_fixes(fixes: Iterable[Any]) -> list[str]:
 def _previous_tests(previous: Mapping[str, Any]) -> tuple[bool, list[str]]:
     if "failing_tests" not in previous or int(previous.get("attempt_count", 0)) == 0:
         return False, []
-    return True, normalize_failing_tests(previous.get("failing_tests", []))
+    return True, normalize_failing_tests(previous.get("minimum_failing_tests", previous.get("failing_tests", [])))
 
 
 def transition_remediation(
@@ -90,12 +95,14 @@ def transition_remediation(
     attempt_count = int(previous_state.get("attempt_count", 0)) + 1
     prior_stalls = int(previous_state.get("consecutive_stalls", 0))
     had_baseline, prior_tests = _previous_tests(previous_state)
-    minimum_count = int(previous_state.get("minimum_failing_count", len(prior_tests)))
+    minimum_tests = prior_tests
+    minimum_count = len(minimum_tests)
 
     state: dict[str, Any] = {
         "stall_attempts": threshold,
         "failing_tests": current,
         "failing_signature": " | ".join(current),
+        "minimum_failing_tests": minimum_tests,
         "attempt_count": attempt_count,
         "consecutive_stalls": prior_stalls,
         "minimum_failing_count": minimum_count,
@@ -113,11 +120,12 @@ def transition_remediation(
         }
         return state
 
-    if not had_baseline or len(current) < minimum_count:
+    if not had_baseline or set(current) < set(minimum_tests):
         state.update({
             "status": "progress",
             "reason": "smaller_failing_set" if had_baseline else "initial_failure_set",
             "consecutive_stalls": 0,
+            "minimum_failing_tests": current,
             "minimum_failing_count": len(current),
         })
         return state

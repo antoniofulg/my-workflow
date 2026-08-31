@@ -22,6 +22,7 @@ serializes only the declared resource while leaving implementation and unrelated
 | Lane-wide resource leases | The existing `resource_provider` contract already owns that lifecycle. |
 | Windows support | The supported adoption environments are Unix-like and the proven locks use kernel file locks. |
 | More adoption selectors | Runtime opt-in inside the existing `parallel` layer avoids a second catalog dimension. |
+| Protection from hostile same-UID processes | Kernel `flock` coordinates cooperating clients; a process with the same UID can bypass the wrapper or replace its namespace, which is outside this local user-level boundary. |
 
 ## Assumptions & Open Questions
 
@@ -34,6 +35,7 @@ serializes only the declared resource while leaving implementation and unrelated
 | Timeout | 2,700 seconds by default; configurable per invocation | Matches the proven CRM ceiling while keeping waits bounded. | Agent default |
 | Project identity | Resolved Git common directory | Linked worktrees share an identity while unrelated repositories remain independent. | Agent default |
 | Remaining dimensions | Authentication, persistence, data expiry, and external providers are N/A | The feature is a local process and filesystem coordination tool. | Agent default |
+| Same-UID cooperation | Clients using this wrapper cooperate through kernel `flock`; hostile same-UID processes are outside the guarantee. | A same-UID process can intentionally skip the wrapper or rewrite the lock namespace, while other UIDs remain protected by ownership and mode checks. | Yes |
 
 **Open questions:** none - all resolved or logged above.
 
