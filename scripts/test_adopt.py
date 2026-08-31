@@ -56,6 +56,24 @@ def temporary_target() -> Path:
     return Path(tempfile.mkdtemp(prefix="my-workflow-adopt-"))
 
 
+def commit_target(target: Path) -> None:
+    subprocess.run(["git", "init", "-q"], cwd=target, check=True, capture_output=True, text=True)
+    subprocess.run(["git", "config", "user.email", "adopt-tests@example.test"], cwd=target, check=True)
+    subprocess.run(["git", "config", "user.name", "Adoption Tests"], cwd=target, check=True)
+    subprocess.run(["git", "add", "-A"], cwd=target, check=True)
+    subprocess.run(["git", "commit", "-qm", "baseline"], cwd=target, check=True)
+
+
+def legacy_target(paths: tuple[str, ...] = ("tools/resource_lock.py",)) -> Path:
+    target = temporary_target()
+    for relative in paths:
+        path = target / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes((ROOT / relative).read_bytes() + b"\nlegacy project change\n")
+    commit_target(target)
+    return target
+
+
 def test_resolves_fixed_layers_and_plan_is_read_only() -> None:
     target = temporary_target()
     try:
@@ -1061,6 +1079,195 @@ def test_existing_config_drives_all_native_values_and_preserves_non_model_bytes(
         shutil.rmtree(target)
 
 
+def test_resolve_exact_conflicts_publishes_manifest_and_normal_apply_is_idempotent() -> None:
+    target = legacy_target(("tools/resource_lock.py", "tools/qa_parallel_pilot.py"))
+    try:
+        result = invoke(
+            target, "resolve", "--layers", "parallel", "--replace", "tools/resource_lock.py",
+            "--replace", "tools/qa_parallel_pilot.py", "--skip-agents", "--json",
+        )
+        assert result.returncode == 0, result.stderr
+        document = json.loads(result.stdout)
+        assert document["command"] == "resolve"
+        assert document["status"] == "ready" and document["conflicts"] == []
+        assert document["replacements"] == ["tools/qa_parallel_pilot.py", "tools/resource_lock.py"]
+        assert {item["path"] for item in document["actions"] if item["action"] == "replace"} == set(document["replacements"])
+        manifest = json.loads((target / ".my-workflow/adoption.json").read_text(encoding="utf-8"))
+        assert manifest["schema"] == 1 and manifest["layers"] == ["core", "parallel"]
+        assert json.loads(invoke(target, "status", "--json").stdout)["status"] == "clean"
+        before_apply = snapshot(target)
+        assert invoke(target, "apply", "--layers", "parallel", "--skip-agents").returncode == 0
+        assert snapshot(target) == before_apply
+    finally:
+        shutil.rmtree(target)
+
+
+def test_resolve_incomplete_authorization_reports_all_unresolved_without_writes() -> None:
+    target = legacy_target(("tools/resource_lock.py", "tools/qa_parallel_pilot.py"))
+    try:
+        before = snapshot(target)
+        result = invoke(target, "resolve", "--layers", "parallel", "--replace", "tools/resource_lock.py", "--skip-agents", "--json")
+        assert result.returncode == 1
+        document = json.loads(result.stdout)
+        assert "tools/qa_parallel_pilot.py" in document["conflicts"]
+        assert snapshot(target) == before
+        assert not (target / ".my-workflow/adoption.json").exists()
+    finally:
+        shutil.rmtree(target)
+
+
+def test_resolve_rejects_non_conflict_extra_and_duplicate_authorizations_without_writes() -> None:
+    cases = (
+        ("tools/resource_lock.py", "tools/qa_parallel_pilot.py"),
+        ("tools/resource_lock.py", "tools/resource_lock.py"),
+        ("tools/resource_lock.py", "README.md"),
+    )
+    for replacements in cases:
+        target = legacy_target()
+        try:
+            before = snapshot(target)
+            result = invoke(target, "resolve", "--layers", "parallel", *sum((["--replace", path] for path in replacements), []), "--skip-agents", "--json")
+            assert result.returncode == 2
+            assert snapshot(target) == before
+            assert not (target / ".my-workflow/adoption.json").exists()
+        finally:
+            shutil.rmtree(target)
+
+
+def test_resolve_rejects_unsafe_and_managed_block_paths_without_writes() -> None:
+    for replacement in ("../x", "/tmp/x", "AGENTS.md:core"):
+        target = legacy_target()
+        try:
+            before = snapshot(target)
+            result = invoke(target, "resolve", "--layers", "parallel", "--replace", replacement, "--skip-agents", "--json")
+            assert result.returncode == 2
+            assert snapshot(target) == before
+        finally:
+            shutil.rmtree(target)
+
+
+def test_resolve_rejects_dirty_non_git_missing_head_and_manifest_targets_without_writes() -> None:
+    dirty = legacy_target()
+    no_git = temporary_target()
+    missing_head = temporary_target()
+    manifest_target = temporary_target()
+    try:
+        (dirty / "dirty.txt").write_text("uncommitted\n", encoding="utf-8")
+        assert invoke(dirty, "resolve", "--layers", "parallel", "--replace", "tools/resource_lock.py", "--skip-agents").returncode == 2
+        assert invoke(no_git, "resolve", "--layers", "parallel", "--replace", "tools/resource_lock.py", "--skip-agents").returncode == 2
+        subprocess.run(["git", "init", "-q"], cwd=missing_head, check=True, capture_output=True, text=True)
+        assert invoke(missing_head, "resolve", "--layers", "parallel", "--replace", "tools/resource_lock.py", "--skip-agents").returncode == 2
+        (manifest_target / "baseline.txt").write_text("baseline\n", encoding="utf-8")
+        commit_target(manifest_target)
+        assert invoke(manifest_target, "apply", "--layers", "core", "--skip-agents").returncode == 0
+        subprocess.run(["git", "add", "-A"], cwd=manifest_target, check=True)
+        subprocess.run(["git", "commit", "-qm", "adopted baseline"], cwd=manifest_target, check=True)
+        before = snapshot(manifest_target)
+        result = invoke(manifest_target, "resolve", "--layers", "parallel", "--replace", "tools/resource_lock.py", "--skip-agents")
+        assert result.returncode == 2 and snapshot(manifest_target) == before
+    finally:
+        for target in (dirty, no_git, missing_head, manifest_target):
+            shutil.rmtree(target)
+
+
+def test_resolve_skip_agents_preserves_instruction_files() -> None:
+    target = legacy_target()
+    try:
+        agents = target / "AGENTS.md"
+        claude = target / "CLAUDE.md"
+        agents.write_bytes(b"product instructions\r\n")
+        claude.write_bytes(b"product claude\r\n")
+        subprocess.run(["git", "add", "AGENTS.md", "CLAUDE.md"], cwd=target, check=True)
+        subprocess.run(["git", "commit", "-qm", "instructions"], cwd=target, check=True)
+        before = agents.read_bytes(), claude.read_bytes()
+        result = invoke(target, "resolve", "--layers", "parallel", "--replace", "tools/resource_lock.py", "--skip-agents")
+        assert result.returncode == 0, result.stderr
+        assert (agents.read_bytes(), claude.read_bytes()) == before
+    finally:
+        shutil.rmtree(target)
+
+
+def test_resolve_keeps_altered_instruction_blocks_manual() -> None:
+    target = legacy_target()
+    try:
+        (target / "AGENTS.md").write_text("product\n<!-- my-workflow:core:start -->\nold block\n", encoding="utf-8")
+        subprocess.run(["git", "add", "AGENTS.md"], cwd=target, check=True)
+        subprocess.run(["git", "commit", "-qm", "instructions"], cwd=target, check=True)
+        before = snapshot(target)
+        result = invoke(target, "resolve", "--layers", "parallel", "--replace", "tools/resource_lock.py", "--json")
+        assert result.returncode == 1
+        assert "AGENTS.md:core" in json.loads(result.stdout)["conflicts"]
+        assert snapshot(target) == before
+    finally:
+        shutil.rmtree(target)
+
+
+def test_resolve_publication_failure_rolls_back_and_keeps_manifest_absent() -> None:
+    target = legacy_target()
+    try:
+        before = snapshot(target)
+        stderr = io.StringIO()
+        with patch.object(adopt, "_link_claude_skills", side_effect=RuntimeError("injected publication failure")), contextlib.redirect_stderr(stderr):
+            try:
+                adopt.main(["adopt.py", "resolve", str(target), "--layers", "parallel", "--replace", "tools/resource_lock.py", "--skip-agents"])
+            except SystemExit as exc:
+                assert exc.code == 2
+            else:
+                raise AssertionError("injected publication failure must halt")
+        assert snapshot(target) == before
+        assert not (target / ".my-workflow/adoption.json").exists()
+        assert "publication failed" in stderr.getvalue()
+    finally:
+        shutil.rmtree(target)
+
+
+def test_resolve_rejects_target_dirty_before_publication() -> None:
+    target = legacy_target()
+    try:
+        original_snapshot = adopt._tree_snapshot
+        dirtied = False
+        dirty_baseline: dict[str, bytes | str] = {}
+
+        def dirty_after_snapshot(root: Path) -> dict[str, tuple[str, bytes | str | None]]:
+            nonlocal dirtied, dirty_baseline
+            snapshot_result = original_snapshot(root)
+            if not dirtied:
+                (root / "dirty.txt").write_text("changed before publication\n", encoding="utf-8")
+                dirtied = True
+                dirty_baseline = snapshot(root)
+            return snapshot_result
+
+        stderr = io.StringIO()
+        with patch.object(adopt, "_tree_snapshot", side_effect=dirty_after_snapshot), contextlib.redirect_stderr(stderr):
+            try:
+                adopt.main(["adopt.py", "resolve", str(target), "--layers", "parallel", "--replace", "tools/resource_lock.py", "--skip-agents"])
+            except SystemExit as exc:
+                assert exc.code == 2
+            else:
+                raise AssertionError("dirty target must halt before publication")
+        assert snapshot(target) == dirty_baseline
+        assert not (target / ".my-workflow/adoption.json").exists()
+        assert (target / "dirty.txt").read_text(encoding="utf-8") == "changed before publication\n"
+        assert "clean Git target" in stderr.getvalue()
+    finally:
+        shutil.rmtree(target)
+
+
+def test_resolve_treats_shell_metacharacters_as_literal_argv() -> None:
+    target = legacy_target()
+    renamed = target.with_name("my-workflow-adopt-shell;touch shell-effect")
+    sentinel = target.parent / "shell-effect"
+    target.rename(renamed)
+    try:
+        result = invoke(renamed, "resolve", "--layers", "parallel", "--replace", "tools/resource_lock.py", "--skip-agents")
+        assert result.returncode == 0, result.stderr
+        assert not sentinel.exists()
+    finally:
+        shutil.rmtree(renamed)
+        if sentinel.exists():
+            sentinel.unlink()
+
+
 TESTS = (
     test_resolves_fixed_layers_and_plan_is_read_only,
     test_full_profile_is_exactly_four_layers_and_legacy_cli_is_rejected,
@@ -1127,6 +1334,16 @@ TESTS = (
     test_non_normalized_manifest_paths_are_rejected_independently,
     test_exact_duplicate_manifest_keys_are_rejected_during_parsing,
     test_invalid_utf8_manifest_is_controlled_and_read_only,
+    test_resolve_exact_conflicts_publishes_manifest_and_normal_apply_is_idempotent,
+    test_resolve_incomplete_authorization_reports_all_unresolved_without_writes,
+    test_resolve_rejects_non_conflict_extra_and_duplicate_authorizations_without_writes,
+    test_resolve_rejects_unsafe_and_managed_block_paths_without_writes,
+    test_resolve_rejects_dirty_non_git_missing_head_and_manifest_targets_without_writes,
+    test_resolve_skip_agents_preserves_instruction_files,
+    test_resolve_keeps_altered_instruction_blocks_manual,
+    test_resolve_publication_failure_rolls_back_and_keeps_manifest_absent,
+    test_resolve_rejects_target_dirty_before_publication,
+    test_resolve_treats_shell_metacharacters_as_literal_argv,
 )
 
 

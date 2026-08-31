@@ -9,6 +9,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path, PurePosixPath
@@ -660,7 +661,15 @@ def _effect_actions(root: Path, special: dict[str, bytes], block_outputs: dict[s
     return actions
 
 
-def _build_plan(source_root: Path, root: Path, requested: list[str], selected: list[str], skip_agents: bool, sync: bool) -> tuple[dict[str, Any], dict[str, bytes]]:
+def _build_plan(
+    source_root: Path,
+    root: Path,
+    requested: list[str],
+    selected: list[str],
+    skip_agents: bool,
+    sync: bool,
+    replacements: set[str] | None = None,
+) -> tuple[dict[str, Any], dict[str, bytes]]:
     manifest = load_manifest(root)
     installed = resolve_layers(manifest["layers"]) if manifest["layers"] else []
     effective = resolve_layers(list(LAYERS if requested == ["full"] else requested) + installed)
@@ -672,8 +681,12 @@ def _build_plan(source_root: Path, root: Path, requested: list[str], selected: l
         ".gitignore": _merge_ignore((root / ".gitignore").read_bytes() if (root / ".gitignore").is_file() else None, WORKFLOW_GITIGNORE_ENTRIES, LEGACY_WORKFLOW_GITIGNORE_ENTRIES),
         ".ignore": _merge_ignore((root / ".ignore").read_bytes() if (root / ".ignore").is_file() else None, WORKFLOW_SEARCHIGNORE_ENTRIES),
     }
+    replacements = replacements or set()
     for action in actions:
-        if action["action"] in {"add", "update"}:
+        if action["path"] in replacements and action["action"] == "conflict":
+            action["action"] = "replace"
+            conflicts.remove(action["path"])
+        if action["action"] in {"add", "update", "replace"}:
             source = (source_root / action["path"]).read_bytes()
             special[action["path"]] = _adopted_bytes(action["path"], source)
     staged = dict(special)
@@ -698,6 +711,49 @@ def _build_plan(source_root: Path, root: Path, requested: list[str], selected: l
         "conflicts": sorted(set(conflicts)),
     }
     return result, special
+
+
+def _git_clean_with_head(root: Path) -> None:
+    command = ["git", "-C", str(root)]
+    try:
+        inside = subprocess.run([*command, "rev-parse", "--is-inside-work-tree"], capture_output=True, text=True, check=False)
+        if inside.returncode != 0 or inside.stdout.strip() != "true":
+            raise _error("resolve requires a Git work tree")
+        top = subprocess.run([*command, "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=False)
+        if top.returncode != 0 or Path(top.stdout.strip()).resolve() != root.resolve():
+            raise _error("resolve target must be the root of its Git work tree")
+        head = subprocess.run([*command, "rev-parse", "--verify", "HEAD"], capture_output=True, text=True, check=False)
+        if head.returncode != 0:
+            raise _error("resolve requires a Git repository with HEAD")
+        status = subprocess.run([*command, "status", "--porcelain", "--untracked-files=all", "--ignored=matching"], capture_output=True, text=True, check=False)
+        if status.returncode != 0:
+            raise _error("resolve could not read Git status")
+        if status.stdout:
+            raise _error("resolve requires a clean Git target")
+    except OSError as exc:
+        raise _error(f"resolve requires Git: {exc}") from exc
+
+
+def _publish(source_root: Path, root: Path, result: dict[str, Any], staged: dict[str, bytes], require_git: bool = False) -> None:
+    previous = _tree_snapshot(root)
+    if require_git:
+        _git_clean_with_head(root)
+    try:
+        for relative, content in sorted(staged.items(), key=lambda item: _publication_order(item[0])):
+            if relative == ".my-workflow/adoption.json":
+                continue
+            _atomic_write(root / relative, content)
+        remove_legacy_managed_tests(root)
+        _link_claude_skills(root, _managed_skill_names(result["resolved_layers"]))
+        manifest_path = root / ".my-workflow/adoption.json"
+        if not manifest_path.is_file() or manifest_path.read_bytes() != staged[".my-workflow/adoption.json"]:
+            _atomic_write(manifest_path, staged[".my-workflow/adoption.json"])
+    except Exception as exc:
+        try:
+            _restore_tree(root, previous)
+        except OSError as rollback_error:
+            raise AdoptionError(f"publication failed and rollback failed: {rollback_error}") from exc
+        raise AdoptionError(f"publication failed before the adoption manifest was published: {exc}") from exc
 
 
 def _text_result(result: dict[str, Any]) -> str:
@@ -776,6 +832,12 @@ def _parser() -> argparse.ArgumentParser:
         command.add_argument("--layers", required=True)
         command.add_argument("--json", action="store_true")
         command.add_argument("--skip-agents", action="store_true")
+    command = commands.add_parser("resolve")
+    command.add_argument("target", type=Path)
+    command.add_argument("--layers", required=True)
+    command.add_argument("--replace", action="append", default=[])
+    command.add_argument("--json", action="store_true")
+    command.add_argument("--skip-agents", action="store_true")
     command = commands.add_parser("status")
     command.add_argument("target", type=Path)
     command.add_argument("--json", action="store_true")
@@ -794,28 +856,39 @@ def main(argv: list[str] | None = None) -> int:
             return _status(source_root, root, args.json)
         requested = requested_layers(args.layers)
         selected = resolve_layers(requested)
-        result, staged = _build_plan(source_root, root, requested, selected, args.skip_agents, args.command == "apply")
+        if args.command == "resolve":
+            _git_clean_with_head(root)
+            manifest_path = _manifest_path(root)
+            if manifest_path.exists():
+                raise _error("resolve is only available before an adoption manifest exists")
+            replacements: set[str] = set()
+            for value in args.replace:
+                relative = _relative_path(value)
+                if relative in replacements:
+                    raise _error(f"duplicate replacement authorization: {relative}")
+                replacements.add(relative)
+            planned, _ = _build_plan(source_root, root, requested, selected, args.skip_agents, False)
+            catalog = _catalog(source_root, planned["resolved_layers"])
+            file_conflicts = {path for path in planned["conflicts"] if path in catalog}
+            invalid = replacements - file_conflicts
+            if invalid:
+                raise _error(f"replacement is not a current file conflict: {', '.join(sorted(invalid))}")
+            missing = file_conflicts - replacements
+            if missing or any(conflict not in replacements for conflict in planned["conflicts"]):
+                planned["command"] = "resolve"
+                planned["replacements"] = sorted(replacements)
+                print(json.dumps(planned, indent=2, sort_keys=True) if args.json else _text_result(planned))
+                return 1
+            result, staged = _build_plan(source_root, root, requested, selected, args.skip_agents, True, replacements)
+            result["command"] = "resolve"
+            result["replacements"] = sorted(replacements)
+        else:
+            result, staged = _build_plan(source_root, root, requested, selected, args.skip_agents, args.command == "apply")
         result["command"] = args.command
         print(json.dumps(result, indent=2, sort_keys=True) if args.json else _text_result(result))
         if args.command == "plan" or result["conflicts"]:
             return 1 if result["conflicts"] else 0
-        previous = _tree_snapshot(root)
-        try:
-            for relative, content in sorted(staged.items(), key=lambda item: _publication_order(item[0])):
-                if relative == ".my-workflow/adoption.json":
-                    continue
-                _atomic_write(root / relative, content)
-            remove_legacy_managed_tests(root)
-            _link_claude_skills(root, _managed_skill_names(result["resolved_layers"]))
-            manifest_path = root / ".my-workflow/adoption.json"
-            if not manifest_path.is_file() or manifest_path.read_bytes() != staged[".my-workflow/adoption.json"]:
-                _atomic_write(manifest_path, staged[".my-workflow/adoption.json"])
-        except Exception as exc:
-            try:
-                _restore_tree(root, previous)
-            except OSError as rollback_error:
-                raise AdoptionError(f"publication failed and rollback failed: {rollback_error}") from exc
-            raise AdoptionError(f"publication failed before the adoption manifest was published: {exc}") from exc
+        _publish(source_root, root, result, staged, args.command == "resolve")
         if not args.json:
             print(f"adopted layers into {root}")
             installer = source_root / "scripts/install_security_skills.py"
