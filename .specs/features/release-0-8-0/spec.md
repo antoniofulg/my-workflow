@@ -8,7 +8,8 @@ current public release remains 0.7.0, so adopters cannot consume those changes f
 ## Goals
 
 - Publish one integrated 0.8.0 source pack through the existing GitHub release channel.
-- Keep package, lockfile, changelog, canonical release test, and QA scenario on one version.
+- Keep package, changelog, canonical release test, and QA scenario on one version, with the Bun
+  lockfile aligned to the root package and dependency graph.
 - Preserve the package's private, non-npm distribution boundary.
 
 ## Out of Scope
@@ -38,19 +39,20 @@ projects can use modular adoption, shared test locks, and bounded remediation fr
 
 **Acceptance Criteria**:
 
-1. WHEN the release candidate is prepared THEN package metadata, Bun lockfile, newest changelog heading, canonical release test, and current release scenario SHALL identify version `0.8.0`.
+1. WHEN the release candidate is prepared THEN package metadata, the newest changelog heading, the canonical release test, and the current release scenario SHALL identify version `0.8.0`, while `bun.lock` SHALL identify the root package and dependency graph.
 2. WHEN the source pack is inspected THEN it SHALL remain private, contain the adopted parallel tooling, and produce no publication residue.
 3. WHEN release QA runs THEN it SHALL verify the full gate, package membership, disposable legacy adoption, first-use cross-project locking, and effect-free probe import.
 4. IF live Orca transport is not verified THEN the release SHALL retain the `blocked-verify` boundary and SHALL NOT claim a successful live Orca run.
 5. WHEN remote delivery completes THEN one pull request SHALL be merged and tag `v0.8.0` plus its GitHub Release SHALL point to the merged release commit.
 
-**Independent Test**: Compare all version authorities, run the complete mixed-language gate, inspect
-the dry-run package, adopt into disposable legacy repositories, contend for a new machine-scoped
-lock, and import the installed Orca probe with a fake executable that records zero calls.
+**Independent Test**: Compare all version authorities and the Bun lockfile's root package and
+dependency graph, run the complete mixed-language gate, inspect the dry-run package, adopt into
+disposable legacy repositories, contend for a new machine-scoped lock, and import the installed
+Orca probe with a fake executable that records zero calls.
 
 ## Edge Cases
 
-- IF package metadata and the Bun lockfile disagree THEN the release gate SHALL fail.
+- IF package dependencies and the Bun lockfile disagree THEN `bun install --frozen-lockfile` SHALL fail.
 - IF any release QA leg is untested without an explicit `blocked-verify` boundary THEN remote
   publication SHALL stop.
 - IF `origin/main` moves before merge THEN the release SHALL integrate it and rerun the full gate.
@@ -69,6 +71,6 @@ lock, and import the installed Orca probe with a fake executable that records ze
 
 ## Success Criteria
 
-- [ ] All release identity authorities report 0.8.0.
+- [ ] All release version authorities report 0.8.0, and the Bun lockfile reports the root package and dependency graph.
 - [ ] Full gate and independent release QA pass.
 - [ ] The merged commit is tagged and published as GitHub Release v0.8.0.

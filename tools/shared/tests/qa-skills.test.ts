@@ -1050,7 +1050,7 @@ describe("adoption and public setup", () => {
     expect(qaExecute).toContain("does not write product code, install a framework, invent a");
   });
 
-  it("IT-005 / AIM-11 reports release version 0.8.0 and stable claims consistently", () => {
+  it("IT-005 / AIM-11 reports release version and Bun lock identity consistently", () => {
     const manifest = JSON.parse(readRepositoryFile("package.json")) as {
       version?: string;
       packageManager?: string;
