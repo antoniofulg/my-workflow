@@ -1053,22 +1053,28 @@ describe("adoption and public setup", () => {
   it("IT-005 / AIM-11 reports release version and Bun lock identity consistently", () => {
     const manifest = JSON.parse(readRepositoryFile("package.json")) as {
       version?: string;
+      private?: boolean;
       packageManager?: string;
       scripts?: { test?: string };
     };
     const changelog = readRepositoryFile("CHANGELOG.md");
+    const releaseScenario = readRepositoryFile("docs/qa/scenarios/REL-report-current-workflow-release.md");
     const latestHeading = changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m)?.[1];
     const releaseStart = changelog.indexOf(`## [${manifest.version}]`);
     const nextRelease = changelog.indexOf("\n## [", releaseStart + 1);
     const latestRelease = changelog.slice(releaseStart, nextRelease === -1 ? undefined : nextRelease);
 
     expect(manifest.version).toBe("0.8.0");
+    expect(manifest.private).toBe(true);
     expect(manifest.packageManager).toBe("bun@1.4.0");
     expect(manifest.scripts?.test).toBe("bun test");
     expect(readRepositoryFile("bun.lock")).toContain('"name": "my-workflow"');
     expect(existsSync(join(repositoryRoot, "package-lock.json"))).toBe(false);
     expect(latestHeading).toBe("0.8.0");
     expect(latestHeading).toBe(manifest.version);
+    expect(releaseScenario.match(/^expected: .*$/m)?.[0]).toBe(
+      "expected: The newest changelog release matches the package manifest, while Bun 1.4's lockfile identifies the root package and dependency graph; the documented install, knowledge, full-gate, frozen-lockfile, and package commands expose the current source pack without checkout residue.",
+    );
     expect(latestRelease).toContain("Assisted slice execution is the default");
     expect(latestRelease).toContain("workflow-spec-driven");
     expect(latestRelease).toContain("Configurable project-scoped and machine-scoped test locks");
