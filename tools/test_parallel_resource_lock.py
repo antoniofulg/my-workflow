@@ -171,6 +171,70 @@ def test_machine_scope_serializes_unrelated_repositories() -> None:
         assert len(list(lock_root.glob(f"project-*-{identity_resource}.lock"))) == 2
 
 
+def test_concurrent_first_creation_recovers_from_transient_enoent() -> None:
+    with tempfile.TemporaryDirectory(prefix="resource-lock-first-creation-") as raw:
+        temporary = Path(raw)
+        project = repository(temporary, "project")
+        harness = temporary / "harness"
+        harness.mkdir()
+        barrier = temporary / "barrier"
+        barrier.mkdir()
+        resource = f"first-{os.getpid()}-{int(time.time() * 1000000)}"
+        lock_root = canonical_lock_root()
+        lock_pattern = f"project-*-{resource}.lock"
+        assert not list(lock_root.glob(lock_pattern))
+        (harness / "sitecustomize.py").write_text(
+            """
+import errno, os, pathlib, time
+
+original_open = os.open
+seen = False
+target = os.environ["RESOURCE_LOCK_TARGET"]
+barrier = pathlib.Path(os.environ["RESOURCE_LOCK_BARRIER"])
+
+def synchronized_open(path, flags, mode=0o777, *, dir_fd=None):
+    global seen
+    if not seen and dir_fd is not None and str(path).endswith(target):
+        seen = True
+        marker = barrier / str(os.getpid())
+        marker.touch()
+        deadline = time.monotonic() + 10
+        while len(list(barrier.iterdir())) < 2:
+            if time.monotonic() >= deadline:
+                raise RuntimeError("first-creation barrier timed out")
+            time.sleep(0.01)
+        if marker.name == sorted(item.name for item in barrier.iterdir())[0]:
+            raise OSError(errno.ENOENT, "induced first-creation race")
+    return original_open(path, flags, mode, dir_fd=dir_fd)
+
+os.open = synchronized_open
+""",
+            encoding="utf-8",
+        )
+        event_code = EVENT_CODE
+        # The target check uses the unique resource suffix, so project IDs remain opaque.
+        environment = {
+            "PYTHONPATH": str(harness),
+            "RESOURCE_LOCK_TARGET": f"-{resource}.lock",
+            "RESOURCE_LOCK_BARRIER": str(barrier),
+        }
+        first = start_lock(project, temporary, resource, event_code, str(temporary / "events.log"), "first", "0.25", environment=environment)
+        second = start_lock(project, temporary, resource, event_code, str(temporary / "events.log"), "second", "0", environment=environment)
+        try:
+            assert first.wait(timeout=5) == 0, first.stderr.read() if first.stderr else ""
+            assert second.wait(timeout=5) == 0, second.stderr.read() if second.stderr else ""
+        finally:
+            for process in (first, second):
+                if process.poll() is None:
+                    process.kill()
+                    process.wait(timeout=3)
+        events = (temporary / "events.log").read_text(encoding="utf-8").splitlines()
+        assert events in (
+            ["first-start", "first-end", "second-start", "second-end"],
+            ["second-start", "second-end", "first-start", "first-end"],
+        )
+
+
 def test_timeout_exit_status_recovery_and_inherited_descriptor() -> None:
     with tempfile.TemporaryDirectory(prefix="resource-lock-lifecycle-") as raw:
         temporary = Path(raw)

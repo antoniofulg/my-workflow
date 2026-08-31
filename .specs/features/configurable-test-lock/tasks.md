@@ -32,10 +32,10 @@ dependent slice consumes it.
 
 ### Slice S1: Command-level resource lock
 
-**Status:** complete
+**Status:** complete — T5 complete; quick and Build gates exit zero
 
 ```text
-T1
+T1 -> T5
 ```
 
 ### Slice S2: Parallel adoption and guidance
@@ -154,12 +154,40 @@ IT-006, IT-007, SEC-001, SEC-002, SEC-003, SEC-004
 **Gate**: Build
 **Commit**: `docs(parallel): route agents to test resource locks`
 
+### T5: Make first lock creation concurrent-safe
+
+**Slice**: S1
+**Status**: complete — `rtk python3 tools/test_parallel_resource_lock.py` (7 tests passed); Build gate exit 0
+**What**: Reproduce simultaneous first creation and recover only the transient `ENOENT` result without reopening or weakening the validated filesystem boundary.
+**Where**: `tools/resource_lock.py`, `tools/test_parallel_resource_lock.py`
+**Depends on**: T1
+**Reuses**: Stable validated directory descriptor, bounded acquisition, and the canonical subprocess contract suite.
+**Requirements**: CTL-10
+
+**Tools**:
+
+- MCP: none
+- Skills: `ponytail`
+
+**Done when**:
+
+- [x] Two synchronized first invocations execute once each and remain serialized.
+- [x] Recovery retries only `ENOENT`, stays bounded, and reuses the validated directory descriptor.
+- [x] Every other filesystem error remains fail-closed.
+- [x] Quick and Build gates exit zero.
+
+**Tests**: IT-009
+**Gate**: Build
+**Commit**: `fix(parallel): serialize concurrent first lock creation`
+
 ## Dependency Execution Map
 
 ```text
 S1          S2
 
 T1 ------> T2 ------> T3 ------> T4
+ |
+ +-------> T5
 ```
 
 ## Task Granularity Check
@@ -170,6 +198,7 @@ T1 ------> T2 ------> T3 ------> T4
 | T2 | One adoption boundary plus its canonical integration assertion | Granular |
 | T3 | One public documentation surface | Granular |
 | T4 | One adopted agent pointer | Granular |
+| T5 | One concurrency defect plus its canonical regression case | Granular |
 
 ## Diagram-Definition Cross-Check
 
@@ -179,6 +208,7 @@ T1 ------> T2 ------> T3 ------> T4
 | T2 | T1 | T1 -> T2 | Match |
 | T3 | T2 | T2 -> T3 | Match |
 | T4 | T3 | T3 -> T4 | Match |
+| T5 | T1 | T1 -> T5 | Match |
 
 ## Test Co-location Validation
 
@@ -186,6 +216,7 @@ T1 ------> T2 ------> T3 ------> T4
 | --- | --- | --- | --- | --- |
 | T1 | Command/process boundary | integration + security | UT-001-004, IT-001-007, SEC-001-004 | Match |
 | T2 | Adoption inventory | integration | IT-008 | Match |
+| T5 | Command/process boundary | integration | IT-009 | Match |
 | T3 | Documentation | none | none | Match |
 | T4 | Agent instruction | none | none | Match |
 
@@ -195,5 +226,6 @@ T1 ------> T2 ------> T3 ------> T4
 | --- | --- | --- |
 | UT-001-004, IT-001-007, SEC-001-004 | T1 | Assigned once |
 | IT-008 | T2 | Assigned once |
+| IT-009 | T5 | Assigned once |
 
-**Coverage:** 13 requirements mapped; 16 test cases assigned once; 0 orphaned; 0 duplicated.
+**Coverage:** 14 requirements mapped; 17 test cases assigned once; 0 orphaned; 0 duplicated.

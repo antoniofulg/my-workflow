@@ -21,6 +21,7 @@
 | IT-006 | Recovers after abnormal exit | Lock-owning wrapper is killed while its child holds the inherited descriptor, then the child exits | Next waiter remains blocked until child exit, then acquires without cleanup |
 | IT-007 | Emits useful bounded diagnostics | Waiter observes an occupied resource | Diagnostic names resource, scope, PID, project identifier, and start time without command/environment payloads |
 | IT-008 | Adoption installs only with parallel | Apply `core`, then apply `parallel`, into disposable targets | Core omits the tool; parallel installs and tracks it |
+| IT-009 | Serializes concurrent first creation | Two synchronized wrappers request the same resource before its lock file exists | Both wrapped commands execute exactly once; the second starts after the first releases |
 
 ## End-to-end
 

@@ -29,6 +29,7 @@ TIMEOUT_STATUS = 75
 MISSING_EXECUTABLE_STATUS = 127
 RESOURCE_PATTERN = re.compile(r"[a-z0-9][a-z0-9._-]{0,63}\Z")
 MAX_METADATA = 4096
+FIRST_CREATION_ATTEMPTS = 3
 
 
 def _resource(value: str) -> str:
@@ -109,12 +110,17 @@ def _open_lock(directory_fd: int, name: str) -> int:
     flags = os.O_RDWR | os.O_CREAT
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
-    try:
-        fd = os.open(name, flags, 0o600, dir_fd=directory_fd)
-    except OSError as exc:
-        if exc.errno == errno.ELOOP:
-            raise ValueError("lock file must not be a symlink") from exc
-        raise ValueError("lock file is unavailable") from exc
+    for attempt in range(FIRST_CREATION_ATTEMPTS):
+        try:
+            fd = os.open(name, flags, 0o600, dir_fd=directory_fd)
+            break
+        except OSError as exc:
+            if exc.errno == errno.ENOENT and attempt + 1 < FIRST_CREATION_ATTEMPTS:
+                time.sleep(0.01)
+                continue
+            if exc.errno == errno.ELOOP:
+                raise ValueError("lock file must not be a symlink") from exc
+            raise ValueError("lock file is unavailable") from exc
     try:
         info = os.fstat(fd)
         if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:

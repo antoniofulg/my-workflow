@@ -55,6 +55,7 @@ command at a time so that heavy gates do not corrupt each other or exhaust the m
 5. WHEN the wrapped command exits THEN the system SHALL return the wrapped command's exit status.
 6. IF the acquisition timeout expires THEN the system SHALL exit non-zero without starting the wrapped command.
 7. IF the lock holder terminates normally or abnormally THEN the system SHALL make the resource acquirable without manual lock-file cleanup.
+8. WHEN two invocations concurrently request a resource whose lock file does not yet exist THEN the system SHALL execute both wrapped commands exactly once in serialized order.
 
 **Independent Test**: Two subprocesses contend on one resource while timestamped sentinels prove
 serialized start, then repeat with distinct resources and machine scope.
@@ -106,7 +107,7 @@ and assert the installed path and absence boundary.
 | --- | --- | --- | --- |
 | S1 | Public CLI and adoption inventory | Exact argparse contract and manifest assertions | CTL-04, CTL-08, CTL-09 |
 | S6 | Command arguments and temporary lock paths | Direct argv execution, validated resource names, private lock directory | CTL-08, SEC-001, SEC-002, SEC-003 |
-| S11 | Concurrent local processes and inherited file descriptors | Kernel lock, bounded acquisition, holder-safe interruption | CTL-01, CTL-02, CTL-06, CTL-07 |
+| S11 | Concurrent local processes and inherited file descriptors | Kernel lock, bounded acquisition, holder-safe interruption, and bounded first-creation recovery | CTL-01, CTL-02, CTL-06, CTL-07, CTL-10 |
 
 ## Requirement Traceability
 
@@ -125,12 +126,14 @@ and assert the installed path and absence boundary.
 | SEC-002 | Reject unsafe resource paths | Validate | Verified by final R2 |
 | SEC-003 | Protect the lock directory | Validate | Verified by final R2 |
 | SEC-004 | Keep command and environment secrets out of diagnostics | Validate | Verified by final R2 |
+| CTL-10 | Serialize concurrent first creation | Execute | Verified by T5 |
 
-**Coverage:** 13 total, 13 mapped to tasks, 0 unmapped.
+**Coverage:** 14 total, 14 mapped to tasks, 0 unmapped.
 
 ## Success Criteria
 
 - [x] The fake heavy-command contract proves same-resource serialization and different-resource concurrency.
 - [x] Both `project` and `machine` scopes behave as specified across disposable Git repositories and worktrees.
 - [x] Parallel adoption installs the dormant wrapper without modifying consumer-owned commands.
+- [x] Two synchronized first invocations complete exactly once without pre-creating the lock file.
 - [x] The full repository gate exits zero.
