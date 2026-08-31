@@ -85,8 +85,7 @@ def _project_identifier(required: bool) -> str | None:
 
 
 def _lock_root() -> Path:
-    temporary = os.environ.get("TMPDIR", "/tmp")
-    return Path(temporary) / f"my-workflow-test-lock-{os.getuid()}"
+    return Path("/tmp").resolve() / f"my-workflow-test-lock-{os.getuid()}"
 
 
 def _private_directory(root: Path) -> int:
@@ -141,6 +140,14 @@ def _read_holder(fd: int) -> dict[str, object]:
     }
 
 
+def _holder_complete(holder: dict[str, object]) -> bool:
+    return (
+        isinstance(holder["holder_pid"], int)
+        and isinstance(holder["holder_project"], str)
+        and isinstance(holder["holder_start_time"], str)
+    )
+
+
 def _diagnostic(event: str, scope: str, resource: str, fd: int) -> None:
     holder = _read_holder(fd)
     payload = {
@@ -176,12 +183,12 @@ def _acquire(fd: int, scope: str, resource: str, timeout: float) -> bool:
         except OSError as exc:
             if exc.errno not in (errno.EACCES, errno.EAGAIN):
                 raise
-            if not announced:
-                _diagnostic("wait", scope, resource, fd)
-                announced = True
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 return False
+            if not announced and _holder_complete(_read_holder(fd)):
+                _diagnostic("wait", scope, resource, fd)
+                announced = True
             time.sleep(min(0.1, remaining))
 
 
@@ -189,7 +196,9 @@ def _run(command: Sequence[str], fd: int) -> int:
     os.set_inheritable(fd, True)
     try:
         return subprocess.run(command, check=False, pass_fds=(fd,)).returncode
-    except FileNotFoundError:
+    except OSError:
+        executable = Path(command[0]).name[:256]
+        print(json.dumps({"event": "exec_unavailable", "executable": executable}, separators=(",", ":")), file=sys.stderr, flush=True)
         return MISSING_EXECUTABLE_STATUS
     except KeyboardInterrupt:
         return 130
@@ -197,15 +206,19 @@ def _run(command: Sequence[str], fd: int) -> int:
 
 def main(argv: Sequence[str] | None = None) -> int:
     raw_argv = list(sys.argv[1:] if argv is None else argv)
-    if raw_argv[:1] == ["run"] and "--" not in raw_argv:
-        if any(value in {"-h", "--help"} for value in raw_argv[1:]):
-            _parser().parse_args(raw_argv)
-        print("resource_lock.py: run requires a literal -- before the command", file=sys.stderr)
-        return 2
-    args = _parser().parse_args(raw_argv)
-    if args.command[:1] == ["--"]:
-        args.command = args.command[1:]
-    if args.action != "run" or not args.command:
+    command: list[str] = []
+    parser_argv = raw_argv
+    if raw_argv[:1] == ["run"]:
+        if "--" not in raw_argv:
+            if any(value in {"-h", "--help"} for value in raw_argv[1:]):
+                _parser().parse_args(raw_argv)
+            print("resource_lock.py: run requires a literal -- before the command", file=sys.stderr)
+            return 2
+        separator = raw_argv.index("--")
+        parser_argv = raw_argv[:separator]
+        command = raw_argv[separator + 1:]
+    args = _parser().parse_args(parser_argv)
+    if args.action != "run" or not command:
         _parser().error("a command after -- is required")
     try:
         project = _project_identifier(args.scope == "project")
@@ -222,7 +235,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if not _acquire(fd, args.scope, args.resource, args.timeout_seconds):
             return TIMEOUT_STATUS
         _write_holder(fd, args.scope, args.resource, project or "unknown")
-        return _run(args.command, fd)
+        return _run(command, fd)
     except KeyboardInterrupt:
         return 130
     finally:

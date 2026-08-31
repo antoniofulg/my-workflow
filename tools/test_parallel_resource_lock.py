@@ -12,6 +12,7 @@ import select
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from unittest.mock import patch
 
@@ -103,6 +104,20 @@ def wait_for_wait_diagnostic(process: subprocess.Popen[str], timeout: float = 10
     return payload
 
 
+def canonical_lock_root() -> Path:
+    return Path("/tmp").resolve() / f"my-workflow-test-lock-{os.getuid()}"
+
+
+def run_with_root(cwd: Path, root: Path, argv: list[str]) -> int:
+    previous_directory = Path.cwd()
+    try:
+        os.chdir(cwd)
+        with patch.object(resource_lock, "_lock_root", return_value=root):
+            return resource_lock.main(argv)
+    finally:
+        os.chdir(previous_directory)
+
+
 def test_same_resource_serializes_and_different_resource_overlaps() -> None:
     with tempfile.TemporaryDirectory(prefix="resource-lock-") as raw:
         temporary = Path(raw)
@@ -111,7 +126,7 @@ def test_same_resource_serializes_and_different_resource_overlaps() -> None:
         git(project, "worktree", "add", "-q", "--detach", str(linked), "HEAD")
         log = temporary / "same.log"
         first = start_lock(project, temporary, "browser", EVENT_CODE, str(log), "first", "0.35", scope=None)
-        wait_for(log)
+        wait_for_line(log, "first-start")
         second = start_lock(linked, temporary, "browser", EVENT_CODE, str(log), "second", "0", scope=None)
         assert first.wait(timeout=3) == 0
         assert second.wait(timeout=3) == 0
@@ -119,7 +134,7 @@ def test_same_resource_serializes_and_different_resource_overlaps() -> None:
 
         log = temporary / "different.log"
         first = start_lock(project, temporary, "browser", EVENT_CODE, str(log), "first", "0.8")
-        wait_for(log)
+        wait_for_line(log, "first-start")
         second = start_lock(linked, temporary, "database", EVENT_CODE, str(log), "second", "0.8")
         wait_for_line(log, "second-start")
         assert first.wait(timeout=3) == 0
@@ -134,20 +149,26 @@ def test_machine_scope_serializes_unrelated_repositories() -> None:
         first_repo = repository(temporary, "first")
         second_repo = repository(temporary, "second")
         log = temporary / "machine.log"
-        first = start_lock(first_repo, temporary, "browser", EVENT_CODE, str(log), "first", "0.3", scope="machine")
-        wait_for(log)
-        second = start_lock(second_repo, temporary, "browser", EVENT_CODE, str(log), "second", "0", scope="machine")
+        first_tmpdir = temporary / "caller-a"
+        second_tmpdir = temporary / "caller-b"
+        first_tmpdir.mkdir()
+        second_tmpdir.mkdir()
+        machine_resource = f"machine-{os.getpid()}-{int(time.time() * 1000000)}"
+        first = start_lock(first_repo, temporary, machine_resource, EVENT_CODE, str(log), "first", "0.3", scope="machine", environment={"TMPDIR": str(first_tmpdir)})
+        wait_for_line(log, "first-start")
+        second = start_lock(second_repo, temporary, machine_resource, EVENT_CODE, str(log), "second", "0", scope="machine", environment={"TMPDIR": str(second_tmpdir)})
         assert first.wait(timeout=3) == 0
         assert second.wait(timeout=3) == 0
         assert log.read_text(encoding="utf-8").splitlines() == ["first-start", "first-end", "second-start", "second-end"]
 
         identity_log = temporary / "identity.log"
-        first = start_lock(first_repo, temporary, "identity", EVENT_CODE, str(identity_log), "first", "0")
-        second = start_lock(second_repo, temporary, "identity", EVENT_CODE, str(identity_log), "second", "0")
+        identity_resource = f"identity-{os.getpid()}-{int(time.time() * 1000000)}"
+        first = start_lock(first_repo, temporary, identity_resource, EVENT_CODE, str(identity_log), "first", "0")
+        second = start_lock(second_repo, temporary, identity_resource, EVENT_CODE, str(identity_log), "second", "0")
         assert first.wait(timeout=3) == 0
         assert second.wait(timeout=3) == 0
-        lock_root = temporary / f"my-workflow-test-lock-{os.getuid()}"
-        assert len(list(lock_root.glob("project-*-identity.lock"))) == 2
+        lock_root = canonical_lock_root()
+        assert len(list(lock_root.glob(f"project-*-{identity_resource}.lock"))) == 2
 
 
 def test_timeout_exit_status_recovery_and_inherited_descriptor() -> None:
@@ -156,7 +177,7 @@ def test_timeout_exit_status_recovery_and_inherited_descriptor() -> None:
         project = repository(temporary, "project")
         log = temporary / "lifecycle.log"
         holder = start_lock(project, temporary, "browser", EVENT_CODE, str(log), "holder", "0.7")
-        wait_for(log)
+        wait_for_line(log, "holder-start")
         waiter = run_lock(project, temporary, "browser", [sys.executable, "-c", "open(r'{}', 'w').write('ran')".format(temporary / "timeout-sentinel")], timeout=0.05)
         assert waiter.returncode == 75
         assert not (temporary / "timeout-sentinel").exists()
@@ -187,16 +208,55 @@ def test_timeout_exit_status_recovery_and_inherited_descriptor() -> None:
         assert interrupted_log.read_text(encoding="utf-8").splitlines() == ["holder-start", "holder-end", "after-start", "after-end"]
 
 
+def test_wait_diagnostic_waits_for_complete_holder_metadata() -> None:
+    with tempfile.TemporaryDirectory(prefix="resource-lock-metadata-") as raw:
+        temporary = Path(raw)
+        project = repository(temporary, "project")
+        lock_root = temporary / "locks"
+        observed: list[dict[str, object]] = []
+        holder_ready = threading.Event()
+        original_write = resource_lock._write_holder
+
+        def delayed_write(fd: int, scope: str, resource: str, project_id: str) -> None:
+            holder_ready.set()
+            time.sleep(0.25)
+            original_write(fd, scope, resource, project_id)
+
+        def capture_diagnostic(event: str, scope: str, resource: str, fd: int) -> None:
+            observed.append(resource_lock._read_holder(fd))
+
+        holder_result: list[int] = []
+        waiter_result: list[int] = []
+        holder_args = ["run", "--resource", "metadata-window", "--timeout-seconds", "2", "--", sys.executable, "-c", "import time; time.sleep(0.4)"]
+        waiter_args = ["run", "--resource", "metadata-window", "--timeout-seconds", "2", "--", sys.executable, "-c", "pass"]
+        with patch.object(resource_lock, "_lock_root", return_value=lock_root), patch.object(resource_lock, "_project_identifier", return_value="fixture"), patch.object(resource_lock, "_write_holder", side_effect=delayed_write), patch.object(resource_lock, "_diagnostic", side_effect=capture_diagnostic):
+            holder_thread = threading.Thread(target=lambda: holder_result.append(resource_lock.main(holder_args)))
+            holder_thread.start()
+            assert holder_ready.wait(timeout=10)
+            waiter_thread = threading.Thread(target=lambda: waiter_result.append(resource_lock.main(waiter_args)))
+            waiter_thread.start()
+            waiter_thread.join(timeout=10)
+            holder_thread.join(timeout=10)
+        assert holder_result == [0]
+        assert waiter_result == [0]
+        assert len(observed) == 1
+        assert isinstance(observed[0]["holder_pid"], int)
+        assert isinstance(observed[0]["holder_project"], str)
+        assert isinstance(observed[0]["holder_start_time"], str)
+
+
 def test_argv_status_validation_and_secret_free_diagnostics() -> None:
     with tempfile.TemporaryDirectory(prefix="resource-lock-input-") as raw:
         temporary = Path(raw)
         project = repository(temporary, "project")
         invalid_command = [sys.executable, "-c", "import pathlib,sys; pathlib.Path(sys.argv[1]).write_text('ran')", str(temporary / "invalid-command-ran")]
+        lock_root = canonical_lock_root()
+        before_lock_entries = sorted(path.name for path in lock_root.iterdir()) if lock_root.exists() else []
         for resource in ("", "a" * 65, "/tmp/x", "a/b", "bad name", "../escape"):
             result = run_lock(project, temporary, resource, invalid_command)
             assert result.returncode == 2
             assert not (temporary / "invalid-command-ran").exists()
-            assert not (temporary / f"my-workflow-test-lock-{os.getuid()}").exists()
+            assert (sorted(path.name for path in lock_root.iterdir()) if lock_root.exists() else []) == before_lock_entries
         invalid_scope = run_lock(project, temporary, "browser", invalid_command, scope="invalid")
         assert invalid_scope.returncode == 2
         assert "resource_lock.py" in invalid_scope.stderr
@@ -211,7 +271,16 @@ def test_argv_status_validation_and_secret_free_diagnostics() -> None:
         assert not (project / "injected").exists()
         assert run_lock(project, temporary, "valid", []).returncode == 2
         assert run_lock(project, temporary, "valid", [sys.executable, "-c", "raise SystemExit(17)"]).returncode == 17
-        assert run_lock(project, temporary, "valid", ["missing-command-for-lock-test"], timeout=0).returncode == 127
+        missing = run_lock(project, temporary, "valid", ["missing-command-for-lock-test"], timeout=0)
+        assert missing.returncode == 127
+        assert json.loads(missing.stderr) == {"event": "exec_unavailable", "executable": "missing-command-for-lock-test"}
+        non_executable = temporary / "not-executable"
+        non_executable.write_text("not executable\n", encoding="utf-8")
+        non_executable.chmod(0o600)
+        unavailable = run_lock(project, temporary, "valid", [str(non_executable)], timeout=0)
+        assert unavailable.returncode == 127
+        assert json.loads(unavailable.stderr)["executable"] == non_executable.name
+        assert "Traceback" not in unavailable.stderr
         assert run_lock(project, temporary, "valid", [sys.executable, "-c", "raise SystemExit(9)"], timeout=-1).returncode == 2
         no_separator_sentinel = temporary / "no-separator-ran"
         missing_separator = subprocess.run(
@@ -225,6 +294,19 @@ def test_argv_status_validation_and_secret_free_diagnostics() -> None:
         assert missing_separator.returncode == 2
         assert "literal --" in missing_separator.stderr
         assert not no_separator_sentinel.exists()
+        later_separator = subprocess.run(
+            [sys.executable, str(SCRIPT), "run", "--resource", "valid", sys.executable, "-c", "import pathlib,sys; pathlib.Path(sys.argv[1]).write_text('ran'); raise SystemExit(17)", str(no_separator_sentinel), "--"],
+            cwd=project,
+            env={**os.environ, "TMPDIR": str(temporary)},
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert later_separator.returncode == 2
+        assert not no_separator_sentinel.exists()
+        help_result = subprocess.run([sys.executable, str(SCRIPT), "run", "--help"], text=True, capture_output=True, check=False)
+        assert help_result.returncode == 0
+        assert "resource_lock.py" in help_result.stdout
 
         secret = "secret-not-in-diagnostics"
         metadata_code = """
@@ -238,7 +320,7 @@ with path.open('a', encoding='utf-8') as f:
 """
         holder = start_lock(project, temporary, "diagnostic", metadata_code, str(temporary / "diag.log"), "holder", "0.45", secret, environment={"LOCK_SECRET": secret})
         wait_for_line(temporary / "diag.log", "holder-start")
-        lock_root = temporary / f"my-workflow-test-lock-{os.getuid()}"
+        lock_root = canonical_lock_root()
         lock_file = next(lock_root.glob("project-*-diagnostic.lock"))
         metadata = lock_file.read_text(encoding="utf-8")
         assert secret not in metadata
@@ -271,13 +353,13 @@ def test_private_lock_root_rejects_symlink_and_project_requires_git() -> None:
         outside.mkdir()
         root = temporary / f"my-workflow-test-lock-{os.getuid()}"
         root.symlink_to(outside, target_is_directory=True)
-        result = run_lock(Path.cwd(), temporary, "browser", [sys.executable, "-c", "raise SystemExit(9)"])
-        assert result.returncode == 2
+        result = run_with_root(Path.cwd(), root, ["run", "--resource", "browser", "--", sys.executable, "-c", "raise SystemExit(9)"])
+        assert result == 2
         assert list(outside.iterdir()) == []
         non_git = temporary / "non-git"
         non_git.mkdir()
-        result = run_lock(non_git, temporary, "browser", [sys.executable, "-c", "raise SystemExit(9)"])
-        assert result.returncode == 2
+        result = run_with_root(non_git, temporary / "non-git-lock-root", ["run", "--resource", "browser", "--", sys.executable, "-c", "raise SystemExit(9)"])
+        assert result == 2
 
         file_case = temporary / "file-case"
         file_case.mkdir()
@@ -290,8 +372,8 @@ def test_private_lock_root_rejects_symlink_and_project_requires_git() -> None:
         referent = file_case / "referent"
         referent.write_text("untouched\n", encoding="utf-8")
         (file_root / f"project-{project_id}-browser.lock").symlink_to(referent)
-        result = run_lock(file_project, file_case, "browser", [sys.executable, "-c", "raise SystemExit(9)"])
-        assert result.returncode == 2
+        result = run_with_root(file_project, file_root, ["run", "--resource", "browser", "--", sys.executable, "-c", "raise SystemExit(9)"])
+        assert result == 2
         assert referent.read_text(encoding="utf-8") == "untouched\n"
 
         foreign_root = file_case / "foreign-root"

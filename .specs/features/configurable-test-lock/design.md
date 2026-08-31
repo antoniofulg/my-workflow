@@ -69,7 +69,7 @@ flowchart LR
 
 | Field | Derivation |
 | --- | --- |
-| Root | `${TMPDIR}/my-workflow-test-lock-<uid>`; real directory, current-user owned, private mode |
+| Root | `/tmp` resolved to its canonical directory, plus `my-workflow-test-lock-<uid>`; real directory, current-user owned, private mode |
 | Project namespace | SHA-256 prefix of resolved `git rev-parse --git-common-dir` |
 | Machine namespace | Literal `machine` |
 | Resource | Validated lowercase identifier `[a-z0-9][a-z0-9._-]{0,63}` |
