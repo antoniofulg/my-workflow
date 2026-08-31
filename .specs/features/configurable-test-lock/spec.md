@@ -8,10 +8,10 @@ serializes only the declared resource while leaving implementation and unrelated
 
 ## Goals
 
-- [ ] Serialize a named heavy-test resource across worktrees of one project by default.
-- [ ] Allow the same named resource to be serialized across projects on one machine.
-- [ ] Install the dormant capability through the existing `parallel` adoption layer.
-- [ ] Fail closed before the wrapped command when configuration or lock acquisition is unsafe.
+- [x] Serialize a named heavy-test resource across worktrees of one project by default.
+- [x] Allow the same named resource to be serialized across projects on one machine.
+- [x] Install the dormant capability through the existing `parallel` adoption layer.
+- [x] Fail closed before the wrapped command when configuration or lock acquisition is unsafe.
 
 ## Out of Scope
 
@@ -112,25 +112,25 @@ and assert the installed path and absence boundary.
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| CTL-01 | Serialize project resource | Tasks | Verified by T1 |
-| CTL-02 | Serialize machine resource | Tasks | Verified by T1 |
-| CTL-03 | Preserve unrelated concurrency | Tasks | Verified by T1 |
-| CTL-04 | Default project scope | Tasks | Verified by T1 |
-| CTL-05 | Preserve command exit status | Tasks | Verified by T1 |
-| CTL-06 | Bound acquisition timeout | Tasks | Verified by T1 |
-| CTL-07 | Recover after holder exit | Tasks | Verified by T1 |
-| CTL-08 | Validate CLI and execute direct argv | Tasks | Verified by T1 |
-| CTL-09 | Install through parallel adoption | Tasks | Verified by T2 |
-| SEC-001 | Prevent shell interpolation | Tasks | Verified by T1 |
-| SEC-002 | Reject unsafe resource paths | Tasks | Verified by T1 |
-| SEC-003 | Protect the lock directory | Tasks | Verified by T1 |
-| SEC-004 | Keep command and environment secrets out of diagnostics | Tasks | Verified by T1 |
+| CTL-01 | Serialize project resource | Validate | Verified by final R2 |
+| CTL-02 | Serialize machine resource | Validate | Verified by final R2 |
+| CTL-03 | Preserve unrelated concurrency | Validate | Verified by final R2 |
+| CTL-04 | Default project scope | Validate | Verified by final R2 |
+| CTL-05 | Preserve command exit status | Validate | Verified by final R2 |
+| CTL-06 | Bound acquisition timeout | Validate | Verified by final R2 |
+| CTL-07 | Recover after holder exit | Validate | Verified by final R2 |
+| CTL-08 | Validate CLI and execute direct argv | Validate | Verified by final R2 |
+| CTL-09 | Install through parallel adoption | Validate | Verified by final R2 |
+| SEC-001 | Prevent shell interpolation | Validate | Verified by final R2 |
+| SEC-002 | Reject unsafe resource paths | Validate | Verified by final R2 |
+| SEC-003 | Protect the lock directory | Validate | Verified by final R2 |
+| SEC-004 | Keep command and environment secrets out of diagnostics | Validate | Verified by final R2 |
 
 **Coverage:** 13 total, 13 mapped to tasks, 0 unmapped.
 
 ## Success Criteria
 
-- [ ] The fake heavy-command contract proves same-resource serialization and different-resource concurrency.
-- [ ] Both `project` and `machine` scopes behave as specified across disposable Git repositories and worktrees.
-- [ ] Parallel adoption installs the dormant wrapper without modifying consumer-owned commands.
-- [ ] The full repository gate exits zero.
+- [x] The fake heavy-command contract proves same-resource serialization and different-resource concurrency.
+- [x] Both `project` and `machine` scopes behave as specified across disposable Git repositories and worktrees.
+- [x] Parallel adoption installs the dormant wrapper without modifying consumer-owned commands.
+- [x] The full repository gate exits zero.

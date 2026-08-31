@@ -7,7 +7,7 @@ atomic Conventional Commit. Every code-changing slice receives a fresh Technical
 dependent slice consumes it.
 
 **Design**: `.specs/features/configurable-test-lock/design.md`
-**Status**: Approved
+**Status**: Complete — final integrated Technical Verification R2 PASS
 
 ## Test Coverage Matrix
 
@@ -39,6 +39,8 @@ T1
 ```
 
 ### Slice S2: Parallel adoption and guidance
+
+**Status:** complete
 
 ```text
 T1 -> T2 -> T3 -> T4
