@@ -36,6 +36,11 @@ must not redirect writes or execute another command.
   rejected before publication.
 - `_safe_path` follows every destination component without following symlinks and rejects
   non-directory parents and non-file leaves.
+- Synchronization executes only the source checkout's workflow-config script; target resolver trees
+  and module/package shadows remain data and are never imported.
+- `_preflight_tree` validates every path component of `.claude/skills`, including the `.claude`
+  parent, before any managed skill link is created; existing managed pointers are then checked for
+  their expected relative targets.
 - Git and helper calls use argument vectors, never shell interpolation.
 - Publication snapshots target bytes, entry kinds, and regular-file mode bits. Failure restores the
   snapshot, including executable bits, before reporting failure.

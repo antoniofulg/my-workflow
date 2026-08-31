@@ -30,5 +30,5 @@
 | ID | Abuse case | Attempt | Expected |
 | --- | --- | --- | --- |
 | SEC-001 | Escape through replacement path | Authorize `../x`, absolute path, separator tricks, or a block key | Exit 2 before target or external mutation |
-| SEC-002 | Redirect through target symlink | Replaceable leaf or parent becomes a symlink before resolve | Existing no-follow preflight exits 2; referent unchanged |
-| SEC-003 | Inject through Git or path arguments | Target and replacement names contain shell metacharacters | Direct argv treats values literally; no extra process or file appears |
+| SEC-002 | Redirect through target symlink | Replaceable leaf, parent, or `.claude` parent becomes a symlink before resolve | Existing no-follow preflight exits 2; target and external referent remain unchanged |
+| SEC-003 | Inject through Git, path, or resolver module arguments | Target/replacement names contain shell metacharacters or target contains a resolver module/package shadow | Direct argv treats values literally; synchronization executes only trusted source code; no extra process or file appears |

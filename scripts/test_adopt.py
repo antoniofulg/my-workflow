@@ -1275,6 +1275,72 @@ def test_resolve_rejects_replaceable_leaf_and_parent_symlinks_without_writes() -
             shutil.rmtree(outside)
 
 
+def test_resolve_uses_trusted_workflow_config_without_importing_target_shadow() -> None:
+    target = legacy_target()
+    sentinel = target.parent / "target-workflow-config-imported"
+    try:
+        shadow = target / ".agents/skills/workflow-config/scripts/workflow_config"
+        shadow.mkdir(parents=True)
+        trusted = ROOT / ".agents/skills/workflow-config/scripts/workflow_config.py"
+        shadow.joinpath("__init__.py").write_text(
+            f"from pathlib import Path as _SentinelPath\n_SentinelPath({str(sentinel)!r}).write_text('executed')\n"
+            "import runpy as _runpy\n"
+            f"_trusted = _runpy.run_path({str(trusted)!r})\n"
+            "sync_agents = _trusted['sync_agents']\n"
+            "PROVIDERS = _trusted['PROVIDERS']\n"
+            "ROLES = _trusted['ROLES']\n"
+            "_runtime_relative = _trusted['_runtime_relative']\n",
+            encoding="utf-8",
+        )
+        subprocess.run(["git", "add", str(shadow.relative_to(target))], cwd=target, check=True)
+        subprocess.run(["git", "commit", "-qm", "target resolver shadow"], cwd=target, check=True)
+
+        result = invoke(
+            target,
+            "resolve",
+            "--layers",
+            "parallel",
+            "--replace",
+            "tools/resource_lock.py",
+            "--skip-agents",
+        )
+        assert result.returncode == 0, result.stderr
+        assert not sentinel.exists()
+        assert (target / ".codex/agents/planner.toml").is_file()
+        assert json.loads(invoke(target, "status", "--json").stdout)["status"] == "clean"
+    finally:
+        shutil.rmtree(target)
+        if sentinel.exists():
+            sentinel.unlink()
+
+
+def test_resolve_rejects_symlinked_claude_parent_without_external_mutation() -> None:
+    target = legacy_target()
+    outside = temporary_target()
+    try:
+        (outside / "sentinel").write_bytes(b"outside\n")
+        (target / ".claude").symlink_to(outside, target_is_directory=True)
+        subprocess.run(["git", "add", ".claude"], cwd=target, check=True)
+        subprocess.run(["git", "commit", "-qm", "claude parent symlink"], cwd=target, check=True)
+        before = snapshot(target)
+        outside_before = snapshot(outside)
+        result = invoke(
+            target,
+            "resolve",
+            "--layers",
+            "parallel",
+            "--replace",
+            "tools/resource_lock.py",
+            "--skip-agents",
+        )
+        assert result.returncode == 2
+        assert snapshot(target) == before
+        assert snapshot(outside) == outside_before
+    finally:
+        shutil.rmtree(target)
+        shutil.rmtree(outside)
+
+
 def test_resolve_rejects_dirty_non_git_missing_head_and_manifest_targets_without_writes() -> None:
     dirty = legacy_target()
     no_git = temporary_target()
@@ -1497,6 +1563,8 @@ TESTS = (
     test_resolve_helpers_validate_replacements_and_git_boundary,
     test_resolve_legacy_target_helper_validates_full_git_boundary,
     test_resolve_rejects_replaceable_leaf_and_parent_symlinks_without_writes,
+    test_resolve_uses_trusted_workflow_config_without_importing_target_shadow,
+    test_resolve_rejects_symlinked_claude_parent_without_external_mutation,
     test_resolve_rejects_dirty_non_git_missing_head_and_manifest_targets_without_writes,
     test_resolve_skip_agents_preserves_instruction_files,
     test_resolve_keeps_altered_instruction_blocks_manual,

@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import runpy
 import shutil
 import subprocess
 import sys
@@ -444,7 +445,7 @@ def _prepare_sync(source_root: Path, root: Path, staged: dict[str, bytes]) -> di
         return {}
     with tempfile.TemporaryDirectory(prefix="my-workflow-sync-") as name:
         scratch = Path(name)
-        for relative in ("templates/agents", ".agents/skills/workflow-config"):
+        for relative in ("templates/agents",):
             source = root / relative
             if source.exists() or source.is_symlink():
                 _preflight_tree(root, relative, "sync input")
@@ -464,23 +465,22 @@ def _prepare_sync(source_root: Path, root: Path, staged: dict[str, bytes]) -> di
             staged_path = scratch / relative
             staged_path.parent.mkdir(parents=True, exist_ok=True)
             staged_path.write_bytes(content)
-        sys.path.insert(0, str((scratch / ".agents/skills/workflow-config/scripts").resolve()))
-        import workflow_config  # type: ignore
+        workflow_config = runpy.run_path(str(resolver_root / "scripts/workflow_config.py"))
         try:
-            workflow_config.sync_agents(scratch)
+            workflow_config["sync_agents"](scratch)
         except Exception as exc:  # workflow-config exposes its own ConfigError type.
             raise _error(str(exc)) from exc
         generated: dict[str, bytes] = {}
-        for provider in workflow_config.PROVIDERS:
-            for role in workflow_config.ROLES:
-                relative = workflow_config._runtime_relative(provider, role).as_posix()
+        for provider in workflow_config["PROVIDERS"]:
+            for role in workflow_config["ROLES"]:
+                relative = workflow_config["_runtime_relative"](provider, role).as_posix()
                 generated[relative] = (scratch / relative).read_bytes()
         if not local.is_file():
             generated[".my-workflow.toml"] = (scratch / ".my-workflow.toml").read_bytes()
         return generated
 
 
-def _preflight_tree(root: Path, relative: str, label: str) -> None:
+def _preflight_tree(root: Path, relative: str, label: str, *, contents: bool = True) -> None:
     current = root
     for part in PurePosixPath(relative).parts:
         current /= part
@@ -489,7 +489,7 @@ def _preflight_tree(root: Path, relative: str, label: str) -> None:
     path = root / relative
     if path.exists() and not path.is_dir():
         raise _error(f"{label} {relative} must be a directory")
-    if path.is_dir():
+    if contents and path.is_dir():
         for node in path.rglob("*"):
             if node.is_symlink():
                 raise _error(f"{label} {relative} contains symlink {node.relative_to(root)}")
@@ -501,11 +501,8 @@ def _preflight_special(root: Path, skip_agents: bool, managed_skills: set[str]) 
     if not skip_agents:
         for relative in ("AGENTS.md", "CLAUDE.md"):
             _safe_path(root, relative, "instruction destination")
+    _preflight_tree(root, ".claude/skills", "generated skills", contents=False)
     skills_root = root / ".claude/skills"
-    if skills_root.is_symlink():
-        raise _error("generated skills directory must not be a symlink")
-    if skills_root.exists() and not skills_root.is_dir():
-        raise _error("generated skills directory must be a directory")
     if skills_root.exists():
         for skill_name in managed_skills:
             pointer = skills_root / skill_name
