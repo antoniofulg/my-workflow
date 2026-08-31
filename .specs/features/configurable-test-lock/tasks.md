@@ -130,6 +130,7 @@ IT-006, IT-007, SEC-001, SEC-002, SEC-003, SEC-004
 ### T4: Route adopted agents to the lock contract
 
 **Slice**: S2
+**Status**: complete — Build gate exit 0 (`123` Bun tests; Python suites pass; knowledge 0 errors)
 **What**: Add one on-demand pointer for resource-contended gates to the adopted parallel block.
 **Where**: `templates/adoption/agents/parallel.md`
 **Depends on**: T3
@@ -143,9 +144,9 @@ IT-006, IT-007, SEC-001, SEC-002, SEC-003, SEC-004
 
 **Done when**:
 
-- [ ] Agents are directed to the wrapper only when a gate declares a contested resource.
-- [ ] The pointer names the public contract without duplicating CLI flags or implementation details.
-- [ ] Build gate exits zero.
+- [x] Agents are directed to the wrapper only when a gate declares a contested resource.
+- [x] The pointer names the public contract without duplicating CLI flags or implementation details.
+- [x] Build gate exits zero.
 
 **Tests**: none - agent-instruction prose has no behavioral test requirement
 **Gate**: Build
