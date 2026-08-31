@@ -6,7 +6,7 @@ persona: Workflow adopter
 journey: J-adopt-workflow
 expected: A project can plan and apply fixed core, parallel, quality, and extras layers incrementally; conflicts fail before writes, consumer prose and Bun package metadata survive, and status reports clean state.
 entry_points: README.md#adopt-the-workflow; docs/adoption-prompt.md; scripts/adopt.py
-qa_status: pass
+qa_status: untested
 bug_ids:
 fix_status:
 retest_status:
@@ -34,3 +34,7 @@ and missing-only files, and refused drift, collisions, unsafe symlinks, invalid 
 manifests without writes. Bun knowledge exited 0, probe import made zero Orca calls, reapply was
 byte-stable, and the adopted target contained no repository test files or transaction residue. Live
 Orca scenarios remain unchanged and outside this offline adoption verdict.
+
+The legacy-adoption-resolution cycle changes the shared planning and publication path while
+promising unchanged normal `plan`, `apply`, and `status` behaviour. The previous report remains as
+history, but this promise is reset to `untested` for an adjacent disposable-target canary.
