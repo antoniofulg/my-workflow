@@ -1059,6 +1059,9 @@ describe("adoption and public setup", () => {
     };
     const changelog = readRepositoryFile("CHANGELOG.md");
     const releaseScenario = readRepositoryFile("docs/qa/scenarios/REL-report-current-workflow-release.md");
+    const currentScenarioVersion = releaseScenario.match(
+      /^Version-neutral owner for public release consistency\. For release `(\d+\.\d+\.\d+)`/m,
+    )?.[1];
     const latestHeading = changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m)?.[1];
     const releaseStart = changelog.indexOf(`## [${manifest.version}]`);
     const nextRelease = changelog.indexOf("\n## [", releaseStart + 1);
@@ -1072,6 +1075,7 @@ describe("adoption and public setup", () => {
     expect(existsSync(join(repositoryRoot, "package-lock.json"))).toBe(false);
     expect(latestHeading).toBe("0.8.0");
     expect(latestHeading).toBe(manifest.version);
+    expect(currentScenarioVersion).toBe(manifest.version);
     expect(releaseScenario.match(/^expected: .*$/m)?.[0]).toBe(
       "expected: The newest changelog release matches the package manifest, while Bun 1.4's lockfile identifies the root package and dependency graph; the documented install, knowledge, full-gate, frozen-lockfile, and package commands expose the current source pack without checkout residue.",
     );
