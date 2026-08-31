@@ -77,6 +77,33 @@ never removed. `--skip-agents` preserves both instruction files byte-for-byte. W
 appends managed `core`, `parallel`, and `quality` blocks while preserving consumer prose. A differing
 managed file or unowned destination is reported as a conflict and causes zero writes.
 
+### Serialize only contested test resources
+
+The `parallel` layer installs the dormant `tools/resource_lock.py` wrapper. Activation is explicit:
+adoption does not rewrite a consumer command or gate. Wrap only a heavy command that shares a
+browser, database, container runtime, or other declared resource; unit tests and other light gates
+remain concurrent.
+
+For worktrees of the same project, use the default project scope:
+
+```bash
+python3 tools/resource_lock.py run \
+  --resource browser \
+  -- python3 -m pytest tests/e2e
+```
+
+To serialize that resource across separate projects on one machine, opt into machine scope:
+
+```bash
+python3 tools/resource_lock.py run \
+  --resource browser --scope machine \
+  -- python3 -m pytest tests/e2e
+```
+
+The wrapper holds the named lock only for the wrapped command and passes its arguments directly.
+Run `python3 tools/resource_lock.py run --help` for the authoritative flags, defaults, and result
+codes.
+
 The old positional `adopt.py TARGET` command is intentionally removed. `plan` and `apply` require
 `--layers`; `status` reports clean state with exit 0, drift with exit 1, and invalid state or
 invocation with exit 2.

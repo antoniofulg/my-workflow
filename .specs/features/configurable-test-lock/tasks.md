@@ -104,6 +104,7 @@ IT-006, IT-007, SEC-001, SEC-002, SEC-003, SEC-004
 ### T3: Document resource-scoped activation
 
 **Slice**: S2
+**Status**: complete — Build gate exit 0 (`123` Bun tests; Python suites pass; knowledge 0 errors)
 **What**: Add the public usage contract for heavy gates.
 **Where**: `README.md`
 **Depends on**: T2
@@ -117,10 +118,10 @@ IT-006, IT-007, SEC-001, SEC-002, SEC-003, SEC-004
 
 **Done when**:
 
-- [ ] README shows project and machine examples and states that activation is explicit.
-- [ ] The examples wrap only declared heavy commands and leave light tests concurrent.
-- [ ] CLI help remains the authority for flag details.
-- [ ] Build gate exits zero.
+- [x] README shows project and machine examples and states that activation is explicit.
+- [x] The examples wrap only declared heavy commands and leave light tests concurrent.
+- [x] CLI help remains the authority for flag details.
+- [x] Build gate exits zero.
 
 **Tests**: none - documentation layer has no behavioral test requirement
 **Gate**: Build
