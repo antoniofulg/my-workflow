@@ -25,7 +25,8 @@ python3 tools/resource_lock.py run \
 - A completed command returns its exact exit status.
 - Invalid CLI input returns `2` before command execution.
 - Acquisition timeout returns `75` before command execution.
-- An unavailable executable returns `127` after acquisition.
+- An unavailable executable returns `127` after acquisition and emits one bounded JSON diagnostic
+  naming only its basename.
 - Waiting diagnostics are JSON lines on stderr: one `wait` line is emitted immediately, then at most
   one additional line per 60-second interval. Each line is at most 2,048 characters and contains the
   event, scope, resource, holder PID, opaque project identifier, and holder start time. They contain
