@@ -38,7 +38,8 @@ slice that re-reviews Cosmetics until the diff stops moving is not this workflow
 Escalate is a result after the required post-cap remediation and gate. Shipping past a cap with a
 reproducible blocker is not.
 
-The review cap counts failed remediation per immutable finding fingerprint; see
+The review ledger counts failed remediation cumulatively per immutable finding fingerprint while
+the live remediation bound counts consecutive stalls; see
 [`REVIEW-ROUNDS.md`](../guidelines/REVIEW-ROUNDS.md) for the accounting rule.
 
 ## What this pack is not

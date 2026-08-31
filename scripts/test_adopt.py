@@ -630,6 +630,7 @@ def test_adoption_installs_hybrid_workflow_and_preserves_consumer_config() -> No
         assert config.read_bytes() == before
         assert (target / "tools/qa_parallel_pilot.py").is_file()
         assert (target / "tools/orca_assisted_probe.py").is_file()
+        assert (target / ".agents/skills/autonomous/remediation.py").is_file()
     finally:
         shutil.rmtree(target)
 

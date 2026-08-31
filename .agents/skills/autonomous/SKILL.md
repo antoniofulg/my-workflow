@@ -180,6 +180,10 @@ Then leave, in the pull request and in the final message: what shipped, the full
 `decisions.md`, including the ones that felt too small to mention, which are the ones a reader most
 needs to see.
 
+Post-cap remediation records through `.agents/skills/workflow-spec-driven/scripts/review_convergence.py`,
+which delegates pure transitions to `.agents/skills/autonomous/remediation.py`; the review cap remains
+owned by `docs/guidelines/REVIEW-ROUNDS.md`.
+
 ## Halt conditions
 
 Stop, write up what exists, and do not continue delivery:
