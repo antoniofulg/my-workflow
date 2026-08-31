@@ -15,10 +15,13 @@ from typing import Any
 
 DEFAULT_STALL_ATTEMPTS = 3
 _LOCATION = re.compile(
-    r"(?P<path>(?:(?:[A-Za-z]:)?[\\/]|(?:[^()\s:]+[\\/]))?[^()\s:]*\.[^()\s:]+)"
-    r"(?::\d+(?::\d+)?|\(\d+,\d+\):?)"
+    r"(?P<path>(?:(?:[A-Za-z]:)?[\\/]|(?<!\S))[^()\r\n]*?"
+    r"[^/\\\s:]+\.[^/\\\s:()]+)(?::\d+(?::\d+)?|\(\d+,\d+\):?)"
 )
-_PATH = re.compile(r"(?P<path>(?:(?:[A-Za-z]:)?[\\/]|(?:[^()\s:]+[\\/]))[^()\s:]+)")
+_PATH = re.compile(
+    r"(?P<path>(?:(?:[A-Za-z]:)?[\\/]|(?<!\S))[^()\r\n]*?"
+    r"[^/\\\s:]+\.[^/\\\s:()]+)(?=\s*(?:>|$))"
+)
 _TIMING = re.compile(r"\s*\(?\d+(?:\.\d+)?\s*(?:ms|s)\)?", re.IGNORECASE)
 _WHITESPACE = re.compile(r"\s+")
 
@@ -71,9 +74,12 @@ def _normalize_fixes(fixes: Iterable[Any]) -> list[str]:
 
 
 def _previous_tests(previous: Mapping[str, Any]) -> tuple[bool, list[str]]:
-    if "failing_tests" not in previous or int(previous.get("attempt_count", 0)) == 0:
+    attempt_count = int(previous.get("attempt_count", 0))
+    if attempt_count == 0:
         return False, []
-    return True, normalize_failing_tests(previous.get("minimum_failing_tests", previous.get("failing_tests", [])))
+    if "minimum_failing_tests" not in previous:
+        raise ValueError("previous state is missing minimum_failing_tests")
+    return True, normalize_failing_tests(previous["minimum_failing_tests"])
 
 
 def transition_remediation(

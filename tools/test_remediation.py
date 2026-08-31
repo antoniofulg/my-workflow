@@ -38,6 +38,28 @@ def test_normalizes_mixed_language_and_ordinary_path_identifiers() -> None:
     ]
 
 
+def test_normalizes_locations_with_spaces_without_losing_the_test_suffix() -> None:
+    result = remediation.normalize_failing_tests(
+        [
+            "/tmp/project with spaces/tools/test_adopt.py:123:4 > python",
+            "relative project with spaces/widget.js(12,4): javascript",
+        ]
+    )
+    assert result == ["test_adopt.py > python", "widget.js > javascript"]
+
+
+def test_rejects_previous_attempt_without_persisted_minimum() -> None:
+    try:
+        remediation.transition_remediation(
+            {"attempt_count": 1, "failing_tests": ["legacy.test.ts > case"]},
+            ["legacy.test.ts > case"],
+        )
+    except ValueError as error:
+        assert str(error) == "previous state is missing minimum_failing_tests"
+    else:
+        raise AssertionError("legacy fallback to failing_tests was accepted")
+
+
 def test_uses_live_threshold_and_zero_is_unbounded() -> None:
     initial = remediation.transition_remediation(None, ["a"], stall_attempts=3)
     unbounded = remediation.transition_remediation(initial, ["a"], stall_attempts=0)
@@ -86,7 +108,12 @@ def test_halts_with_signature_attempt_count_and_fixes() -> None:
 
 def test_unavailable_gate_halts_without_incrementing_stalls() -> None:
     state = remediation.transition_remediation(
-        {"attempt_count": 4, "consecutive_stalls": 2, "failing_tests": ["a"]},
+        {
+            "attempt_count": 4,
+            "consecutive_stalls": 2,
+            "failing_tests": ["a"],
+            "minimum_failing_tests": ["a"],
+        },
         ["a", "b"],
         gate_available=False,
         fixes_tried=["inspect output"],

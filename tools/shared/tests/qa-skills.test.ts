@@ -1095,6 +1095,7 @@ describe("adoption and public setup", () => {
     const packOutput = `${pack.stdout}${pack.stderr}`;
     for (const requiredPath of [
       "tools/resource_lock.py",
+      "tools/qa_parallel_pilot.py",
       "tools/orca_assisted_probe.py",
       ".agents/skills/autonomous/remediation.py",
       "scripts/adopt.py",
