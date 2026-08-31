@@ -8,6 +8,7 @@ import hashlib
 import os
 from pathlib import Path
 import signal
+import select
 import subprocess
 import sys
 import tempfile
@@ -93,6 +94,15 @@ def wait_for_line(path: Path, expected: str, timeout: float = 10) -> None:
     raise AssertionError(f"timed out waiting for {expected} in {path}")
 
 
+def wait_for_wait_diagnostic(process: subprocess.Popen[str], timeout: float = 10) -> dict[str, object]:
+    assert process.stderr is not None
+    readable, _, _ = select.select([process.stderr], [], [], timeout)
+    assert readable, "timed out waiting for lock wait diagnostic"
+    payload = json.loads(process.stderr.readline())
+    assert payload["event"] == "wait"
+    return payload
+
+
 def test_same_resource_serializes_and_different_resource_overlaps() -> None:
     with tempfile.TemporaryDirectory(prefix="resource-lock-") as raw:
         temporary = Path(raw)
@@ -166,7 +176,9 @@ def test_timeout_exit_status_recovery_and_inherited_descriptor() -> None:
         holder = start_lock(project, temporary, "interrupt", EVENT_CODE, str(interrupted_log), "holder", "0.65")
         wait_for_line(interrupted_log, "holder-start")
         waiter = start_lock(project, temporary, "interrupt", EVENT_CODE, str(interrupted_log), "interrupted", "0")
-        time.sleep(0.15)
+        diagnostic = wait_for_wait_diagnostic(waiter)
+        assert diagnostic["resource"] == "interrupt"
+        assert diagnostic["scope"] == "project"
         os.kill(waiter.pid, signal.SIGINT)
         assert waiter.wait(timeout=3) == 130
         assert holder.wait(timeout=3) == 0
