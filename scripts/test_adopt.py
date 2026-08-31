@@ -1213,13 +1213,39 @@ def test_resolve_helpers_validate_replacements_and_git_boundary() -> None:
     for value in ("../x", "/tmp/x", "tools//resource_lock.py", "./tools/resource_lock.py"):
         expect_adoption_error(lambda value=value: adopt._relative_path(value))
 
-    target = legacy_target()
+    conflicts = ["tools/resource_lock.py", "tools/qa_parallel_pilot.py"]
+    catalog = {path: "parallel" for path in conflicts}
+    exact, complete = adopt._resolve_replacement_set(conflicts, conflicts, catalog)
+    assert exact == set(conflicts) and complete is True
+    missing, complete = adopt._resolve_replacement_set(conflicts[:1], conflicts, catalog)
+    assert missing == {conflicts[0]} and complete is False
+    expect_adoption_error(lambda: adopt._resolve_replacement_set([*conflicts, "README.md"], conflicts, catalog))
+    expect_adoption_error(lambda: adopt._resolve_replacement_set([conflicts[0], conflicts[0]], conflicts, catalog))
+    expect_adoption_error(lambda: adopt._resolve_replacement_set([conflicts[0], "AGENTS.md:core"], [*conflicts, "AGENTS.md:core"], catalog))
+
+
+def test_resolve_legacy_target_helper_validates_full_git_boundary() -> None:
+    clean = legacy_target()
+    dirty = legacy_target()
+    no_git = temporary_target()
+    missing_head = temporary_target()
+    manifest = legacy_target()
     try:
-        adopt._git_clean_with_head(target)
-        (target / "untracked.txt").write_text("dirty\n", encoding="utf-8")
-        expect_adoption_error(lambda: adopt._git_clean_with_head(target))
+        assert adopt._legacy_target_eligible(clean) is None
+        (dirty / "untracked.txt").write_text("dirty\n", encoding="utf-8")
+        expect_adoption_error(lambda: adopt._legacy_target_eligible(dirty))
+        expect_adoption_error(lambda: adopt._legacy_target_eligible(no_git))
+        subprocess.run(["git", "init", "-q"], cwd=missing_head, check=True, capture_output=True, text=True)
+        expect_adoption_error(lambda: adopt._legacy_target_eligible(missing_head))
+        manifest_path = manifest / ".my-workflow/adoption.json"
+        manifest_path.parent.mkdir()
+        manifest_path.write_text("{}\n", encoding="utf-8")
+        subprocess.run(["git", "add", str(manifest_path.relative_to(manifest))], cwd=manifest, check=True)
+        subprocess.run(["git", "commit", "-qm", "manifest baseline"], cwd=manifest, check=True)
+        expect_adoption_error(lambda: adopt._legacy_target_eligible(manifest))
     finally:
-        shutil.rmtree(target)
+        for target in (clean, dirty, no_git, missing_head, manifest):
+            shutil.rmtree(target)
 
 
 def test_resolve_rejects_replaceable_leaf_and_parent_symlinks_without_writes() -> None:
@@ -1469,6 +1495,7 @@ TESTS = (
     test_resolve_rejects_non_conflict_extra_and_duplicate_authorizations_without_writes,
     test_resolve_rejects_unsafe_and_managed_block_paths_without_writes,
     test_resolve_helpers_validate_replacements_and_git_boundary,
+    test_resolve_legacy_target_helper_validates_full_git_boundary,
     test_resolve_rejects_replaceable_leaf_and_parent_symlinks_without_writes,
     test_resolve_rejects_dirty_non_git_missing_head_and_manifest_targets_without_writes,
     test_resolve_skip_agents_preserves_instruction_files,

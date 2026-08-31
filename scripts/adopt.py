@@ -736,6 +736,29 @@ def _git_clean_with_head(root: Path) -> None:
         raise _error(f"resolve requires Git: {exc}") from exc
 
 
+def _legacy_target_eligible(root: Path) -> None:
+    _git_clean_with_head(root)
+    if _manifest_path(root).exists():
+        raise _error("resolve is only available before an adoption manifest exists")
+
+
+def _resolve_replacement_set(
+    values: list[str], conflicts: list[str], catalog: dict[str, str]
+) -> tuple[set[str], bool]:
+    replacements: set[str] = set()
+    for value in values:
+        relative = _relative_path(value)
+        if relative in replacements:
+            raise _error(f"duplicate replacement authorization: {relative}")
+        replacements.add(relative)
+    file_conflicts = {path for path in conflicts if path in catalog}
+    invalid = replacements - file_conflicts
+    if invalid:
+        raise _error(f"replacement is not a current file conflict: {', '.join(sorted(invalid))}")
+    missing = file_conflicts - replacements
+    return replacements, not missing and all(conflict in replacements for conflict in conflicts)
+
+
 def _publish(source_root: Path, root: Path, result: dict[str, Any], staged: dict[str, bytes], require_git: bool = False) -> None:
     previous = _tree_snapshot(root)
     if require_git:
@@ -859,24 +882,11 @@ def main(argv: list[str] | None = None) -> int:
         requested = requested_layers(args.layers)
         selected = resolve_layers(requested)
         if args.command == "resolve":
-            _git_clean_with_head(root)
-            manifest_path = _manifest_path(root)
-            if manifest_path.exists():
-                raise _error("resolve is only available before an adoption manifest exists")
-            replacements: set[str] = set()
-            for value in args.replace:
-                relative = _relative_path(value)
-                if relative in replacements:
-                    raise _error(f"duplicate replacement authorization: {relative}")
-                replacements.add(relative)
+            _legacy_target_eligible(root)
             planned, _ = _build_plan(source_root, root, requested, selected, args.skip_agents, False)
             catalog = _catalog(source_root, planned["resolved_layers"])
-            file_conflicts = {path for path in planned["conflicts"] if path in catalog}
-            invalid = replacements - file_conflicts
-            if invalid:
-                raise _error(f"replacement is not a current file conflict: {', '.join(sorted(invalid))}")
-            missing = file_conflicts - replacements
-            if missing or any(conflict not in replacements for conflict in planned["conflicts"]):
+            replacements, complete = _resolve_replacement_set(args.replace, planned["conflicts"], catalog)
+            if not complete:
                 planned["command"] = "resolve"
                 planned["replacements"] = sorted(replacements)
                 print(json.dumps(planned, indent=2, sort_keys=True) if args.json else _text_result(planned))
