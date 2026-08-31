@@ -56,3 +56,9 @@ distributed release still identifies itself and its provenance correctly.
 
 For the configurable-workflow cycle, this journey is also the adjacent canary for
 [`J-configure-feature-workflow`](J-configure-feature-workflow.md).
+
+## Latest QA status
+
+QA Execute on 2026-08-31 passed the legacy no-manifest ownership-transfer path and its fresh normal
+`plan`/`apply`/`status` canary at `827d629`. Durable result:
+[`2026-08-31-legacy-adoption-resolution`](../reports/2026-08-31-legacy-adoption-resolution.md).

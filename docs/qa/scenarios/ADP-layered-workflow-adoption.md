@@ -6,13 +6,13 @@ persona: Workflow adopter
 journey: J-adopt-workflow
 expected: A project can plan and apply fixed core, parallel, quality, and extras layers incrementally; conflicts fail before writes, consumer prose and Bun package metadata survive, and status reports clean state.
 entry_points: README.md#adopt-the-workflow; docs/adoption-prompt.md; scripts/adopt.py
-qa_status: untested
+qa_status: pass
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-30-layered-workflow-adoption/summary.json; docs/qa/evidence/2026-08-30-layered-workflow-adoption/opening-gate.txt; docs/qa/evidence/2026-08-30-layered-workflow-adoption/package-dry-run.txt
-last_report: docs/qa/reports/2026-08-30-layered-workflow-adoption.md
+evidence: docs/qa/evidence/2026-08-31-legacy-adoption-resolution/summary.json; docs/qa/evidence/2026-08-31-legacy-adoption-resolution/commands.jsonl
+last_report: docs/qa/reports/2026-08-31-legacy-adoption-resolution.md
 overlaps: ADP-adopt-workflow-safely
 ---
 
@@ -38,3 +38,8 @@ Orca scenarios remain unchanged and outside this offline adoption verdict.
 The legacy-adoption-resolution cycle changes the shared planning and publication path while
 promising unchanged normal `plan`, `apply`, and `status` behaviour. The previous report remains as
 history, but this promise is reset to `untested` for an adjacent disposable-target canary.
+
+The 2026-08-31 adjacent canary passed at `827d629`: a fresh target's read-only plan stayed
+byte-identical, normal parallel apply and status reached clean state, reversible managed drift
+returned status exit 1 without writes, restoration returned exit 0, and all disposable state was
+removed.
