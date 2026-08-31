@@ -77,6 +77,28 @@ never removed. `--skip-agents` preserves both instruction files byte-for-byte. W
 appends managed `core`, `parallel`, and `quality` blocks while preserving consumer prose. A differing
 managed file or unowned destination is reported as a conflict and causes zero writes.
 
+### Resolve a legacy no-manifest conflict
+
+For an existing project copied from an older workflow release, run `plan` first. If it reports
+conflicts and the target has no `.my-workflow/adoption.json`, review each path and move any product
+customization into the target's product-owned documentation or code. Commit that clean baseline,
+then authorize every reviewed file conflict explicitly:
+
+```bash
+python3 /path/to/my-workflow/scripts/adopt.py resolve /path/to/target-project \
+  --layers parallel \
+  --replace tools/resource_lock.py \
+  --replace tools/qa_parallel_pilot.py \
+  --skip-agents
+python3 /path/to/my-workflow/scripts/adopt.py status /path/to/target-project
+```
+
+Use one `--replace` for each reviewed file conflict, and usually pass `--skip-agents` when the
+target has product-specific `AGENTS.md` or `CLAUDE.md` instructions. There is no `--replace-all`.
+Altered managed instruction blocks remain manual conflicts. Once an adoption manifest exists,
+resolve is no longer available: use `status`, `apply`, and manual resolution for managed-file
+drift.
+
 ### Serialize only contested test resources
 
 The `parallel` layer installs the dormant `tools/resource_lock.py` wrapper. Activation is explicit:
