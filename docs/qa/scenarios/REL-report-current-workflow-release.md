@@ -6,13 +6,13 @@ persona: Repository reader
 journey: J-review-workflow-release
 expected: The newest changelog release matches the package manifest, while Bun 1.4's lockfile identifies the root package and dependency graph; the documented install, knowledge, full-gate, frozen-lockfile, and package commands expose the current source pack without checkout residue.
 entry_points: CHANGELOG.md; README.md; package.json; bun.lock; bunfig.toml
-qa_status: untested
+qa_status: pass
 bug_ids: BUG-20260824-release-overstates-lifecycle-qa; BUG-20260825-adoption-omits-parallel-pilot; BUG-20260829-bun-history-gate-rejects-new-qa-charters
 fix_status: fixed
-retest_status: pending
+retest_status: pass
 fix_commits: 61f2e74; 816afd6; fb4c61f
-evidence: docs/qa/evidence/2026-08-29-bun-tooling-runtime-retest/opening-gate.txt; docs/qa/evidence/2026-08-29-bun-tooling-runtime-retest/release-readback.txt; docs/qa/evidence/2026-08-29-bun-tooling-runtime-retest/package-dry-run.txt; docs/qa/evidence/2026-08-29-bun-tooling-runtime-retest/adoption-summary.json; docs/qa/evidence/2026-08-29-bun-tooling-runtime-retest/security-summary.json
-last_report: docs/qa/reports/2026-08-29-bun-tooling-runtime-retest.md
+evidence: docs/qa/evidence/2026-08-31-release-0-8-0/opening-gate.txt; docs/qa/evidence/2026-08-31-release-0-8-0/release-readback.txt; docs/qa/evidence/2026-08-31-release-0-8-0/package-dry-run.txt; docs/qa/evidence/2026-08-31-release-0-8-0/summary.json; docs/qa/evidence/2026-08-31-release-0-8-0/commands.json; docs/qa/evidence/2026-08-31-release-0-8-0/post-walk-residue.txt
+last_report: docs/qa/reports/2026-08-31-release-0-8-0.md
 overlaps:
 ---
 
@@ -28,6 +28,13 @@ membership, `bun install --frozen-lockfile`, adoption, `bun run test:all`, first
 locking, effect-free probe import, and every 0.8.0 release-note claim. The real Orca/Codex two-lane lifecycle and
 completed-pilot cleanup remain `blocked-verify`; release QA may confirm that boundary but cannot
 convert it to a pass or claim a completed pilot.
+
+QA Execute on 2026-08-31 passed release `0.8.0` at `0260c8c`. Fresh reads, offline frozen install,
+the full mixed-language gate, private dry-run package, layered and exact-conflict legacy adoption,
+first-use cross-project machine locking, installed probe import, and final cleanup all matched the
+release promise. The probe import made zero Orca calls; no live Orca run, remote action, external
+skill installation, or package publication occurred. Both live-host scenarios remain
+`blocked-verify` with pending retests.
 
 The 2026-08-29 Bun tooling cycle refreshes this still-`untested` promise: Bun 1.4 now owns install,
 TypeScript execution, structural tests, the mixed-language gate, knowledge parsing, executable

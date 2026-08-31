@@ -63,7 +63,7 @@ Orca probe with a fake executable that records zero calls.
 | --- | --- | --- | --- |
 | RLS-01 | P1: consistent release identity | Specify | Verified |
 | RLS-02 | P1: private source pack | Specify | Verified |
-| RLS-03 | P1: independent release QA | Specify | Planned |
+| RLS-03 | P1: independent release QA | Specify | Verified |
 | RLS-04 | P1: honest Orca boundary | Specify | Verified |
 | RLS-05 | P1: remote release identity | Specify | Planned |
 
@@ -71,6 +71,6 @@ Orca probe with a fake executable that records zero calls.
 
 ## Success Criteria
 
-- [ ] All release version authorities report 0.8.0, and the Bun lockfile reports the root package and dependency graph.
-- [ ] Full gate and independent release QA pass.
+- [x] All release version authorities report 0.8.0, and the Bun lockfile reports the root package and dependency graph.
+- [x] Full gate and independent release QA pass.
 - [ ] The merged commit is tagged and published as GitHub Release v0.8.0.
