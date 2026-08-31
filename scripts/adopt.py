@@ -540,16 +540,16 @@ def _atomic_write(path: Path, content: bytes) -> None:
             temporary.unlink()
 
 
-def _tree_snapshot(root: Path) -> dict[str, tuple[str, bytes | str | None]]:
-    snapshot: dict[str, tuple[str, bytes | str | None]] = {}
+def _tree_snapshot(root: Path) -> dict[str, tuple[str, bytes | str | None, int | None]]:
+    snapshot: dict[str, tuple[str, bytes | str | None, int | None]] = {}
     for path in sorted(root.rglob("*")):
         relative = path.relative_to(root).as_posix()
         if path.is_symlink():
-            snapshot[relative] = ("symlink", os.readlink(path))
+            snapshot[relative] = ("symlink", os.readlink(path), None)
         elif path.is_dir():
-            snapshot[relative] = ("directory", None)
+            snapshot[relative] = ("directory", None, None)
         else:
-            snapshot[relative] = ("file", path.read_bytes())
+            snapshot[relative] = ("file", path.read_bytes(), path.stat().st_mode & 0o7777)
     return snapshot
 
 
@@ -562,10 +562,10 @@ def _remove_entry(path: Path) -> None:
         path.rmdir()
 
 
-def _restore_tree(root: Path, snapshot: dict[str, tuple[str, bytes | str | None]]) -> None:
+def _restore_tree(root: Path, snapshot: dict[str, tuple[str, bytes | str | None, int | None]]) -> None:
     for child in list(root.iterdir()):
         _remove_entry(child)
-    for relative, (kind, value) in sorted(snapshot.items(), key=lambda item: (len(PurePosixPath(item[0]).parts), item[0])):
+    for relative, (kind, value, mode) in sorted(snapshot.items(), key=lambda item: (len(PurePosixPath(item[0]).parts), item[0])):
         path = root / relative
         if kind == "directory":
             path.mkdir(parents=True, exist_ok=True)
@@ -575,6 +575,8 @@ def _restore_tree(root: Path, snapshot: dict[str, tuple[str, bytes | str | None]
         else:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(value if isinstance(value, bytes) else b"")
+            if mode is not None:
+                path.chmod(mode)
 
 
 def _link_claude_skills(root: Path, managed_skills: set[str]) -> None:
@@ -725,7 +727,7 @@ def _git_clean_with_head(root: Path) -> None:
         head = subprocess.run([*command, "rev-parse", "--verify", "HEAD"], capture_output=True, text=True, check=False)
         if head.returncode != 0:
             raise _error("resolve requires a Git repository with HEAD")
-        status = subprocess.run([*command, "status", "--porcelain", "--untracked-files=all", "--ignored=matching"], capture_output=True, text=True, check=False)
+        status = subprocess.run([*command, "status", "--porcelain", "--untracked-files=all"], capture_output=True, text=True, check=False)
         if status.returncode != 0:
             raise _error("resolve could not read Git status")
         if status.stdout:
