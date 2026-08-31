@@ -8,17 +8,20 @@
 
 1. Resolve a v3 feature with default `assisted` mode and inspect the frozen provider and worker cap.
 2. Plan ready, blocked, conflicting, and serial cases; require worktrees only for compatible concurrent writers.
-3. Exercise the public executor and assisted probe with checkout-local fake providers; persist the packet and transport only its pointer.
-4. Observe correlated worktree, branch, operation, terminal, checkpoint, and lease receipts without packet bodies or absolute home paths.
-5. Reconcile transient responses through bounded read-only inspections and confirm one physical mutation per logical operation.
-6. Run cleanup only after ownership and lifecycle proof, then independently confirm zero owned residue and an unrelated canary remains.
-7. Keep the separate real Orca/Codex lifecycle and completed-pilot cleanup legs `blocked-verify` until upstream support is verified.
+3. When a gate declares a shared heavy resource, wrap only that command with `resource_lock.py` at
+   project scope by default or machine scope explicitly; leave unrelated resources concurrent.
+4. Exercise the public executor and assisted probe with checkout-local fake providers; persist the packet and transport only its pointer.
+5. Observe correlated worktree, branch, operation, terminal, checkpoint, and lease receipts without packet bodies or absolute home paths.
+6. Reconcile transient responses through bounded read-only inspections and confirm one physical mutation per logical operation.
+7. Run cleanup only after ownership and lifecycle proof, then independently confirm zero owned residue and an unrelated canary remains.
+8. Keep the separate real Orca/Codex lifecycle and completed-pilot cleanup legs `blocked-verify` until upstream support is verified.
 
 ## Promises
 
 - [`QAS-run-resource-free-parallel-orca-slices`](../scenarios/QAS-run-resource-free-parallel-orca-slices.md)
 - [`QAS-clean-owned-parallel-slice-pilot`](../scenarios/QAS-clean-owned-parallel-slice-pilot.md)
 - [`QAS-coordinate-assisted-slices-offline`](../scenarios/QAS-coordinate-assisted-slices-offline.md)
+- [`QAS-serialize-heavy-test-resources`](../scenarios/QAS-serialize-heavy-test-resources.md)
 - [`CFG-fallback-unproven-parallel-execution`](../scenarios/CFG-fallback-unproven-parallel-execution.md)
 - [`QAS-bound-verifier-remediation-per-blocker`](../scenarios/QAS-bound-verifier-remediation-per-blocker.md)
 
