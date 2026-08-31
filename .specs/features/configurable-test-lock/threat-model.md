@@ -32,7 +32,7 @@ feature handles no network traffic, credentials, product data, or privileged ser
 | --- | --- | --- |
 | Shell injection through argv | Execute an argument vector directly with no shell | SEC-001 |
 | Path traversal through resource names | Strict bounded identifier validation | SEC-002 |
-| Symlink substitution of lock root or file | `lstat`, ownership checks, private mode, no-follow open | SEC-003 |
+| Symlink substitution of lock root or file | Stable no-follow directory FD, relative no-follow open, ownership checks, private mode | SEC-003 |
 | Secret disclosure through holder reporting | Metadata allowlist excludes argv and environment | SEC-004 |
 | Premature release after wrapper death | Child inherits the kernel lock descriptor | IT-006 |
 | Indefinite resource denial | Configurable finite timeout, default 2,700 seconds | IT-005 |

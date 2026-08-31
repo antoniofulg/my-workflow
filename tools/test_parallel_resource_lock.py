@@ -213,6 +213,18 @@ def test_argv_status_validation_and_secret_free_diagnostics() -> None:
         assert run_lock(project, temporary, "valid", [sys.executable, "-c", "raise SystemExit(17)"]).returncode == 17
         assert run_lock(project, temporary, "valid", ["missing-command-for-lock-test"], timeout=0).returncode == 127
         assert run_lock(project, temporary, "valid", [sys.executable, "-c", "raise SystemExit(9)"], timeout=-1).returncode == 2
+        no_separator_sentinel = temporary / "no-separator-ran"
+        missing_separator = subprocess.run(
+            [sys.executable, str(SCRIPT), "run", "--resource", "valid", sys.executable, "-c", "import pathlib,sys; pathlib.Path(sys.argv[1]).write_text('ran'); raise SystemExit(17)", str(no_separator_sentinel)],
+            cwd=project,
+            env={**os.environ, "TMPDIR": str(temporary)},
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert missing_separator.returncode == 2
+        assert "literal --" in missing_separator.stderr
+        assert not no_separator_sentinel.exists()
 
         secret = "secret-not-in-diagnostics"
         metadata_code = """
@@ -292,6 +304,38 @@ def test_private_lock_root_rejects_symlink_and_project_requires_git() -> None:
                 pass
             else:
                 raise AssertionError("foreign-owner lock root accepted")
+
+        race_case = temporary / "race-case"
+        race_case.mkdir()
+        race_project = repository(race_case, "project")
+        race_root = race_case / f"my-workflow-test-lock-{os.getuid()}"
+        outside = race_case / "swap-target"
+        outside.mkdir()
+        stable_root = race_case / "stable-root"
+        original_open = resource_lock.os.open
+
+        def swap_after_directory_open(path: str | os.PathLike[str], flags: int, mode: int = 0o777, *, dir_fd: int | None = None) -> int:
+            fd = original_open(path, flags, mode, dir_fd=dir_fd)
+            if dir_fd is None and Path(path) == race_root:
+                race_root.rename(stable_root)
+                race_root.symlink_to(outside, target_is_directory=True)
+            return fd
+
+        previous_directory = Path.cwd()
+        previous_tmpdir = os.environ.get("TMPDIR")
+        try:
+            os.chdir(race_project)
+            os.environ["TMPDIR"] = str(race_case)
+            with patch.object(resource_lock.os, "open", side_effect=swap_after_directory_open):
+                result = resource_lock.main(["run", "--resource", "race", "--", sys.executable, "-c", "raise SystemExit(0)"])
+        finally:
+            os.chdir(previous_directory)
+            if previous_tmpdir is None:
+                os.environ.pop("TMPDIR", None)
+            else:
+                os.environ["TMPDIR"] = previous_tmpdir
+        assert result == 0
+        assert list(outside.iterdir()) == []
 
 
 def main() -> None:

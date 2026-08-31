@@ -89,26 +89,29 @@ def _lock_root() -> Path:
     return Path(temporary) / f"my-workflow-test-lock-{os.getuid()}"
 
 
-def _private_directory(root: Path) -> None:
+def _private_directory(root: Path) -> int:
     try:
         root.mkdir(mode=0o700)
     except FileExistsError:
         pass
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
     try:
-        info = root.lstat()
+        directory_fd = os.open(root, flags)
     except OSError as exc:
         raise ValueError("lock directory is unavailable") from exc
+    info = os.fstat(directory_fd)
     if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+        os.close(directory_fd)
         raise ValueError("lock directory is not a private current-user directory")
+    return directory_fd
 
 
-def _open_lock(root: Path, name: str) -> int:
-    path = root / name
+def _open_lock(directory_fd: int, name: str) -> int:
     flags = os.O_RDWR | os.O_CREAT
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
     try:
-        fd = os.open(path, flags, 0o600)
+        fd = os.open(name, flags, 0o600, dir_fd=directory_fd)
     except OSError as exc:
         if exc.errno == errno.ELOOP:
             raise ValueError("lock file must not be a symlink") from exc
@@ -193,7 +196,13 @@ def _run(command: Sequence[str], fd: int) -> int:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    args = _parser().parse_args(argv)
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
+    if raw_argv[:1] == ["run"] and "--" not in raw_argv:
+        if any(value in {"-h", "--help"} for value in raw_argv[1:]):
+            _parser().parse_args(raw_argv)
+        print("resource_lock.py: run requires a literal -- before the command", file=sys.stderr)
+        return 2
+    args = _parser().parse_args(raw_argv)
     if args.command[:1] == ["--"]:
         args.command = args.command[1:]
     if args.action != "run" or not args.command:
@@ -201,10 +210,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         project = _project_identifier(args.scope == "project")
         root = _lock_root()
-        _private_directory(root)
+        root_fd = _private_directory(root)
         namespace = project if args.scope == "project" else "machine"
-        fd = _open_lock(root, f"{args.scope}-{namespace}-{args.resource}.lock")
+        fd = _open_lock(root_fd, f"{args.scope}-{namespace}-{args.resource}.lock")
     except (OSError, ValueError) as exc:
+        if "root_fd" in locals():
+            os.close(root_fd)
         print(f"test-resource-lock: {exc}", file=sys.stderr)
         return 2
     try:
@@ -216,6 +227,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 130
     finally:
         os.close(fd)
+        os.close(root_fd)
 
 
 if __name__ == "__main__":
