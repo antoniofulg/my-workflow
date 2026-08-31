@@ -11,8 +11,8 @@ bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-30-layered-workflow-adoption/summary.json; docs/qa/evidence/2026-08-30-layered-workflow-adoption/opening-gate.txt; docs/qa/evidence/2026-08-30-layered-workflow-adoption/package-dry-run.txt
-last_report: docs/qa/reports/2026-08-30-layered-workflow-adoption.md
+evidence: docs/qa/evidence/2026-08-31-legacy-adoption-resolution/summary.json; docs/qa/evidence/2026-08-31-legacy-adoption-resolution/commands.jsonl
+last_report: docs/qa/reports/2026-08-31-legacy-adoption-resolution.md
 overlaps: ADP-adopt-workflow-safely
 ---
 
@@ -34,3 +34,12 @@ and missing-only files, and refused drift, collisions, unsafe symlinks, invalid 
 manifests without writes. Bun knowledge exited 0, probe import made zero Orca calls, reapply was
 byte-stable, and the adopted target contained no repository test files or transaction residue. Live
 Orca scenarios remain unchanged and outside this offline adoption verdict.
+
+The legacy-adoption-resolution cycle changes the shared planning and publication path while
+promising unchanged normal `plan`, `apply`, and `status` behaviour. The previous report remains as
+history, but this promise is reset to `untested` for an adjacent disposable-target canary.
+
+The 2026-08-31 adjacent canary passed at `827d629`: a fresh target's read-only plan stayed
+byte-identical, normal parallel apply and status reached clean state, reversible managed drift
+returned status exit 1 without writes, restoration returned exit 0, and all disposable state was
+removed.

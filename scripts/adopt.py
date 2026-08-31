@@ -8,7 +8,9 @@ import hashlib
 import json
 import os
 import re
+import runpy
 import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path, PurePosixPath
@@ -16,7 +18,7 @@ from typing import Any
 
 STENCIL = "<!-- product-stencil:"
 MANIFEST_SCHEMA = 1
-WORKFLOW_VERSION = "0.7.0"
+WORKFLOW_VERSION = "0.8.0"
 SEMVER_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 MAX_SEMVER_COMPONENT_DIGITS = 9
 LAYERS = ("core", "parallel", "quality", "extras")
@@ -39,7 +41,10 @@ CORE_PATHS = (
     "templates/adoption/agents",
 )
 CORE_MISSING_PATHS = ("tools/ad-index.py", ".my-workflow.toml.example", "templates/agents")
-PARALLEL_PATHS = ("tools/qa_parallel_pilot.py", "tools/orca_assisted_probe.py", ".agents/skills/autonomous")
+PARALLEL_PATHS = (
+    "tools/qa_parallel_pilot.py", "tools/orca_assisted_probe.py", "tools/resource_lock.py",
+    ".agents/skills/autonomous",
+)
 QUALITY_PATHS = (".agents/skills/deep-review", ".agents/skills/qa-plan", ".agents/skills/qa-execute")
 QUALITY_MISSING_PATHS = ("docs/qa/README.md",)
 EXTRAS_PATHS = (
@@ -440,7 +445,7 @@ def _prepare_sync(source_root: Path, root: Path, staged: dict[str, bytes]) -> di
         return {}
     with tempfile.TemporaryDirectory(prefix="my-workflow-sync-") as name:
         scratch = Path(name)
-        for relative in ("templates/agents", ".agents/skills/workflow-config"):
+        for relative in ("templates/agents",):
             source = root / relative
             if source.exists() or source.is_symlink():
                 _preflight_tree(root, relative, "sync input")
@@ -460,23 +465,22 @@ def _prepare_sync(source_root: Path, root: Path, staged: dict[str, bytes]) -> di
             staged_path = scratch / relative
             staged_path.parent.mkdir(parents=True, exist_ok=True)
             staged_path.write_bytes(content)
-        sys.path.insert(0, str((scratch / ".agents/skills/workflow-config/scripts").resolve()))
-        import workflow_config  # type: ignore
+        workflow_config = runpy.run_path(str(resolver_root / "scripts/workflow_config.py"))
         try:
-            workflow_config.sync_agents(scratch)
+            workflow_config["sync_agents"](scratch)
         except Exception as exc:  # workflow-config exposes its own ConfigError type.
             raise _error(str(exc)) from exc
         generated: dict[str, bytes] = {}
-        for provider in workflow_config.PROVIDERS:
-            for role in workflow_config.ROLES:
-                relative = workflow_config._runtime_relative(provider, role).as_posix()
+        for provider in workflow_config["PROVIDERS"]:
+            for role in workflow_config["ROLES"]:
+                relative = workflow_config["_runtime_relative"](provider, role).as_posix()
                 generated[relative] = (scratch / relative).read_bytes()
         if not local.is_file():
             generated[".my-workflow.toml"] = (scratch / ".my-workflow.toml").read_bytes()
         return generated
 
 
-def _preflight_tree(root: Path, relative: str, label: str) -> None:
+def _preflight_tree(root: Path, relative: str, label: str, *, contents: bool = True) -> None:
     current = root
     for part in PurePosixPath(relative).parts:
         current /= part
@@ -485,7 +489,7 @@ def _preflight_tree(root: Path, relative: str, label: str) -> None:
     path = root / relative
     if path.exists() and not path.is_dir():
         raise _error(f"{label} {relative} must be a directory")
-    if path.is_dir():
+    if contents and path.is_dir():
         for node in path.rglob("*"):
             if node.is_symlink():
                 raise _error(f"{label} {relative} contains symlink {node.relative_to(root)}")
@@ -497,11 +501,8 @@ def _preflight_special(root: Path, skip_agents: bool, managed_skills: set[str]) 
     if not skip_agents:
         for relative in ("AGENTS.md", "CLAUDE.md"):
             _safe_path(root, relative, "instruction destination")
+    _preflight_tree(root, ".claude/skills", "generated skills", contents=False)
     skills_root = root / ".claude/skills"
-    if skills_root.is_symlink():
-        raise _error("generated skills directory must not be a symlink")
-    if skills_root.exists() and not skills_root.is_dir():
-        raise _error("generated skills directory must be a directory")
     if skills_root.exists():
         for skill_name in managed_skills:
             pointer = skills_root / skill_name
@@ -536,16 +537,16 @@ def _atomic_write(path: Path, content: bytes) -> None:
             temporary.unlink()
 
 
-def _tree_snapshot(root: Path) -> dict[str, tuple[str, bytes | str | None]]:
-    snapshot: dict[str, tuple[str, bytes | str | None]] = {}
+def _tree_snapshot(root: Path) -> dict[str, tuple[str, bytes | str | None, int | None]]:
+    snapshot: dict[str, tuple[str, bytes | str | None, int | None]] = {}
     for path in sorted(root.rglob("*")):
         relative = path.relative_to(root).as_posix()
         if path.is_symlink():
-            snapshot[relative] = ("symlink", os.readlink(path))
+            snapshot[relative] = ("symlink", os.readlink(path), None)
         elif path.is_dir():
-            snapshot[relative] = ("directory", None)
+            snapshot[relative] = ("directory", None, None)
         else:
-            snapshot[relative] = ("file", path.read_bytes())
+            snapshot[relative] = ("file", path.read_bytes(), path.stat().st_mode & 0o7777)
     return snapshot
 
 
@@ -558,10 +559,10 @@ def _remove_entry(path: Path) -> None:
         path.rmdir()
 
 
-def _restore_tree(root: Path, snapshot: dict[str, tuple[str, bytes | str | None]]) -> None:
+def _restore_tree(root: Path, snapshot: dict[str, tuple[str, bytes | str | None, int | None]]) -> None:
     for child in list(root.iterdir()):
         _remove_entry(child)
-    for relative, (kind, value) in sorted(snapshot.items(), key=lambda item: (len(PurePosixPath(item[0]).parts), item[0])):
+    for relative, (kind, value, mode) in sorted(snapshot.items(), key=lambda item: (len(PurePosixPath(item[0]).parts), item[0])):
         path = root / relative
         if kind == "directory":
             path.mkdir(parents=True, exist_ok=True)
@@ -571,6 +572,8 @@ def _restore_tree(root: Path, snapshot: dict[str, tuple[str, bytes | str | None]
         else:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(value if isinstance(value, bytes) else b"")
+            if mode is not None:
+                path.chmod(mode)
 
 
 def _link_claude_skills(root: Path, managed_skills: set[str]) -> None:
@@ -657,7 +660,15 @@ def _effect_actions(root: Path, special: dict[str, bytes], block_outputs: dict[s
     return actions
 
 
-def _build_plan(source_root: Path, root: Path, requested: list[str], selected: list[str], skip_agents: bool, sync: bool) -> tuple[dict[str, Any], dict[str, bytes]]:
+def _build_plan(
+    source_root: Path,
+    root: Path,
+    requested: list[str],
+    selected: list[str],
+    skip_agents: bool,
+    sync: bool,
+    replacements: set[str] | None = None,
+) -> tuple[dict[str, Any], dict[str, bytes]]:
     manifest = load_manifest(root)
     installed = resolve_layers(manifest["layers"]) if manifest["layers"] else []
     effective = resolve_layers(list(LAYERS if requested == ["full"] else requested) + installed)
@@ -669,8 +680,12 @@ def _build_plan(source_root: Path, root: Path, requested: list[str], selected: l
         ".gitignore": _merge_ignore((root / ".gitignore").read_bytes() if (root / ".gitignore").is_file() else None, WORKFLOW_GITIGNORE_ENTRIES, LEGACY_WORKFLOW_GITIGNORE_ENTRIES),
         ".ignore": _merge_ignore((root / ".ignore").read_bytes() if (root / ".ignore").is_file() else None, WORKFLOW_SEARCHIGNORE_ENTRIES),
     }
+    replacements = replacements or set()
     for action in actions:
-        if action["action"] in {"add", "update"}:
+        if action["path"] in replacements and action["action"] == "conflict":
+            action["action"] = "replace"
+            conflicts.remove(action["path"])
+        if action["action"] in {"add", "update", "replace"}:
             source = (source_root / action["path"]).read_bytes()
             special[action["path"]] = _adopted_bytes(action["path"], source)
     staged = dict(special)
@@ -695,6 +710,72 @@ def _build_plan(source_root: Path, root: Path, requested: list[str], selected: l
         "conflicts": sorted(set(conflicts)),
     }
     return result, special
+
+
+def _git_clean_with_head(root: Path) -> None:
+    command = ["git", "-C", str(root)]
+    try:
+        inside = subprocess.run([*command, "rev-parse", "--is-inside-work-tree"], capture_output=True, text=True, check=False)
+        if inside.returncode != 0 or inside.stdout.strip() != "true":
+            raise _error("resolve requires a Git work tree")
+        top = subprocess.run([*command, "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=False)
+        if top.returncode != 0 or Path(top.stdout.strip()).resolve() != root.resolve():
+            raise _error("resolve target must be the root of its Git work tree")
+        head = subprocess.run([*command, "rev-parse", "--verify", "HEAD"], capture_output=True, text=True, check=False)
+        if head.returncode != 0:
+            raise _error("resolve requires a Git repository with HEAD")
+        status = subprocess.run([*command, "status", "--porcelain", "--untracked-files=all"], capture_output=True, text=True, check=False)
+        if status.returncode != 0:
+            raise _error("resolve could not read Git status")
+        if status.stdout:
+            raise _error("resolve requires a clean Git target")
+    except OSError as exc:
+        raise _error(f"resolve requires Git: {exc}") from exc
+
+
+def _legacy_target_eligible(root: Path) -> None:
+    _git_clean_with_head(root)
+    if _manifest_path(root).exists():
+        raise _error("resolve is only available before an adoption manifest exists")
+
+
+def _resolve_replacement_set(
+    values: list[str], conflicts: list[str], catalog: dict[str, str]
+) -> tuple[set[str], bool]:
+    replacements: set[str] = set()
+    for value in values:
+        relative = _relative_path(value)
+        if relative in replacements:
+            raise _error(f"duplicate replacement authorization: {relative}")
+        replacements.add(relative)
+    file_conflicts = {path for path in conflicts if path in catalog}
+    invalid = replacements - file_conflicts
+    if invalid:
+        raise _error(f"replacement is not a current file conflict: {', '.join(sorted(invalid))}")
+    missing = file_conflicts - replacements
+    return replacements, not missing and all(conflict in replacements for conflict in conflicts)
+
+
+def _publish(source_root: Path, root: Path, result: dict[str, Any], staged: dict[str, bytes], require_git: bool = False) -> None:
+    previous = _tree_snapshot(root)
+    if require_git:
+        _git_clean_with_head(root)
+    try:
+        for relative, content in sorted(staged.items(), key=lambda item: _publication_order(item[0])):
+            if relative == ".my-workflow/adoption.json":
+                continue
+            _atomic_write(root / relative, content)
+        remove_legacy_managed_tests(root)
+        _link_claude_skills(root, _managed_skill_names(result["resolved_layers"]))
+        manifest_path = root / ".my-workflow/adoption.json"
+        if not manifest_path.is_file() or manifest_path.read_bytes() != staged[".my-workflow/adoption.json"]:
+            _atomic_write(manifest_path, staged[".my-workflow/adoption.json"])
+    except Exception as exc:
+        try:
+            _restore_tree(root, previous)
+        except OSError as rollback_error:
+            raise AdoptionError(f"publication failed and rollback failed: {rollback_error}") from exc
+        raise AdoptionError(f"publication failed before the adoption manifest was published: {exc}") from exc
 
 
 def _text_result(result: dict[str, Any]) -> str:
@@ -773,6 +854,12 @@ def _parser() -> argparse.ArgumentParser:
         command.add_argument("--layers", required=True)
         command.add_argument("--json", action="store_true")
         command.add_argument("--skip-agents", action="store_true")
+    command = commands.add_parser("resolve")
+    command.add_argument("target", type=Path)
+    command.add_argument("--layers", required=True)
+    command.add_argument("--replace", action="append", default=[])
+    command.add_argument("--json", action="store_true")
+    command.add_argument("--skip-agents", action="store_true")
     command = commands.add_parser("status")
     command.add_argument("target", type=Path)
     command.add_argument("--json", action="store_true")
@@ -791,28 +878,26 @@ def main(argv: list[str] | None = None) -> int:
             return _status(source_root, root, args.json)
         requested = requested_layers(args.layers)
         selected = resolve_layers(requested)
-        result, staged = _build_plan(source_root, root, requested, selected, args.skip_agents, args.command == "apply")
+        if args.command == "resolve":
+            _legacy_target_eligible(root)
+            planned, _ = _build_plan(source_root, root, requested, selected, args.skip_agents, False)
+            catalog = _catalog(source_root, planned["resolved_layers"])
+            replacements, complete = _resolve_replacement_set(args.replace, planned["conflicts"], catalog)
+            if not complete:
+                planned["command"] = "resolve"
+                planned["replacements"] = sorted(replacements)
+                print(json.dumps(planned, indent=2, sort_keys=True) if args.json else _text_result(planned))
+                return 1
+            result, staged = _build_plan(source_root, root, requested, selected, args.skip_agents, True, replacements)
+            result["command"] = "resolve"
+            result["replacements"] = sorted(replacements)
+        else:
+            result, staged = _build_plan(source_root, root, requested, selected, args.skip_agents, args.command == "apply")
         result["command"] = args.command
         print(json.dumps(result, indent=2, sort_keys=True) if args.json else _text_result(result))
         if args.command == "plan" or result["conflicts"]:
             return 1 if result["conflicts"] else 0
-        previous = _tree_snapshot(root)
-        try:
-            for relative, content in sorted(staged.items(), key=lambda item: _publication_order(item[0])):
-                if relative == ".my-workflow/adoption.json":
-                    continue
-                _atomic_write(root / relative, content)
-            remove_legacy_managed_tests(root)
-            _link_claude_skills(root, _managed_skill_names(result["resolved_layers"]))
-            manifest_path = root / ".my-workflow/adoption.json"
-            if not manifest_path.is_file() or manifest_path.read_bytes() != staged[".my-workflow/adoption.json"]:
-                _atomic_write(manifest_path, staged[".my-workflow/adoption.json"])
-        except Exception as exc:
-            try:
-                _restore_tree(root, previous)
-            except OSError as rollback_error:
-                raise AdoptionError(f"publication failed and rollback failed: {rollback_error}") from exc
-            raise AdoptionError(f"publication failed before the adoption manifest was published: {exc}") from exc
+        _publish(source_root, root, result, staged, args.command == "resolve")
         if not args.json:
             print(f"adopted layers into {root}")
             installer = source_root / "scripts/install_security_skills.py"

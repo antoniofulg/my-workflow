@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented here.
 
+## [0.8.0] - 2026-08-31
+
+### Added
+
+- Bun 1.4 is the supported runtime, with modular `workflow-spec-driven` layers for incremental adoption.
+- Assisted slice execution is the default: independent slices can run concurrently in isolated worktrees, while a single ready slice integrates serially in the checkout.
+- Configurable project-scoped and machine-scoped test locks coordinate concurrent test runs.
+- Legacy consumers can use `adopt.py resolve` with an exact, reviewable list of files to take over.
+
+### Changed
+
+- Remediation now reports real progress through the convergence ledger and preserves bounded stall decisions.
+
+### Fixed
+
+- First-use lock creation is serialized safely under concurrent adoption.
+- Adoption resolution rejects target-controlled code and unsafe `.claude` parent symlinks at the trust boundary.
+- Live Orca transport remains `blocked-verify` because the upstream `orca terminal send --text` limitation is not verified in this release.
+
 ## [0.7.0] - 2026-08-29
 
 ### Added

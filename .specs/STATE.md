@@ -260,3 +260,19 @@
   guidance, and their contract tests. Supersedes AD-014.
 - **Date**: 2026-08-28
 - **Status**: active
+
+### AD-017
+
+- **Decision**: Heavy test commands use an explicit named kernel lock separate from lane-wide
+  resource-provider leases. The default scope coordinates linked worktrees of one project; an
+  explicit machine scope coordinates projects using the same resource name. Adoption installs the
+  dormant wrapper with the `parallel` layer and never rewrites consumer-owned test commands.
+- **Reason**: A lane lease serializes implementation and light tests along with the contested gate,
+  while a command lock preserves concurrency until the exact browser, database, container, or media
+  command begins.
+- **Trade-off**: Consumers must classify and wrap their heavy commands. Incorrectly unwrapped gates
+  remain concurrent, while overly broad resource names reduce useful parallelism.
+- **Scope**: Parallel adoption inventory, heavy-gate execution, project test commands, and local
+  process-isolation guidance.
+- **Date**: 2026-08-30
+- **Status**: active

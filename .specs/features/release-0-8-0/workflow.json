@@ -1,0 +1,48 @@
+{
+  "deep_review": {
+    "cadence": "grouped.3",
+    "groups": [
+      [
+        1
+      ]
+    ]
+  },
+  "feature": "release-0-8-0",
+  "git_head": "223a5b95ba0483ea124a8a5e0d668e97e8425870",
+  "overrides": {},
+  "parallelization": {
+    "automatic_baseline": 2,
+    "automatic_ceiling": 4,
+    "max_workers": "auto",
+    "mode": "assisted",
+    "resource_provider": null
+  },
+  "profile": null,
+  "roles": {
+    "deep_reviewer": {
+      "agent_file": ".codex/agents/deep-reviewer.toml",
+      "effort": "high",
+      "model": "gpt-5.6-luna",
+      "provider": "codex"
+    },
+    "explorer": {
+      "agent_file": ".codex/agents/explorer.toml",
+      "effort": "medium",
+      "model": "gpt-5.6-luna",
+      "provider": "codex"
+    },
+    "implementer": {
+      "agent_file": ".codex/agents/implementer.toml",
+      "effort": "high",
+      "model": "gpt-5.6-luna",
+      "provider": "codex"
+    },
+    "verifier": {
+      "agent_file": ".codex/agents/verifier.toml",
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "provider": "codex"
+    }
+  },
+  "version": 3
+}

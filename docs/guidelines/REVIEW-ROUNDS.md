@@ -87,7 +87,7 @@ identity and buys the same independence.
    Filed-issue review uses the same rule. `ponytail-review` is the skill; this rule is what makes
    YAGNI blocking.
 ## Fingerprinted remediation accounting
-`fingerprint = requirement + root cause + failure path` is each finding's immutable identity. Maintain an independent failed-remediation counter for each fingerprint; count every failed post-fix Verifier result, whether or not the build gate is green. Halt on the third failed remediation of the same fingerprint and escalate the path. The executable state lives in `review-fingerprints.json` through the stdlib convergence script.
+`fingerprint = requirement + root cause + failure path` is each finding's immutable identity. Maintain an independent cumulative failed-remediation counter and append-only generation history for each fingerprint; count every failed post-fix Verifier result, whether or not the build gate is green. The current generation's consecutive-stall state is separate and halts only at the live `[remediation].stall_attempts` threshold. The executable state lives in `review-fingerprints.json` through the stdlib convergence script, which delegates the pure transition to `remediation.py`.
 Rewording or reopening a finding preserves its fingerprint and counter. A distinct blocker starts at count zero and does not consume another fingerprint's counter; the diagnostic cap is separate.
 ## Finding shape
 Every finding states, in this order:

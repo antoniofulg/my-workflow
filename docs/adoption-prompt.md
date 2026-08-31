@@ -22,6 +22,14 @@ and `CLAUDE.md`, so merge workflow instruction changes manually. Preserve an exi
 `templates/agents/`, then run `--sync-agents` to generate the ignored provider runtime packets
 from the tracked templates and local config; sync may overwrite those generated packets.
 
+If the plan reports conflicts and the target has no `.my-workflow/adoption.json`, review every
+conflict and move product customizations into product-owned files. Commit that clean Git baseline,
+then run `python3 /path/to/my-workflow/scripts/adopt.py resolve /path/to/target-project --layers <selected-layers> --replace <reviewed-file> [--replace <reviewed-file> ...]`, usually with
+`--skip-agents` for an existing product paragraph. Use one `--replace` for every current file
+conflict. There is no `--replace-all`; altered managed instruction blocks stay manual. Run
+`status` after resolve. Once `.my-workflow/adoption.json` exists, use normal `status` and `apply`
+plus manual resolution for managed-file drift.
+
 Read the pack's `CHANGELOG.md` from the target's adopted version to the current package version
 before an update. Run `python3 /path/to/my-workflow/scripts/adopt.py apply /path/to/target-project --layers <selected-layers>` only
 after the review. Use the same `<selected-layers>` value in plan and apply; `full` selects all four.

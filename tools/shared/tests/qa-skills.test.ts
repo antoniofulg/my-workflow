@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "bun:test";
@@ -467,8 +467,8 @@ describe("canonical QA skills", () => {
 
     const reviewRounds = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
     expect(reviewRounds).toContain("fingerprint = requirement + root cause + failure path");
-    expect(reviewRounds).toContain("independent failed-remediation counter for each fingerprint");
-    expect(reviewRounds).toContain("third failed remediation of the same fingerprint");
+    expect(reviewRounds).toContain("independent cumulative failed-remediation counter and append-only generation history");
+    expect(reviewRounds).toContain("live `[remediation].stall_attempts` threshold");
     expect(reviewRounds).toContain("every failed post-fix Verifier result, whether or not the build gate is green");
     expect(reviewRounds).toContain("Rewording or reopening a finding preserves its fingerprint and counter");
     expect(reviewRounds).toContain("A distinct blocker starts at count zero and does not consume another fingerprint's counter");
@@ -1050,28 +1050,59 @@ describe("adoption and public setup", () => {
     expect(qaExecute).toContain("does not write product code, install a framework, invent a");
   });
 
-  it("IT-005 / AIM-11 reports release version 0.7.0 consistently", () => {
+  it("IT-005 / AIM-11 reports release version and Bun lock identity consistently", () => {
     const manifest = JSON.parse(readRepositoryFile("package.json")) as {
       version?: string;
+      private?: boolean;
       packageManager?: string;
       scripts?: { test?: string };
     };
     const changelog = readRepositoryFile("CHANGELOG.md");
+    const releaseScenario = readRepositoryFile("docs/qa/scenarios/REL-report-current-workflow-release.md");
+    const currentScenarioVersion = releaseScenario.match(
+      /^Version-neutral owner for public release consistency\. For release `(\d+\.\d+\.\d+)`/m,
+    )?.[1];
     const latestHeading = changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m)?.[1];
     const releaseStart = changelog.indexOf(`## [${manifest.version}]`);
     const nextRelease = changelog.indexOf("\n## [", releaseStart + 1);
     const latestRelease = changelog.slice(releaseStart, nextRelease === -1 ? undefined : nextRelease);
 
-    expect(manifest.version).toBe("0.7.0");
+    expect(manifest.version).toBe("0.8.0");
+    expect(manifest.private).toBe(true);
     expect(manifest.packageManager).toBe("bun@1.4.0");
     expect(manifest.scripts?.test).toBe("bun test");
     expect(readRepositoryFile("bun.lock")).toContain('"name": "my-workflow"');
     expect(existsSync(join(repositoryRoot, "package-lock.json"))).toBe(false);
-    expect(latestHeading).toBe("0.7.0");
+    expect(latestHeading).toBe("0.8.0");
     expect(latestHeading).toBe(manifest.version);
+    expect(currentScenarioVersion).toBe(manifest.version);
+    expect(releaseScenario.match(/^expected: .*$/m)?.[0]).toBe(
+      "expected: The newest changelog release matches the package manifest, while Bun 1.4's lockfile identifies the root package and dependency graph; the documented install, knowledge, full-gate, frozen-lockfile, and package commands expose the current source pack without checkout residue.",
+    );
     expect(latestRelease).toContain("Assisted slice execution is the default");
     expect(latestRelease).toContain("workflow-spec-driven");
+    expect(latestRelease).toContain("Configurable project-scoped and machine-scoped test locks");
+    expect(latestRelease).toContain("adopt.py resolve");
+    expect(latestRelease).toContain("convergence ledger");
+    expect(latestRelease).toContain("trust boundary");
     expect(latestRelease).toContain("blocked-verify");
+
+    const pack = spawnSync(process.execPath, ["pm", "pack", "--dry-run", "--ignore-scripts"], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    });
+    expect(pack.status).toBe(0);
+    const packOutput = `${pack.stdout}${pack.stderr}`;
+    for (const requiredPath of [
+      "tools/resource_lock.py",
+      "tools/qa_parallel_pilot.py",
+      "tools/orca_assisted_probe.py",
+      ".agents/skills/autonomous/remediation.py",
+      "scripts/adopt.py",
+    ]) {
+      expect(packOutput).toContain(requiredPath);
+    }
+    expect(readdirSync(repositoryRoot).filter((entry) => entry.endsWith(".tgz"))).toEqual([]);
   });
 });
 
@@ -1098,7 +1129,9 @@ describe("Bun tooling runtime contract", () => {
       "tools/test_orca_assisted_probe.py",
       "tools/test_parallel_executor.py",
       "tools/test_parallel_plan.py",
+      "tools/test_parallel_resource_lock.py",
       "tools/test_qa_parallel_pilot.py",
+      "tools/test_remediation.py",
       "tools/test_review_convergence.py",
       "tools/test_tlc_validators.py",
       "tools/test_workflow_config.py",

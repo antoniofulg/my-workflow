@@ -175,6 +175,11 @@ def _stall_attempts(config: dict[str, Any]) -> int:
     return section.get("stall_attempts", STALL_ATTEMPTS_DEFAULT)
 
 
+def stall_attempts(root: Path) -> int:
+    """Read the current remediation stall threshold from the consumer config."""
+    return _stall_attempts(_read_config(root.resolve()))
+
+
 def _profiles(config: dict[str, Any]) -> dict[str, dict[str, str]]:
     return config.get("profiles") or {}
 

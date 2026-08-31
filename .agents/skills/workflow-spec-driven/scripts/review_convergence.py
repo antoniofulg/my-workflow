@@ -8,13 +8,25 @@ import hashlib
 import json
 import os
 import re
+import sys
 import tempfile
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+_SKILLS_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_SKILLS_ROOT / "autonomous"))
+import remediation
+
+sys.path.insert(0, str(_SKILLS_ROOT / "workflow-config" / "scripts"))
+import workflow_config
+
 MAX_FAILURES = 3
 GENERATION_STATUSES = {"open", "halted", "closed"}
+REMEDIATION_FIELDS = (
+    "failing_tests", "failing_signature", "minimum_failing_tests", "minimum_failing_count",
+    "consecutive_stalls", "attempt_count", "fixes_tried",
+)
 
 
 def _normalize(value: str) -> str:
@@ -43,7 +55,18 @@ def _halt_event(generation: int, failures: int) -> dict[str, Any]:
 
 
 def _generation(number: int, failures: int, status: str, **extra: Any) -> dict[str, Any]:
-    value: dict[str, Any] = {"generation": number, "failed_remediations": failures, "status": status}
+    value: dict[str, Any] = {
+        "generation": number,
+        "failed_remediations": failures,
+        "status": status,
+        "failing_tests": [],
+        "failing_signature": "",
+        "minimum_failing_tests": [],
+        "minimum_failing_count": 0,
+        "consecutive_stalls": 0,
+        "attempt_count": 0,
+        "fixes_tried": [],
+    }
     value.update(extra)
     if status == "halted":
         value.setdefault("halt_event", _halt_event(number, failures))
@@ -79,17 +102,41 @@ def _validate_generation(generation: Any, expected_number: int) -> dict[str, Any
     status = generation.get("status")
     if type(failures) is not int or failures < 0 or status not in GENERATION_STATUSES:
         raise ValueError("invalid audit generation")
-    if status == "halted" and failures < MAX_FAILURES:
-        raise ValueError("halted audit generation has too few failures")
-    if status == "open" and failures >= MAX_FAILURES:
-        raise ValueError("open audit generation has too many failures")
-    if status == "closed" and failures >= MAX_FAILURES:
-        raise ValueError("closed audit generation has too many failures")
+    for field in REMEDIATION_FIELDS:
+        if field not in generation:
+            if field == "failing_tests":
+                generation[field] = []
+            elif field == "minimum_failing_tests":
+                generation[field] = list(generation.get("failing_tests", []))
+            elif field == "failing_signature":
+                generation[field] = ""
+            elif field == "fixes_tried":
+                generation[field] = []
+            else:
+                generation[field] = 0
+    if not isinstance(generation["failing_tests"], list) or any(not isinstance(value, str) for value in generation["failing_tests"]):
+        raise ValueError("invalid remediation failing tests")
+    if not isinstance(generation["minimum_failing_tests"], list) or any(not isinstance(value, str) for value in generation["minimum_failing_tests"]):
+        raise ValueError("invalid remediation minimum failing tests")
+    if not isinstance(generation["failing_signature"], str):
+        raise ValueError("invalid remediation failing signature")
+    for field in ("minimum_failing_count", "consecutive_stalls", "attempt_count"):
+        if type(generation[field]) is not int or generation[field] < 0:
+            raise ValueError("invalid remediation counters")
+    if not isinstance(generation["fixes_tried"], list) or any(not isinstance(value, str) for value in generation["fixes_tried"]):
+        raise ValueError("invalid remediation fixes")
+    halt_reason = generation.get("halt_reason")
+    if halt_reason is not None and halt_reason not in {"stall_threshold_reached", "scoped_gate_unavailable"}:
+        raise ValueError("invalid remediation halt reason")
     if status == "halted":
+        if halt_reason == "stall_threshold_reached" and generation["consecutive_stalls"] < 1:
+            raise ValueError("halted audit generation has no recorded stall")
+        if failures < MAX_FAILURES and halt_reason not in {"stall_threshold_reached", "scoped_gate_unavailable"}:
+            raise ValueError("halted audit generation has no valid halt reason")
         event = generation.get("halt_event")
         if not isinstance(event, dict) or event != _halt_event(expected_number, failures):
             raise ValueError("invalid halt event")
-    elif "halt_event" in generation:
+    elif "halt_event" in generation or halt_reason is not None:
         raise ValueError("halt event on non-halted generation")
     if "authorization_ref" in generation and (
         not isinstance(generation["authorization_ref"], str)
@@ -180,6 +227,9 @@ def record_result(
     root: Path, feature: str, requirement: str, root_cause: str, failure_path: str, *,
     verifier_failed: bool, gate_passed: bool, previous_fingerprint: str | None = None,
     independent: bool = False, evidence_ref: str | None = None,
+    failing_tests: list[Any] | tuple[Any, ...] = (),
+    fixes_tried: list[Any] | tuple[Any, ...] = (),
+    gate_available: bool = True,
 ) -> dict[str, Any]:
     path = state_path(root, feature)
     state = _load(path, feature)
@@ -200,13 +250,36 @@ def record_result(
         elif previous_fingerprint is not None:
             current.update({"requirement": _normalize(requirement), "root_cause": _normalize(root_cause), "failure_path": _normalize(failure_path)})
     generation = current["generations"][-1]
+    prior_status = current["status"]
+    remediation_attempt = verifier_failed or bool(failing_tests) or bool(fixes_tried) or not gate_available
+    if remediation_attempt and prior_status == "halted":
+        raise ValueError("halted fingerprint requires authorized resume")
+    transition: dict[str, Any] | None = None
+    if remediation_attempt:
+        transition = remediation.transition_remediation(
+            generation,
+            failing_tests,
+            stall_attempts=workflow_config.stall_attempts(root),
+            gate_available=gate_available,
+            fixes_tried=fixes_tried,
+        )
+        for field in REMEDIATION_FIELDS:
+            generation[field] = transition[field]
+        if transition["halted"]:
+            generation["status"] = "halted"
+            generation["halt_reason"] = transition["reason"]
+        elif verifier_failed:
+            generation["status"] = "open"
+            generation.pop("halt_event", None)
+            generation.pop("halt_reason", None)
     if verifier_failed:
-        if current["status"] == "halted":
-            raise ValueError("halted fingerprint requires authorized resume")
         generation["failed_remediations"] += 1
-        generation["status"] = "halted" if generation["failed_remediations"] >= MAX_FAILURES else "open"
-        if generation["status"] == "halted":
-            generation["halt_event"] = _halt_event(generation["generation"], generation["failed_remediations"])
+        if transition is None or not transition["halted"]:
+            generation["status"] = "open"
+            generation.pop("halt_event", None)
+            generation.pop("halt_reason", None)
+    if transition is not None and transition["halted"]:
+        generation["halt_event"] = _halt_event(generation["generation"], generation["failed_remediations"])
     elif gate_passed and previous_fingerprint is not None and current["status"] == "open":
         qualifies = independent and bool(evidence_ref) and _valid_authorization(evidence_ref)
         if current["current_generation"] == 1 or qualifies:
@@ -221,8 +294,19 @@ def record_result(
     return deepcopy(current)
 
 
-def record_failure(root: Path, feature: str, requirement: str, root_cause: str, failure_path: str, *, gate_passed: bool = False, previous_fingerprint: str | None = None) -> dict[str, Any]:
-    return record_result(root, feature, requirement, root_cause, failure_path, verifier_failed=True, gate_passed=gate_passed, previous_fingerprint=previous_fingerprint)
+def record_failure(
+    root: Path, feature: str, requirement: str, root_cause: str, failure_path: str, *,
+    gate_passed: bool = False, previous_fingerprint: str | None = None,
+    failing_tests: list[Any] | tuple[Any, ...] = (),
+    fixes_tried: list[Any] | tuple[Any, ...] = (),
+    gate_available: bool = True,
+) -> dict[str, Any]:
+    return record_result(
+        root, feature, requirement, root_cause, failure_path,
+        verifier_failed=True, gate_passed=gate_passed,
+        previous_fingerprint=previous_fingerprint, failing_tests=failing_tests,
+        fixes_tried=fixes_tried, gate_available=gate_available,
+    )
 
 
 def resume(root: Path, feature: str, resume_fingerprint: str, authorization_ref: str) -> dict[str, Any]:
@@ -263,6 +347,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--gate-passed", action="store_true")
     parser.add_argument("--independent", action="store_true")
     parser.add_argument("--evidence-ref")
+    parser.add_argument("--failing-test", action="append", default=[])
+    parser.add_argument("--fix-tried", action="append", default=[])
+    parser.add_argument("--gate-unavailable", action="store_true")
     args = parser.parse_args(argv)
     if args.resume_fingerprint is not None:
         if args.authorization_ref is None:
@@ -271,7 +358,13 @@ def main(argv: list[str] | None = None) -> int:
     else:
         if any(value is None for value in (args.requirement, args.root_cause, args.failure_path)):
             raise SystemExit("--requirement, --root-cause, and --failure-path are required")
-        result = record_result(args.root, args.feature, args.requirement, args.root_cause, args.failure_path, verifier_failed=args.verifier_failed, gate_passed=args.gate_passed, previous_fingerprint=args.previous_fingerprint, independent=args.independent, evidence_ref=args.evidence_ref)
+        result = record_result(
+            args.root, args.feature, args.requirement, args.root_cause, args.failure_path,
+            verifier_failed=args.verifier_failed, gate_passed=args.gate_passed,
+            previous_fingerprint=args.previous_fingerprint, independent=args.independent,
+            evidence_ref=args.evidence_ref, failing_tests=args.failing_test,
+            fixes_tried=args.fix_tried, gate_available=not args.gate_unavailable,
+        )
     print(json.dumps(result, sort_keys=True))
     return 0
 

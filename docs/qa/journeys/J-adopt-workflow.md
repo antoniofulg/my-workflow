@@ -2,7 +2,7 @@
 
 **Persona:** Workflow adopter
 **Goal:** Adopt the workflow without losing consumer-owned repository state.
-**Entry point:** `README.md` → **Adopt the workflow** → `scripts/adopt.py plan/apply/status`
+**Entry point:** `README.md` → **Adopt the workflow** → `scripts/adopt.py plan/resolve/apply/status`
 
 ## Flow
 
@@ -10,9 +10,11 @@
 2. Confirm `.specs/features/` is versioned workflow state that travels through worktrees and CI;
    task status commits with its task, while adoption removes exact legacy ignore entries and keeps
    unrelated consumer rules intact.
-3. Run a read-only `plan` for the smallest required layer, confirm the target is unchanged, review
-   the per-file actions, then `apply` it into a checkout-local disposable target. Use `status` after
-   each incremental apply and after one reversible managed-file drift.
+3. Run a read-only `plan` for the smallest required layer and confirm the target is unchanged. For a
+   legacy Git project without an adoption manifest, review every file conflict, move product-owned
+   customizations, commit a clean baseline, then `resolve` the exact replacement set with
+   `--skip-agents`. Otherwise `apply` the reviewed plan. Use `status` after resolution, each
+   incremental apply, and one reversible managed-file drift.
 4. Confirm bundled workflow assets are discoverable, including the workflow-owned
    `workflow-spec-driven` skill, pointer-only assisted probe, and Bun-native knowledge sources; the
    installed instructions activate Ponytail at workflow start and keep it active through the full
@@ -38,6 +40,7 @@ the complete apply before any write; this workflow has no layer-removal command.
 
 - [`ADP-adopt-workflow-safely`](../scenarios/ADP-adopt-workflow-safely.md)
 - [`ADP-layered-workflow-adoption`](../scenarios/ADP-layered-workflow-adoption.md)
+- [`ADP-resolve-legacy-adoption-conflicts`](../scenarios/ADP-resolve-legacy-adoption-conflicts.md)
 - [`ADP-separate-external-security-skills`](../scenarios/ADP-separate-external-security-skills.md)
 - [`ADP-validate-generated-feature-contracts`](../scenarios/ADP-validate-generated-feature-contracts.md)
 - [`ADP-validate-feature-completion-state`](../scenarios/ADP-validate-feature-completion-state.md)
@@ -53,3 +56,9 @@ distributed release still identifies itself and its provenance correctly.
 
 For the configurable-workflow cycle, this journey is also the adjacent canary for
 [`J-configure-feature-workflow`](J-configure-feature-workflow.md).
+
+## Latest QA status
+
+QA Execute on 2026-08-31 passed the legacy no-manifest ownership-transfer path and its fresh normal
+`plan`/`apply`/`status` canary at `827d629`. Durable result:
+[`2026-08-31-legacy-adoption-resolution`](../reports/2026-08-31-legacy-adoption-resolution.md).
