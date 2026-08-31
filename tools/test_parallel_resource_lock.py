@@ -281,6 +281,11 @@ def test_argv_status_validation_and_secret_free_diagnostics() -> None:
         assert unavailable.returncode == 127
         assert json.loads(unavailable.stderr)["executable"] == non_executable.name
         assert "Traceback" not in unavailable.stderr
+        not_a_directory = temporary / "not-a-directory"
+        not_a_directory.write_text("not a directory\n", encoding="utf-8")
+        other_exec_error = run_lock(project, temporary, "valid", [str(not_a_directory / "command")], timeout=0)
+        assert other_exec_error.returncode != 127
+        assert "exec_unavailable" not in other_exec_error.stderr
         assert run_lock(project, temporary, "valid", [sys.executable, "-c", "raise SystemExit(9)"], timeout=-1).returncode == 2
         no_separator_sentinel = temporary / "no-separator-ran"
         missing_separator = subprocess.run(
@@ -395,12 +400,15 @@ def test_private_lock_root_rejects_symlink_and_project_requires_git() -> None:
         outside.mkdir()
         stable_root = race_case / "stable-root"
         original_open = resource_lock.os.open
+        swap_happened = False
 
         def swap_after_directory_open(path: str | os.PathLike[str], flags: int, mode: int = 0o777, *, dir_fd: int | None = None) -> int:
+            nonlocal swap_happened
             fd = original_open(path, flags, mode, dir_fd=dir_fd)
             if dir_fd is None and Path(path) == race_root:
                 race_root.rename(stable_root)
                 race_root.symlink_to(outside, target_is_directory=True)
+                swap_happened = True
             return fd
 
         previous_directory = Path.cwd()
@@ -408,7 +416,7 @@ def test_private_lock_root_rejects_symlink_and_project_requires_git() -> None:
         try:
             os.chdir(race_project)
             os.environ["TMPDIR"] = str(race_case)
-            with patch.object(resource_lock.os, "open", side_effect=swap_after_directory_open):
+            with patch.object(resource_lock, "_lock_root", return_value=race_root), patch.object(resource_lock.os, "open", side_effect=swap_after_directory_open):
                 result = resource_lock.main(["run", "--resource", "race", "--", sys.executable, "-c", "raise SystemExit(0)"])
         finally:
             os.chdir(previous_directory)
@@ -417,6 +425,7 @@ def test_private_lock_root_rejects_symlink_and_project_requires_git() -> None:
             else:
                 os.environ["TMPDIR"] = previous_tmpdir
         assert result == 0
+        assert swap_happened
         assert list(outside.iterdir()) == []
 
 

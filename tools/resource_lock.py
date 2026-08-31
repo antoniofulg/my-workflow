@@ -196,7 +196,7 @@ def _run(command: Sequence[str], fd: int) -> int:
     os.set_inheritable(fd, True)
     try:
         return subprocess.run(command, check=False, pass_fds=(fd,)).returncode
-    except OSError:
+    except (FileNotFoundError, PermissionError):
         executable = Path(command[0]).name[:256]
         print(json.dumps({"event": "exec_unavailable", "executable": executable}, separators=(",", ":")), file=sys.stderr, flush=True)
         return MISSING_EXECUTABLE_STATUS
