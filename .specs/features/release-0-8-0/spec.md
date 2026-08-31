@@ -59,10 +59,10 @@ lock, and import the installed Orca probe with a fake executable that records ze
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| RLS-01 | P1: consistent release identity | Specify | Planned |
-| RLS-02 | P1: private source pack | Specify | Planned |
+| RLS-01 | P1: consistent release identity | Specify | Verified |
+| RLS-02 | P1: private source pack | Specify | Verified |
 | RLS-03 | P1: independent release QA | Specify | Planned |
-| RLS-04 | P1: honest Orca boundary | Specify | Planned |
+| RLS-04 | P1: honest Orca boundary | Specify | Verified |
 | RLS-05 | P1: remote release identity | Specify | Planned |
 
 **Coverage:** 5 total, 5 mapped to P1, 0 unmapped.

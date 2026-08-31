@@ -1050,7 +1050,7 @@ describe("adoption and public setup", () => {
     expect(qaExecute).toContain("does not write product code, install a framework, invent a");
   });
 
-  it("IT-005 / AIM-11 reports release version 0.7.0 consistently", () => {
+  it("IT-005 / AIM-11 reports release version 0.8.0 and stable claims consistently", () => {
     const manifest = JSON.parse(readRepositoryFile("package.json")) as {
       version?: string;
       packageManager?: string;
@@ -1062,15 +1062,19 @@ describe("adoption and public setup", () => {
     const nextRelease = changelog.indexOf("\n## [", releaseStart + 1);
     const latestRelease = changelog.slice(releaseStart, nextRelease === -1 ? undefined : nextRelease);
 
-    expect(manifest.version).toBe("0.7.0");
+    expect(manifest.version).toBe("0.8.0");
     expect(manifest.packageManager).toBe("bun@1.4.0");
     expect(manifest.scripts?.test).toBe("bun test");
     expect(readRepositoryFile("bun.lock")).toContain('"name": "my-workflow"');
     expect(existsSync(join(repositoryRoot, "package-lock.json"))).toBe(false);
-    expect(latestHeading).toBe("0.7.0");
+    expect(latestHeading).toBe("0.8.0");
     expect(latestHeading).toBe(manifest.version);
     expect(latestRelease).toContain("Assisted slice execution is the default");
     expect(latestRelease).toContain("workflow-spec-driven");
+    expect(latestRelease).toContain("Configurable project-scoped and machine-scoped test locks");
+    expect(latestRelease).toContain("adopt.py resolve");
+    expect(latestRelease).toContain("convergence ledger");
+    expect(latestRelease).toContain("trust boundary");
     expect(latestRelease).toContain("blocked-verify");
   });
 });
