@@ -193,7 +193,10 @@ def _run(command: Sequence[str], fd: int) -> int:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    args = _parser().parse_args(argv)
+    try:
+        args = _parser().parse_args(argv)
+    except KeyboardInterrupt:
+        return 130
     if args.command[:1] == ["--"]:
         args.command = args.command[1:]
     if args.action != "run" or not args.command:
