@@ -11,8 +11,8 @@ bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-09-01-gate-result-cache/refusal/walk.log; docs/qa/evidence/2026-09-01-gate-result-cache/refusal/step10-redo.log; docs/qa/evidence/2026-09-01-gate-result-cache/refusal/interrupt.log
-last_report: docs/qa/reports/2026-09-01-gate-result-cache.md
+evidence: docs/qa/evidence/2026-09-01-gate-cache-tool/refusal/walk.log; docs/qa/evidence/2026-09-01-gate-cache-tool/refusal/step10-redo.log; docs/qa/evidence/2026-09-01-gate-cache-tool/refusal/interrupt.log
+last_report: docs/qa/reports/2026-09-01-gate-cache-tool.md
 overlaps:
 ---
 
@@ -31,17 +31,18 @@ whatever the message says.
 The damaged-record legs must be walked with the record file mutated by hand, not with the tool's own
 writer, because the tool only ever writes well-formed records.
 
-QA on 2026-09-01 walked the refusal tour. Seventeen legs, every one capturing stdout, stderr and the
-exit status: a failing gate exited 7 and recorded `status: "fail"`, and an identical rerun executed
-again while the record still named a readable log. Ten hand-damaged records — truncated mid-object,
-`[]`, a bare string, literal `null`, a bare number, non-JSON, an unexpected schema version, a deleted
-log, a missing `log` field, and mode `000` — were each treated as absent: the gate executed and the
-process exited with the command's own status. No leg produced a traceback, and no leg produced a
-non-zero exit the gate command did not itself produce; the historic `AttributeError` on `null` did
-not reproduce. With `--root` outside every Git repository, and with `git` absent from `PATH`, the
-wrapper reported `NOCACHE`, ran the command, returned its status and wrote nothing. Invoking with no
-command after `--`, and with no `--` at all, refused with exit 2 and left the cache byte-identical.
-A closing clean run then rerun still earned an honest hit.
+A fresh Verifier walked the refusal tour on 2026-09-01 at `aa2fbc6`. Twenty legs, every one capturing
+stdout, stderr and the exit status: a failing gate exited 7 and recorded `status: "fail"`, and an
+identical rerun executed again while the record still named a readable log. Twelve hand-damaged
+records — truncated mid-object, `[]`, a bare string, literal `null`, a bare number, non-JSON, `true`,
+an unexpected schema version, a deleted log, a missing `log` field, a null `log` field, and mode
+`000` — were each treated as absent: the gate executed and the process exited with the command's own
+status. No leg produced a traceback, and no leg produced a non-zero exit the gate command did not
+itself produce; the historic `AttributeError` on `null` did not reproduce. With `--root` outside
+every Git repository, and with `git` absent from `PATH`, the wrapper reported `NOCACHE`, ran the
+command, returned its status and wrote nothing. Invoking with no command after `--`, and with no `--`
+at all, refused with exit 2 and left the cache byte-identical. A closing clean run then rerun still
+earned an honest hit.
 
 The interrupted-command edge is unwalked. One attempt was made; the signal never reached the run —
 a non-interactive background `SIGINT` is not the operator's foreground Ctrl-C, and the wrapper
