@@ -46,7 +46,7 @@ selector working, not failing.
 A gate whose result is already known for the exact tree being claimed should not run again. Re-running
 a current gate proves nothing new and saturates a machine that is running several checkouts.
 
-The rule, once a cache exists:
+The rule:
 
 - A **passing record whose fingerprint matches the current tree is fresh evidence.** Cite it — gate
   name, fingerprint, log path — instead of re-running.
