@@ -24,3 +24,4 @@ When recording an `AD-NNN`, run `python3 tools/ad-index.py` in the same commit.
 | `AD-015` | active | Replace the vendored TLC phase-batch delegation with a workflow-owned, CC-BY-4.0-attributed spec-driven skill that dispatches vertical slic… |
 | `AD-016` | active | A halted blocker fingerprint may resume only after explicit human authorization creates a new audit generation under that same fingerprint. |
 | `AD-017` | active | Heavy test commands use an explicit named kernel lock separate from lane-wide resource-provider leases. |
+| `AD-018` | active | The gate fingerprint is `sha256` over the gate label, the exact command argv, and the Git tree object written from a temporary index seeded… |

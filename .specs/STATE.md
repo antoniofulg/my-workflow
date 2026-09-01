@@ -276,3 +276,20 @@
   process-isolation guidance.
 - **Date**: 2026-08-30
 - **Status**: active
+
+### AD-018
+
+- **Decision**: The gate fingerprint is `sha256` over the gate label, the exact command argv, and
+  the Git tree object written from a temporary index seeded with the checkout index and refreshed
+  with every non-ignored worktree file. Records live in checkout-local ignored `.gate-cache/`.
+- **Reason**: One `git write-tree` names the exact content the gate could read, honours `.gitignore`,
+  changes on any edit, and does not change on a commit alone — which is the invalidation rule
+  `docs/guidelines/GATES.md` already states. Hand-rolled file walks restate Git badly.
+- **Trade-off**: Interpreter, dependency-binary, and environment versions are outside the key, so a
+  toolchain upgrade needs the cache directory deleted. A document-only edit also invalidates code
+  gates; that is conservative in the safe direction.
+- **Scope**: The gate cache tool. Whether a cached record may be cited as readiness evidence is a
+  separate decision, deferred with the wiring; `.agents/skills/autonomous/SKILL.md` still refuses
+  cached results and this delivery does not change it.
+- **Date**: 2026-09-01
+- **Status**: active
