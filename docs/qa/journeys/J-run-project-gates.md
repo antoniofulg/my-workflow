@@ -65,11 +65,12 @@ unchanged, and keep the cache from ever standing between the operator and a real
 
 - [`QAS-reuse-gate-result-for-unchanged-tree`](../scenarios/QAS-reuse-gate-result-for-unchanged-tree.md)
 - [`QAS-run-the-gate-when-the-cache-cannot-vouch`](../scenarios/QAS-run-the-gate-when-the-cache-cannot-vouch.md)
+- [`CFG-keep-the-gate-cache-out-of-git`](../scenarios/CFG-keep-the-gate-cache-out-of-git.md)
 
 ## Adjacent canary
 
-Walk [`J-adopt-workflow`](J-adopt-workflow.md) to confirm `.gate-cache/` stays invisible to Git in
-this repository and in a fresh adoption target
-([`CFG-keep-local-artifacts-out-of-git`](../scenarios/CFG-keep-local-artifacts-out-of-git.md)) and
-that adoption installs `tools/gate_cache.py`
-([`ADP-adopt-workflow-safely`](../scenarios/ADP-adopt-workflow-safely.md)).
+[`CFG-keep-local-artifacts-out-of-git`](../scenarios/CFG-keep-local-artifacts-out-of-git.md) owns the
+same Git-visibility promise for the runtimes that predate this directory. It is frozen historical
+evidence, so read it for contrast and never reset it; `CFG-keep-the-gate-cache-out-of-git` carries
+this cycle's verdict. Adoption is out of scope for this delivery — the tool is not in the adoption
+payload yet, so no `ADP` row belongs to this journey.
