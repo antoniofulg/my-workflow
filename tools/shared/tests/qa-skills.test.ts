@@ -1123,6 +1123,7 @@ describe("Bun tooling runtime contract", () => {
       "tools/test_deep_review_contract.py",
       "tools/test_deep_review_symlink_manifest.py",
       "tools/test_deep_review_token_metrics.py",
+      "tools/test_gate_cache.py",
       "tools/test_git_adapter.py",
       "tools/test_machine_health.py",
       "tools/test_orca_adapter.py",

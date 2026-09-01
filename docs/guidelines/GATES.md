@@ -55,7 +55,7 @@ The rule, once a cache exists:
 - **Scope still binds.** A scoped record never supports a "feature complete" claim.
 - On a **failing record**, open its log and fix from there. Never re-litigate it from memory.
 
-This cache is optional tooling for the consuming project.
+Produce a record: `python3 tools/gate_cache.py run --gate <scoped|full> -- <gate command>`.
 
 ## What the scenario tracker does not do
 
