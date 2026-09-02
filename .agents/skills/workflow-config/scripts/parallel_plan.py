@@ -156,8 +156,6 @@ def _parse_tasks(path: Path) -> tuple[list[Task], list[str]]:
         declared_paths, where_reason = _declared_paths(where)
         if status not in STATUS_VALUES:
             reasons.append(f"invalid-status:{task_id}")
-        if slice_id is None:
-            reasons.append(f"missing-slice:{task_id}")
         if where_reason:
             reasons.append(f"{where_reason}:{task_id}")
         resources, resource_reason = _resources(fields.get("resources"))

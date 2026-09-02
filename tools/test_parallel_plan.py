@@ -118,9 +118,20 @@ def make_resolver_repo(tasks: str, feature: str = "fixture") -> Path:
     return root
 
 
+# A review remediation record: no primary task, and a slice field the validator ignores.
+REMEDIATION = "### T2R1: review remediation\n**Slice:** B\n\n"
+
+
 # MAS-IT-008: the planner reports exactly the validator's primary-task membership.
 def test_resolved_snapshot_preserves_validator_slice_membership() -> None:
-    tasks = CLOSURE + task("T1", "A") + task("T2", "A") + task("T3", "B") + task("T4", "B")
+    tasks = (
+        CLOSURE
+        + task("T1", "A")
+        + task("T2", "A")
+        + REMEDIATION
+        + task("T3", "B")
+        + task("T4", "B")
+    )
     root = make_resolver_repo(tasks)
     try:
         snapshot = json.loads(
