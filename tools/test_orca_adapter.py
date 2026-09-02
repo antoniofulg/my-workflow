@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import Mapping
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / ".agents/skills/autonomous/scripts"))
 import orca_adapter
@@ -41,6 +42,12 @@ def fixture() -> tuple[Path, dict[str, object], dict[str, str]]:
     root = Path(tempfile.mkdtemp())
     worktree = root / "existing-worktree"
     worktree.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=root, check=True)
+    (root / "seed").write_text("seed\n", encoding="utf-8")
+    subprocess.run(["git", "add", "seed"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "seed"], cwd=root, check=True)
     lane = {"id": "slice-A", "slice": "A", "task": "T1", "feature": "fixture"}
     worktree_receipt = {
         "worktree_id": "wt-A",
@@ -109,6 +116,88 @@ def live_worker_output() -> dict[str, object]:
     }
 
 
+class CanaryDouble(orca_adapter.OrcaAdapter):
+    def __init__(self, root: Path, *, failure: str | None = None) -> None:
+        self.failure = failure
+        super().__init__(
+            root,
+            "fixture",
+            runner=RecordingCLI([{"exists": failure == "absence", "worktree_path": str(root / "canary-worktree")}]),
+            worktree_creator=lambda destination, source: {
+                "worktree_id": "wt-canary", "worktree_path": str(root / "canary-worktree"),
+                "branch": "(detached)", "pre_head": HEAD,
+            },
+            worktree_remover=self._remove,
+        )
+        self._canary_worker = {
+            "worktree_id": "wt-canary", "worktree_path": str(root / "canary-worktree"),
+            "branch": "(detached)", "pre_head": HEAD, "feature": "fixture", "slice": "canary",
+            "task": "lifecycle", "run_id": "run-canary", "task_id": "task-canary",
+            "orchestration_task_id": "task-canary", "dispatch_id": "dispatch-canary",
+            "terminal_handle": "terminal-canary", "idempotency_key": "canary-key", "status": "running",
+        }
+
+    def probe(self) -> dict[str, object]:
+        return {
+            "version": 1, "feature": "fixture", "adapter": "orca", "status": "candidate",
+            "runtime": {
+                "app_version": "1.4.189", "capabilities": [orca_adapter.CAPABILITY],
+                "executable_identity": {"path": "orca", "size": 1, "mtime_ns": 1},
+            },
+            "proof": {"cleanup": "not-run"},
+        }
+
+    def _canary_source_head(self) -> str:
+        return HEAD
+
+    def start_worker(self, lane: object, worktree: object, *, idempotency_key: str) -> dict[str, object]:
+        if self.failure == "start":
+            raise orca_adapter.AdapterError(
+                "worker start failed", details={
+                    "run_id": "run-canary", "task_id": "task-canary", "dispatch_id": "dispatch-canary",
+                    "terminal_handle": "terminal-canary",
+                },
+            )
+        self._canary_worker["idempotency_key"] = idempotency_key
+        return dict(self._canary_worker)
+
+    def wait_events(self, receipt: object, *, timeout: float = 30) -> dict[str, object]:
+        if self.failure == "completion":
+            raise orca_adapter.AdapterError("worker completion failed")
+        return {
+            "event": "worker_done", "status": "accepted", "delivery_id": "delivery-canary",
+            "task_id": "task-canary", "dispatch_id": "dispatch-canary",
+        }
+
+    def read_worker(self, receipt: object) -> dict[str, object]:
+        if self.failure == "read":
+            raise orca_adapter.AdapterError("worker read failed")
+        return {"dispatch_id": "dispatch-canary", "transcript": "<redacted>"}
+
+    def accept_worker_done(self, receipt: object, delivery: object, output: object) -> dict[str, object]:
+        return {"accepted": True}
+
+    def ack_delivery(self, receipt: object, delivery: object) -> dict[str, object]:
+        if self.failure == "ack":
+            raise orca_adapter.AdapterError("worker ack failed")
+        return {"acknowledged": True}
+
+    def release(self, receipt: object, result: object = None) -> dict[str, object]:
+        if self.failure == "release":
+            raise orca_adapter.AdapterError("worker release failed")
+        return {"released": True}
+
+    def _call(self, *arguments: str, timeout: float | None = None) -> dict[str, object]:
+        if arguments[0] == "worker-show":
+            return {"status": "released", "dispatch_id": "dispatch-canary", "terminal": {"handle": "terminal-canary", "status": "exited", "connected": False, "writable": False}}
+        return {"exists": self.failure == "absence", "worktree_path": str(self._canary_worker["worktree_path"])}
+
+    def _remove(self, receipt: Mapping[str, object]) -> dict[str, object]:
+        if self.failure == "removal":
+            raise orca_adapter.AdapterError("worktree removal failed")
+        return {"removed": True, "worktree_path": receipt["worktree_path"]}
+
+
 def test_start_attaches_existing_worktree_and_correlates_every_receipt_field() -> None:
     root, lane, worktree = fixture()
     try:
@@ -129,6 +218,267 @@ def test_start_attaches_existing_worktree_and_correlates_every_receipt_field() -
         assert receipt["pre_head"] == HEAD
         assert receipt["idempotency_key"] == KEY
         assert receipt["status"] == "running"
+    finally:
+        shutil.rmtree(root)
+
+
+def test_probe_rejects_installed_known_bad_version_without_lifecycle_effect() -> None:
+    root, _, _ = fixture()
+    try:
+        cli = RecordingCLI([{"ready": True, "appVersion": "1.4.188", "capabilities": [orca_adapter.CAPABILITY]}])
+        result = adapter(root, cli).probe()
+        assert result["status"] == "unsupported"
+        assert result["reason"] == "known-incompatible-version:1.4.188"
+        assert [call[0] for call in cli.calls] == [["orca", "status", "--json"]]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_probe_rejects_not_ready_missing_version_and_missing_contract() -> None:
+    cases = (
+        ({"ready": False, "appVersion": "1.4.189", "capabilities": [orca_adapter.CAPABILITY]}, "runtime-not-ready"),
+        ({"ready": False, "status": "running", "appVersion": "1.4.189", "capabilities": [orca_adapter.CAPABILITY]}, "runtime-not-ready"),
+        ({"ready": True, "capabilities": [orca_adapter.CAPABILITY]}, "missing-app-version"),
+        ({"ready": True, "version": 1, "capabilities": [orca_adapter.CAPABILITY]}, "missing-app-version"),
+        ({"ready": True, "appVersion": "1.4.189", "capabilities": []}, "missing-capability:" + orca_adapter.CAPABILITY),
+    )
+    for payload, reason in cases:
+        root, _, _ = fixture()
+        try:
+            result = adapter(root, RecordingCLI([payload])).probe()
+            assert result["status"] == "unsupported"
+            assert result["reason"] == reason
+            if "appVersion" in payload:
+                assert result["envelope"]["app_version"] == payload["appVersion"]
+                assert result["envelope"]["protocol_version"] == payload.get("version")
+        finally:
+            shutil.rmtree(root)
+
+
+def test_canary_failure_at_each_stage_never_caches_pass_and_reports_owned_ids() -> None:
+    for failure, expected_stage in (
+        ("start", "worker-start"), ("completion", "worker-done"), ("read", "worker-read"),
+        ("ack", "worker-ack"), ("release", "worker-release"), ("removal", "worktree-remove"),
+        ("absence", "absence"),
+    ):
+        root, _, _ = fixture()
+        try:
+            worker = CanaryDouble(root, failure=failure)
+            try:
+                worker.canary()
+            except orca_adapter.AdapterError as exc:
+                assert exc.details["stage"] == expected_stage
+                assert exc.details["dispatch_id"] == "dispatch-canary"
+                assert exc.details["terminal_handle"] == "terminal-canary"
+            else:
+                raise AssertionError(f"canary failure {failure} must be reported")
+            assert not worker._cache_path().exists()
+        finally:
+            shutil.rmtree(root)
+
+
+def test_probe_reuses_only_matching_repository_runtime_cache() -> None:
+    root, _, _ = fixture()
+    try:
+        cli = RecordingCLI([
+            {"ready": True, "appVersion": "1.4.189", "capabilities": [orca_adapter.CAPABILITY]},
+            {"ready": True, "appVersion": "1.4.189", "capabilities": [orca_adapter.CAPABILITY]},
+        ])
+        worker = adapter(root, cli)
+        identity = worker.identity()
+        orca_adapter.core.atomic_write_json(
+            worker._cache_path(),
+            {
+                "version": 1, "feature": "fixture", "repository": str(worker.root), "adapter": "orca",
+                "runtime": identity, "proof": {"cleanup": "clean"}, "status": "compatible",
+            },
+        )
+        result = worker.probe()
+        assert result["status"] == "compatible"
+        assert result["proof"]["cleanup"] == "clean"
+        assert result["proof"]["source"] == "canary"
+        assert result["proof"]["cached"] is True
+        assert result["missing_capabilities"] == []
+        assert result["reason"] is None
+        changed = adapter(
+            root,
+            RecordingCLI([{"ready": True, "appVersion": "1.4.190", "capabilities": [orca_adapter.CAPABILITY]}]),
+        ).probe()
+        assert changed["status"] == "candidate"
+        assert changed["reason"] == "canary-required"
+    finally:
+        shutil.rmtree(root)
+
+
+def test_cache_identity_changes_require_a_new_canary_for_repository_capabilities_and_executable() -> None:
+    for change in ("repository", "capabilities", "path", "size", "mtime_ns"):
+        root, _, _ = fixture()
+        try:
+            initial = adapter(
+                root,
+                RecordingCLI([{"ready": True, "appVersion": "1.4.189", "capabilities": [orca_adapter.CAPABILITY]}]),
+            )
+            identity = initial.identity()
+            runtime = dict(identity)
+            if change == "repository":
+                repository = str(initial.root) + "/foreign"
+            else:
+                repository = str(initial.root)
+                runtime["capabilities"] = [orca_adapter.CAPABILITY, "new.capability"] if change == "capabilities" else runtime["capabilities"]
+                executable = dict(runtime["executable_identity"])
+                if change == "path":
+                    executable["path"] = "/different/orca"
+                elif change == "size":
+                    executable["size"] = int(executable.get("size", 0)) + 1
+                elif change == "mtime_ns":
+                    executable["mtime_ns"] = int(executable.get("mtime_ns", 0)) + 1
+                runtime["executable_identity"] = executable
+            orca_adapter.core.atomic_write_json(initial._cache_path(), {
+                "version": 1, "feature": "fixture", "repository": repository, "adapter": "orca",
+                "runtime": identity, "proof": {"cleanup": "clean"}, "status": "compatible",
+            })
+            changed = adapter(
+                root,
+                RecordingCLI([{"ready": True, "appVersion": "1.4.189", "capabilities": [orca_adapter.CAPABILITY]}]),
+            )
+            if change == "capabilities":
+                changed._runtime_identity = lambda status: runtime  # type: ignore[method-assign]
+            elif change != "repository":
+                changed._executable_identity = lambda: runtime["executable_identity"]  # type: ignore[method-assign]
+            result = changed.probe()
+            assert result["status"] == "candidate"
+            assert result["reason"] == "canary-required"
+        finally:
+            shutil.rmtree(root)
+
+
+def test_matching_cache_returns_compatible_without_running_canary() -> None:
+    root, _, _ = fixture()
+    try:
+        class NoCanary(orca_adapter.OrcaAdapter):
+            def canary(self) -> dict[str, object]:
+                raise AssertionError("matching cache must not run canary")
+
+        worker = NoCanary(
+            root,
+            "fixture",
+            runner=RecordingCLI([
+                {"ready": True, "appVersion": "1.4.189", "capabilities": [orca_adapter.CAPABILITY]},
+                {"ready": True, "appVersion": "1.4.189", "capabilities": [orca_adapter.CAPABILITY]},
+            ]),
+        )
+        identity = worker.identity()
+        orca_adapter.core.atomic_write_json(worker._cache_path(), {
+            "version": 1, "feature": "fixture", "repository": str(worker.root), "adapter": "orca",
+            "runtime": identity, "proof": {"cleanup": "clean"}, "status": "compatible",
+        })
+        result = worker.probe()
+        assert result["status"] == "compatible"
+        assert result["proof"]["cleanup"] == "clean"
+        assert len(worker.runner.calls) == 2  # type: ignore[attr-defined]
+    finally:
+        shutil.rmtree(root)
+
+
+def test_canary_requires_clean_removal_before_writing_compatibility_cache() -> None:
+    root, _, _ = fixture()
+    worktree = root / "canary-worktree"
+    worktree.mkdir()
+    receipt = {"worktree_id": "wt-canary", "worktree_path": str(worktree), "branch": "(detached)", "pre_head": HEAD}
+    creator_calls: list[tuple[Path, str]] = []
+    worker_starts: list[str] = []
+    worker_done_events: list[dict[str, object]] = []
+    try:
+        class Candidate(orca_adapter.OrcaAdapter):
+            def probe(self) -> dict[str, object]:
+                return {
+                    "version": 1, "feature": "fixture", "adapter": "orca", "status": "candidate",
+                    "runtime": {"app_version": "1.4.189", "capabilities": [orca_adapter.CAPABILITY], "executable_identity": {}},
+                    "proof": {"cleanup": "not-run"},
+                }
+
+            def _canary_source_head(self) -> str:
+                return HEAD
+
+            def start_worker(self, lane: object, worktree: object, *, idempotency_key: str) -> dict[str, object]:
+                worker_starts.append("worker-start")
+                return {**receipt, "feature": "fixture", "slice": "canary", "task": "lifecycle", "run_id": "run-canary", "task_id": "task-canary", "orchestration_task_id": "task-canary", "dispatch_id": "dispatch-canary", "terminal_handle": "terminal-canary", "idempotency_key": idempotency_key, "status": "running"}
+
+            def wait_events(self, receipt: object, *, timeout: float = 30) -> dict[str, object]:
+                event = {"event": "worker_done", "status": "accepted", "delivery_id": "delivery-canary", "task_id": "task-canary", "dispatch_id": "dispatch-canary"}
+                worker_done_events.append(event)
+                return event
+
+            def read_worker(self, receipt: object) -> dict[str, object]:
+                return {"dispatch_id": "dispatch-canary", "transcript": "<redacted>"}
+
+            def accept_worker_done(self, receipt: object, delivery: object, output: object) -> dict[str, object]:
+                return {"accepted": True}
+
+            def ack_delivery(self, receipt: object, delivery: object) -> dict[str, object]:
+                return {"acknowledged": True}
+
+            def release(self, receipt: object, result: object = None) -> dict[str, object]:
+                return {"released": True}
+
+            def _call(self, *arguments: str, timeout: float | None = None) -> dict[str, object]:
+                if arguments[0] == "worker-show":
+                    return {"status": "released", "dispatch_id": "dispatch-canary", "terminal": {"handle": "terminal-canary", "status": "exited", "connected": False, "writable": False}}
+                return {"exists": False, "worktree_path": str(worktree)}
+
+        cli = RecordingCLI([{"exists": False, "worktree_path": str(worktree)}])
+        def create_worktree(destination: Path, source: str) -> dict[str, str]:
+            creator_calls.append((destination, source))
+            return receipt
+
+        def remove_worktree(value: Mapping[str, object]) -> dict[str, object]:
+            shutil.rmtree(worktree)
+            return {"removed": True, "worktree_path": str(worktree)}
+
+        candidate = Candidate(
+            root, "fixture", runner=cli,
+            worktree_creator=create_worktree,
+            worktree_remover=remove_worktree,
+        )
+        result = candidate.canary()
+        assert result["status"] == "compatible"
+        assert result["proof"]["cleanup"] == "clean"
+        assert result["proof"]["source"] == "canary"
+        assert result["proof"]["cached"] is False
+        assert result["missing_capabilities"] == []
+        assert result["reason"] is None
+        assert len(creator_calls) == 1
+        assert worker_starts == ["worker-start"]
+        assert worker_done_events == [{
+            "event": "worker_done", "status": "accepted", "delivery_id": "delivery-canary",
+            "task_id": "task-canary", "dispatch_id": "dispatch-canary",
+        }]
+        assert json.loads(candidate._cache_path().read_text(encoding="utf-8"))["status"] == "compatible"
+    finally:
+        shutil.rmtree(root)
+
+
+def test_not_found_absence_requires_the_exact_local_path_to_be_gone() -> None:
+    class NotFoundRunner:
+        def __call__(self, argv: list[str], **kwargs: object) -> object:
+            raise subprocess.CalledProcessError(
+                1, argv, output=json.dumps({"error": {"code": "selector_not_found"}})
+            )
+
+    root, _, _ = fixture()
+    try:
+        gone = root / "gone-worktree"
+        worker = adapter(root, NotFoundRunner())
+        worker._canary_absence(gone)
+        retained = root / "retained-worktree"
+        retained.mkdir()
+        try:
+            worker._canary_absence(retained)
+        except orca_adapter.AdapterError as exc:
+            assert exc.details["stage"] == "absence"
+            assert exc.details["worktree_path"] == str(retained)
+        else:
+            raise AssertionError("not_found must not hide a retained local checkout")
     finally:
         shutil.rmtree(root)
 

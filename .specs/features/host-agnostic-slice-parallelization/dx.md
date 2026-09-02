@@ -1,0 +1,200 @@
+# Host-Agnostic Slice Parallelization Surface Contract
+
+## Commands
+
+```text
+python3 .agents/skills/autonomous/scripts/parallel_execute.py preflight \
+  --root . --feature <feature-slug> --adapter auto|orca|maestri [--canary]
+
+python3 .agents/skills/autonomous/scripts/parallel_execute.py start|resume \
+  --root . --feature <feature-slug> --adapter auto|orca|maestri
+```
+
+`preflight` emits one JSON object and never changes feature code. Without `--canary`, it is read-only.
+`--canary` is an explicit operator action: it may create one disposable Orca checkout and worker,
+must clean both, and records PASS only after proving zero residue. Maestri rejects `--canary` while
+its CLI lacks the structured lifecycle and cleanup contract.
+
+## Result
+
+```json
+{
+  "adapter": "orca",
+  "status": "compatible",
+  "runtime": {"app_version": "1.4.189", "capabilities": ["orchestration.contract.v1"]},
+  "proof": {"source": "canary", "cached": false, "cleanup": "clean"},
+  "missing_capabilities": [],
+  "reason": null
+}
+```
+
+`status` is `compatible`, `candidate`, or `unsupported`. `compatible` is the only result that can
+enable safe/full execution. `candidate` requires explicit `--canary`. `unsupported` names one stable
+reason and produces no scheduler effect.
+
+The frozen `.specs/features/<feature>/workflow.json` consumed by the executor is schema version `2`.
+Version `1` snapshots are obsolete and are rejected; the planner output's own `version` field is a
+separate plan schema.
+
+## Parallelization modes
+
+| Mode | Default | Effect |
+| --- | --- | --- |
+| `assisted` | yes | Plan with `full` DAG/sync semantics; return coordinator-owned assisted work before automatic adapter construction. |
+| `disabled` | no | Explicit sequential override; `start`/`resume` perform no planner, adapter, Git, or host effect. |
+| `safe` | no | Existing verified-producer automatic-adapter semantics. |
+| `full` | no | Existing checkpoint-sync automatic-adapter semantics. |
+
+Resolving without a configured mode writes `assisted`. Existing explicit modes remain explicit; no
+snapshot is silently re-resolved on resume.
+
+## Adapter selection
+
+- `auto` inside Maestri evaluates only Maestri.
+- `auto` outside Maestri evaluates Orca when its executable exists.
+- `auto` never crosses from one detected host into another.
+- `start` and `resume` in `disabled` mode return before adapter selection. Explicit `preflight` still
+  selects and probes the requested host so an operator can discover an Orca update.
+- `start` and `resume` accept only an identity-matching cached PASS; they never run a canary implicitly.
+
+## Coordinator-assisted Orca
+
+When mode is `assisted` and the plan exposes at least two safe ready slices, the main agent
+coordinates direct Orca worktrees by default. This path is supervised through the existing Orca CLI,
+is not a compatibility result, and never constructs the automatic adapter. It must read the frozen
+`roles.implementer.provider/model/effort` and always launch an explicit command, never trust an
+unobservable default. The command examples below use `shq(value)` to mean actual POSIX-shell quoting
+(for example `shlex.quote`); do not concatenate literal quote characters around arbitrary values.
+Use a fixed-argv/no-shell wrapper where possible, and apply `shq` to every provider, model, effort,
+slice, base-branch, branch, ref, and handle value otherwise. Snapshot the exact repository worktree
+and terminal inventory before the one mutating create, generate a unique logical name, and invoke
+exactly one create. The public Orca CLI has no idempotency key, so a missing receipt or timeout is
+never retried blindly; re-list exact worktree and terminal inventories every 250 ms for at most
+60000 ms, compute the cumulative observed set `current - before_inventory` (the before/after inventory difference), and filter candidates by the exact repository and generated unique logical slice name.
+Nonmatching entries are foreign and are never adopted or cleaned. Perform a final audit at the deadline
+before adopting exactly one matching candidate only after complete immutable receipt and ownership proof.
+Zero, multiple, or ambiguous matching candidates serialize and exact-clean only matching provably owned
+late effects. Create the worktree with explicit
+base/setup, record the exact
+`startupTerminal.handle`, prove that it was newly created by the just-created worktree, uniquely
+owned by it, is one new unused shell, and has no agent/default-task activity, then shell-quote the
+frozen tuple values and send `exec <validated-command>` to that same handle. The verified provider
+forms are `codex --model <shq(model)> -c <shq(model_reasoning_effort=<effort>)>`,
+`claude --model <shq(model)> --effort <shq(effort)>`, and `cursor agent --model
+<shq(model[effort=<effort>])>`; merge Cursor effort into an existing parameter block. Use the
+selected executable's `--help`/availability check, then send the complete `exec` payload once. Run a
+bounded machine-only route-materialization loop with explicit timeout and small interval (every 250 ms
+for at most 60000 ms):
+each iteration uses exact-handle `orca terminal show --terminal <handle> --json` plus `orca terminal read --terminal <handle> --screen --json`, and the
+handle must remain connected. Continue only after two consecutive screen reads report `source=screen`
+with the exact provider, model, and effort tuple; any nonmatch resets the consecutive count. After
+the first matching frame, `tui-idle` may be checked, but the next matching screen is still required.
+`screen-unavailable`, omitted provider,
+mismatch, disconnect, timeout, or ambiguity stops and serializes before the prompt or task edit. This
+bounded TUI materialization probe is not the dependency waiter: it performs no model turns and does
+not poll or spin on task state. An inexpressible or unavailable route stops setup without editing
+`tasks.md`. Always use the two-step
+`worktree create` plus startup-shell promotion, preserving startup policy. Never open a second
+terminal. Construct each complete `exec` or task-pointer payload first, apply `shq(payload)` once to
+the complete value, and pass it as `--text <shq(payload)>`; never use literal outer double quotes.
+The packet body itself is written to a coordinator-owned file outside every slice worktree; only its
+pointer and later follow-ups go through `terminal send` to that same exact verified handle. Any failed ownership/new/unused/activity
+conjunction or handle ambiguity serializes before `exec` and prompt delivery.
+
+Before every logical packet, record the exact handle, unique turn ID/phase, `pre_head`, current task
+statuses, worktree comment, affected-gate state, exact expected task IDs, expected task-commit
+count, allowed changed paths including the task-status path, and expected marker
+`TURN_DONE <phase> head=<40-hex-sha>` with exactly one SHA. Issue exactly one send; never retry a
+success, error, missing receipt, or `agent_prompt_stalled`, and never launch a replacement worker.
+Success follows the normal 300-second worker-turn barrier. An error, missing receipt, or
+`agent_prompt_stalled` enters bounded machine-only effect reconciliation on that same exact
+startup/current handle; a different handle is rejected; every
+`interval_ms=250` for at most `timeout_ms=300000`, with no model turns. Accept the effect only when
+exactly one expected turn is proven end-to-end: the same handle is connected; one exact phase marker
+has one 40-hex SHA; two fresh non-Working `source=screen` frames plus `tui-idle` agree; Git HEAD
+equals the marker; required task statuses, atomic commits, and gates match; the marker HEAD is a
+descendant of exact `pre_head` by `git merge-base --is-ancestor <pre_head> <marker-head>`; commits
+since `pre_head` equal the expected task-commit count and identities; and changed paths are within
+the packet-declared changed-path allowlist including the task-status path. Reset, foreign/unrelated or extra commits,
+out-of-scope paths, or status mismatch are ambiguous and fail closed. Only phase `B_PARKED` requires
+the exact parked-B comment; route, A, and other nonparked packets do not. Record receipt/effect
+divergence and continue without resending. Deadline, partial, dirty, conflicting/multiple marker,
+wrong-handle, foreign, failed-gate, or ambiguous state retains exact recovery and serializes; a
+commit alone is never success. This is not dependency polling or a watchdog: dependency waiting
+remains event-driven and uses no model turns.
+
+The coordinator starts at most one worker per ready slice. Tasks inside each slice stay sequential.
+At the first unmet dependency, the worker leaves a clean checkpoint and writes this worktree
+comment:
+
+```text
+slice=<id>; state=parked; completed_through=<task>; next=<task>;
+blocked_on=<slice:task>; head=<sha>
+```
+
+The worker ends its turn without polling. After the producer's required completion and verification,
+the coordinator reconciles the comment with `tasks.md` and Git, synchronizes the exact producer
+commit into the dependent worktree, reruns the affected gate, and follows up the same terminal. A
+stale handle is reacquired from that worktree; a dirty, ambiguous, conflicting, or failed lane
+returns to serial recovery without automatic conflict resolution. Cleanup removes only clean,
+integrated, coordinator-owned worktrees after deterministic integration and proves zero owned
+residue. Before cleanup, immediately revalidate the immutable ownership receipt (repository, full
+worktree id, instance, path, gitdir, branch, and `pre_head`) separately from mutable `current_head`
+and the exact same startup/current worker handle. Require exact Orca/Git identity, no symlink,
+clean/no operation, current branch tip equal to `current_head`, and slice-head ancestry. Stop that
+exact handle, detach the worktree at `current_head` when necessary, and recheck. Before removing it,
+safely delete the exact recorded branch with non-force `git branch --delete <branch>` when its
+integrated tip equals `current_head`; prove ref absence with `git show-ref --verify --quiet
+refs/heads/<branch>` failing. Remove only by full id, then prove Orca/Git/path/branch/terminal absence.
+Any pre-removal mismatch or missing proof retains the exact path and serializes; if removal already
+succeeded, retain the receipt and identifiers without claiming that the removed path remains. Cleanup
+never uses a name or branch selector.
+Assisted execution never records a compatibility PASS, and the automatic adapter remains serial
+until its lifecycle canary passes.
+
+## Assisted probe
+
+```text
+python3 tools/orca_assisted_probe.py create|route|turn|verify-effect|audit|cleanup [arguments]
+```
+
+Each subcommand emits one JSON object. Inputs name the repository, exact owned worktree/branch and
+terminal identities, frozen provider/model/effort, packet file, turn marker, expected task commits
+and their exact 40-hex identities, allowed paths, gate, and bounded timing values. No task ID, commit
+subject, packet filename, session
+prefix, or QA evidence path is implicit.
+
+`create`, `turn`/send, worktree comment `set`, terminal `stop`, and worktree `rm` are one-shot logical
+mutations. A transient, missing, or error receipt enters only bounded read-only inspection. Complete
+packet bodies remain in coordinator-owned files outside slice worktrees; sends carry only the
+fixed-shape pointer and have no inline or body-length fallback. Importing the module executes no
+subcommand and calls no host process.
+
+## Local compatibility state
+
+PASS receipts live below Git common state, outside `.specs/`. Identity includes repository, adapter,
+installed app version, declared capabilities, and executable identity. Any mismatch invalidates the
+receipt. Receipts contain no worker transcript, environment value, token, or credential.
+
+## Failures
+
+| Failure | Result |
+| --- | --- |
+| Known-bad Orca version | `unsupported`; zero mutations. |
+| New Orca version without PASS receipt | `candidate`; `start`/`resume` serialize. |
+| Canary lifecycle or cleanup failure | `unsupported`; failed stage and retained IDs, no PASS receipt. |
+| Current Maestri machine contract | `unsupported`; missing structured lifecycle and floor deletion. |
+| Missing explicit adapter | `unsupported`; serial fallback. |
+| Assisted plan has fewer than two ready slices | Sequential execution; zero assisted effects. |
+| Assisted isolation, resource, ownership, or reconciliation proof fails | Stop the affected lane and continue sequentially; preserve every foreign resource. |
+
+## Exports
+
+The executor recognizes adapters `auto`, `orca`, and `maestri`, and workflow modes `assisted`,
+`disabled`, `safe`, and `full`. Adapter modules expose a read-only compatibility probe; only a
+compatible automatic adapter exposes automatic execution effects.
+
+## Removals
+
+Capability-name-only Orca enablement is removed. `orchestration.contract.v1` remains necessary but
+is no longer sufficient.

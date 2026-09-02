@@ -284,7 +284,7 @@ feature snapshot, preserving direct `balanced_groups()` coverage.
 **What**: Validate native model round-trips, scope metadata to native headers, preserve template bytes
 including CRLF, and remove premature public QA claims. Refresh the always-loaded ownership pointers.
 **Where**: `.agents/skills/workflow-config/scripts/workflow_config.py`,
-`tools/test_workflow_config.py`, `AGENTS.md`, `docs/workflow/ai-memory.md`, `docs/qa/`
+`tools/test_workflow_config.py`, `AGENTS.md`, `docs/workflow/`, `docs/qa/`
 **Depends on**: T9
 **Requirement**: AMR-01, AMR-03, AMR-04, AMR-08
 
@@ -295,7 +295,7 @@ including CRLF, and remove premature public QA claims. Refresh the always-loaded
   duplicate, and missing header fields fail without packet writes.
 - [x] CRLF packet bytes and non-model content survive synchronization.
 - [x] The changed public scenarios are `untested` and the premature feature QA report is removed.
-- [x] Central config ownership is stated compactly in `AGENTS.md` and accurately in ai-memory docs.
+- [x] Central config ownership is stated compactly in `AGENTS.md` and accurately in optional integration docs.
 - [x] Resolver, adoption, Vitest, validator, and diff gates pass.
 
 **Status:** complete — 26 resolver tests, adoption suite, and 108 Vitest tests passed; QA reset for fresh planning/execution.
@@ -480,7 +480,7 @@ template-driven regeneration, local-config preservation, and ignore ownership.
 **Requirement**: AMR-08, AMR-09
 **Done when**:
 
-- [x] Agent instructions, README, workflow docs, ai-memory guidance, and QA profile describe
+- [x] Agent instructions, README, workflow docs, optional integration guidance, and QA profile describe
   example/template versus local/runtime ownership and the one setup/sync flow.
 - [x] Contract and package tests prove the mixed profile, canonical paths, tracked sources,
   ignored local state, and package inclusion/exclusion rules.

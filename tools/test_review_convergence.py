@@ -108,7 +108,7 @@ def test_python_gate_discovers_every_tracked_python_suite() -> None:
         cwd=root,
         text=True,
     ).splitlines()
-    assert "scripts/test_ai_memory.py" in discovered
+    assert "scripts/test_adopt.py" in discovered
     assert Path(__file__).relative_to(root).as_posix() in discovered
 
 

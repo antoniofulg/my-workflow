@@ -19,7 +19,7 @@ overlaps:
 Version-neutral owner for public release consistency. For release `0.8.0`, the reader compares the
 newest changelog heading with the package manifest, checks Bun's root package and dependency graph
 metadata, and checks release claims against
-the shipped public contracts. The release walk reuses the current ai-memory handoff and adoption verdicts as
+the shipped public contracts. The release walk reuses the current adoption verdict as a
 canaries instead of repeating their feature-level runtime probes.
 
 Release `0.8.0` changes this promise and resets it to `untested`. This candidate records no

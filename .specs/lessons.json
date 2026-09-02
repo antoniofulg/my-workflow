@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 33,
+  "next_id": 48,
   "lessons": [
     {
       "id": "L-001",
@@ -582,6 +582,276 @@
       ],
       "created": "2026-08-30T04:13:39Z",
       "last_seen": "2026-08-30T04:28:36Z"
+    },
+    {
+      "id": "L-033",
+      "key": "ac_gap::exercise adapter compatibility through the executor boundary before accepting a host capability proof",
+      "text": "Exercise adapter compatibility through the executor boundary before accepting a host capability proof",
+      "signal": "ac_gap",
+      "scope": "host-adapters",
+      "status": "candidate",
+      "features": [
+        "host-agnostic-slice-parallelization"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md:ranked-gap-1/MAE-01 (host-adapters) (host-adapters)"
+      ],
+      "created": "2026-09-02T01:21:09Z",
+      "last_seen": "2026-09-02T01:21:09Z"
+    },
+    {
+      "id": "L-034",
+      "key": "ac_gap::test every lifecycle failure stage for no success receipt and exact retained resource evidence",
+      "text": "Test every lifecycle failure stage for no success receipt and exact retained-resource evidence",
+      "signal": "ac_gap",
+      "scope": "host-adapters",
+      "status": "candidate",
+      "features": [
+        "host-agnostic-slice-parallelization"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md:ranked-gap-3/ORC-05 (host-adapters) (host-adapters)"
+      ],
+      "created": "2026-09-02T01:21:09Z",
+      "last_seen": "2026-09-02T01:21:09Z"
+    },
+    {
+      "id": "L-035",
+      "key": "gate_fail::keep canonical workflow wording synchronized with contract assertions when changing published policy",
+      "text": "Keep canonical workflow wording synchronized with contract assertions when changing published policy",
+      "signal": "gate_fail",
+      "scope": "workflow-contracts",
+      "status": "candidate",
+      "features": [
+        "host-agnostic-slice-parallelization"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md:gate-check (workflow-contracts) (workflow-contracts)"
+      ],
+      "created": "2026-09-02T01:21:09Z",
+      "last_seen": "2026-09-02T01:21:09Z"
+    },
+    {
+      "id": "L-036",
+      "key": "ac_gap::parse task status from canonical task records before reconciling expected task ids",
+      "text": "Parse task status from canonical task records before reconciling expected task IDs",
+      "signal": "ac_gap",
+      "scope": "assisted-probe",
+      "status": "candidate",
+      "features": [
+        "host-agnostic-slice-parallelization"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md AST-04 (assisted-probe) (assisted-probe)"
+      ],
+      "created": "2026-09-02T01:21:09Z",
+      "last_seen": "2026-09-02T01:21:09Z"
+    },
+    {
+      "id": "L-037",
+      "key": "surviving_mutant::cleanup tests must fail when any foreign branch reference changes",
+      "text": "Cleanup tests must fail when any foreign branch reference changes",
+      "signal": "surviving_mutant",
+      "scope": "assisted-probe",
+      "status": "candidate",
+      "features": [
+        "host-agnostic-slice-parallelization"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md M4 (assisted-probe) (assisted-probe)"
+      ],
+      "created": "2026-09-02T01:21:09Z",
+      "last_seen": "2026-09-02T01:21:09Z"
+    },
+    {
+      "id": "L-038",
+      "key": "surviving_mutant::treat only the documented not found exit status as absence every command error must fail closed",
+      "text": "Treat only the documented not-found exit status as absence; every command error must fail closed",
+      "signal": "surviving_mutant",
+      "scope": "assisted-probe",
+      "status": "candidate",
+      "features": [
+        "host-agnostic-slice-parallelization"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/host-agnostic-slice-parallelization/validation.md:121 (assisted-probe) (assisted-probe)"
+      ],
+      "created": "2026-09-02T01:21:09Z",
+      "last_seen": "2026-09-02T01:21:09Z"
+    },
+    {
+      "id": "L-039",
+      "key": "ac_gap::cleanup proof must audit host inventory filesystem path branch ref and git worktree registration from the same ownership receipt",
+      "text": "Cleanup proof must audit host inventory, filesystem path, branch ref, and Git worktree registration from the same ownership receipt",
+      "signal": "ac_gap",
+      "scope": "assisted-probe",
+      "status": "candidate",
+      "features": [
+        "host-agnostic-slice-parallelization"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "AST-06 (assisted-probe) (assisted-probe)"
+      ],
+      "created": "2026-09-02T01:21:09Z",
+      "last_seen": "2026-09-02T01:21:09Z"
+    },
+    {
+      "id": "L-040",
+      "key": "surviving_mutant::inject retained cleanup residue so tests fail when final registration proof is removed",
+      "text": "Inject retained cleanup residue so tests fail when final registration proof is removed",
+      "signal": "surviving_mutant",
+      "scope": "assisted-cleanup",
+      "status": "candidate",
+      "features": [
+        "host-agnostic-slice-parallelization"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/host-agnostic-slice-parallelization/validation.md:AST-06 sensor (assisted-cleanup) (assisted-cleanup)"
+      ],
+      "created": "2026-09-02T01:21:10Z",
+      "last_seen": "2026-09-02T01:21:10Z"
+    },
+    {
+      "id": "L-041",
+      "key": "ac_gap::require every task effect to prove at least one packet declared atomic commit",
+      "text": "Require every task effect to prove at least one packet-declared atomic commit",
+      "signal": "ac_gap",
+      "scope": "assisted-reconciliation",
+      "status": "candidate",
+      "features": [
+        "host-agnostic-slice-parallelization"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "AST-04 (assisted-reconciliation) (assisted-reconciliation)"
+      ],
+      "created": "2026-09-02T01:21:10Z",
+      "last_seen": "2026-09-02T01:21:10Z"
+    },
+    {
+      "id": "L-042",
+      "key": "surviving_mutant::exercise incomplete canonical task state at the effect reconciliation boundary",
+      "text": "Exercise incomplete canonical task state at the effect-reconciliation boundary",
+      "signal": "surviving_mutant",
+      "scope": "assisted-reconciliation",
+      "status": "candidate",
+      "features": [
+        "host-agnostic-slice-parallelization"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/host-agnostic-slice-parallelization/validation.md:AST-04 task-state sensor (assisted-reconciliation) (assisted-reconciliation)"
+      ],
+      "created": "2026-09-02T01:21:10Z",
+      "last_seen": "2026-09-02T01:21:10Z"
+    },
+    {
+      "id": "L-043",
+      "key": "ac_gap::failure path tests assert the offending record identity not only the error category",
+      "text": "Failure-path tests assert the offending record identity, not only the error category",
+      "signal": "ac_gap",
+      "scope": "workflow-validation",
+      "status": "candidate",
+      "features": [
+        "merge-alone-slices"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "MAS-03/MAS-04 (workflow-validation) (workflow-validation)"
+      ],
+      "created": "2026-09-02T01:21:10Z",
+      "last_seen": "2026-09-02T01:21:10Z"
+    },
+    {
+      "id": "L-044",
+      "key": "ac_gap::failure atomicity tests assert pre existing artifact bytes remain unchanged",
+      "text": "Failure atomicity tests assert pre-existing artifact bytes remain unchanged",
+      "signal": "ac_gap",
+      "scope": "workflow-resolution",
+      "status": "candidate",
+      "features": [
+        "merge-alone-slices"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "MAS-05/MAS-07 (workflow-resolution) (workflow-resolution)"
+      ],
+      "created": "2026-09-02T01:21:10Z",
+      "last_seen": "2026-09-02T01:21:10Z"
+    },
+    {
+      "id": "L-045",
+      "key": "ac_gap::fixtures exercise every identifier shape named by the acceptance criterion",
+      "text": "Fixtures exercise every identifier shape named by the acceptance criterion",
+      "signal": "ac_gap",
+      "scope": "workflow-validation",
+      "status": "candidate",
+      "features": [
+        "merge-alone-slices"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "MAS-10 (workflow-validation) (workflow-validation)"
+      ],
+      "created": "2026-09-02T01:21:11Z",
+      "last_seen": "2026-09-02T01:21:11Z"
+    },
+    {
+      "id": "L-046",
+      "key": "ac_gap::cross component contract tests compare producer output directly with consumer output",
+      "text": "Cross-component contract tests compare producer output directly with consumer output",
+      "signal": "ac_gap",
+      "scope": "workflow-planning",
+      "status": "candidate",
+      "features": [
+        "merge-alone-slices"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "MAS-11 (workflow-planning) (workflow-planning)"
+      ],
+      "created": "2026-09-02T01:21:11Z",
+      "last_seen": "2026-09-02T01:21:11Z"
+    },
+    {
+      "id": "L-047",
+      "key": "ac_gap::boundary values named by the specification receive explicit regression assertions",
+      "text": "Boundary values named by the specification receive explicit regression assertions",
+      "signal": "ac_gap",
+      "scope": "workflow-resolution",
+      "status": "candidate",
+      "features": [
+        "merge-alone-slices"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "MAS-05 edge (workflow-resolution) (workflow-resolution)"
+      ],
+      "created": "2026-09-02T01:21:11Z",
+      "last_seen": "2026-09-02T01:21:11Z"
     }
   ]
 }

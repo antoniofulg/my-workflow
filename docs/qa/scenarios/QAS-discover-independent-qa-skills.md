@@ -11,10 +11,12 @@ bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-20-workflow-0.3.0/session.md
-last_report: docs/qa/reports/2026-08-20-workflow-0.3.0.md
+evidence: docs/qa/evidence/2026-08-25-release-0-6-0/retest-contracts.json; docs/qa/evidence/2026-08-25-release-0-6-0/retest-npm-test.log; docs/qa/evidence/2026-08-25-release-0-6-0/retest-removal-contract.log
+last_report: docs/qa/reports/2026-08-25-release-0-6-0.md
 overlaps:
 ---
 
 Covers skill discovery, planning/execution separation, scenario-authority routing, adapter reporting,
-and the Implementer → fresh Verifier defect handoff.
+and the Implementer → fresh Verifier defect handoff. QA retest on 2026-08-25 after fix `1593299`
+passed: all six provider templates and generated runtime packets carried the fresh-packet contract
+and independent evidence sources after reload.

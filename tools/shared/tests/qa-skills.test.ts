@@ -1118,7 +1118,6 @@ describe("Bun tooling runtime contract", () => {
       .sort();
     const expectedPythonSuites = [
       "scripts/test_adopt.py",
-      "scripts/test_ai_memory.py",
       "tools/test_ad_index.py",
       "tools/test_deep_review_contract.py",
       "tools/test_deep_review_symlink_manifest.py",

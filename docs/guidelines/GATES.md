@@ -2,13 +2,11 @@
 
 **Read when:** choosing which gate to run.
 
-**Why this exists:** Running the full product gate after every atomic task is the largest avoidable
-cost in the loop. Atomic tasks are cheap only if their gate is cheap: scoped while building, full
-once before the pull request. Never weaken a test to go green.
+**Why this exists:** Keep task feedback scoped and cheap; run the full product gate once before the
+pull request. Never weaken a test to go green.
 
-The consuming project owns the commands. This pack does not ship a Makefile. If the project has
-`make check`, that is the full gate; if it has a scoped selector, that is the scoped gate. Name the
-actual commands the project documents.
+The consuming project owns commands. `make check`, when present, is the full gate; a documented
+selector is the scoped gate. Name the actual commands.
 
 ## Which gate, when
 
@@ -20,21 +18,37 @@ actual commands the project documents.
 | Closing a feature, before the pull request | The consuming project's full gate | The product gate, once |
 | Heavy subsystem touched | The consuming project's extended gate, if it has one | Adds registered heavy checks |
 
-**No gate reads the shape of a document.** Shape enforcement on Markdown is not a substitute for
-reading product code.
+**No gate reads document shape instead of product code.** Knowledge checkers and dependency
+inventories stay separate: one opens a knowledge harvest; the other inventories current dependencies.
 
-A knowledge checker and a dependency inventory, if they exist, stay out of the full gate: the first
-is the opening step of a knowledge harvest, the second answers a question that changes with
-dependencies, not with features.
+## Credential-free declarative agent-tool configuration
+
+Eligible only when the entire diff is declarative agent configuration containing agent or
+tool-server names, public URLs, and non-secret options. Executable commands, hooks, plugins,
+dependencies, credential-bearing headers or environment variables, OAuth clients or scopes,
+permissions, product or runtime code, CI or deploy changes, and external mutations take the
+applicable normal path.
+
+The active agent edits directly and makes one atomic commit. Create no `spec.md`, `tasks.md`, or
+`workflow.json`; dispatch no agent; run no Verifier, deep-review, QA, or completion gate.
+
+Before committing:
+
+1. Parse every changed file with its native parser.
+2. Compare every name, public URL, key, and value exactly with the request and client schema.
+3. Scan keys and values for credential material.
+4. Query each installed client for the relevant server, returning only `name`, `url`, `enabled`, and
+   `auth_status`; remain read-only.
+5. Run `git diff --check` and the project's commit-message validator.
+
+OAuth is a separate local action requiring explicit human authorization. Credentials, OAuth clients
+or scopes, permissions, authentication behaviour, and sensitive product data require full Verifier.
 
 ## The narrow-claim rule
 
-**Intermediate tasks in a multi-task feature close on the scoped gate.** The honest claim is *"task
-implemented, affected lanes green, full gate deferred to feature close"* — and that is a complete,
-truthful claim, not a shortcut.
-
-The full gate runs **once**, after the last mutation, before the pull request. Running every lane
-once per task, for a ten-task feature, buys nothing that running them once at the end does not.
+**Intermediate tasks close on the scoped gate.** Claim *"task implemented, affected lanes green,
+full gate deferred to feature close"*. Run the full gate once after the last mutation, before the
+pull request.
 
 Escalate a task to the full gate when its diff touches something the selector cannot scope:
 migrations and schema, runtime orchestration, dependency or build tooling, architecture boundary
@@ -43,36 +57,27 @@ selector working, not failing.
 
 ## Cached evidence
 
-A gate whose result is already known for the exact tree being claimed should not run again. Re-running
-a current gate proves nothing new and saturates a machine that is running several checkouts.
+A known result for the exact claimed tree need not run again. When a cache exists:
 
-The rule:
-
-- A **passing record whose fingerprint matches the current tree is fresh evidence.** Cite it — gate
-  name, fingerprint, log path — instead of re-running.
+- A matching **passing record is fresh evidence.** Cite gate, fingerprint, and log path.
 - A **missing or stale record means the gate runs now.** Records key on tree content, so any edit
   invalidates one; a commit alone does not.
 - **Scope still binds.** A scoped record never supports a "feature complete" claim.
-- On a **failing record**, open its log and fix from there. Never re-litigate it from memory.
+- A **failing record** starts diagnosis from its log.
 
 Produce a record: `python3 tools/gate_cache.py run --gate <scoped|full> -- <gate command>`.
 
 ## What the scenario tracker does not do
 
-`docs/qa/scenarios/` will not reduce gate time, and expecting it to will disappoint. Two different
-mechanisms:
-
-- **Gate time** is cut by selector-scoped lanes plus a fingerprint cache, if the project has them.
-- **The scenario tracker** decides which *user-visible promises* a diff invalidated, so the persona
-  pass walks those and not all of them. It scopes manual verification, not automated tests.
+Selectors and fingerprint caches reduce gate time. `docs/qa/scenarios/` scopes manual verification
+to invalidated user-visible promises; it does not scope automated tests.
 
 ## Concurrency
 
-Several checkouts may share one machine. Two full gates at once collapse it and both stall.
+Concurrent full gates across checkouts can stall both.
 
-If a gate refuses because a runtime is already bound, find the owner and stop the checkout that holds
-it. Never set `reuseExistingServer: true` to get past it — that option lets a gate in one checkout
-silently test a sibling's application.
+If a runtime is bound, find its owner and stop that checkout. Never set `reuseExistingServer: true`:
+one checkout could silently test a sibling's application.
 
 ## Never
 
