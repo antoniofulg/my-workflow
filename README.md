@@ -187,20 +187,25 @@ never opens a third deep-review round.
 The resolver uses the native provider for every role unless a named profile or role override is
 selected. Precedence is `CLI override > profile > native provider`:
 
+When a feature has `tasks.md`, the resolver validates its vertical-slice closure table and derives
+the slice count from merge-alone outcomes. A feature without `tasks.md` uses one slice. `--slices`
+is an optional assertion against that derived count during initial resolution or refresh; it is not
+the source of truth.
+
 ```bash
 # Native route: all roles use Codex.
 python3 .agents/skills/workflow-config/scripts/workflow_config.py \
-  --root /path/to/target-project --feature register-user-native --slices 4 \
+  --root /path/to/target-project --feature register-user-native \
   --native-provider codex
 
 # Named profile: use the [profiles.mixed] routes from .my-workflow.toml.
 python3 .agents/skills/workflow-config/scripts/workflow_config.py \
-  --root /path/to/target-project --feature register-user-profile --slices 4 \
+  --root /path/to/target-project --feature register-user-profile \
   --native-provider codex --profile mixed
 
 # Role overrides win over both the selected profile and the native provider.
 python3 .agents/skills/workflow-config/scripts/workflow_config.py \
-  --root /path/to/target-project --feature register-user-override --slices 4 \
+  --root /path/to/target-project --feature register-user-override \
   --native-provider codex --profile mixed \
   --override deep_reviewer=cursor --override verifier=claude
 ```
@@ -213,7 +218,7 @@ effort. If it differs, synchronize packets and explicitly refresh; ordinary resu
 
 ```bash
 python3 .agents/skills/workflow-config/scripts/workflow_config.py \
-  --root /path/to/target-project --feature register-user-refresh --slices 4 \
+  --root /path/to/target-project --feature register-user-refresh \
   --native-provider codex --refresh
 ```
 

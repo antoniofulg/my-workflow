@@ -107,7 +107,7 @@
 **What**: Teach the contract in the task template, the workflow-config skill, and the README; prove the planner reports the validator's membership.
 **Where**: `.agents/skills/workflow-spec-driven/references/tasks.md`; `.agents/skills/workflow-config/SKILL.md`; `README.md`; `tools/test_parallel_plan.py`; `tools/shared/tests/workflow-config.test.ts`
 **Slice:** A
-**Status:** pending
+**Status:** complete
 **Resources:** none
 **Depends on:** T2
 **Reuses**: Old template text at `git show 3ce7a2e:.agents/skills/tlc-spec-driven/references/tasks.md` § Vertical Slice Closure; `parallel_plan.plan`; the old `publishes the merge-alone slice planning contract` structural test
@@ -115,10 +115,10 @@
 
 **Done when**:
 
-- [ ] Template adds `## Vertical Slice Closure` before Task Breakdown and `**Slice:** [id]` to every example task; it defines slice, phase/cohort, and batch without overlapping ownership.
-- [ ] Skill and README resolver examples omit `--slices` or show it only as an optional assertion.
-- [ ] `parallel_plan.plan` on the resolved two-slice fixture reports membership equal to `validated_slice_contract(...)["task_slices"]`.
-- [ ] Instruction-file net line count does not grow (`docs/guidelines/CONTEXT-BUDGET.md`).
+- [x] Template adds `## Vertical Slice Closure` before Task Breakdown and `**Slice:** [id]` to every example task; it defines slice, phase/cohort, and batch without overlapping ownership.
+- [x] Skill and README resolver examples omit `--slices` or show it only as an optional assertion.
+- [x] `parallel_plan.plan` on the resolved two-slice fixture reports membership equal to `validated_slice_contract(...)["task_slices"]`.
+- [x] Instruction-file net line count does not grow (`docs/guidelines/CONTEXT-BUDGET.md`).
 
 **Tests**: MAS-IT-008, MAS-IT-009
 **Gate**: Planner; Contract

@@ -66,6 +66,43 @@ describe("workflow configuration skill", () => {
     expect(skill).not.toContain("deep-review after every slice");
   });
 
+  // MAS-IT-009: the published contract teaches slice, phase/cohort, and batch.
+  it("publishes the merge-alone slice planning contract", () => {
+    const template = readRepositoryFile(".agents/skills/workflow-spec-driven/references/tasks.md");
+    const normalizedTemplate = template.replace(/\s+/g, " ");
+    const normalizedSkill = readRepositoryFile(skillPath).replace(/\s+/g, " ");
+    const normalizedReadme = readRepositoryFile("README.md").replace(/\s+/g, " ");
+
+    expect(template).toContain("## Vertical Slice Closure");
+    expect(template).toContain("**Slice:** <slice-id>");
+    expect(normalizedTemplate).toContain("merge-alone observable outcome");
+    expect(normalizedTemplate).toContain("A phase or cohort describes technical ordering");
+    expect(normalizedTemplate).toContain("a batch describes worker capacity");
+    expect(template.indexOf("## Vertical Slice Closure")).toBeLessThan(
+      template.indexOf("## Task Breakdown"),
+    );
+    expect(normalizedSkill).toContain(
+      "validates the vertical-slice closure contract and derives the count",
+    );
+    expect(normalizedSkill).toContain("optional assertion");
+    expect(normalizedSkill).toContain("it never owns the count");
+    expect(normalizedReadme).toContain("validates its vertical-slice closure table and derives");
+    expect(normalizedReadme).toContain("`--slices` is an optional assertion");
+    expect(normalizedReadme).not.toContain("--feature register-user-native --slices 4");
+    expect(normalizedReadme).not.toContain("--feature register-user-profile --slices 4");
+    expect(normalizedReadme).not.toContain("--feature register-user-override --slices 4");
+    expect(normalizedReadme).not.toContain("--feature register-user-refresh --slices 4");
+
+    const taskBreakdown = template.slice(template.indexOf("## Task Breakdown"));
+    const taskExamples = [...taskBreakdown.matchAll(/^### (T\d+):/gm)];
+    expect(taskExamples.map(([, taskId]) => taskId)).toEqual(["T1", "T2", "T3", "T4"]);
+    taskExamples.forEach((match, index) => {
+      const start = match.index ?? 0;
+      const end = taskExamples[index + 1]?.index ?? taskBreakdown.length;
+      expect(taskBreakdown.slice(start, end).match(/^\*\*Slice:\*\* \[id\]$/gm) ?? []).toHaveLength(1);
+    });
+  });
+
   it("identifies a complete agent definition for every supported role and provider", () => {
     for (const provider of providers) {
       for (const role of roles) {

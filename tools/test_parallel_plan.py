@@ -12,8 +12,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / ".agents/skills/workflow-config/scripts"))
 import parallel_plan
 
-
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / ".agents/skills/workflow-spec-driven/scripts"))
+import validate_tasks  # noqa: E402
+import test_workflow_config as workflow_fixtures  # noqa: E402
 
 
 def make_repo(
@@ -75,6 +77,48 @@ def make_repo(
     subprocess.run(["git", "add", ".specs/features"], cwd=root, check=True)
     subprocess.run(["git", "commit", "-qm", "freeze workflow"], cwd=root, check=True)
     return root
+
+
+CLOSURE = (
+    "## Vertical Slice Closure\n\n"
+    "| Slice | Observable outcome | Independent gate | Merge if later slices are cancelled? | Why |\n"
+    "| --- | --- | --- | --- | --- |\n"
+    "| A | First capability. | `gate-a` | yes | Independent value. |\n"
+    "| B | Second capability. | `gate-b` | yes | Independent value. |\n\n"
+    "## Task Breakdown\n\n"
+)
+
+
+def make_resolver_repo(tasks: str, feature: str = "fixture") -> Path:
+    """Build a repository whose snapshot the resolver derived from the closure contract."""
+    root = workflow_fixtures.make_root()
+    workflow_fixtures.write_config(root)
+    workflow_fixtures.write_packets(root)
+    workflow_fixtures.write_tasks(root, tasks, feature)
+    workflow_fixtures.workflow_config.sync_agents(root)
+    workflow_fixtures.git_root(root)
+    workflow_fixtures.workflow_config.resolve(root=root, feature=feature, native_provider="codex")
+    return root
+
+
+# MAS-IT-008: the planner reports exactly the validator's primary-task membership.
+def test_resolved_snapshot_preserves_validator_slice_membership() -> None:
+    tasks = CLOSURE + task("T1", "A") + task("T2", "A") + task("T3", "B") + task("T4", "B")
+    root = make_resolver_repo(tasks)
+    try:
+        snapshot = json.loads(
+            (root / ".specs/features/fixture/workflow.json").read_text(encoding="utf-8")
+        )
+        assert snapshot["deep_review"]["groups"] == [[1, 2]]
+        contract = validate_tasks.validated_slice_contract(
+            str(root / ".specs/features/fixture/tasks.md")
+        )
+        plan = parallel_plan.plan(root=root, feature="fixture")
+        planned = {item["task"]: item["slice"] for item in [*plan["lanes"], *plan["blocked"]]}
+        assert planned == contract["task_slices"]
+        assert plan["source_git_head"] == snapshot["git_head"]
+    finally:
+        shutil.rmtree(root)
 
 
 def task(
