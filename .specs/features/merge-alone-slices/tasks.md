@@ -38,7 +38,7 @@
 | 8 | MAS-IT-006, MAS-IT-007 | T2 |
 | 9 | MAS-IT-009 | T3 |
 | 10 | MAS-UT-007 | T1 |
-| 11, 12 | MAS-UT-008, MAS-IT-008 | T1, T3 |
+| 11, 12 | MAS-UT-008, MAS-IT-008, MAS-IT-011, MAS-IT-012 | T1, T3 |
 | 13 | MAS-IT-010 | R1 |
 
 ## Gate Check Commands

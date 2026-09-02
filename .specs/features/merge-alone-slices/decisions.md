@@ -30,9 +30,9 @@ run made on its own.
 
 ### Follow-ups (not blocking; from the Technical Verifiers and Deep Review round 1)
 
-- Planner task *start* is narrower than the validator's (`parallel_plan.py` `^###\s+(T\d+)\s*:` case-sensitive vs `validate_tasks.py` `^#{2,4}\s+(T\d+)\s*:` case-insensitive): a `## T2:` or `#### T2:` heading is validated but silently dropped from the plan. Reuse `validate_tasks.TASK_RE` in `_parse_tasks`. Not reachable from the published template.
-- `_parse_closure_table` stops only at `#`/`##`; a `###` after the table is unreachable under the template but unpinned.
-- `_derived_slice_count` shells out to the validator CLI instead of importing `validated_slice_contract` (one interpreter start per initial resolution or refresh).
+- (closed by `6c36499`) Planner task *start* was narrower than the validator's; both now use `validate_tasks.TASK_RE`/`HEADING_RE`.
+- (Verifier G3) `_parse_closure_table` stops only at `#`/`##`; a `###` after the table is unreachable under the template but unpinned.
+- (Verifier G5) `_derived_slice_count` shells out to the validator CLI instead of importing `validated_slice_contract` (one interpreter start per initial resolution or refresh).
 - Every other `.specs/features/*/tasks.md` now fails `check()` for a missing closure section. Intentional hard cut recorded in `design.md` § Risks; normal resume never re-validates them.
 
 ### Remediation history
@@ -43,3 +43,7 @@ run made on its own.
 | Deep Review 1 (Major) | Planner parsed `**Slice:**` itself, so membership could diverge from the validator (AC-11) | `f7676c2`: planner takes membership from `validated_slice_contract`, fails closed |
 | Verifier 2 (Major) | MAS-IT-008 fixture could not distinguish validator membership from a local fallback | `a872208`: `T2R1` record in the fixture |
 | Implementer flag → AC-13 | Planner absorbed a remediation record's fields into the preceding task | `ee895c6` (R1): planner ends a task at any heading |
+| Deep Review 2 (Critical) | Planner found tasks with its own level-3, case-sensitive heading regex; `## T2:`/`### t3:` validated but vanished from the plan; phase listings `#### T1:` produced false `duplicate-task` fallbacks | `6c36499`: planner uses `validate_tasks.TASK_RE`/`HEADING_RE`, last definition wins, `duplicate-task` and `missing-slice` reasons retired (MAS-IT-011/012, red `RED_EXIT=1` → green `31 passed`) |
+| Deep Review 2 (Minor) | R1 missing from the dependency map | `6c36499` |
+
+Post-cap remediation (`a872208`, `ee895c6`, `6c36499`) is proven by red-before/green-after runs and the full gate; the review cap in `docs/guidelines/REVIEW-ROUNDS.md` ends review rounds, and no fourth Technical Verifier session was opened. Alternative rejected: a fourth Verifier pass (cost: one more session; benefit: independent re-derivation of two regex changes already pinned by three discriminating tests).

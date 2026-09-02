@@ -26,6 +26,8 @@
 | MAS-IT-007 | Re-derives explicit refresh | Same changed tasks followed by `--refresh` | Refreshed groups cover slices `1` and `2`; snapshot schema unchanged |
 | MAS-IT-008 | Keeps downstream task membership aligned | Two-slice fixture passed to `parallel_plan.plan` after resolution | Lanes plus blocked membership equals `validated_slice_contract(...)["task_slices"]` |
 | MAS-IT-009 | Publishes the task-planning contract | Template, workflow-config skill, README | Template shows `**Slice:**` per task and the closure table; skill and README show `--slices` only as optional assertion |
+| MAS-IT-011 | Planner finds every heading the validator accepts | Primary tasks headed `## T1:`, `#### T2:`, `### t3:`, `### T4:` | Validator sees four tasks; lanes ∪ blocked membership equals `validated_slice_contract(...)["task_slices"]` |
+| MAS-IT-012 | Planner merges a phase listing with its definition | `#### T1:` under a phase heading plus its `### T1:` definition | `fallback` is false, `reasons` empty, membership equals the validator's |
 | MAS-IT-010 | Planner ignores remediation record fields | Valid two-slice document with a `### T2R1:` record after `T2` carrying `**Status:** complete`, `**Resources:** db`, and `**Depends on:** T3` | `T2` plans exactly as it does without the record: same lane or blocked placement, resources `none`, dependencies unchanged |
 
 ## End-to-end

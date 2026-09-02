@@ -112,7 +112,10 @@ it accepts it and reports the validator's membership.
 **Coverage:** 13 total, 13 mapped to tasks, 0 unmapped.
 
 **Verification:** Technical Verifier PASS at `ee895c6` (`validation.md`): 13/13 acceptance criteria and
-18/18 test-contract rows matched; 9/10 mutants killed, the tenth proven equivalent.
+18/18 test-contract rows matched; 9/10 mutants killed, the tenth proven equivalent. Deep Review round 2
+(final) remediation `6c36499` shares the validator's heading rule with the planner (MAS-IT-011/012,
+red-before/green-after recorded in `decisions.md`); post-cap remediation is gate-proven, not re-verified
+by a fourth Verifier session.
 
 ## Success Criteria
 
