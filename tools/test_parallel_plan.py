@@ -149,7 +149,7 @@ def test_resolved_snapshot_preserves_validator_slice_membership() -> None:
         shutil.rmtree(root)
 
 
-# MAS-IT-008: every heading shape the validator accepts is planned with its membership.
+# MAS-IT-011: every heading shape the validator accepts is planned with its membership.
 def test_planner_finds_every_task_heading_the_validator_accepts() -> None:
     tasks = task("T1", "A") + task("T2", "A") + task("T3", "B") + task("T4", "B")
     tasks = (
@@ -170,7 +170,7 @@ def test_planner_finds_every_task_heading_the_validator_accepts() -> None:
         shutil.rmtree(root)
 
 
-# MAS-IT-008: a task listed under a phase and defined later is one task to both readers.
+# MAS-IT-012: a task listed under a phase and defined later is one task to both readers.
 def test_planner_reads_a_phase_listing_and_its_definition_as_one_task() -> None:
     tasks = (
         "### Phase 1: Foundation\n\n#### T1: T1\n\n#### T2: T2\n\n"
@@ -246,7 +246,9 @@ def blocked_task(plan: dict[str, object], task_id: str) -> dict[str, object]:
 
 # MAS-IT-010: a remediation record donates no field to the primary task above it.
 def test_planner_ignores_remediation_record_fields() -> None:
-    tasks = task("T1", "A") + task("T2", "A") + task("T3", "B") + task("T4", "B")
+    # T2 opens slice B, so it plans as a ready lane whose entry carries `status`,
+    # `resources` and `sync_after` - the fields the record would leak into.
+    tasks = task("T1", "A") + task("T2", "B") + task("T3", "B") + task("T4", "A")
     record = (
         "### T2R1: review remediation\n"
         "**Status:** complete\n"
@@ -259,6 +261,8 @@ def test_planner_ignores_remediation_record_fields() -> None:
     try:
         plain = parallel_plan.plan(root=plain_root, feature="fixture")
         recorded = parallel_plan.plan(root=record_root, feature="fixture")
+        assert first_task(plain, "T2")["resources"] == []
+        assert first_task(recorded, "T2") == first_task(plain, "T2")
         assert entry_for(recorded, "T2") == entry_for(plain, "T2")
         assert recorded["fallback"] == plain["fallback"]
         assert recorded["reasons"] == plain["reasons"]
