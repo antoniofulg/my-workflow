@@ -61,7 +61,7 @@
 **What**: Add exact `## Vertical Slice Closure` table parsing, one `**Slice:**` field per primary task, membership cross-checks, `validated_slice_contract(tasks_path)`, and `--slice-contract-json` to the shipped validator; restore the two fixtures.
 **Where**: `.agents/skills/workflow-spec-driven/scripts/validate_tasks.py`; `tools/fixtures/tlc-validator/merge-alone-one-slice.md`; `tools/fixtures/tlc-validator/merge-alone-two-slices.md`; `tools/test_tlc_validators.py`
 **Slice:** A
-**Status:** pending
+**Status:** complete
 **Resources:** none
 **Depends on:** None
 **Reuses**: `parse_tasks`, `TASK_RE` (already excludes `T2R1`), `check`; old rules at `git show 3ce7a2e:.agents/skills/tlc-spec-driven/scripts/validate_tasks.py` and the fixtures at the same commit
@@ -69,11 +69,11 @@
 
 **Done when**:
 
-- [ ] Every primary `T\d+` task has exactly one non-empty `**Slice:**` field; any other spelling of the field fails with the task id.
-- [ ] Every used slice has one complete closure row with exact lowercase `yes`; duplicate, orphan, missing, and inconsistent records fail naming the task or slice.
-- [ ] `check()` reports closure errors alongside its existing errors; a `tasks.md` without the section fails.
-- [ ] `--slice-contract-json` prints deterministic JSON (`task_slices`, `slice_ids`, `closures`) in document order.
-- [ ] `scripts/test_adopt.py` and `bun test tools/shared/tests/qa-skills.test.ts` still pass with the shipped validator.
+- [x] Every primary `T\d+` task has exactly one non-empty `**Slice:**` field; any other spelling of the field fails with the task id.
+- [x] Every used slice has one complete closure row with exact lowercase `yes`; duplicate, orphan, missing, and inconsistent records fail naming the task or slice.
+- [x] `check()` reports closure errors alongside its existing errors; a `tasks.md` without the section fails.
+- [x] `--slice-contract-json` prints deterministic JSON (`task_slices`, `slice_ids`, `closures`) in document order.
+- [x] `scripts/test_adopt.py` and `bun test tools/shared/tests/qa-skills.test.ts` still pass with the shipped validator.
 
 **Tests**: MAS-UT-001, MAS-UT-002, MAS-UT-003, MAS-UT-004, MAS-UT-005, MAS-UT-006, MAS-UT-007, MAS-UT-008
 **Gate**: Validator
