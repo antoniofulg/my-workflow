@@ -6,7 +6,7 @@
 
 1. **Per-task verification (always, author self-check):** After implementing each task, verify its "Done when" criteria before committing. This is mandatory and automatic. The implementer runs it.
 
-2. **Slice-level validation (fresh Technical Verifier, always-on, never prompted):** After each code-changing slice reaches its checkpoint, the coordinator dispatches a **fresh Technical Verifier** (see [sub-agents.md](sub-agents.md)) before any dependent slice consumes that checkpoint. Independent slices may be verified concurrently; each dependent route waits only for its own verified checkpoint. Do NOT ask the user whether to run it; it is the safety net, mandatory. The Verifier:
+2. **Slice-level validation (fresh Technical Verifier, always-on, never prompted):** After each code-changing slice reaches its checkpoint, the coordinator dispatches a **fresh Technical Verifier** (see [sub-agents.md](sub-agents.md)) before any dependent slice consumes that checkpoint. Independent slices may be verified concurrently; each dependent route waits only for its own verified checkpoint. It runs without asking the user. The Verifier:
    - Runs **read-only** over the real implementation and tests - mutations run in a scratch/throwaway state only (see Discrimination Sensor section)
    - Scopes coverage to the feature's **git diff surface** (not the full repository)
    - Re-derives coverage independently using **evidence-or-zero**: every AC must be traced to a `file:line` + assertion expression; a criterion with no `file:line` citation counts as NOT covered
@@ -51,8 +51,8 @@ For each acceptance criterion in `spec.md`, the Verifier re-derives the **spec-d
 
 **Rules:**
 
-- Where the spec defines a precise outcome (specific status code, field value, error message, state), the test assertion MUST target that exact outcome - not just that an assertion exists.
-- Where the spec does NOT define a precise outcome, mark as **⚠️ Spec-precision gap** and flag it in the report. Do NOT silently pass a vague assertion.
+- Where the spec defines a precise outcome (specific status code, field value, error message, state), the test assertion targets that exact outcome - not just that an assertion exists.
+- Where the spec does not define a precise outcome, mark as **⚠️ Spec-precision gap** and flag it in the report; a vague assertion is never passed silently.
 - Evidence-or-zero: a criterion with no `file:line` citation counts as NOT covered.
 
 ### 3. Check Edge Cases
@@ -62,14 +62,13 @@ From spec.md edge cases:
 - [ ] [Edge case 1] handled correctly
 - [ ] [Edge case 2] handled correctly
 
-### 4. Run Build-Level Gate Check (MANDATORY)
+### 4. Run Build-Level Gate Check
 
 Run the Build-level gate check from the **Gate Check Commands** section in `tasks.md` when present.
-When Tasks was skipped, run the gate command recorded in the inline execution plan. This is NOT
-optional.
+When Tasks was skipped, run the gate command recorded in the inline execution plan.
 
 1. Run: `[Build gate command from tasks.md, or the inline execution plan's verify command]`
-2. Non-zero exit code = STOP. Do not proceed to Code Quality Check.
+2. Non-zero exit code: stop; the Code Quality Check waits for a green gate.
 3. Record results:
    - Total test count: [N]
    - Passed: [N]
@@ -82,7 +81,7 @@ optional.
 - If test count DECREASED: investigate why. Tests should only be deleted with explicit justification.
 - If assertions were weakened (less specific than before): flag as potential regression
 
-### 5. Discrimination Sensor (MANDATORY - always runs after gate check passes)
+### 5. Discrimination Sensor (runs after the gate check passes)
 
 The sensor provides the empirical guarantee that the tests can actually detect regressions. It runs in a scratch/throwaway state - the real working tree is never modified.
 
@@ -116,7 +115,7 @@ The sensor provides the empirical guarantee that the tests can actually detect r
 
 **Report:** Record killed/survived for each mutation attempt. Surviving mutants → create fix tasks before marking the feature done.
 
-### 6. Code Quality Check (MANDATORY)
+### 6. Code Quality Check
 
 For each changed file, verify against [coding-principles.md](coding-principles.md):
 
@@ -149,23 +148,9 @@ Expected: [What should happen - specific and observable]
 → Does this work? Describe what you see.
 ```
 
-Wait for user response:
+Wait for the user's response. A confirmation is a pass, an explicit skip is a skip, and anything else is an issue logged verbatim.
 
-| User says                      | Interpret as            |
-| ------------------------------ | ----------------------- |
-| "yes", "pass", "works", "next" | ✅ Pass                 |
-| "skip", "can't test", "n/a"    | ⏭️ Skip                 |
-| Anything else                  | ❌ Issue - log verbatim |
-
-**Severity inference (never ask the user for severity):**
-
-| User description contains               | Inferred severity |
-| --------------------------------------- | ----------------- |
-| crash, error, exception, fails, broken  | Blocker           |
-| doesn't work, wrong, missing, can't     | Major             |
-| slow, weird, off, minor, small          | Minor             |
-| color, font, spacing, alignment, visual | Cosmetic          |
-| (unclear)                               | Major (default)   |
+**Severity is inferred, never asked.** Rate each issue Blocker / Major / Minor / Cosmetic from what the user described, using the severity scheme in `docs/guidelines/REVIEW-ROUNDS.md`; when the description is too thin to tell, default to Major.
 
 ### 8. Generate Fix Plans (if issues found)
 
@@ -183,16 +168,16 @@ Fix tasks follow the same format as regular tasks and can be executed with the i
 
 **Guardrail:** Maximum 3 diagnostic iterations per issue. If root cause isn't found after 3 attempts, flag for human investigation. This diagnostic cap is per issue and separate from review-remediation fingerprint accounting in `docs/guidelines/REVIEW-ROUNDS.md`.
 
-### 9. Write Validation Report File + Return Chat Summary (MANDATORY)
+### 9. Write Validation Report File + Return Chat Summary
 
-After all checks complete, the Verifier MUST:
+After all checks complete, the Verifier:
 
 1. **Write the final feature report** to `.specs/features/[feature]/validation.md` (see template below) only after all slice reports exist and the verified slices are integrated. It is versioned workflow state and travels with the feature when committed. A slice-level Verifier writes `.specs/features/[feature]/validation-[slice].md` instead.
 2. **Return a compact summary in chat** to the orchestrator (see Compact Chat Summary section below). The orchestrator surfaces it to the user and routes any ranked gaps to fix tasks.
 
 **Deterministic backing (run it, do not eyeball it).** After writing the report, run `python3 <skill-dir>/scripts/validate_state.py <feature>`. It confirms the report is real - present, verdict filled to PASS, and backed by at least one `file:line` evidence citation - so a missing, hollow, placeholder, or FAIL report cannot slip through as done. A non-zero exit means the feature is NOT done: repair the report or route the FAIL gaps to fix tasks, then re-run. This is the closing gate of Execute and runs automatically, the same way the lessons layer runs at distillation; it is never a manual step. If no code-execution tool is available, confirm the same by reading `validation.md`.
 
-### 10. Distill Lessons (MANDATORY when validation.md has signal)
+### 10. Distill Lessons (when validation.md has signal)
 
 This is the closing action of validation - not a separate phase. Immediately after the report is written, turn its grounded failures into reusable, project-local guidance by following [lessons.md](lessons.md). In short: for each surviving mutant, spec-precision gap, failed/uncovered AC, or `// SPEC_DEVIATION`, record one terse general lesson via `python3 <skill-dir>/scripts/lessons.py add` (the script enforces grounding and owns all bookkeeping). A clean PASS with no signal → record nothing. Run the self-check: if there was signal but no lesson was recorded, say so in chat. See [lessons.md](lessons.md) for the exact commands, phrasing rules, scope discipline, and the no-script fallback.
 
@@ -348,17 +333,7 @@ Update spec.md requirement statuses:
 
 ## Tips
 
-- **Validation is never prompted** - slice validation always runs after each code-changing slice, and final integrated validation runs after all verified slices are integrated; do not ask the user whether to run it
-- **Spec-anchored, not just covered** - "there is an assertion" is not enough; the assertion must target the spec-defined outcome
-- **Sensor in scratch only** - never mutate the real tree; use a temp worktree or file copies (never `git stash`), run, discard, then confirm porcelain matches the pre-sensor baseline
-- **Surviving mutants are fix tasks** - do not mark the feature done if the sensor found weak tests
 - **P1 first** - MVP must work before P2/P3
 - **WHEN/THEN = Test** - Each criterion is a test case
 - **Be specific** - "Doesn't work" isn't helpful
 - **Recommend fixes** - Don't just report problems, create fix tasks
-- **Quality check is mandatory** - Not optional
-- **Infer severity** - Never ask the user "how bad is this?"
-- **Max 3 diagnostic iterations** - Prevents infinite investigation loops; this diagnostic cap is per issue and separate from review-remediation fingerprint accounting in `docs/guidelines/REVIEW-ROUNDS.md`.
-- **Update traceability** - Every verified requirement updates spec.md status
-- **Always write the report file** - slice Verifiers write `.specs/features/[feature]/validation-[slice].md`; the final integrated Verifier writes `.specs/features/[feature]/validation.md`. Both are versioned workflow state and travel with the feature when their evidence must travel.
-- **Distill after writing** - turn grounded failures into lessons via `scripts/lessons.py` ([lessons.md](lessons.md)); clean PASS → no lesson
