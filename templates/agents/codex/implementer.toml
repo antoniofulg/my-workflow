@@ -21,7 +21,6 @@ The planning transcript, all of .specs/STATE.md, all of FRONTEND.md.
 
 ## Rules
 
-- Use the model pinned on this file. Do not switch family.
 - One implementer owns exactly one slice in its assigned private writer worktree; safe slices may run concurrently in isolated worktrees.
 - Tasks inside the slice remain sequentially ordered. Start task N+1 only after task N's scoped gate and atomic commit checkpoint.
 - Skill workflow-spec-driven / implement.md: spec-derived test, runner decides the gate,
