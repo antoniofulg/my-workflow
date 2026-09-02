@@ -8,38 +8,41 @@
     ]
   },
   "feature": "merge-alone-slices",
-  "git_head": "d0dd82d4ac9b9197bb5691698dfd40094ce9edbf",
+  "git_head": "9f95a73089675307116f431996089cec51c4db0f",
   "overrides": {},
   "parallelization": {
-    "mode": "disabled",
+    "automatic_baseline": 2,
+    "automatic_ceiling": 4,
+    "max_workers": "auto",
+    "mode": "assisted",
     "resource_provider": null
   },
   "profile": null,
   "roles": {
     "deep_reviewer": {
-      "agent_file": ".codex/agents/deep-reviewer.toml",
+      "agent_file": ".claude/agents/deep-reviewer.md",
       "effort": "high",
-      "model": "gpt-5.6-luna",
-      "provider": "codex"
+      "model": "sonnet",
+      "provider": "claude"
     },
     "explorer": {
-      "agent_file": ".codex/agents/explorer.toml",
+      "agent_file": ".claude/agents/explorer.md",
       "effort": "medium",
-      "model": "gpt-5.6-luna",
-      "provider": "codex"
+      "model": "sonnet",
+      "provider": "claude"
     },
     "implementer": {
-      "agent_file": ".codex/agents/implementer.toml",
-      "effort": "high",
-      "model": "gpt-5.6-luna",
-      "provider": "codex"
+      "agent_file": ".claude/agents/implementer.md",
+      "effort": "medium",
+      "model": "opus",
+      "provider": "claude"
     },
     "verifier": {
-      "agent_file": ".codex/agents/verifier.toml",
+      "agent_file": ".claude/agents/verifier.md",
       "effort": "medium",
-      "model": "gpt-5.6-sol",
-      "provider": "codex"
+      "model": "opus",
+      "provider": "claude"
     }
   },
-  "version": 2
+  "version": 3
 }

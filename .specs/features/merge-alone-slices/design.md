@@ -1,7 +1,7 @@
 # Merge-Alone Slice Derivation Design
 
 **Spec**: `.specs/features/merge-alone-slices/spec.md`
-**Status**: Approved
+**Status**: Approved — re-planned 2026-09-02 on `workflow-spec-driven` (snapshot version 3)
 
 ## Approaches
 
@@ -21,11 +21,11 @@ flowchart LR
     T[tasks.md] --> V[validate_tasks.py]
     V --> C[validated closure JSON]
     C --> W[workflow_config.py]
-    C --> P[parallel_plan.py with workflow snapshot v2]
+    C --> P[parallel_plan.py]
     W --> S[workflow.json deep-review groups]
     P --> L[parallel lanes]
     S --> P
-    S --> E[parallel_execute.py with workflow snapshot v2]
+    S --> E[parallel_execute.py]
 ```
 
 Normal resume returns the valid snapshot before opening `tasks.md`. Initial resolution and explicit
@@ -36,9 +36,8 @@ the existing balanced-group and atomic snapshot writer.
 
 | Component | Location | Reuse |
 | --- | --- | --- |
-| Existing task field parser | `.agents/skills/tlc-spec-driven/scripts/validate_tasks.py` | Add `Slice` to the existing per-task field extraction. |
+| Existing task field parser | `.agents/skills/workflow-spec-driven/scripts/validate_tasks.py` | Add `Slice` to the existing per-task field extraction. |
 | Existing task slice parser | `.agents/skills/workflow-config/scripts/parallel_plan.py` | Keep reading `**Slice:**`; prove the closure table is ignored. |
-| Existing parallel executor | `.agents/skills/workflow-config/scripts/parallel_execute.py` | Consume the same active workflow snapshot version as the resolver and planner. |
 | Existing balanced cadence | `.agents/skills/workflow-config/scripts/workflow_config.py` | Feed it the validated derived count. |
 | Existing atomic snapshot path | `.agents/skills/workflow-config/scripts/workflow_config.py` | Preserve resume and replacement semantics. |
 | Existing Markdown fixtures | `tools/fixtures/tlc-validator/` | Add positive and negative closure contracts. |
@@ -47,12 +46,12 @@ the existing balanced-group and atomic snapshot writer.
 
 ### Validated closure contract
 
-- **Location**: `.agents/skills/tlc-spec-driven/scripts/validate_tasks.py`
+- **Location**: `.agents/skills/workflow-spec-driven/scripts/validate_tasks.py`
 - **Purpose**: Parse primary task membership and the exact closure table, then validate their
   one-to-one consistency.
 - **Interface**: `validated_slice_contract(tasks_path)` returns ordered `task_slices`, `slice_ids`,
   and `closures`; `--slice-contract-json` serializes the same value.
-- **Rules**: Every `T\d+` task has one non-empty `Slice`; every used slice has one valid closure;
+- **Rules**: Every `T\d+` task has one non-empty `**Slice:**` field (the bold-colon form `parallel_plan.py` already reads); every used slice has one valid closure;
   duplicate/orphan rows fail; merge-alone is exact lowercase `yes`; remediation IDs do not count.
 
 ### Derived workflow resolution
@@ -94,7 +93,7 @@ the existing balanced-group and atomic snapshot writer.
 | --- | --- | --- | --- |
 | Existing feature task files predate the closure table | `.specs/features/*/tasks.md` | Revalidating or refreshing an old feature can fail | Intentional hard cut; normal resume remains snapshot-owned, and new/updated plans use the template. |
 | Two downstream task readers exist | TLC validator and `parallel_plan.py` | Membership could drift | Keep the existing `**Slice:**` field as their shared input and add a no-regression planner test. |
-| Historical version-1 snapshots remain tracked | `.specs/features/*/workflow.json` | Bulk rewriting would alter historical feature evidence | Keep historical files byte-for-byte; active consumers reject v1 and accept the resolver's v2 output. |
+| Frozen QA artifacts cannot change | `docs/qa/scenarios/*` before the reconciliation merge | Editing an existing CFG scenario fails `IT-006` | Mint one new scenario for the derived-count promise; leave frozen scenarios untouched. |
 | Markdown table parsing is exact | validator | Helpful formatting variants may fail | Publish one canonical header and exact `yes`; errors name the field instead of guessing. |
 
 ## Tech Decisions
@@ -106,4 +105,3 @@ the existing balanced-group and atomic snapshot writer.
 | Resume | Snapshot first, no task read | Preserves frozen routing and AC 6 from issue #71. |
 | Optional manual count | Assertion on initial/refresh only | Detects expectation mismatch without restoring manual ownership. |
 | Remediation records | Excluded from primary count | Review work is not a new mergeable product outcome. |
-| Active workflow snapshot | Hard cut to version 2 | The resolver already emits v2; accepting v1 would restore compatibility explicitly rejected by AD-014. |
