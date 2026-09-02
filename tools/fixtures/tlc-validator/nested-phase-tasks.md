@@ -23,10 +23,17 @@
 
 #### T2: Core task
 
+## Vertical Slice Closure
+
+| Slice | Observable outcome | Independent gate | Merge if later slices are cancelled? | Why |
+| --- | --- | --- | --- | --- |
+| A | The task sequence completes. | `python3 -m unittest` | yes | Fixture contract. |
+
 ## Task Breakdown
 
 ### T1: Foundation task
 
+**Slice:** A
 **Depends on**: None
 **Where**: `src/foundation.py`
 **Tests**: unit
@@ -34,6 +41,7 @@
 
 ### T2: Core task
 
+**Slice:** A
 **Depends on**: T1
 **Where**: `src/core.py`
 **Tests**: unit

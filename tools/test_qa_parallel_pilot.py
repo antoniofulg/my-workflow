@@ -49,7 +49,9 @@ def test_pilot_handoff_uses_disposable_safe_fixture_and_dry_run_two_lanes() -> N
         assert all(lane["status"] == "ready" for lane in result["lanes"])
         child = qa_parallel_pilot._worktree_root(fixture_root) / "parallel-pilot" / "A-T1"
         subprocess.run(["git", "worktree", "add", "--detach", str(child), result["source_git_head"]], cwd=fixture_root, check=True, capture_output=True)
-        assert (child / ".specs/features/parallel-pilot/tasks.md").read_text(encoding="utf-8").startswith("### T1: pilot A")
+        fixture_tasks = (child / ".specs/features/parallel-pilot/tasks.md").read_text(encoding="utf-8")
+        assert fixture_tasks.startswith("## Vertical Slice Closure")
+        assert "### T1: pilot A" in fixture_tasks
         assert subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=child, text=True).strip() == result["source_git_head"]
     finally:
         refused = subprocess.run([sys.executable, str(HARNESS), "cleanup", "--root", fixture], text=True, capture_output=True, check=False)

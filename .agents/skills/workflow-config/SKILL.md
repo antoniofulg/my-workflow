@@ -37,15 +37,20 @@ This lets an operator tune the bound between attempts without refreshing the fro
 
 ## First resolution
 
-Run the bundled `mutating` resolver from the consuming project root. It writes the feature-local
+Run the bundled `mutating` resolver from the consuming project root. When `tasks.md` exists, it
+validates the vertical-slice closure contract and derives the count before writing the feature-local
 `workflow.json` snapshot atomically:
 
 ```bash
 python3 .agents/skills/workflow-config/scripts/workflow_config.py \
-  --root . --feature <feature-slug> --slices <implementation-slice-count> \
+  --root . --feature <feature-slug> \
   --native-provider <claude|codex|cursor> [--profile <name>] \
   [--override <role>=<provider>]...
 ```
+
+With no `tasks.md`, the resolver uses one slice. `--slices <expected-count>` remains an optional
+assertion for initial resolution and refresh; it never owns the count. Normal resume returns the
+frozen snapshot without reading current Tasks.
 
 Treat the snapshot as the persisted route and cadence; the current JSON output additionally reports
 the live remediation threshold. The resolver owns config parsing, validation, balanced groups, role
