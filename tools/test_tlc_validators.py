@@ -129,6 +129,7 @@ class WorkflowValidatorTests(unittest.TestCase):
             contract["task_slices"],
             {"T1": "A", "T2": "A", "T3": "B", "T4": "B"},
         )
+        self.assertEqual(validate_tasks.check(str(path))[0], [])
 
     # MAS-UT-003: an incomplete closure row names the slice and the missing field.
     def test_rejects_incomplete_closure_fields(self) -> None:

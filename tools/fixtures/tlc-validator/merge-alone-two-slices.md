@@ -17,7 +17,11 @@
 ### Phase 1: Foundation
 
 ```text
-T1 -> T2 -> T3 -> T4
+T1 -> T2
+```
+
+```text
+T3 -> T4
 ```
 
 ## Vertical Slice Closure
