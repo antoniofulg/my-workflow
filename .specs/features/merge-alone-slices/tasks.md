@@ -17,6 +17,16 @@
 
 ## Test Coverage Matrix
 
+> Generated from codebase, project guidelines, and spec. Guidelines found: `docs/guidelines/TEST-CONTRACT.md`, `docs/guidelines/GATES.md`, `bunfig.toml`.
+
+| Code Layer | Required Test Type | Coverage Expectation | Location Pattern | Run Command |
+| ---------- | ------------------ | -------------------- | ---------------- | ----------- |
+| Task validator (`validate_tasks.py`) | unit | All closure and membership branches; 1:1 to spec ACs 3, 4, 10, 11; every listed edge case | `tools/test_tlc_validators.py`, `tools/fixtures/tlc-validator/*.md` | `python3 tools/test_tlc_validators.py` |
+| Workflow resolver (`workflow_config.py`) | integration | Public CLI and `resolve()`: derive, assert, missing tasks, malformed, resume, refresh; snapshot bytes on every failure | `tools/test_workflow_config.py` | `python3 tools/test_workflow_config.py` |
+| Parallel planner (`parallel_plan.py`) | integration | Membership equals the validator's; validator rejection fails closed | `tools/test_parallel_plan.py` | `python3 tools/test_parallel_plan.py` |
+| Published contract (template, skill, README) | integration | Structural assertions on the shipped text | `tools/shared/tests/workflow-config.test.ts` | `bun test tools/shared/tests/workflow-config.test.ts` |
+| QA scenario, journey, changelog | none | - (full gate only) | `docs/qa/**`, `CHANGELOG.md` | `bun run test:all` |
+
 | Spec AC | Test IDs | Task |
 | --- | --- | --- |
 | 1, 2 | MAS-UT-001, MAS-UT-002, MAS-IT-001, MAS-IT-002 | T1, T2 |
@@ -142,7 +152,7 @@
 - [x] `## [Unreleased]` records the derived slice count and the optional `--slices` assertion.
 - [x] Full gate exits zero.
 
-**Tests**: none — QA documents and changelog are owned by the full gate
+**Tests**: none — matrix layer "QA scenario, journey, changelog" requires none; owned by the full gate
 **Gate**: Full
 **Commit**: `docs(qa): promise merge-alone slice derivation`
 
