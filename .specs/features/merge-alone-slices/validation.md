@@ -214,3 +214,102 @@ the full gate exit `0`, and every non-equivalent mutant is killed.
 - Baseline re-confirmed after the purge fix: `python3 tools/test_workflow_config.py` → `status=0`,
   `55 passed, 0 failed`.
 - This session wrote only this file. No product code, test, fixture, or commit was created or amended.
+
+# Post-cap addendum — verdict: PASS
+
+Fresh fourth Verifier session, 2026-09-02, branch `docs/merge-alone-post-cap-verification`, HEAD
+`c7511d5` (identical to `main` after PR #80). Scope: only `a872208`, `ee895c6`, `6c36499` — the three
+commits after the `ee895c6`-predecessor PASS and after the Deep Review cap. The earlier verdict in this
+file was not used as evidence; every claim below was re-derived.
+
+## Criterion → asserting line
+
+| Criterion / row | Asserting line | Asserts the contracted outcome? |
+| --- | --- | --- |
+| AC-11 (shared membership) | `tools/test_parallel_plan.py:146` | Yes — `planned == contract["task_slices"]` over lanes ∪ blocked, on a fixture that now also carries a `T2R1` record (`tools/test_parallel_plan.py:121`, added by `a872208`). |
+| AC-12 (planner accepts derived snapshot) | `tools/test_parallel_plan.py:140`, `:146`, `:147` | Yes — resolver snapshot groups `[[1, 2]]`, membership equality, and `plan["source_git_head"] == snapshot["git_head"]`. |
+| AC-13 (planner ignores remediation fields) | `tools/test_parallel_plan.py:262`–`:264` | Partially — see gap G1. |
+| MAS-IT-008 | `tools/test_parallel_plan.py:126`–`:147` | Yes. |
+| MAS-IT-011 | `tools/test_parallel_plan.py:153`–`:168` (`:165` validator sees `T1..T4`; `:168` membership equality) | Yes — headings `## T1:`, `#### T2:`, `### t3:`, `### T4:`. |
+| MAS-IT-012 | `tools/test_parallel_plan.py:174`–`:189` (`:187` `fallback is False`, `:188` `reasons == []`, `:189` membership) | Yes — `#### T1:`/`#### T2:` phase listing plus later `### T1:`/`### T2:` definitions. |
+| MAS-IT-010 | `tools/test_parallel_plan.py:248`–`:264` | Partially — see gap G1. |
+
+## Shared task boundaries
+
+- Validator owns both rules: `.agents/skills/workflow-spec-driven/scripts/validate_tasks.py:46`
+  (`TASK_RE = ^#{2,4}\s+(T\d+)\s*:`, `re.IGNORECASE`) and `:47` (`HEADING_RE = ^#{1,6}\s+`), used at
+  `:104` and `:118`.
+- Planner consumes them: `.agents/skills/workflow-config/scripts/parallel_plan.py:134`
+  (`validate_tasks.TASK_RE.match(stripped)`) and `:140` (`validate_tasks.HEADING_RE.match(stripped)`).
+- No planner-private heading regex remains: the only `re.compile` calls left in the planner are
+  `parallel_plan.py:26` (`FIELD`) and `:27` (`RESOURCE_RE`); `TASK_HEADING` is deleted in `6c36499`.
+- Last definition wins: `parallel_plan.py:130`/`:137`/`:144`/`:150` key a `dict`, mirroring the
+  validator's `tasks[current] = {...}` reset at `validate_tasks.py:106`.
+
+## Mutants (scratch worktree `.../scratchpad/mut`, `git worktree add --detach c7511d5`)
+
+| # | Mutation | Result | Killing line |
+| --- | --- | --- | --- |
+| a | Planner matches with the old `^###\s+(T\d+)\s*:` case-sensitive rule | Killed | `tools/test_parallel_plan.py:168` (`AssertionError`) |
+| b | Remove the `HEADING_RE` reset branch | Killed | `tools/test_parallel_plan.py:262` (`T2` vanishes from the plan; `StopIteration` in `entry_for`) |
+| c | First definition wins (`sections.setdefault`) instead of last | Killed | `tools/test_parallel_plan.py:187` (`AssertionError`) |
+| d | Planner falls back to its own `**Slice:**` field when the validator raises | Killed | `tools/test_parallel_plan.py:213` (`expected the validator to reject: T2: Slice field must use exactly`) |
+| e | Restore the `duplicate-task` fallback reason for a repeated heading | Survives — **proven equivalent** | Instrumented branch fired `0` times across all 31 tests; `sections` is a `dict`, so `sections.items()` cannot yield a repeated key. |
+| b′ | Sub-mutant: leak only a remediation record's `**Resources:**` into the primary task | **Survives** | none — gap G1 |
+
+## Retired reasons are unreachable, not merely untested
+
+- `duplicate-task`: dead by construction — `parallel_plan.py:130` makes `sections` a `dict`, so the
+  loop at `:153` iterates unique keys. Instrumented mutant (e) confirms `0` executions.
+- `missing-slice`: `parallel_plan.py:161` now indexes `task_slices[task_id]` unguarded. This cannot
+  raise because (1) `validate_tasks.py:264`–`274` returns only when `_slice_contract` produced no
+  errors, and `validate_tasks.py:219`–`234` appends an error for every `parse_tasks` task that does not
+  land in `task_slices` — so on a successful return `set(task_slices) == set(parse_tasks(lines))`; and
+  (2) the planner's key extraction (`parallel_plan.py:132`–`150`) applies the same `TASK_RE`/`HEADING_RE`
+  pair with the same `.upper()` to the same file, so its key set equals `parse_tasks`'s. A 4000-case
+  differential fuzz over randomized heading/field documents found `0` key-set mismatches.
+- No live consumer names either string; the only repository hits are the historical records in
+  `.specs/features/merge-alone-slices/decisions.md:46` and `validation.md:141`.
+
+## No pre-existing invariant lost
+
+`git diff 91a02e5..6c36499 -- tools/test_parallel_plan.py` is `85` insertions, `1` deletion. The single
+deleted line is the MAS-IT-008 fixture string, replaced in place by the same four tasks plus the
+`REMEDIATION` record — the assertion set is strengthened, not reduced. No assertion, test function, or
+fixture invariant was removed.
+
+## Gates (exit codes read directly, not through a pipe)
+
+| Command | status |
+| --- | --- |
+| `python3 tools/test_parallel_plan.py` | `0` — `31 passed, 0 failed` |
+| `python3 tools/test_tlc_validators.py` | `0` — `Ran 17 tests ... OK` |
+| `python3 tools/test_qa_parallel_pilot.py` | `0` — `13 passed, 0 failed` |
+| `python3 tools/test_parallel_executor.py` | `0` — `58 passed, 0 failed` |
+| `bun run test:all` | `0` — no failing suite; `security-skills-installation.test.ts` and `test_parallel_resource_lock.py` both passed on the first run, so the flake protocol was not triggered. |
+
+## Gaps (ranked)
+
+1. **G1 — AC-13's `resources` clause is asserted only indirectly (low/medium, test-only).**
+   In `test_planner_ignores_remediation_record_fields`, `T2` lands in `blocked` as
+   `{'task': 'T2', 'slice': 'A', 'reasons': ['slice-order:T1']}` — a blocked entry carries no
+   `status`, `resources`, or `sync_after` key (`parallel_plan.py:359`–`:367`), so the equality at
+   `tools/test_parallel_plan.py:262` cannot observe the fields the criterion names. Sub-mutant b′,
+   which leaks only the record's `**Resources:** db` into `T2`, survives all 31 tests. The real
+   regression (mutant b, removing the reset) is still killed, so this is an evidence gap, not a
+   product defect. Fix: build the fixture so `T2` is a ready lane entry, or assert on the parsed task
+   directly, then re-run b′.
+2. **G2 — traceability comment labels are wrong (low, docs-only).** The tests for MAS-IT-011 and
+   MAS-IT-012 are labelled `# MAS-IT-008` at `tools/test_parallel_plan.py:152` and `:173`; the contract
+   rows are `MAS-IT-011` and `MAS-IT-012` (`.specs/features/merge-alone-slices/tests.md:29`, `:30`).
+
+Neither gap blocks. AC-11 and AC-12 carry direct, mutant-killed assertions; AC-13's status and
+dependency clauses are killed by mutant b; every named gate and the full gate exit `0`; the two retired
+fallback reasons are proven unreachable rather than merely untested.
+
+## Method notes
+
+- Scratch worktree at `.../scratchpad/mut` (`git worktree add --detach c7511d5`); the active checkout
+  was never mutated. Each mutant was applied one at a time and reverted from a pristine copy of
+  `parallel_plan.py` before the next.
+- This session wrote only this addendum. No product code, test, fixture, or commit was created or amended.
