@@ -5,7 +5,7 @@ title: Derive the slice count from merge-alone outcomes
 persona: Workflow adopter
 journey: J-configure-feature-workflow
 expected: The resolver derives the slice count from the validated vertical-slice closure contract in `tasks.md` and groups those slices under the cadence configured in `.my-workflow.toml`; it uses one slice when Tasks was skipped, treats `--slices` as an assertion only, and returns the frozen snapshot on normal resume.
-entry_points: python3 .agents/skills/workflow-config/scripts/workflow_config.py --root . --feature <slug> --native-provider <provider>; python3 .agents/skills/workflow-config/scripts/workflow_config.py --root . --feature <slug> --native-provider <provider> --slices <expected-count>; python3 .agents/skills/workflow-config/scripts/workflow_config.py --root . --feature <slug> --native-provider <provider> --refresh; python3 .agents/skills/workflow-spec-driven/scripts/validate_tasks.py <tasks.md> --slice-contract-json
+entry_points: python3 .agents/skills/workflow-config/scripts/workflow_config.py --root . --feature <slug> --native-provider <provider>; python3 .agents/skills/workflow-config/scripts/workflow_config.py --root . --feature <slug> --native-provider <provider> --slices <expected-count>; python3 .agents/skills/workflow-config/scripts/workflow_config.py --root . --feature <slug> --native-provider <provider> --refresh; python3 .agents/skills/workflow-spec-driven/scripts/validate_tasks.py <tasks.md> --slice-contract-json; python3 .agents/skills/workflow-config/scripts/parallel_plan.py; .agents/skills/workflow-spec-driven/references/tasks.md; .agents/skills/workflow-config/SKILL.md; README.md
 qa_status: untested
 bug_ids:
 fix_status:
@@ -38,3 +38,15 @@ requested, the resolver returns that frozen snapshot without reading current tas
 document that changed — or became malformed — after the freeze cannot move an in-flight feature's
 cadence. Only explicit `--refresh` re-derives, and it replaces the snapshot atomically on the same
 schema.
+
+The authoring surface is part of the same promise. The installed task template is what an adopter
+reads before writing a slice field, so it has to name the three planning units apart — a vertical
+slice is a merge-alone outcome, a phase or cohort is technical ordering, a batch is worker capacity —
+and neither `README.md` nor the `workflow-config` skill may still present `--slices` as the source of
+truth. A copy-pasteable invocation that no longer matches the resolver is a broken promise even when
+the resolver is correct.
+
+Downstream consumption closes it. The parallel planner reads the resolver's snapshot and must report
+the same primary-task membership the validator derived, over every heading shape the validator
+accepts, and must ignore a review remediation record such as `T2R1` field-for-field, so the preceding
+task's status, resources, and dependencies are what they would be with the record absent.
