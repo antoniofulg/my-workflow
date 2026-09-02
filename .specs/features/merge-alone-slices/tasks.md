@@ -162,15 +162,15 @@
 **What**: Reset the planner's current task on any heading line, as the validator does, so a `T<n>R<m>` record donates no `Status`, `Resources`, or `Depends on` to the primary task above it.
 **Where**: `.agents/skills/workflow-config/scripts/parallel_plan.py`; `tools/test_parallel_plan.py`
 **Slice:** A
-**Status:** pending
+**Status:** complete
 **Resources:** none
 **Depends on:** T3
 **Requirement**: MAS-13
 
 **Done when**:
 
-- [ ] A `### T2R1:` record after `T2` with `**Status:** complete`, `**Resources:** db`, `**Depends on:** T3` leaves `T2`'s plan identical to the document without the record.
-- [ ] The test fails on the pre-fix parser (record it) and passes after.
+- [x] A `### T2R1:` record after `T2` with `**Status:** complete`, `**Resources:** db`, `**Depends on:** T3` leaves `T2`'s plan identical to the document without the record.
+- [x] The test fails on the pre-fix parser (record it) and passes after.
 
 **Tests**: MAS-IT-010
 **Gate**: Planner

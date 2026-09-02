@@ -24,6 +24,7 @@ import validate_tasks
 MODES = {"assisted", "disabled"}
 STATUS_VALUES = {"pending", "in_progress", "waiting", "complete"}
 TASK_HEADING = re.compile(r"^###\s+(T\d+)\s*:")
+HEADING = re.compile(r"^#{1,6}\s+")
 FIELD = re.compile(r"^\*\*([^*]+):\*\*\s*(.*?)\s*$")
 RESOURCE_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 
@@ -131,6 +132,13 @@ def _parse_tasks(path: Path) -> tuple[list[Task], list[str]]:
             if current_id is not None:
                 sections.append((current_id, current))
             current_id = match.group(1)
+            current = []
+        elif HEADING.match(line):
+            # Any other heading ends the task, so a `T2R1` remediation record donates
+            # no Status, Resources, or Depends on to the primary task above it.
+            if current_id is not None:
+                sections.append((current_id, current))
+            current_id = None
             current = []
         elif current_id is not None:
             current.append(line)

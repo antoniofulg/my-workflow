@@ -202,6 +202,37 @@ def blocked_task(plan: dict[str, object], task_id: str) -> dict[str, object]:
     return next(item for item in plan["blocked"] if item["task"] == task_id)  # type: ignore[index]
 
 
+# MAS-IT-010: a remediation record donates no field to the primary task above it.
+def test_planner_ignores_remediation_record_fields() -> None:
+    tasks = task("T1", "A") + task("T2", "A") + task("T3", "B") + task("T4", "B")
+    record = (
+        "### T2R1: review remediation\n"
+        "**Status:** complete\n"
+        "**Resources:** db\n"
+        "**Depends on:** T3\n\n"
+    )
+    with_record = tasks.replace(task("T3", "B"), record + task("T3", "B"), 1)
+    plain_root = make_repo(tasks)
+    record_root = make_repo(with_record)
+    try:
+        plain = parallel_plan.plan(root=plain_root, feature="fixture")
+        recorded = parallel_plan.plan(root=record_root, feature="fixture")
+        assert entry_for(recorded, "T2") == entry_for(plain, "T2")
+        assert recorded["fallback"] == plain["fallback"]
+        assert recorded["reasons"] == plain["reasons"]
+    finally:
+        shutil.rmtree(plain_root)
+        shutil.rmtree(record_root)
+
+
+def entry_for(plan: dict[str, object], task_id: str) -> dict[str, object]:
+    return next(
+        item
+        for item in [*plan["lanes"], *plan["blocked"]]  # type: ignore[misc]
+        if item["task"] == task_id  # type: ignore[index]
+    )
+
+
 def test_slice_order_exposes_only_first_incomplete_task() -> None:
     root = make_repo(task("T1", "A") + task("T2", "A") + task("T3", "B"))
     try:
