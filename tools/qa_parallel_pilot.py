@@ -59,6 +59,7 @@ def setup() -> dict[str, str]:
         feature_dir = root / ".specs" / "features" / FEATURE
         feature_dir.mkdir(parents=True)
         (feature_dir / "tasks.md").write_text(
+            "## Vertical Slice Closure\n\n| Slice | Observable outcome | Independent gate | Merge if later slices are cancelled? | Why |\n| --- | --- | --- | --- | --- |\n| A | Capability A. | `gate-a` | yes | Independent value. |\n| B | Capability B. | `gate-b` | yes | Independent value. |\n\n## Task Breakdown\n\n"
             "### T1: pilot A\n**Status:** pending\n**Slice:** A\n**Where:** src/a.py\n**Depends on:** None\n**Resources:** none\n\n"
             "### T2: pilot B\n**Status:** pending\n**Slice:** B\n**Where:** src/b.py\n**Depends on:** None\n**Resources:** none\n",
             encoding="utf-8",

@@ -6,6 +6,10 @@ All notable changes to this project are documented here.
 
 ### Changed
 
+- Workflow resolution derives its slice count from the validated `## Vertical Slice Closure`
+  contract in `tasks.md` instead of a manually supplied number. A feature without `tasks.md`
+  resolves to one slice, `--slices` is now an optional exact assertion on initial resolution and
+  refresh only, and normal resume still returns the frozen snapshot without reading current tasks.
 - Local `main` is reconciled onto the published 0.8.0 base. The local assisted-Orca executor and
   Bun test-runner variants are superseded by the released hybrid slice execution and Bun tooling;
   merge-alone slice derivation is scheduled for a re-port onto `workflow-spec-driven`.

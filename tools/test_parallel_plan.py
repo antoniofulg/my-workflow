@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -12,8 +13,26 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / ".agents/skills/workflow-config/scripts"))
 import parallel_plan
 
-
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / ".agents/skills/workflow-spec-driven/scripts"))
+import validate_tasks  # noqa: E402
+import test_workflow_config as workflow_fixtures  # noqa: E402
+
+
+def closure_for(tasks: str) -> str:
+    """Build the closure contract every `**Slice:**` value in `tasks` needs to validate."""
+    slice_ids = list(dict.fromkeys(re.findall(r"^\*\*Slice:\*\* (\S+)$", tasks, re.MULTILINE)))
+    rows = "".join(
+        f"| {slice_id} | Capability {slice_id}. | `gate-{slice_id.lower()}` | yes | Independent value. |\n"
+        for slice_id in slice_ids
+    )
+    return (
+        "## Vertical Slice Closure\n\n"
+        "| Slice | Observable outcome | Independent gate | Merge if later slices are cancelled? | Why |\n"
+        "| --- | --- | --- | --- | --- |\n"
+        f"{rows}\n"
+        "## Task Breakdown\n\n"
+    )
 
 
 def make_repo(
@@ -25,7 +44,7 @@ def make_repo(
     root = Path(tempfile.mkdtemp())
     feature_dir = root / ".specs/features" / feature
     feature_dir.mkdir(parents=True)
-    (feature_dir / "tasks.md").write_text(tasks, encoding="utf-8")
+    (feature_dir / "tasks.md").write_text(closure_for(tasks) + tasks, encoding="utf-8")
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
     subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
     subprocess.run(["git", "config", "user.name", "Test"], cwd=root, check=True)
@@ -77,6 +96,125 @@ def make_repo(
     return root
 
 
+CLOSURE = (
+    "## Vertical Slice Closure\n\n"
+    "| Slice | Observable outcome | Independent gate | Merge if later slices are cancelled? | Why |\n"
+    "| --- | --- | --- | --- | --- |\n"
+    "| A | First capability. | `gate-a` | yes | Independent value. |\n"
+    "| B | Second capability. | `gate-b` | yes | Independent value. |\n\n"
+    "## Task Breakdown\n\n"
+)
+
+
+def make_resolver_repo(tasks: str, feature: str = "fixture") -> Path:
+    """Build a repository whose snapshot the resolver derived from the closure contract."""
+    root = workflow_fixtures.make_root()
+    workflow_fixtures.write_config(root)
+    workflow_fixtures.write_packets(root)
+    workflow_fixtures.write_tasks(root, tasks, feature)
+    workflow_fixtures.workflow_config.sync_agents(root)
+    workflow_fixtures.git_root(root)
+    workflow_fixtures.workflow_config.resolve(root=root, feature=feature, native_provider="codex")
+    return root
+
+
+# A review remediation record: no primary task, and a slice field the validator ignores.
+REMEDIATION = "### T2R1: review remediation\n**Slice:** B\n\n"
+
+
+# MAS-IT-008: the planner reports exactly the validator's primary-task membership.
+def test_resolved_snapshot_preserves_validator_slice_membership() -> None:
+    tasks = (
+        CLOSURE
+        + task("T1", "A")
+        + task("T2", "A")
+        + REMEDIATION
+        + task("T3", "B")
+        + task("T4", "B")
+    )
+    root = make_resolver_repo(tasks)
+    try:
+        snapshot = json.loads(
+            (root / ".specs/features/fixture/workflow.json").read_text(encoding="utf-8")
+        )
+        assert snapshot["deep_review"]["groups"] == [[1, 2]]
+        contract = validate_tasks.validated_slice_contract(
+            str(root / ".specs/features/fixture/tasks.md")
+        )
+        plan = parallel_plan.plan(root=root, feature="fixture")
+        planned = {item["task"]: item["slice"] for item in [*plan["lanes"], *plan["blocked"]]}
+        assert planned == contract["task_slices"]
+        assert plan["source_git_head"] == snapshot["git_head"]
+    finally:
+        shutil.rmtree(root)
+
+
+# MAS-IT-011: every heading shape the validator accepts is planned with its membership.
+def test_planner_finds_every_task_heading_the_validator_accepts() -> None:
+    tasks = task("T1", "A") + task("T2", "A") + task("T3", "B") + task("T4", "B")
+    tasks = (
+        tasks.replace("### T1: T1", "## T1: T1", 1)
+        .replace("### T2: T2", "#### T2: T2", 1)
+        .replace("### T3: T3", "### t3: T3", 1)
+    )
+    root = make_repo(tasks)
+    try:
+        contract = validate_tasks.validated_slice_contract(
+            str(root / ".specs/features/fixture/tasks.md")
+        )
+        assert set(contract["task_slices"]) == {"T1", "T2", "T3", "T4"}
+        plan = parallel_plan.plan(root=root, feature="fixture")
+        planned = {item["task"]: item["slice"] for item in [*plan["lanes"], *plan["blocked"]]}
+        assert planned == contract["task_slices"]
+    finally:
+        shutil.rmtree(root)
+
+
+# MAS-IT-012: a task listed under a phase and defined later is one task to both readers.
+def test_planner_reads_a_phase_listing_and_its_definition_as_one_task() -> None:
+    tasks = (
+        "### Phase 1: Foundation\n\n#### T1: T1\n\n#### T2: T2\n\n"
+        + task("T1", "A")
+        + task("T2", "B")
+    )
+    root = make_repo(tasks)
+    try:
+        contract = validate_tasks.validated_slice_contract(
+            str(root / ".specs/features/fixture/tasks.md")
+        )
+        plan = parallel_plan.plan(root=root, feature="fixture")
+        planned = {item["task"]: item["slice"] for item in [*plan["lanes"], *plan["blocked"]]}
+        assert plan["fallback"] is False
+        assert plan["reasons"] == []
+        assert planned == contract["task_slices"]
+    finally:
+        shutil.rmtree(root)
+
+
+# MAS-IT-008: a contract the validator rejects fails the plan closed, with its message.
+def test_plan_fails_closed_when_the_validator_rejects_the_contract() -> None:
+    valid = CLOSURE + task("T1", "A") + task("T2", "B")
+    cases = (
+        (valid.replace("**Slice:** B", "**slice:** B", 1), "T2: Slice field must use exactly"),
+        (
+            valid.replace("| B | Second capability. | `gate-b` | yes | Independent value. |\n", "", 1),
+            "B: primary tasks use a slice without a closure row",
+        ),
+    )
+    for tasks, expected in cases:
+        root = make_repo(tasks)
+        try:
+            (root / ".specs/features/fixture/tasks.md").write_text(tasks, encoding="utf-8")
+            try:
+                parallel_plan.plan(root=root, feature="fixture")
+            except ValueError as exc:
+                assert expected in str(exc)
+            else:
+                raise AssertionError(f"expected the validator to reject: {expected}")
+        finally:
+            shutil.rmtree(root)
+
+
 def task(
     task_id: str,
     slice_id: str | None,
@@ -104,6 +242,41 @@ def first_task(plan: dict[str, object], task_id: str) -> dict[str, object]:
 
 def blocked_task(plan: dict[str, object], task_id: str) -> dict[str, object]:
     return next(item for item in plan["blocked"] if item["task"] == task_id)  # type: ignore[index]
+
+
+# MAS-IT-010: a remediation record donates no field to the primary task above it.
+def test_planner_ignores_remediation_record_fields() -> None:
+    # T2 opens slice B, so it plans as a ready lane whose entry carries `status`,
+    # `resources` and `sync_after` - the fields the record would leak into.
+    tasks = task("T1", "A") + task("T2", "B") + task("T3", "B") + task("T4", "A")
+    record = (
+        "### T2R1: review remediation\n"
+        "**Status:** complete\n"
+        "**Resources:** db\n"
+        "**Depends on:** T3\n\n"
+    )
+    with_record = tasks.replace(task("T3", "B"), record + task("T3", "B"), 1)
+    plain_root = make_repo(tasks)
+    record_root = make_repo(with_record)
+    try:
+        plain = parallel_plan.plan(root=plain_root, feature="fixture")
+        recorded = parallel_plan.plan(root=record_root, feature="fixture")
+        assert first_task(plain, "T2")["resources"] == []
+        assert first_task(recorded, "T2") == first_task(plain, "T2")
+        assert entry_for(recorded, "T2") == entry_for(plain, "T2")
+        assert recorded["fallback"] == plain["fallback"]
+        assert recorded["reasons"] == plain["reasons"]
+    finally:
+        shutil.rmtree(plain_root)
+        shutil.rmtree(record_root)
+
+
+def entry_for(plan: dict[str, object], task_id: str) -> dict[str, object]:
+    return next(
+        item
+        for item in [*plan["lanes"], *plan["blocked"]]  # type: ignore[misc]
+        if item["task"] == task_id  # type: ignore[index]
+    )
 
 
 def test_slice_order_exposes_only_first_incomplete_task() -> None:
@@ -186,7 +359,6 @@ def test_graph_failures_fall_back_with_decisive_reasons() -> None:
             "dependency-cycle:",
         ),
         (task("T1", "A", depends_on="T99"), "unknown-dependency:T1->T99"),
-        (task("T1", None), "missing-slice:T1"),
         (task("T1", "A", where="src/a.py, src/b.py"), "ambiguous-where:T1"),
     )
     for tasks, reason in cases:
@@ -361,7 +533,7 @@ def test_dependency_blocking_precedes_write_conflict_evaluation() -> None:
 
 def test_fallback_reasons_are_complete_and_ordered() -> None:
     root = make_repo(
-        task("T1", None, depends_on="T99")
+        task("T1", "A", status="bogus", depends_on="T99")
         + task("T2", "B", depends_on="T3")
         + task("T3", "C", depends_on="T2")
         + task("T4", "D", where="src/d.py, src/e.py")
@@ -370,7 +542,7 @@ def test_fallback_reasons_are_complete_and_ordered() -> None:
         plan = parallel_plan.plan(root=root, feature="fixture")
         assert plan["fallback"] is True
         assert plan["reasons"] == [
-            "missing-slice:T1",
+            "invalid-status:T1",
             "ambiguous-where:T4",
             "unknown-dependency:T1->T99",
             "dependency-cycle:T2->T3->T2",

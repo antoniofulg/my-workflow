@@ -24,13 +24,13 @@ python3 .agents/skills/workflow-config/scripts/workflow_config.py \
   `--slices`.
 - **Refresh**: validates current tasks and derives the count again before atomically replacing the
   snapshot.
-- **Parallel consumers**: planner and executor accept the resolver's workflow snapshot version 2;
-  version 1 is rejected without fallback or migration.
+- **Parallel consumers**: the planner accepts the resolver's snapshot and reports the validator's
+  primary-task membership.
 
 ### Task validation contract output
 
 ```bash
-python3 .agents/skills/tlc-spec-driven/scripts/validate_tasks.py \
+python3 .agents/skills/workflow-spec-driven/scripts/validate_tasks.py \
   <tasks.md> --slice-contract-json
 ```
 
@@ -78,7 +78,7 @@ membership or new slices.
 
 | Condition | Result |
 | --- | --- |
-| Present `tasks.md` is invalid | Exit non-zero; name invalid task/slice; do not write snapshot |
+| Present `tasks.md` has an invalid closure contract | Exit non-zero; name invalid task/slice; do not write snapshot |
 | `--slices` differs from derived count during initial/refresh | Exit non-zero with expected and derived counts; do not replace snapshot |
 | `--slices` is zero or negative | Exit non-zero; do not write snapshot |
 | Existing snapshot is invalid | Preserve current validation failure; do not derive from tasks |

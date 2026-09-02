@@ -1,5 +1,7 @@
 # Merge-Alone Slice Derivation Specification
 
+**Status:** Approved (re-planned 2026-09-02 on `workflow-spec-driven`; the 2026-08-27 implementation was dropped by the local/origin reconciliation, `AD-020`)
+
 ## Problem Statement
 
 Workflow resolution currently accepts a manually chosen slice count before task planning proves the
@@ -30,7 +32,7 @@ review cadence, and adds verification cost even when only the final combined sta
 | Optional `--slices` during normal resume | Ignore for derivation; return the frozen snapshot | Resume must not read changed tasks or re-resolve cadence. | yes — acceptance criterion 6 |
 | Optional `--slices` during initial resolution or refresh | Exact assertion against derived count | It can catch an operator expectation mismatch without owning the count. | yes — acceptance criterion 4 |
 | Missing `tasks.md` | Exactly one slice | Tasks was auto-sized away, so no multi-slice plan exists to derive. | yes — acceptance criterion 5 |
-| Active workflow snapshot version | Version 2 only; reject version 1 | Workflow resolution already writes version 2, and the prior routing decision removed fallback compatibility. Historical snapshots remain evidence and are not rewritten. | yes — AD-014 |
+| Active workflow snapshot version | The resolver's current version (3), already enforced by every consumer | Version checks exist and are tested; this feature adds no schema field. Historical snapshots remain evidence and are not rewritten. | yes — existing consumers |
 
 **Open questions:** none — all resolved by issue #71 and existing snapshot semantics.
 
@@ -72,13 +74,13 @@ implementation begins.
 9. WHEN the task template describes planning units THEN it SHALL distinguish a vertical slice as a merge-alone outcome, a phase or cohort as technical ordering, and a batch as worker capacity.
 10. WHEN review remediation records such as `T2R1` appear in a task document THEN validation SHALL keep them outside the primary task slice count.
 11. WHEN the validated closure contract feeds downstream planning THEN workflow configuration and parallel planning SHALL use the same primary-task membership and slice IDs.
-12. WHEN workflow configuration writes a version-2 snapshot THEN the parallel planner and executor SHALL accept it while preserving feature, mode, and Git-head validation.
-13. IF an active parallel planner or executor receives a version-1 workflow snapshot THEN it SHALL reject it without fallback or migration.
+12. WHEN the resolver writes its snapshot from a derived count THEN the parallel planner SHALL accept that snapshot and report the same primary-task slice membership the validator derived.
+13. WHEN a review remediation record such as `T2R1` follows a primary task THEN the parallel planner SHALL ignore every field of that record, so the preceding task's status, resources, and dependencies are unchanged.
 
 **Independent Test**: Run the Praxis/Bun regression fixture through task validation and workflow
 resolution; it produces one slice and a one-slice review plan. Run the two-capability fixture; it
-preserves two independently mergeable slices. Feed the resulting version-2 snapshot to the parallel
-planner and executor; both accept it, while a version-1 fixture is rejected.
+preserves two independently mergeable slices. Feed the resulting snapshot to the parallel planner;
+it accepts it and reports the validator's membership.
 
 ## Edge Cases
 
@@ -88,8 +90,6 @@ planner and executor; both accept it, while a version-1 fixture is rejected.
 - IF `--slices` is zero or negative THEN resolution SHALL reject it as an invalid assertion.
 - WHEN tasks change after a snapshot is frozen THEN normal resume SHALL keep the prior snapshot and
   explicit refresh SHALL validate and derive the new closure contract.
-- IF a parallel consumer receives a version-1 workflow snapshot THEN it SHALL fail instead of
-  silently interpreting or upgrading it.
 
 ## Requirement Traceability
 
@@ -97,22 +97,25 @@ planner and executor; both accept it, while a version-1 fixture is rejected.
 | --- | --- | --- | --- |
 | MAS-01 | P1: Praxis regression derives one slice | Tasks | Verified |
 | MAS-02 | P1: Independent outcomes derive two slices | Tasks | Verified |
-| MAS-03 | P1: Closure fields validate | DR2 | Verified |
-| MAS-04 | P1: Task membership validates | R1 | Verified |
-| MAS-05 | P1: Optional count asserts derived value | R1 | Verified |
+| MAS-03 | P1: Closure fields validate | Tasks | Verified |
+| MAS-04 | P1: Task membership validates | Tasks | Verified |
+| MAS-05 | P1: Optional count asserts derived value | Tasks | Verified |
 | MAS-06 | P1: Missing tasks defaults to one slice | Tasks | Verified |
-| MAS-07 | P1: Malformed tasks fail closed | R1 | Verified |
+| MAS-07 | P1: Malformed tasks fail closed | Tasks | Verified |
 | MAS-08 | P1: Resume preserves frozen snapshot | Tasks | Verified |
-| MAS-09 | P1: Template distinguishes planning units | DR1 | Verified |
-| MAS-10 | P1: Remediation does not inflate slices | DR2 | Verified |
-| MAS-11 | P1: Downstream planners share membership | DR2 | Verified |
-| MAS-12 | P1: Parallel consumers accept workflow snapshot v2 | QA1 | Verified |
-| MAS-13 | P1: Parallel consumers reject workflow snapshot v1 | QA1 | Verified |
+| MAS-09 | P1: Template distinguishes planning units | Tasks | Verified |
+| MAS-10 | P1: Remediation does not inflate slices | Tasks | Verified |
+| MAS-11 | P1: Downstream planners share membership | Tasks | Verified |
+| MAS-12 | P1: Planner accepts the derived snapshot | Tasks | Verified |
+| MAS-13 | P1: Planner ignores remediation records | R1 | Verified |
 
 **Coverage:** 13 total, 13 mapped to tasks, 0 unmapped.
 
-**Verification:** R3 PASS at `5dee2e2`; 13/13 acceptance criteria and 19/19 test-contract rows
-matched, with the cohort-count regression killed. The whole feature is ready for QA retest.
+**Verification:** Technical Verifier PASS at `ee895c6` (`validation.md`): 13/13 acceptance criteria and
+18/18 test-contract rows matched; 9/10 mutants killed, the tenth proven equivalent. Deep Review round 2
+(final) remediation `6c36499` shares the validator's heading rule with the planner (MAS-IT-011/012,
+red-before/green-after recorded in `decisions.md`); post-cap remediation is gate-proven, not re-verified
+by a fourth Verifier session.
 
 ## Success Criteria
 
@@ -121,4 +124,4 @@ matched, with the cohort-count regression killed. The whole feature is ready for
 - [x] Invalid closure contracts and count mismatches fail before snapshot replacement.
 - [x] Resume and no-Tasks behaviour preserve their declared semantics.
 - [x] All repository gates pass without adding dependencies or compatibility parsers.
-- [x] Parallel planning and execution consume the resolver's version-2 snapshot and reject version 1.
+- [x] Parallel planning consumes the resolver's derived snapshot with the validator's membership.
