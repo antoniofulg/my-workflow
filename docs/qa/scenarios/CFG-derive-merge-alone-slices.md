@@ -4,8 +4,8 @@ area: CFG
 title: Derive the slice count from merge-alone outcomes
 persona: Workflow adopter
 journey: J-configure-feature-workflow
-expected: The resolver derives the review cadence from the validated vertical-slice closure contract in `tasks.md`, uses one slice when Tasks was skipped, treats `--slices` as an assertion only, and returns the frozen snapshot on normal resume.
-entry_points: python3 .agents/skills/workflow-config/scripts/workflow_config.py --root . --feature <slug> --native-provider <provider>; --slices <expected-count>; --refresh; python3 .agents/skills/workflow-spec-driven/scripts/validate_tasks.py <tasks.md> --slice-contract-json
+expected: The resolver derives the slice count from the validated vertical-slice closure contract in `tasks.md` and groups those slices under the cadence configured in `.my-workflow.toml`; it uses one slice when Tasks was skipped, treats `--slices` as an assertion only, and returns the frozen snapshot on normal resume.
+entry_points: python3 .agents/skills/workflow-config/scripts/workflow_config.py --root . --feature <slug> --native-provider <provider>; python3 .agents/skills/workflow-config/scripts/workflow_config.py --root . --feature <slug> --native-provider <provider> --slices <expected-count>; python3 .agents/skills/workflow-config/scripts/workflow_config.py --root . --feature <slug> --native-provider <provider> --refresh; python3 .agents/skills/workflow-spec-driven/scripts/validate_tasks.py <tasks.md> --slice-contract-json
 qa_status: untested
 bug_ids:
 fix_status:

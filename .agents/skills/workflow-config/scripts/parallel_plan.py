@@ -15,6 +15,11 @@ from typing import Any
 
 import workflow_config
 
+sys.path.insert(
+    0, str(Path(__file__).resolve().parents[2] / "workflow-spec-driven" / "scripts")
+)
+import validate_tasks
+
 
 MODES = {"assisted", "disabled"}
 STATUS_VALUES = {"pending", "in_progress", "waiting", "complete"}
@@ -113,6 +118,9 @@ def _resources(value: str | None) -> tuple[tuple[str, ...] | None, str | None]:
 
 
 def _parse_tasks(path: Path) -> tuple[list[Task], list[str]]:
+    # Slice membership comes from the validated closure contract, never from this
+    # parser, so the planner and the validator cannot disagree about a task's slice.
+    task_slices = validate_tasks.validated_slice_contract(str(path))["task_slices"]
     lines = path.read_text(encoding="utf-8").splitlines()
     sections: list[tuple[str, list[str]]] = []
     current_id: str | None = None
@@ -143,7 +151,7 @@ def _parse_tasks(path: Path) -> tuple[list[Task], list[str]]:
             if match:
                 fields[match.group(1).strip().lower()] = match.group(2).strip()
         status = fields.get("status", "")
-        slice_id = fields.get("slice") or None
+        slice_id = task_slices.get(task_id)
         where = fields.get("where") or None
         declared_paths, where_reason = _declared_paths(where)
         if status not in STATUS_VALUES:

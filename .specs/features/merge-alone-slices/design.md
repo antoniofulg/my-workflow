@@ -37,7 +37,7 @@ the existing balanced-group and atomic snapshot writer.
 | Component | Location | Reuse |
 | --- | --- | --- |
 | Existing task field parser | `.agents/skills/workflow-spec-driven/scripts/validate_tasks.py` | Add `Slice` to the existing per-task field extraction. |
-| Existing task slice parser | `.agents/skills/workflow-config/scripts/parallel_plan.py` | Keep reading `**Slice:**`; prove the closure table is ignored. |
+| Existing slice consumer | `.agents/skills/workflow-config/scripts/parallel_plan.py` | Take primary-task membership from `validated_slice_contract`; keep the planner's own `Status`, `Resources`, and `Depends on` parsing. |
 | Existing balanced cadence | `.agents/skills/workflow-config/scripts/workflow_config.py` | Feed it the validated derived count. |
 | Existing atomic snapshot path | `.agents/skills/workflow-config/scripts/workflow_config.py` | Preserve resume and replacement semantics. |
 | Existing Markdown fixtures | `tools/fixtures/tlc-validator/` | Add positive and negative closure contracts. |
@@ -51,7 +51,7 @@ the existing balanced-group and atomic snapshot writer.
   one-to-one consistency.
 - **Interface**: `validated_slice_contract(tasks_path)` returns ordered `task_slices`, `slice_ids`,
   and `closures`; `--slice-contract-json` serializes the same value.
-- **Rules**: Every `T\d+` task has one non-empty `**Slice:**` field (the bold-colon form `parallel_plan.py` already reads); every used slice has one valid closure;
+- **Rules**: Every `T\d+` task has one non-empty `**Slice:**` field; every used slice has one valid closure;
   duplicate/orphan rows fail; merge-alone is exact lowercase `yes`; remediation IDs do not count.
 
 ### Derived workflow resolution
@@ -63,6 +63,15 @@ the existing balanced-group and atomic snapshot writer.
   `--slices` is optional.
 - **Ordering**: Existing snapshot resume returns first. Initial/refresh derives, compares the
   optional assertion, then writes through the existing atomic path.
+
+### Planned slice dispatch
+
+- **Location**: `.agents/skills/workflow-config/scripts/parallel_plan.py`
+- **Purpose**: Plan lanes from the same membership the validator approved.
+- **Rules**: `_parse_tasks` takes each primary task's slice from
+  `validated_slice_contract(tasks_path)["task_slices"]` and keeps its own `Status`, `Resources`, and
+  `Depends on` parsing. A `ValueError` from the validator fails the plan closed with that message;
+  there is no fallback to a locally parsed `Slice` field.
 
 ### Planning template and guidance
 
@@ -92,7 +101,7 @@ the existing balanced-group and atomic snapshot writer.
 | Concern | Location | Impact | Mitigation |
 | --- | --- | --- | --- |
 | Existing feature task files predate the closure table | `.specs/features/*/tasks.md` | Revalidating or refreshing an old feature can fail | Intentional hard cut; normal resume remains snapshot-owned, and new/updated plans use the template. |
-| Two downstream task readers exist | TLC validator and `parallel_plan.py` | Membership could drift | Keep the existing `**Slice:**` field as their shared input and add a no-regression planner test. |
+| Two downstream task readers exist | validator and `parallel_plan.py` | Membership could drift | One reader: the planner consumes `validated_slice_contract` and fails closed on its error, proven by a planner test. |
 | Frozen QA artifacts cannot change | `docs/qa/scenarios/*` before the reconciliation merge | Editing an existing CFG scenario fails `IT-006` | Mint one new scenario for the derived-count promise; leave frozen scenarios untouched. |
 | Markdown table parsing is exact | validator | Helpful formatting variants may fail | Publish one canonical header and exact `yes`; errors name the field instead of guessing. |
 

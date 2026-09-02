@@ -22,12 +22,16 @@ What it checks (heuristic markdown inspection, not a full parser):
 
 Usage:
   python3 <skill-dir>/scripts/validate_tasks.py [target] [--root DIR] [--strict]
+  python3 <skill-dir>/scripts/validate_tasks.py [target] --slice-contract-json
 
   Invoke from the skill directory that ships this script (not the project root).
   target    Path to a tasks.md, a feature directory, or a project root.
             Omitted -> auto-detect the single feature under <root>/.specs/features/.
   --root    Project root that contains .specs/ (default: current dir).
   --strict  Treat warnings as errors.
+  --slice-contract-json
+            Print the validated merge-alone slice contract (task_slices, slice_ids,
+            closures) as JSON instead of running the checks.
 
 Exit codes: 0 pass, 1 errors found (or warnings under --strict), 2 usage error.
 """
@@ -108,6 +112,8 @@ def parse_tasks(lines):
                 "invalid_slice_fields": [],
             }
             continue
+        # Any heading ends the current task, so a review remediation record such as
+        # `### T2R1:` cannot donate its fields to the primary task above it.
         if re.match(r"^#{1,6}\s+", stripped):
             current = None
             continue

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -18,6 +19,22 @@ import validate_tasks  # noqa: E402
 import test_workflow_config as workflow_fixtures  # noqa: E402
 
 
+def closure_for(tasks: str) -> str:
+    """Build the closure contract every `**Slice:**` value in `tasks` needs to validate."""
+    slice_ids = list(dict.fromkeys(re.findall(r"^\*\*Slice:\*\* (\S+)$", tasks, re.MULTILINE)))
+    rows = "".join(
+        f"| {slice_id} | Capability {slice_id}. | `gate-{slice_id.lower()}` | yes | Independent value. |\n"
+        for slice_id in slice_ids
+    )
+    return (
+        "## Vertical Slice Closure\n\n"
+        "| Slice | Observable outcome | Independent gate | Merge if later slices are cancelled? | Why |\n"
+        "| --- | --- | --- | --- | --- |\n"
+        f"{rows}\n"
+        "## Task Breakdown\n\n"
+    )
+
+
 def make_repo(
     tasks: str,
     mode: str = "assisted",
@@ -27,7 +44,7 @@ def make_repo(
     root = Path(tempfile.mkdtemp())
     feature_dir = root / ".specs/features" / feature
     feature_dir.mkdir(parents=True)
-    (feature_dir / "tasks.md").write_text(tasks, encoding="utf-8")
+    (feature_dir / "tasks.md").write_text(closure_for(tasks) + tasks, encoding="utf-8")
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
     subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
     subprocess.run(["git", "config", "user.name", "Test"], cwd=root, check=True)
@@ -119,6 +136,30 @@ def test_resolved_snapshot_preserves_validator_slice_membership() -> None:
         assert plan["source_git_head"] == snapshot["git_head"]
     finally:
         shutil.rmtree(root)
+
+
+# MAS-IT-008: a contract the validator rejects fails the plan closed, with its message.
+def test_plan_fails_closed_when_the_validator_rejects_the_contract() -> None:
+    valid = CLOSURE + task("T1", "A") + task("T2", "B")
+    cases = (
+        (valid.replace("**Slice:** B", "**slice:** B", 1), "T2: Slice field must use exactly"),
+        (
+            valid.replace("| B | Second capability. | `gate-b` | yes | Independent value. |\n", "", 1),
+            "B: primary tasks use a slice without a closure row",
+        ),
+    )
+    for tasks, expected in cases:
+        root = make_repo(tasks)
+        try:
+            (root / ".specs/features/fixture/tasks.md").write_text(tasks, encoding="utf-8")
+            try:
+                parallel_plan.plan(root=root, feature="fixture")
+            except ValueError as exc:
+                assert expected in str(exc)
+            else:
+                raise AssertionError(f"expected the validator to reject: {expected}")
+        finally:
+            shutil.rmtree(root)
 
 
 def task(
@@ -230,7 +271,6 @@ def test_graph_failures_fall_back_with_decisive_reasons() -> None:
             "dependency-cycle:",
         ),
         (task("T1", "A", depends_on="T99"), "unknown-dependency:T1->T99"),
-        (task("T1", None), "missing-slice:T1"),
         (task("T1", "A", where="src/a.py, src/b.py"), "ambiguous-where:T1"),
     )
     for tasks, reason in cases:
@@ -405,7 +445,7 @@ def test_dependency_blocking_precedes_write_conflict_evaluation() -> None:
 
 def test_fallback_reasons_are_complete_and_ordered() -> None:
     root = make_repo(
-        task("T1", None, depends_on="T99")
+        task("T1", "A", status="bogus", depends_on="T99")
         + task("T2", "B", depends_on="T3")
         + task("T3", "C", depends_on="T2")
         + task("T4", "D", where="src/d.py, src/e.py")
@@ -414,7 +454,7 @@ def test_fallback_reasons_are_complete_and_ordered() -> None:
         plan = parallel_plan.plan(root=root, feature="fixture")
         assert plan["fallback"] is True
         assert plan["reasons"] == [
-            "missing-slice:T1",
+            "invalid-status:T1",
             "ambiguous-where:T4",
             "unknown-dependency:T1->T99",
             "dependency-cycle:T2->T3->T2",
