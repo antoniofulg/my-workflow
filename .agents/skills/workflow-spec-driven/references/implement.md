@@ -1,20 +1,14 @@
 # Execute
 
-**Goal**: Implement ONE task at a time. Surgical changes. Verify. Commit. Repeat.
+**Goal**: Implement one task at a time. Surgical changes. Verify. Commit. Repeat.
 
 This is where code gets written. Every task follows the same cycle: plan → implement → verify → commit. Verification is built into every task, not a separate phase.
 
 ---
 
-## MANDATORY: Before Starting Any Implementation
+## Before starting any implementation
 
-**Read [coding-principles.md](coding-principles.md) and state:**
-
-1. **Assumptions** - What am I assuming? Any uncertainty?
-2. **Files to touch** - List ONLY files this task requires
-3. **Success criteria** - How will I verify this works?
-
-⚠️ **Do not proceed without stating these explicitly.**
+Read [coding-principles.md](coding-principles.md). Step 3 below records the task's assumptions, files, and success criteria; that record is the scope the task is held to.
 
 ---
 
@@ -27,9 +21,9 @@ The coordinator owns inter-slice dispatch and the clean integration checkout. Co
 slices use isolated worktrees; tasks inside one slice remain sequential. See
 [sub-agents.md](sub-agents.md) for the lifecycle and recovery contract.
 
-### 0. List Atomic Steps (MANDATORY when Tasks phase was skipped)
+### 0. List Atomic Steps (when the Tasks phase was skipped)
 
-If there is no `tasks.md` for this feature, you MUST list atomic steps before writing any code. This is non-negotiable - it prevents the agent from losing focus and doing too many things at once.
+If there is no `tasks.md` for this feature, list the atomic steps before writing any code. With Tasks skipped, this inline plan is the task record that step 7 updates before each commit and that resume reads, so it has to exist before the first edit.
 
 ```
 ## Execution Plan
@@ -41,7 +35,7 @@ If there is no `tasks.md` for this feature, you MUST list atomic steps before wr
 
 **Each step must be:**
 
-- ONE deliverable (one component, one function, one endpoint, one file change)
+- One deliverable (one component, one function, one endpoint, one file change)
 - Independently verifiable (can prove it works before moving on)
 - Independently committable (gets its own atomic git commit)
 
@@ -55,14 +49,15 @@ From tasks.md (if exists) or from the execution plan above. User specifies ("imp
 
 If tasks.md exists, check dependencies. If using inline plan, follow the order listed.
 
-❌ If blocked: "T3 depends on T2 which isn't done. Should I do T2 first?"
+If a dependency is not done, say which one and propose doing it first.
 
 ### 3. State Implementation Plan
 
-Before writing code:
+Before writing code, record the scope the task is held to:
 
 ```
-Files: [list]
+Assumptions: [what you are assuming, and what is uncertain]
+Files: [only the files this task requires]
 Approach: [brief description]
 Success: [how to verify]
 ```
@@ -77,14 +72,7 @@ present, or the inline execution plan when Tasks was skipped):
 3. Each acceptance criterion from "Done when" maps to at least one test assertion whose asserted value matches the **spec-defined expected outcome**. Where the spec does not define a precise outcome, note it as a **spec-precision gap** rather than writing a vague assertion and passing silently.
 4. Edge cases from spec.md that apply to this task get test cases too.
 
-**HARD CONSTRAINTS (test integrity - never violate):**
-
-- Do NOT weaken assertions (making them less specific to pass more easily)
-- Do NOT delete or skip test cases
-- Do NOT use the test framework's skip/disable/pending mechanism to bypass failing tests
-
-If a test is genuinely wrong (tests the wrong behavior per spec), STOP and ask the user
-before modifying it. Never silently change a test.
+**Test integrity:** assertions are not weakened, and test cases are not deleted, skipped, or disabled to get a pass; a failing test is a signal, not noise. If a test is genuinely wrong (tests the wrong behavior per spec), ask the user before modifying it.
 
 If the task does NOT include tests (e.g., entity-only, config-only), skip to Step 4b.
 
@@ -92,27 +80,22 @@ If the task does NOT include tests (e.g., entity-only, config-only), skip to Ste
 
 Write the minimum implementation needed to satisfy the task's success criteria: pass all relevant tests (when present) and meet the defined verification/gate checks when there are no direct tests.
 
-**HARD CONSTRAINTS:**
-
-- The test-integrity rules from step 4 still hold: do NOT weaken, delete, or skip/disable tests. The tests are the spec - implementation conforms to them, not the reverse.
-- Modify a test only to fix a genuinely wrong assertion, and ask the user first.
-- Minimum code to pass - save structural improvements for a refactor task
+The test-integrity rule from step 4 still holds: the tests are the spec, and implementation conforms to them. Write the minimum code to pass; save structural improvements for a refactor task.
 
 Follow [coding-principles.md](coding-principles.md):
 
 - Simplest code that works
-- Touch ONLY listed files
+- Touch only listed files
 - No scope creep
 
-### 5. Gate Check (VERIFY)
+### 5. Gate Check
 
-Run the gate check command from the task definition or inline execution plan. This is MANDATORY -
-not "if applicable."
+Run the gate check command from the task definition or inline execution plan.
 
 1. When `tasks.md` is present, look up the command for the task's Gate level (quick/full/build) in
    its **Gate Check Commands** section. When Tasks was skipped, run the `verify` command recorded
    for the current step in the inline execution plan.
-2. Non-zero exit code = STOP. Fix the failure. Re-run. Do not proceed until it passes.
+2. Non-zero exit code: fix the failure and re-run. The task does not proceed until it passes.
 3. Confirm the test count matches expectations (no tests were silently deleted or skipped)
 
 **Tiered gates (from the Gate Check Commands section of `tasks.md` when present, or the inline
@@ -144,7 +127,7 @@ After the gate check passes:
    - Yes → Simplify, re-run gate
    - No → Proceed
 
-4. **Test Adequacy Review (MANDATORY - hard gate).**
+4. **Test Adequacy Review (hard gate).**
 
    A task cannot be committed or marked done until all four checks below pass. Tests must be both **necessary** (every test traces to a requirement) and **sufficient** (every requirement is covered). The scope boundary is the feature spec - do not test beyond it.
 
@@ -320,13 +303,13 @@ During implementation, you will notice things that could be improved, refactored
 
 **The heuristic:** "Is this in my task definition?" If no, don't touch it.
 
-**Blast radius (approval ≠ remote authority):** Approving a spec or tasks authorizes local implementation and local commits only. Before `git push`, force-push, deploy, production DB migration, or any other remote / externally visible / destructive operation, STOP and get an explicit go-ahead for that action - even if Execute was already approved.
+**Blast radius (approval ≠ remote authority):** Approving a spec or tasks authorizes local implementation and local commits only. Before `git push`, force-push, deploy, production DB migration, or any other remote / externally visible / destructive operation, stop and get an explicit go-ahead for that action - even if Execute was already approved.
 
-### 9. Slice-Level Validation (after each code-changing slice - MANDATORY)
+### 9. Slice-Level Validation (after each code-changing slice)
 
-When the current slice reaches its checkpoint, the coordinator MUST dispatch a fresh Technical
+When the current slice reaches its checkpoint, the coordinator dispatches a fresh Technical
 Verifier before any dependent slice consumes that checkpoint. Validation is automatic and does not
-wait for a separate approval. Do not let a slice's commit unblock dependent work without this proof.
+wait for a separate approval; a slice's commit does not unblock dependent work without this proof.
 
 **Author ≠ verifier.** An author checking their own work reapplies the mental model that may have produced the gaps. The Verifier is a fresh sub-agent that re-derives coverage from the spec independently - this separation is the quality gate, not a style preference.
 
@@ -361,10 +344,10 @@ The last Implementer writes only a compact handoff and never certifies the integ
 **Tests**: [unit/e2e/integration/none]
 **Gate**: [quick/full/build, or inline-plan verify command]
 
-### Pre-Implementation (MANDATORY)
+### Pre-Implementation
 
 - **Assumptions**: [state explicitly]
-- **Files to touch**: [list ONLY these]
+- **Files to touch**: [only these]
 - **Success criteria**: [how to verify]
 
 ### Tests: Write tests derived from spec ACs
@@ -425,19 +408,9 @@ QA route; the last Implementer does not perform those roles.
 
 ## Tips
 
-- **One task at a time** - Focus prevents errors
-- **Tools matter** - Wrong MCP = wrong approach
-- **Reuses save tokens** - Copy patterns, don't reinvent
-- **Status then commit** - Mark `tasks.md` complete when present, or the inline execution-plan
-  step when Tasks is skipped, before the atomic commit
-- **Stay surgical** - Touch only what's necessary
 - **Commit per task** - Clean git history enables bisect and rollback
-- **Never "while I'm here"** - Scope creep during implementation is the #1 quality killer
-- **Approval is local** - Push, deploy, and other remote/destructive ops need an explicit go-ahead
 - **Learn from mistakes** - If something goes wrong, surface it to the user so it informs the next task
-- **Don't stop at the last commit** - Feature-level validation (step 9) is the final step of Execute, not optional
 - **Plain voice in prose** - Commit bodies and the validation summary follow the writing rules in [coding-principles.md](coding-principles.md): lead with what changed, no filler
-- **Validate the commit message** - `python3 <skill-dir>/scripts/check_commit.py --message "..."` before committing
 
 ---
 

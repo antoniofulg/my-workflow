@@ -10,7 +10,7 @@
 
 Read `.specs/features/[feature]/spec.md` before designing. If `.specs/features/[feature]/context.md` exists, load it too - it contains implementation decisions that constrain the design (layout choices, behavior preferences, interaction patterns). Decisions marked as "Agent's Discretion" are yours to decide.
 
-**Mandatory: read `.specs/STATE.md` `## Decisions` now.** This MUST happen before any architectural choices are made. Every `active` `AD-NNN` entry is a project-level constraint this design must conform to. If a decision from a prior feature conflicts with what is best for this feature, you have two options - both require an explicit choice:
+**Read `.specs/STATE.md` `## Decisions` before any architectural choice.** Every `active` `AD-NNN` entry is a project-level constraint this design must conform to. If a decision from a prior feature conflicts with what is best for this feature, you have two options - both require an explicit choice:
 
 1. **Conform** - Design within the active constraint.
 2. **Supersede** - Append a new `AD-NNN` entry to `.specs/STATE.md` `## Decisions` that supersedes the old one (set the old entry's `status` to `superseded by AD-NNN`) and document the reason. The new decision becomes the project standard going forward.
@@ -23,17 +23,11 @@ Silently ignoring an active decision is not an option - it creates invisible inc
 
 If the feature involves unfamiliar technology, patterns, or integrations, research before designing. Document findings briefly in the design doc or as inline notes. This prevents incorrect assumptions from propagating into tasks.
 
-Follow the **Knowledge Verification Chain** (see SKILL.md) in strict order:
-
-```
-Codebase → Project docs → Context7 MCP → Web search → Flag as uncertain
-```
-
-**CRITICAL: NEVER assume or fabricate information.** If you cannot find an answer through the chain, explicitly say "I don't know" or "I couldn't find documentation for this". Inventing an API, a pattern, or a behavior that doesn't exist is far worse than admitting uncertainty. Wrong assumptions propagate through design → tasks → implementation and cause cascading failures.
+Follow the **Knowledge Verification Chain** in SKILL.md; its last step, flagging uncertainty, is the answer when the chain finds nothing.
 
 Good triggers for research: new libraries, unfamiliar APIs, performance-sensitive features, security-sensitive features, patterns you haven't used in this codebase before.
 
-**Concern flagging (MUST do while reading code):** While walking the codebase via the Knowledge Verification Chain, flag any concerns you encounter in the areas this feature touches. Capture each finding in the `## Risks & Concerns` section of `design.md`:
+**Concern flagging (while reading code):** While walking the codebase via the Knowledge Verification Chain, flag any concerns you encounter in the areas this feature touches. Capture each finding in the `## Risks & Concerns` section of `design.md`:
 
 - **Fragile code** - tight coupling, large functions, implicit state
 - **Tech debt** - hacks, workarounds, deprecated APIs
@@ -41,7 +35,7 @@ Good triggers for research: new libraries, unfamiliar APIs, performance-sensitiv
 - **Performance bottlenecks** - N+1 queries, unbounded loops, missing indexes
 - **Test coverage gaps** - untested paths the feature depends on
 
-Every flagged concern MUST include a mitigation - how the design (or a follow-up task) addresses it.
+Every flagged concern carries a mitigation - how the design (or a follow-up task) addresses it.
 
 ### 2. Define Architecture
 
@@ -51,7 +45,7 @@ Overview of how components interact. Use mermaid diagrams when helpful.
 
 ### 3. Identify Code Reuse
 
-**CRITICAL**: What existing code can we leverage? This saves tokens and reduces errors.
+What existing code can we leverage? Reuse keeps the diff small and the behaviour consistent with the codebase.
 
 Flag any concerns found here per step 1.5 into `## Risks & Concerns`.
 

@@ -94,7 +94,7 @@ python3 <skill-dir>/scripts/lessons.py list --status confirmed --scope billing
 python3 <skill-dir>/scripts/lessons.py list --status confirmed --query "idempotency"
 ```
 
-Apply the returned lessons as guidance while writing the spec / design. Do **not** load `candidate` or `quarantined` lessons as guidance - they are not trusted. Keep the loaded set small; this runs inside the <40k token budget.
+Apply the returned lessons as guidance while writing the spec / design. Do **not** load `candidate` or `quarantined` lessons as guidance - they are not trusted. Keep the loaded set small; load only what the feature's area needs.
 
 ---
 

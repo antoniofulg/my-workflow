@@ -43,7 +43,7 @@ Rules 1–4 below govern feature work; direct corrections use the exception in A
 - On each commit: `python3 <skill-dir>/scripts/check_commit.py --message "<msg>"` (Conventional Commits). Optionally wire it as a git `commit-msg` guard (git only, no agent dependency) - see [implement.md](references/implement.md).
 - Before declaring a feature done: `python3 <skill-dir>/scripts/validate_state.py <feature>` (completion gate: the Verifier's `validation.md` exists, its verdict is filled to PASS, and it cites `file:line` evidence - a missing, FAIL, placeholder, or evidence-free report fails). The closing step of Execute runs this automatically, the same way the lessons layer runs at distillation; it is not a manual step.
 
-A non-zero exit means STOP and fix before proceeding. Skip a script only when no code-execution tool is available; then perform the same checks by reading the artifact.
+A non-zero exit means stop and fix before proceeding. Skip a script only when no code-execution tool is available; then perform the same checks by reading the artifact.
 
 **Before Execute (feature work):** read [implement.md](references/implement.md) completely. When a formal `tasks.md` exists, run `<skill-dir>/scripts/validate_tasks.py` against it and resolve the frozen workflow route. The coordinator dispatches safe independent slices by default and uses serial execution only for an explicit `disabled` route or a fail-closed condition. When Tasks was skipped, verify the inline execution plan instead: every step must name one deliverable, a gate command, and one atomic commit.
 
@@ -73,7 +73,7 @@ validation → commit`. It creates no spec, AD, or workflow snapshot and skips a
 deep-review, and QA. `ponytail` governs this process choice; if any predicate fails, use the
 smallest feature tier.
 
-**Safety valve:** For feature work with Tasks skipped, Execute ALWAYS starts by listing atomic steps inline (see [implement.md](references/implement.md)). If that listing reveals >5 steps or complex dependencies, STOP and create a formal `tasks.md` - the Tasks phase was wrongly skipped.
+**Safety valve:** For feature work with Tasks skipped, Execute starts by listing atomic steps inline (see [implement.md](references/implement.md)). If that listing reveals >5 steps or complex dependencies, stop and create a formal `tasks.md` - the Tasks phase was wrongly skipped.
 
 ## .specs Structure
 
@@ -127,9 +127,7 @@ frozen route.
 - Multiple feature specs
 - Multiple architecture docs
 
-**Target:** <40k tokens total context
-**Reserve:** 160k+ tokens for work, reasoning, outputs
-**Monitoring:** Display status when >40k (see [context-limits.md](references/context-limits.md))
+Load the smallest set that answers the current step; the on-demand list above is a ceiling, not a checklist.
 
 ## Coordinator-assisted slice dispatch
 
@@ -150,11 +148,11 @@ explicit integer cap is always respected and does not bypass health proof. See
 
 **Technical Verifier (always-on):** After each code-changing slice reaches its checkpoint, the coordinator dispatches a fresh Verifier automatically. It re-derives spec evidence, runs the discrimination sensor in an isolated scratch, writes the slice validation report, and never fixes the inspected tree. Dependent slices consume only verified checkpoints. Deep Review and QA are separate fresh roles on the integrated tree. Review remediation uses the immutable finding `fingerprint` and `docs/guidelines/REVIEW-ROUNDS.md`.
 
-**Model tier per role (only if the harness supports choosing a model per sub-agent).** Match the reasoning cost to the work instead of paying top-tier reasoning for boilerplate. A mechanical slice can run on a faster/cheaper tier; a core-domain or high-ambiguity slice, and the Design phase itself, should use a high-reasoning tier; the Verifier should use a mid-to-high tier because it does adversarial reasoning and designs mutations. This is a portable recommendation: if the harness cannot set a model per sub-agent, ignore it. Full rubric in [sub-agents.md](references/sub-agents.md).
+**Model and effort per role are configuration, not a per-dispatch judgment.** The frozen workflow route from `.agents/skills/workflow-config/SKILL.md` carries each role's model and effort; spawn the named agent and do not override them.
 
 **Standalone fallback:** Without sub-agents, run `validate.md` as an independent fresh-eyes pass after the final commit - including the spec-anchored check and discrimination sensor.
 
-Full mechanics (slice packet, lane admission, failure handling, model tier, and Verifier report format): [sub-agents.md](references/sub-agents.md).
+Full mechanics (slice packet, lane admission, failure handling, coordinator contract): [sub-agents.md](references/sub-agents.md). The Verifier report format is in [validate.md](references/validate.md).
 
 ## Commands
 
@@ -179,7 +177,7 @@ Full mechanics (slice packet, lane admission, failure handling, model tier, and 
 
 ## Knowledge Verification Chain
 
-When researching, designing, or making any technical decision, follow this chain in strict order. Never skip steps.
+When researching, designing, or making any technical decision, work down this chain; each step is cheaper and more authoritative than the one below it.
 
 ```
 Step 1: Codebase → check existing code, conventions, and patterns already in use
@@ -189,17 +187,11 @@ Step 4: Web search → official docs, reputable sources, community patterns
 Step 5: Flag as uncertain → "I'm not certain about X - here's my reasoning, but verify"
 ```
 
-**Rules:**
-
-- Never skip to Step 5 if Steps 1-4 are available
-- Step 5 is ALWAYS flagged as uncertain - never presented as fact
-- **NEVER assume or fabricate.** If you cannot find an answer, say "I don't know" or "I couldn't find documentation for this". Inventing APIs, patterns, or behaviors causes cascading failures across design → tasks → implementation. Uncertainty is always preferable to fabrication.
+Step 5 is reached only after Steps 1-4 come up empty, and what it produces is presented as uncertain, never as fact. An invented API, pattern, or behavior propagates through design, tasks, and implementation before anyone notices, so "I couldn't find documentation for this" is the correct answer when the chain finds nothing.
 
 ## Output Behavior
 
-**Do the work; do not narrate the machinery.** Produce the right artifact for the phase instead of announcing the phase ("I will now run the Specify phase"). The user judges the output, not a play-by-play of the process. This keeps the flow from reading as robotic.
-
-**Match effort to the work.** Lightweight steps (feature-level checks, validation, mechanical tasks) do not need top-tier reasoning; heavy steps (complex design, ambiguous features) do. If the harness lets you pick a model per sub-agent, apply the tier rubric in [sub-agents.md](references/sub-agents.md); otherwise proceed and simply invest more care on the heavy steps. Mention this once per session at most, and only if it helps; skip it for an experienced user.
+**Progress updates name artifacts and decisions.** "spec.md drafted; two gray areas need your call" is a progress update; a phase name on its own is not.
 
 **Write generated artifacts in a plain, decided voice.** Specs, ADRs, validation reports, commit messages, and chat summaries follow the writing rules in [coding-principles.md](references/coding-principles.md): lead with the verdict, state decisions definitively, cut filler and mechanical hedging.
 

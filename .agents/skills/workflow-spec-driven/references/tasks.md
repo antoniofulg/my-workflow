@@ -1,6 +1,6 @@
 # Tasks
 
-**Goal**: Break into GRANULAR, ATOMIC tasks. Clear dependencies. Right tools. Dependency-ordered execution plan.
+**Goal**: Break into granular, atomic tasks. Clear dependencies. Right tools. Dependency-ordered execution plan.
 
 **Skip this phase when:** There are ≤3 obvious steps. In that case, tasks are implicit - go straight to Execute and list them inline in your implementation plan.
 
@@ -41,11 +41,11 @@
 
 Read `.specs/features/[feature]/design.md` before creating tasks.
 
-### 1.5. Generate the Test Coverage Matrix (ALWAYS)
+### 1.5. Generate the Test Coverage Matrix
 
-This step ALWAYS runs - there is no precondition. Decide which of two paths to take, then generate the three sections below.
+This step runs for every `tasks.md`; there is no precondition. Decide which of two paths to take, then generate the three sections below.
 
-**Step 0 - Read project quality/testing guidelines (ALWAYS, before anything else).**
+**Step 0 - Read project quality/testing guidelines first.**
 
 Before sampling tests or inferring anything, scan the project for documented quality and testing standards. Stack-agnostic sources to check (illustrative, not exhaustive):
 
@@ -64,8 +64,8 @@ Before sampling tests or inferring anything, scan the project for documented qua
 
 **How to infer (path 1 - existing tests):**
 
-1. **Sample test files.** Locate 5-10 existing test files. Map each file's location relative to its source file to identify which code layers are exercised and at what level (unit, integration, e2e). Use these samples for style, location patterns, framework, and test type - and as a **floor** (never produce tests less thorough than existing ones for the same layer). Existing tests are NOT a ceiling on thoroughness; the thoroughness target comes from the spec ACs, listed edge cases, and guidelines (or strong default). The Coverage Expectation column captures the target per layer.
-2. **Discover commands from the repo.** Do NOT invent commands and do NOT assume an ecosystem. Read the project's own build/task manifests, test config, and CI workflows to extract the actual commands - for example: `package.json` / `project.json` (JS/TS), `Makefile`, `pyproject.toml` / `tox.ini` / `pytest` (Python), `Cargo.toml` (Rust), `go test` invocations (Go), `pom.xml` / `build.gradle` (Java/Kotlin), `Gemfile` / `Rakefile` (Ruby), `composer.json` (PHP), `.github/workflows` / `.gitlab-ci.yml`. The list is illustrative; detect what this repo actually uses. Capture the **linter/formatter** command too (e.g. the configured `lint`/`format`/`typecheck` script, or a `.pre-commit-config`, `.golangci.yml`, `ruff`/`eslint`/`biome` config) - the Build gate runs it alongside the tests.
+1. **Sample test files.** Locate 5-10 existing test files. Map each file's location relative to its source file to identify which code layers are exercised and at what level (unit, integration, e2e). Use these samples for style, location patterns, framework, and test type - and as a **floor** (never produce tests less thorough than existing ones for the same layer). Existing tests are not a ceiling on thoroughness; the thoroughness target comes from the spec ACs, listed edge cases, and guidelines (or strong default). The Coverage Expectation column captures the target per layer.
+2. **Discover commands from the repo.** Do not invent commands or assume an ecosystem. Read the project's own build/task manifests, test config, and CI workflows to extract the actual commands - for example: `package.json` / `project.json` (JS/TS), `Makefile`, `pyproject.toml` / `tox.ini` / `pytest` (Python), `Cargo.toml` (Rust), `go test` invocations (Go), `pom.xml` / `build.gradle` (Java/Kotlin), `Gemfile` / `Rakefile` (Ruby), `composer.json` (PHP), `.github/workflows` / `.gitlab-ci.yml`. The list is illustrative; detect what this repo actually uses. Capture the **linter/formatter** command too (e.g. the configured `lint`/`format`/`typecheck` script, or a `.pre-commit-config`, `.golangci.yml`, `ruff`/`eslint`/`biome` config) - the Build gate runs it alongside the tests.
 
 **Output contract - render these two sections verbatim into `tasks.md`** (the exact headings downstream phases reference):
 
@@ -111,7 +111,7 @@ These defaults may exceed the current repo's depth. That is intentional - they a
 
 ---
 
-**Co-located tests:** Every task that creates or modifies a code layer with a required test type MUST include writing/updating those tests in the same task. Tests are NOT separate tasks. The tests must satisfy the layer's **Coverage Expectation** from the matrix - not merely exist.
+**Co-located tests:** Every task that creates or modifies a code layer with a required test type includes writing/updating those tests in the same task. Tests are not separate tasks. The tests must satisfy the layer's **Coverage Expectation** from the matrix - not merely exist.
 
 | Task creates...                           | Done When must include...                                                                                          |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -129,16 +129,16 @@ These defaults may exceed the current repo's depth. That is intentional - they a
 
 ### 3. Define Dependencies
 
-What MUST be done before this task can start?
+What must be done before this task can start?
 
 ### 4. Create Execution Plan
 
 Group tasks by dependency and cohesion labels. Dependencies determine order; compatible slices
 may be dispatched together by the coordinator, while tasks within each slice remain sequential.
 
-### 5. Validate Before Presenting (MANDATORY)
+### 5. Validate Before Presenting
 
-Before showing tasks to the user, run ALL three pre-approval checks. These are NOT optional - they are gates. If any check fails, restructure the tasks and re-run until all pass.
+Before showing tasks to the user, run the three pre-approval checks below; they are gates. If any check fails, restructure the tasks and re-run until all pass.
 
 **Deterministic backing (run it, do not eyeball it).** `python3 <skill-dir>/scripts/validate_tasks.py <tasks-path-or-feature>` enforces the structural half of these checks so they cannot drift: it flags a `Where` that names multiple files (granularity smell, Check 1), a diagram edge with no matching `Depends on` within a phase and vice-versa (Check 2), a task missing its `Tests` or `Gate` field, a `Tests: none` to confirm against the matrix (Check 3), and any dependency pointing to a later phase. A non-zero exit means restructure before presenting. The script checks structure; you still build the two tables below (the layer-to-test co-location judgment is yours). If no code-execution tool is available, run the checks by reading `tasks.md`.
 
@@ -148,18 +148,9 @@ Before showing tasks to the user, run ALL three pre-approval checks. These are N
 
 **Check 3: Test Co-location Validation** - verify every task's `Tests` field matches the **Test Coverage Matrix** generated above (see Test Co-location Validation section). Build the validation table and include it in the output.
 
-**Output both tables with the tasks** so the user can see the validation results. Any ❌ means you MUST restructure before presenting - do not show failing tasks to the user and ask them to approve.
+**Output both tables with the tasks** so the user can see the validation results. Any ❌ means restructure before presenting; failing tasks are not shown for approval.
 
 **Note on the generated matrix:** The two sections (`Test Coverage Matrix`, `Gate Check Commands`) are provisional - generated from codebase sampling or user input and included in this file for user confirmation as part of task approval. They become authoritative once the user approves the tasks.
-
-### 6. ASK About MCPs and Skills
-
-**CRITICAL**: Before execution, ask the user:
-
-> "For each task, which tools should I use?"
->
-> **Available MCPs**: [list from project or user]
-> **Available Skills**: [list from project or user]
 
 ---
 
@@ -168,11 +159,9 @@ Before showing tasks to the user, run ALL three pre-approval checks. These are N
 ```markdown
 # [Feature] Tasks
 
-## Execution Protocol (MANDATORY -- do not skip)
+## Execution Protocol
 
-Implement these tasks with the `workflow-spec-driven` skill: **activate it by name and follow its Execute flow and Critical Rules.** Do not search for skill files by filesystem path. The skill is the source of truth for the full flow (per-task cycle, sub-agent delegation, adequacy review, Verifier, discrimination sensor).
-
-**If the skill cannot be activated, STOP and tell the user - do not proceed without it.**
+Implement these tasks with the `workflow-spec-driven` skill: activate it by name and follow its Execute flow and Critical Rules. Do not search for skill files by filesystem path. The skill is the source of truth for the full flow (per-task cycle, sub-agent delegation, adequacy review, Verifier, discrimination sensor). If the skill cannot be activated, stop and tell the user.
 
 ---
 
@@ -374,7 +363,7 @@ Before approving tasks, verify they are granular enough:
 
 - ✅ 1 component / 1 function / 1 endpoint = Good
 - ⚠️ 2-3 related things in same file = OK if cohesive
-- ❌ Multiple components or files = MUST split
+- ❌ Multiple components or files = split
 
 ---
 
@@ -398,9 +387,9 @@ For each task, check:
 
 ## Test Co-location Validation
 
-Before approving tasks, verify EVERY task's `Tests` field is consistent with the **Test Coverage Matrix** generated above. This is a hard gate - tasks that fail this check MUST be fixed.
+Before approving tasks, verify every task's `Tests` field is consistent with the **Test Coverage Matrix** generated above. This is a hard gate; a task that fails it is restructured before approval.
 
-For each task, check: does the task create or modify a code layer that has a required test type in the coverage matrix? If yes, the task's `Tests` field MUST match.
+For each task, check: does the task create or modify a code layer that has a required test type in the coverage matrix? If yes, the task's `Tests` field matches it.
 
 | Task | Code Layer Created/Modified | Matrix Requires | Task Says | Status |
 | ---- | --------------------------- | --------------- | --------- | ------ |
@@ -408,9 +397,9 @@ For each task, check: does the task create or modify a code layer that has a req
 
 **Rules:**
 
-- "Tested in another task" is NOT a valid justification for `Tests: none`. That is test deferral - the exact anti-pattern this validation prevents.
+- "Tested in another task" does not justify `Tests: none`. That is test deferral - the exact anti-pattern this validation prevents.
 - `Tests: none` is only valid when the coverage matrix says "none" for that code layer.
-- If a task creates MULTIPLE code layers (e.g., service + controller), use the HIGHEST test type required by any of them.
+- If a task creates multiple code layers (e.g., service + controller), use the highest test type required by any of them.
 - Any ❌ VIOLATION → restructure the task to include its required tests before proceeding.
 
 **Resolving compilation dependencies:**
@@ -427,15 +416,11 @@ Pick whichever option keeps tasks atomic and cohesive. The goal: no task produce
 ## Tips
 
 - **Dependencies are gates** - Each task waits only for its declared prerequisites; independent slices can run together
-- **Reuses = Token saver** - Always reference existing code
-- **Tools per task** - MCPs and Skills prevent wrong approaches
-- **Dependencies are gates** - Clear what blocks what
 - **Done when = Testable** - If you can't verify it, rewrite it
 - **Requirement ID = Traceable** - Every task traces back to a spec requirement
-- **One commit per task** - Plan the commit message format in advance
 
 ---
 
 ## Task Verification Standards
 
-Every task MUST follow the `Done when` + `Tests` + `Gate` fields defined in the **Task Breakdown** template above. Each `Done when` entry must be specific, testable (binary pass/fail), and reference the gate check command from the `Gate Check Commands` section. Include the expected test count to prevent silent deletions.
+Every task carries the `Done when` + `Tests` + `Gate` fields defined in the **Task Breakdown** template above. Each `Done when` entry must be specific, testable (binary pass/fail), and reference the gate check command from the `Gate Check Commands` section. Include the expected test count to prevent silent deletions.
