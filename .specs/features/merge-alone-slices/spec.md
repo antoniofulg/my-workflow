@@ -75,6 +75,7 @@ implementation begins.
 10. WHEN review remediation records such as `T2R1` appear in a task document THEN validation SHALL keep them outside the primary task slice count.
 11. WHEN the validated closure contract feeds downstream planning THEN workflow configuration and parallel planning SHALL use the same primary-task membership and slice IDs.
 12. WHEN the resolver writes its snapshot from a derived count THEN the parallel planner SHALL accept that snapshot and report the same primary-task slice membership the validator derived.
+13. WHEN a review remediation record such as `T2R1` follows a primary task THEN the parallel planner SHALL ignore every field of that record, so the preceding task's status, resources, and dependencies are unchanged.
 
 **Independent Test**: Run the Praxis/Bun regression fixture through task validation and workflow
 resolution; it produces one slice and a one-slice review plan. Run the two-capability fixture; it
@@ -106,8 +107,9 @@ it accepts it and reports the validator's membership.
 | MAS-10 | P1: Remediation does not inflate slices | Tasks | Planned |
 | MAS-11 | P1: Downstream planners share membership | Tasks | Planned |
 | MAS-12 | P1: Planner accepts the derived snapshot | Tasks | Planned |
+| MAS-13 | P1: Planner ignores remediation records | R1 | Planned |
 
-**Coverage:** 12 total, 12 mapped to tasks, 0 unmapped.
+**Coverage:** 13 total, 13 mapped to tasks, 0 unmapped.
 
 **Verification:** pending — the earlier `R3 PASS at 5dee2e2` verified the dropped implementation and
 does not cover this port.
