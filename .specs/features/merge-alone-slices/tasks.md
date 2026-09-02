@@ -129,7 +129,7 @@
 **What**: Mint one new CFG scenario for the derived-count promise, link it from the configure-workflow journey, and record the change under `## [Unreleased]`.
 **Where**: `docs/qa/scenarios/CFG-derive-merge-alone-slices.md`; `docs/qa/journeys/J-configure-feature-workflow.md`; `CHANGELOG.md`
 **Slice:** A
-**Status:** pending
+**Status:** complete
 **Resources:** none
 **Depends on:** T3
 **Reuses**: Scenario frontmatter shape from `docs/qa/scenarios/QAS-run-the-gate-when-the-cache-cannot-vouch.md`; existing `## [Unreleased]` section
@@ -137,10 +137,10 @@
 
 **Done when**:
 
-- [ ] New scenario has `qa_status: untested`, names the resolver entry points, and states the derived count, assertion, and frozen-resume promise.
-- [ ] No existing `docs/qa/scenarios/*` file changes (`IT-006` frozen baseline).
-- [ ] `## [Unreleased]` records the derived slice count and the optional `--slices` assertion.
-- [ ] Full gate exits zero.
+- [x] New scenario has `qa_status: untested`, names the resolver entry points, and states the derived count, assertion, and frozen-resume promise.
+- [x] No existing `docs/qa/scenarios/*` file changes (`IT-006` frozen baseline).
+- [x] `## [Unreleased]` records the derived slice count and the optional `--slices` assertion.
+- [x] Full gate exits zero.
 
 **Tests**: none — QA documents and changelog are owned by the full gate
 **Gate**: Full

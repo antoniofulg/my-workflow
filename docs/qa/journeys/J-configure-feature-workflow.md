@@ -22,6 +22,7 @@
 - [`CFG-freeze-feature-workflow`](../scenarios/CFG-freeze-feature-workflow.md)
 - [`CFG-plan-parallel-slice-dispatch`](../scenarios/CFG-plan-parallel-slice-dispatch.md)
 - [`CFG-centralize-agent-model-routing`](../scenarios/CFG-centralize-agent-model-routing.md)
+- [`CFG-derive-merge-alone-slices`](../scenarios/CFG-derive-merge-alone-slices.md)
 
 ## Adjacent canary
 
