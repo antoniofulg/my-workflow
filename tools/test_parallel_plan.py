@@ -149,6 +149,48 @@ def test_resolved_snapshot_preserves_validator_slice_membership() -> None:
         shutil.rmtree(root)
 
 
+# MAS-IT-008: every heading shape the validator accepts is planned with its membership.
+def test_planner_finds_every_task_heading_the_validator_accepts() -> None:
+    tasks = task("T1", "A") + task("T2", "A") + task("T3", "B") + task("T4", "B")
+    tasks = (
+        tasks.replace("### T1: T1", "## T1: T1", 1)
+        .replace("### T2: T2", "#### T2: T2", 1)
+        .replace("### T3: T3", "### t3: T3", 1)
+    )
+    root = make_repo(tasks)
+    try:
+        contract = validate_tasks.validated_slice_contract(
+            str(root / ".specs/features/fixture/tasks.md")
+        )
+        assert set(contract["task_slices"]) == {"T1", "T2", "T3", "T4"}
+        plan = parallel_plan.plan(root=root, feature="fixture")
+        planned = {item["task"]: item["slice"] for item in [*plan["lanes"], *plan["blocked"]]}
+        assert planned == contract["task_slices"]
+    finally:
+        shutil.rmtree(root)
+
+
+# MAS-IT-008: a task listed under a phase and defined later is one task to both readers.
+def test_planner_reads_a_phase_listing_and_its_definition_as_one_task() -> None:
+    tasks = (
+        "### Phase 1: Foundation\n\n#### T1: T1\n\n#### T2: T2\n\n"
+        + task("T1", "A")
+        + task("T2", "B")
+    )
+    root = make_repo(tasks)
+    try:
+        contract = validate_tasks.validated_slice_contract(
+            str(root / ".specs/features/fixture/tasks.md")
+        )
+        plan = parallel_plan.plan(root=root, feature="fixture")
+        planned = {item["task"]: item["slice"] for item in [*plan["lanes"], *plan["blocked"]]}
+        assert plan["fallback"] is False
+        assert plan["reasons"] == []
+        assert planned == contract["task_slices"]
+    finally:
+        shutil.rmtree(root)
+
+
 # MAS-IT-008: a contract the validator rejects fails the plan closed, with its message.
 def test_plan_fails_closed_when_the_validator_rejects_the_contract() -> None:
     valid = CLOSURE + task("T1", "A") + task("T2", "B")

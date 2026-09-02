@@ -23,8 +23,6 @@ import validate_tasks
 
 MODES = {"assisted", "disabled"}
 STATUS_VALUES = {"pending", "in_progress", "waiting", "complete"}
-TASK_HEADING = re.compile(r"^###\s+(T\d+)\s*:")
-HEADING = re.compile(r"^#{1,6}\s+")
 FIELD = re.compile(r"^\*\*([^*]+):\*\*\s*(.*?)\s*$")
 RESOURCE_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 
@@ -123,43 +121,44 @@ def _parse_tasks(path: Path) -> tuple[list[Task], list[str]]:
     # parser, so the planner and the validator cannot disagree about a task's slice.
     task_slices = validate_tasks.validated_slice_contract(str(path))["task_slices"]
     lines = path.read_text(encoding="utf-8").splitlines()
-    sections: list[tuple[str, list[str]]] = []
+    # Keyed by id with the last definition winning, exactly as the validator's
+    # `parse_tasks` does, so an Execution Plan that lists a task before Task Breakdown
+    # defines it is one task to both readers.
+    sections: dict[str, list[str]] = {}
     current_id: str | None = None
     current: list[str] = []
     for line in lines:
-        match = TASK_HEADING.match(line)
+        stripped = line.strip()
+        # One heading rule for both readers: whatever the validator counts as a primary
+        # task, the planner plans.
+        match = validate_tasks.TASK_RE.match(stripped)
         if match:
             if current_id is not None:
-                sections.append((current_id, current))
-            current_id = match.group(1)
+                sections[current_id] = current
+            current_id = match.group(1).upper()
             current = []
-        elif HEADING.match(line):
+        elif validate_tasks.HEADING_RE.match(stripped):
             # Any other heading ends the task, so a `T2R1` remediation record donates
             # no Status, Resources, or Depends on to the primary task above it.
             if current_id is not None:
-                sections.append((current_id, current))
+                sections[current_id] = current
             current_id = None
             current = []
         elif current_id is not None:
             current.append(line)
     if current_id is not None:
-        sections.append((current_id, current))
+        sections[current_id] = current
 
     tasks: list[Task] = []
     reasons: list[str] = []
-    seen: set[str] = set()
-    for order, (task_id, section) in enumerate(sections):
-        if task_id in seen:
-            reasons.append(f"duplicate-task:{task_id}")
-            continue
-        seen.add(task_id)
+    for order, (task_id, section) in enumerate(sections.items()):
         fields: dict[str, str] = {}
         for line in section:
             match = FIELD.match(line.strip())
             if match:
                 fields[match.group(1).strip().lower()] = match.group(2).strip()
         status = fields.get("status", "")
-        slice_id = task_slices.get(task_id)
+        slice_id = task_slices[task_id]
         where = fields.get("where") or None
         declared_paths, where_reason = _declared_paths(where)
         if status not in STATUS_VALUES:

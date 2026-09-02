@@ -44,6 +44,7 @@ import sys
 
 REQUIRED_SECTIONS = ["Test Coverage Matrix", "Gate Check Commands", "Execution Plan", "Task Breakdown"]
 TASK_RE = re.compile(r"^#{2,4}\s+(T\d+)\s*:", re.IGNORECASE)
+HEADING_RE = re.compile(r"^#{1,6}\s+")
 EDGE_RE = re.compile(r"\bT\d+\b")
 FILE_HINT_RE = re.compile(r"[\w./-]+\.\w{1,6}\b")
 SLICE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
@@ -114,7 +115,7 @@ def parse_tasks(lines):
             continue
         # Any heading ends the current task, so a review remediation record such as
         # `### T2R1:` cannot donate its fields to the primary task above it.
-        if re.match(r"^#{1,6}\s+", stripped):
+        if HEADING_RE.match(stripped):
             current = None
             continue
         if current is None:
