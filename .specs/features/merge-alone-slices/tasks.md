@@ -84,7 +84,7 @@
 **What**: Make `resolve()` derive the count through the validator's JSON contract, default to one slice without `tasks.md`, treat `--slices` as an optional exact assertion on initial and refresh paths, keep resume snapshot-first, and fail before any snapshot write.
 **Where**: `.agents/skills/workflow-config/scripts/workflow_config.py`; `tools/test_workflow_config.py`
 **Slice:** A
-**Status:** pending
+**Status:** complete
 **Resources:** none
 **Depends on:** T1
 **Reuses**: `balanced_groups`, `_write_snapshot`, `_error`, the resume branch; old `_derived_slice_count` at `git show 3ce7a2e:.agents/skills/workflow-config/scripts/workflow_config.py`
@@ -92,11 +92,11 @@
 
 **Done when**:
 
-- [ ] `slice_count` is optional in `resolve()` and `--slices` is optional on the CLI; `--feature` and `--native-provider` stay required.
-- [ ] Praxis fixture derives one slice, two-capability fixture derives two, no `tasks.md` derives one.
-- [ ] Mismatched, zero, or negative `--slices` and a malformed `tasks.md` exit non-zero naming the cause, with no snapshot written and an existing snapshot byte-identical.
-- [ ] Resume returns the frozen snapshot without reading `tasks.md`; `--refresh` re-derives and replaces atomically with the same schema.
-- [ ] Existing resolver tests that passed `--slices` still pass unchanged where their fixtures carry no `tasks.md`.
+- [x] `slice_count` is optional in `resolve()` and `--slices` is optional on the CLI; `--feature` and `--native-provider` stay required.
+- [x] Praxis fixture derives one slice, two-capability fixture derives two, no `tasks.md` derives one.
+- [x] Mismatched, zero, or negative `--slices` and a malformed `tasks.md` exit non-zero naming the cause, with no snapshot written and an existing snapshot byte-identical.
+- [x] Resume returns the frozen snapshot without reading `tasks.md`; `--refresh` re-derives and replaces atomically with the same schema.
+- [x] Existing resolver tests that passed `--slices` still pass unchanged where their fixtures carry no `tasks.md`.
 
 **Tests**: MAS-IT-001, MAS-IT-002, MAS-IT-003, MAS-IT-004, MAS-IT-005, MAS-IT-006, MAS-IT-007
 **Gate**: Resolver

@@ -17,3 +17,5 @@
   (`_task_breakdown_syntax_errors`) is out of scope — no `tests.md` ID covers it.
 - The two-slice fixture's diagram edges do not match its `Depends on` fields, so `check()` is asserted
   clean only on the one-slice fixture.
+- Resolver tests that asserted a manual `--slices` above 1 now write a derived `tasks.md` fixture via
+  `write_derived_tasks(root, feature, n)`; tests that pass `--slices 1` with no `tasks.md` are unchanged.
