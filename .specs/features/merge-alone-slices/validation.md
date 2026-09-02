@@ -1,121 +1,214 @@
-# Merge-Alone Slice Derivation Validation
+# Merge-Alone Slice Derivation — Technical Validation
 
-**Date**: 2026-08-27
-**Spec**: `.specs/features/merge-alone-slices/spec.md`
-**Diff range**: `d0dd82d..5dee2e2`
-**Verified head**: `5dee2e245d7243db8b52cd1cbd2452aaddc9c353`
-**Verifier**: fresh independent Technical Verifier (author != verifier)
-**Verdict**: PASS
+**Result**: PASS
 
-## Task Completion
+**Phase**: technical
+**Feature**: `merge-alone-slices`
+**Range**: `13b0d47..e0e97d5` (`50f3313`, `f7b3905`, `b1bec68`, `e0e97d5`)
+**Branch**: `feat/merge-alone-slices`
+**Date**: 2026-09-02
+**Verifier**: independent session; did not author this code. Implementer transcript and operator
+handoff were not loaded.
+**Supersedes**: the stale validation.md from the dropped 2026-08-27 run (`AD-020`).
 
-| Task group | Status | Evidence |
+---
+
+## 1. Acceptance criteria and test-contract coverage
+
+Every `tests.md` row carries a labelled asserting test. Mapping re-derived by grep, not by trusting
+`tasks.md`:
+
+```
+$ grep -rEn "MAS-(UT|IT)-[0-9]+" tools/ | sed 's/:.*\(MAS-[A-Z]*-[0-9]*\).*/ -> \1/' | sort -u
+tools/test_tlc_validators.py           -> MAS-UT-001 .. MAS-UT-008   (8 rows, 8 refs)
+tools/test_workflow_config.py          -> MAS-IT-001 .. MAS-IT-007   (7 rows, 10 refs)
+tools/test_parallel_plan.py            -> MAS-IT-008
+tools/shared/tests/workflow-config.test.ts -> MAS-IT-009
+```
+
+17 of 17 contract rows mapped, 0 unmapped.
+
+| AC | Asserting test (`file`) | Asserts the spec outcome? |
 | --- | --- | --- |
-| T1-T5 | Verified | Validator, resolver, public-contract, adoption, and full gates passed; `tasks.md:52` through `tasks.md:212` retain exact task gates. |
-| R1-R2 | Verified | Error identity, byte preservation, remediation exclusion, membership equality, and count bounds pass at `tools/test_tlc_validators.py:146` and `tools/test_workflow_config.py:195`. |
-| DR1-DR2 | Verified | Canonical heading, Slice-field, closure-gate, and remediation-boundary cases pass in `tools/test_tlc_validators.py:1`. |
-| QA1 | Verified | Active v2 consumers pass at `tools/test_parallel_plan.py:127`, `tools/test_parallel_executor.py:120`, and `tools/test_qa_parallel_pilot.py:23`. |
-| R3 | Verified | `tools/test_tlc_validators.py:115` proves three cohorts, five primary tasks, and one closure-owned slice; the cohort-count mutant is killed by `tools/test_workflow_config.py:174`. |
+| MAS-01 | `test_praxis_migration_is_one_slice` (`tools/test_tlc_validators.py`) — asserts 3 `### Phase ` cohorts, 5 `TASK_RE` primaries, `slice_ids == ["A"]`, `check()` errors `[]` | yes — counts cohorts and primaries from the fixture text, not from parser internals |
+| MAS-02 | `test_independent_capabilities_are_two_slices`; `test_initial_resolution_derives_two_independent_slices_from_tasks` (groups `[[1, 2]]`) | yes |
+| MAS-03 | `test_rejects_incomplete_closure_fields` (4 subtests: empty outcome, empty gate, backtick-only gate, empty reason); `test_requires_exact_lowercase_merge_alone_yes` | yes — each subtest matches on a message naming `slice 'A'` and the field |
+| MAS-04 | `test_rejects_inconsistent_primary_task_membership` (missing, wrong syntax, doubled, unknown slice); `test_rejects_duplicate_and_orphan_closure_rows` | yes — messages named per task/slice |
+| MAS-05 | `test_slice_assertion_mismatch_fails_before_snapshot_write`, `test_non_positive_slice_assertions_fail_before_snapshot_write`, `test_refresh_slice_assertion_mismatch_preserves_snapshot_bytes` | yes — assert both the error text and snapshot absence / byte-identity |
+| MAS-06 | `test_missing_tasks_defaults_to_one_slice_without_manual_count` (groups `[[1]]`) | yes |
+| MAS-07 | `test_malformed_tasks_fails_before_snapshot_write`, `test_malformed_refresh_preserves_snapshot_bytes` | yes |
+| MAS-08 | `test_resume_returns_frozen_snapshot_without_reading_changed_tasks` — passes `slice_count=8` and a changed/malformed `tasks.md`, asserts `resumed == first` and byte-identity | yes — the `8` is the discriminator: a resume that read tasks would raise |
+| MAS-09 | `publishes the merge-alone slice planning contract` (`tools/shared/tests/workflow-config.test.ts`) — template ordering, one `**Slice:** [id]` per `T1..T4`, slice/phase-cohort/batch wording, README/SKILL text | yes |
+| MAS-10 | `test_remediation_records_do_not_inflate_the_contract` — fixture carries `### T2R1:`, `### TDR1:` and a mis-tagged `**Slice:** B` under `TDR1`; asserts neither joins `task_slices` and `slice_ids` stays at 2 | yes |
+| MAS-11 / MAS-12 | `test_resolved_snapshot_preserves_validator_slice_membership` (`tools/test_parallel_plan.py`) — resolves through `workflow_config.resolve`, then asserts `plan` lanes+blocked membership `== validated_slice_contract(...)["task_slices"]` and `source_git_head == snapshot["git_head"]` | yes — compares the planner to the validator's contract, not to a hard-coded literal |
 
-R3 fixture counts are independently reproduced by `rg -c '^### Phase ' tools/fixtures/tlc-validator/merge-alone-one-slice.md` = 3, `rg -c '^### T[0-9]+:' tools/fixtures/tlc-validator/merge-alone-one-slice.md` = 5, and `rg -c '^\| [A-Z]+ \| ' tools/fixtures/tlc-validator/merge-alone-one-slice.md` = 1 closure.
+No test observed asserting an implementation detail in place of the contracted outcome.
 
-## Spec-Anchored Acceptance Criteria
+## 2. Gates — real exit codes (not read through a pipe)
 
-| AC | Spec-defined outcome | `file:line` + assertion evidence | Result |
-| --- | --- | --- | --- |
-| MAS-01 | Five primary tasks, three technical cohorts, and one closure derive exactly one slice. | `tools/test_tlc_validators.py:115` through `tools/test_tlc_validators.py:135` assert 3 cohorts, 5 primary tasks, `slice_ids == ["A"]`, 5 memberships, and exact `A` ownership; `tools/test_workflow_config.py:174` through `tools/test_workflow_config.py:180` assert resolver groups `[[1]]`. | PASS |
-| MAS-02 | Two merge-alone outcomes derive exactly two slices. | `tools/test_tlc_validators.py:137` through `tools/test_tlc_validators.py:144` assert `A`, `B`, and exact membership; `tools/test_workflow_config.py:185` through `tools/test_workflow_config.py:190` assert groups `[[1, 2]]`. | PASS |
-| MAS-03 | Empty closure fields and every non-exact-`yes` decision fail while naming the invalid slice. | `tools/test_tlc_validators.py:146` through `tools/test_tlc_validators.py:178` require slice `A`, each missing field, and exact lowercase `yes` for `no`, empty, `Yes`, and `true`. | PASS |
-| MAS-04 | Zero, multiple, unknown, orphan, and duplicate membership fail with task or slice identity. | `tools/test_tlc_validators.py:180` through `tools/test_tlc_validators.py:213` require `T1`, `Z`, duplicate `A`, or orphan `B`. | PASS |
-| MAS-05 | Initial/refresh count mismatch and non-positive assertions fail before snapshot mutation. | `tools/test_workflow_config.py:195` through `tools/test_workflow_config.py:254` assert mismatch messages, absent initial snapshot, and byte-identical refresh snapshot; `tools/test_workflow_config.py:210` rejects `0` and `-1`. | PASS |
-| MAS-06 | Missing `tasks.md` derives one slice. | `tools/test_workflow_config.py:284` through `tools/test_workflow_config.py:290` assert `[[1]]`. | PASS |
-| MAS-07 | Malformed present Tasks fail before snapshot creation or replacement. | `tools/test_workflow_config.py:259` through `tools/test_workflow_config.py:304` assert named closure failure, no initial file, and unchanged refresh bytes. | PASS |
-| MAS-08 | Resume returns frozen state without reading changed or malformed Tasks. | `tools/test_workflow_config.py:309` through `tools/test_workflow_config.py:325` assert frozen object and bytes for both task states. | PASS |
-| MAS-09 | Published contract distinguishes slice, phase/cohort, and batch and removes manual count ownership. | `tools/shared/tests/workflow-config.test.ts:50` through `tools/shared/tests/workflow-config.test.ts:62` assert all three terms, closure fields, derived ownership, and optional assertion wording. | PASS |
-| MAS-10 | `T2R1` and `TDR1` do not enter primary membership or count. | `tools/test_tlc_validators.py:137` through `tools/test_tlc_validators.py:144` assert both headings and exactly four primary memberships; fixtures appear at `tools/fixtures/tlc-validator/merge-alone-two-slices.md:64` and `tools/fixtures/tlc-validator/merge-alone-two-slices.md:71`. | PASS |
-| MAS-11 | Validator and planner preserve identical primary-task membership and slice IDs. | `tools/test_parallel_plan.py:101` through `tools/test_parallel_plan.py:122` compare outputs derived from one task document. | PASS |
-| MAS-12 | Planner and executor accept resolver snapshot v2 while preserving identity validation. | `tools/test_parallel_plan.py:127` through `tools/test_parallel_plan.py:152` assert real resolver v2, membership equality, and Git head; `tools/test_parallel_executor.py:120` through `tools/test_parallel_executor.py:126` assert executor acceptance. | PASS |
-| MAS-13 | Planner and executor reject active snapshot v1 without fallback or migration. | `tools/test_parallel_plan.py:370` through `tools/test_parallel_plan.py:394` and `tools/test_parallel_executor.py:127` through `tools/test_parallel_executor.py:136` require `invalid workflow snapshot`. | PASS |
+```
+$ python3 tools/test_tlc_validators.py > /tmp/tlc.log 2>&1; echo "EXIT_tlc=$?"
+EXIT_tlc=0
+Ran 17 tests in 0.553s
+OK
 
-**Status**: 13/13 matched; 0 uncovered; 0 spec-precision gaps. Count command: `rg -c '^\| MAS-[0-9]{2} \|' .specs/features/merge-alone-slices/validation.md`.
+$ python3 tools/test_workflow_config.py > /tmp/wc.log 2>&1; echo "EXIT_workflow_config=$?"
+EXIT_workflow_config=0
+55 passed, 0 failed
 
-## Test Contract
+$ python3 tools/test_parallel_plan.py > /tmp/pp.log 2>&1; echo "EXIT_parallel_plan=$?"
+EXIT_parallel_plan=0
+27 passed, 0 failed
 
-| Contract | `file:line` + assertion evidence | Result |
+$ bun test tools/shared/tests/workflow-config.test.ts > /tmp/bunwc.log 2>&1; echo "EXIT_bun_wc=$?"
+EXIT_bun_wc=0
+ 6 pass / 0 fail / 104 expect() calls
+
+$ bun run test:all > /tmp/testall.log 2>&1; echo "EXIT_test_all=$?"
+EXIT_test_all=0
+  bun test: 124 pass, 0 fail, 1157 expect() calls, 124 tests across 8 files
+  test:python: 13 / 10 / 15 / 17 / 55 / 5 passed, 0 failed
+```
+
+## 3. Discrimination sensor — 7 mutants, 7 killed
+
+Each mutant injected alone, the named suite run, then `git checkout -- <file>`. Final
+`git status --porcelain` is empty; no mutant survives in the tree.
+
+| # | Mutant | Suite | Real exit | Failing test(s) |
+| --- | --- | --- | --- | --- |
+| a | `merge_alone != "yes"` → `merge_alone.casefold() != "yes"` (accept `Yes`) | `tools/test_tlc_validators.py` | 1 | `FAIL: test_requires_exact_lowercase_merge_alone_yes (value='Yes')` |
+| b | delete the `repeats slice` duplicate loop in `_parse_closure_table` | `tools/test_tlc_validators.py` | 1 | `FAIL: test_rejects_duplicate_and_orphan_closure_rows` |
+| c | delete the `closure row has no primary task` loop in `_slice_contract` | `tools/test_tlc_validators.py` | 1 | `FAIL: test_rejects_duplicate_and_orphan_closure_rows` |
+| d | keep the `--slices` assertion but move it *after* `_write_snapshot` | `tools/test_workflow_config.py` (3 targeted) | 1 | `test_slice_assertion_mismatch_fails_before_snapshot_write`, `test_non_positive_slice_assertions_fail_before_snapshot_write`, `test_refresh_slice_assertion_mismatch_preserves_snapshot_bytes` — all on the `not workflow.json.exists()` / byte-identity assertion |
+| e | resume branch calls `_derived_slice_count` and asserts `--slices` before returning the frozen snapshot | `tools/test_workflow_config.py` (targeted) | 1 | `FAIL test_resume_returns_frozen_snapshot_without_reading_changed_tasks: ConfigError: slice count assertion 8 does not match derived slice count 2` |
+| f | `_derived_slice_count` returns `0` instead of `1` for missing `tasks.md` | `tools/test_workflow_config.py` (targeted) | 1 | `FAIL test_missing_tasks_defaults_to_one_slice_without_manual_count: ConfigError: slice count must be at least 1` |
+| g | delete the `^#{1,6}\s+` → `current = None` reset in `parse_tasks` | `tools/test_tlc_validators.py` | 1 | `ERROR: test_remediation_records_do_not_inflate_the_contract`, `test_independent_capabilities_are_two_slices`, `test_slice_contract_json_is_deterministic_and_ordered` |
+
+Note on (d): the `tools/test_workflow_config.py` runner is `sorted(globals())` with no isolation and
+stops at the first failure, so a whole-file run masks later failures behind alphabetically earlier
+ones. The three (d)/(e)/(f) rows above were re-run by invoking the named test functions directly, on
+a verified-green baseline (`10 PASS` before mutation), so each row names the test the mutant actually
+kills rather than an incidental collateral failure.
+
+## 4. Contract parity with `dx.md`
+
+```
+$ python3 .agents/skills/workflow-spec-driven/scripts/validate_tasks.py \
+    tools/fixtures/tlc-validator/merge-alone-two-slices.md --slice-contract-json ; echo EXIT=$?
+{
+  "task_slices": { "T1": "A", "T2": "A", "T3": "B", "T4": "B" },
+  "slice_ids": [ "A", "B" ],
+  "closures": {
+    "A": { "outcome": "...", "gate": "python3 -m unittest capability_a", "merge_alone": true, "why": "..." },
+    "B": { ... }
+  }
+}
+EXIT=0
+```
+
+Shape, key order, and document ordering match `dx.md` exactly (`task_slices` → `slice_ids` →
+`closures`; task ids `T1..T4` and slice ids `A, B` in document order). Determinism is separately
+pinned by `test_slice_contract_json_is_deterministic_and_ordered`, which byte-compares two
+subprocess runs.
+
+`--slices` optional, `--feature` / `--native-provider` still required:
+
+```
+$ python3 .agents/skills/workflow-config/scripts/workflow_config.py --root . --native-provider codex
+workflow-config: --feature and --native-provider are required unless --sync-agents is used
+EXIT_nofeature=2
+$ python3 .agents/skills/workflow-config/scripts/workflow_config.py --root . --feature merge-alone-slices
+workflow-config: --feature and --native-provider are required unless --sync-agents is used
+EXIT_noprovider=2
+```
+
+`argparse` declares `--slices` with no default, and `resolve(..., slice_count: int | None = None)`;
+`main` no longer requires it. Error messages name the counts and the subject:
+
+- `workflow-config: slice count assertion 2 does not match derived slice count 1` — supplied and derived
+- `workflow-config: slice count must be at least 1` — non-positive assertion
+- `workflow-config: tasks closure validation failed: ... Vertical Slice Closure ...` — validator detail relayed
+- `Vertical Slice Closure slice 'A' has an empty independent gate`, `T1: exactly one non-empty Slice field is required`, `Z: primary tasks use a slice without a closure row` — slice/task named
+
+`resolve()` orders the resume return, then derivation, then assertion, then `_write_snapshot`; the
+mismatch cannot reach a write (mutant d confirms the ordering is load-bearing).
+
+## 5. Frozen QA guard
+
+```
+$ git diff --name-only 13b0d47..e0e97d5 -- docs/qa/scenarios docs/qa/reports docs/qa/charters docs/qa/bugs docs/qa/evidence
+docs/qa/scenarios/CFG-derive-merge-alone-slices.md
+```
+
+Exactly the one new scenario file; no existing scenario, report, charter, bug, or evidence file
+touched. The only other `docs/qa` change is a one-line index entry in
+`docs/qa/journeys/J-configure-feature-workflow.md` (`+1 -0`), outside the guarded set and consistent
+with adding a scenario. The `historicalQaBaseline` guard in the bun suite passes.
+
+## 6. Instruction budget
+
+```
+$ git diff --name-only 13b0d47..e0e97d5 -- AGENTS.md CLAUDE.md docs/guidelines
+(no output)
+```
+
+`AGENTS.md` and every `docs/guidelines/*.md` are unchanged in the range. Prose additions land in
+`README.md` (+13/-4), `CHANGELOG.md` (+4), `.agents/skills/workflow-config/SKILL.md` (+9/-2), and the
+task template (+17) — none of which are per-turn instruction files.
+
+## 7. Disclosed deviations (`memory/MEMORY.md`)
+
+**(a) `parse_tasks` clears the current task on any heading — ACCEPTABLE.**
+The reset is what makes MAS-10 true: without it, `**Slice:** B` under `### TDR1:` donates a second
+slice value to the preceding primary task. Mutant (g) kills three tests, so the behaviour is pinned,
+not incidental. No canonical document regresses: the task template's `T1..T4` bodies contain no
+sub-headings, `nested-phase-tasks.md` still yields `{"T1": 1, "T2": 2}`, and this feature's own
+`.specs/features/merge-alone-slices/tasks.md` validates at exit 0 (5 granularity warnings, 0 errors).
+Residual filed as gap G4.
+
+**(b) Two-slice fixture diagram / `Depends on` mismatch — GAP, not a blocker.**
+Re-derived:
+
+```
+$ validate_tasks.check('tools/fixtures/tlc-validator/merge-alone-two-slices.md')
+ERRORS: ['diagram shows T2 -> T3 but T3 has no matching `Depends on: T2`']
+$ validate_tasks.check('tools/fixtures/tlc-validator/merge-alone-one-slice.md')
+([], [])
+```
+
+No assertion is weakened — no test claims `check()` is clean on the two-slice fixture, and the
+resolver path invokes only `--slice-contract-json`, which does not run `check()`. But the canonical
+two-slice fixture backing five contract rows is a document the repository's own validator rejects.
+Filed as gap G1.
+
+**(c) Resolver tests rewritten to carry a derived `tasks.md` — ACCEPTABLE.**
+Mechanically required by MAS-05: once the manual count stops owning the value, a test asserting
+`--slices 4` must supply a `tasks.md` deriving 4. Each rewritten test keeps its original invariant.
+Spot-checked `test_snapshot_write_failure_preserves_previous_snapshot`: only the refresh assertion
+changed `3` → `2` to match the derived contract; the injected `os.replace` failure and the
+"previous snapshot preserved" assertion are untouched. `write_derived_tasks` is a fixture helper, not
+a weakening. No test was skipped, deleted, or loosened.
+
+---
+
+## Ranked gaps
+
+None blocking. All five are follow-up items for the planner; nothing was fixed in this session.
+
+| # | Sev | Gap |
 | --- | --- | --- |
-| MAS-UT-001 | `tools/test_tlc_validators.py:115` through `tools/test_tlc_validators.py:135` assert exactly 3 cohorts, 5 primary tasks, closure `A`, 5 `A` memberships, and exact merge-alone `true`. | PASS |
-| MAS-UT-002 | `tools/test_tlc_validators.py:137` through `tools/test_tlc_validators.py:144` assert exactly `A`, `B`, and exact membership. | PASS |
-| MAS-UT-003 | `tools/test_tlc_validators.py:146` through `tools/test_tlc_validators.py:169` assert slice `A` plus each missing field. | PASS |
-| MAS-UT-004 | `tools/test_tlc_validators.py:171` through `tools/test_tlc_validators.py:178` reject `no`, empty, `Yes`, and `true` with exact error identity. | PASS |
-| MAS-UT-005 | `tools/test_tlc_validators.py:180` through `tools/test_tlc_validators.py:203` assert zero, multiple, and unknown membership. | PASS |
-| MAS-UT-006 | `tools/test_tlc_validators.py:205` through `tools/test_tlc_validators.py:213` assert duplicate `A` and orphan `B`. | PASS |
-| MAS-UT-007 | `tools/test_tlc_validators.py:137` through `tools/test_tlc_validators.py:144` assert both remediation forms and unchanged primary membership. | PASS |
-| MAS-IT-001 | `tools/test_workflow_config.py:174` through `tools/test_workflow_config.py:180` resolve the shared three-cohort fixture to `[[1]]`. | PASS |
-| MAS-IT-002 | `tools/test_workflow_config.py:185` through `tools/test_workflow_config.py:190` resolve two closures to `[[1, 2]]`. | PASS |
-| MAS-IT-003 | `tools/test_workflow_config.py:195` through `tools/test_workflow_config.py:254` assert mismatch failure and absent/byte-identical snapshot state. | PASS |
-| MAS-IT-004 | `tools/test_workflow_config.py:284` through `tools/test_workflow_config.py:290` assert no-Tasks `[[1]]`. | PASS |
-| MAS-IT-005 | `tools/test_workflow_config.py:293` through `tools/test_workflow_config.py:304` assert malformed closure failure and no snapshot. | PASS |
-| MAS-IT-006 | `tools/test_workflow_config.py:309` through `tools/test_workflow_config.py:325` assert byte-for-byte frozen resume. | PASS |
-| MAS-IT-007 | `tools/test_workflow_config.py:330` through `tools/test_workflow_config.py:347` assert refresh `[[1, 2]]` with unchanged schema/version. | PASS |
-| MAS-IT-008 | `tools/test_parallel_plan.py:101` through `tools/test_parallel_plan.py:122` directly compare validator and planner membership. | PASS |
-| MAS-IT-009 | `tools/shared/tests/workflow-config.test.ts:50` through `tools/shared/tests/workflow-config.test.ts:62` assert the published planning contract. | PASS |
-| MAS-IT-010 | `tools/test_parallel_plan.py:127` through `tools/test_parallel_plan.py:152` pass real resolver v2 output to planner and assert exact membership. | PASS |
-| MAS-IT-011 | `tools/test_parallel_plan.py:370` through `tools/test_parallel_plan.py:394` and `tools/test_parallel_executor.py:120` through `tools/test_parallel_executor.py:136` accept v2 and reject v1. | PASS |
-| MAS-IT-012 | `tools/test_qa_parallel_pilot.py:23` through `tools/test_qa_parallel_pilot.py:67` assert pilot v2 lifecycle; `tools/test_qa_parallel_pilot.py:168` through `tools/test_qa_parallel_pilot.py:187` reject v1 and stale Git head. | PASS |
+| G1 | medium | `tools/fixtures/tlc-validator/merge-alone-two-slices.md` fails full `check()` (`diagram shows T2 -> T3 but T3 has no matching Depends on: T2`). It backs MAS-UT-002/007/008 and MAS-IT-002/008. Latent trap: any later decision to run full `check()` in the resolver path breaks those five rows for a reason unrelated to the behaviour under test. Fix the fixture's diagram or its `Depends on` field. |
+| G2 | low | `dx.md` promises "Present `tasks.md` is invalid → exit non-zero", but the resolver validates only the closure contract via `--slice-contract-json`; a `tasks.md` failing the diagram cross-check still resolves. Spec AC-07 and MAS-IT-005 both scope this to the closure contract, so the code matches the spec and the `dx.md` wording overstates it. Narrow the `dx.md` row. |
+| G3 | low | `_parse_closure_table` terminates its scan on `^#{1,2}\s+` only. A `###` heading immediately after the closure table would leave the parser consuming pipe rows from later sections as closure rows. Unreachable under the canonical template ordering (`## Vertical Slice Closure` → `## Execution Plan`), and no test pins it. |
+| G4 | low | The `parse_tasks` heading reset means a task body containing any sub-heading silently drops its trailing `Depends on` / `Tests` / `Gate` / `Slice` fields, surfacing as `exactly one non-empty Slice field is required` rather than naming the real cause. No test covers the sub-heading case. Consider resetting only on `#{1,4}` task-or-section-level headings, or documenting the constraint in the template. |
+| G5 | nit | `_derived_slice_count` reaches the validator by `subprocess` + `Path(__file__).resolve().parents[2]`. A relocated validator degrades to the generic `tasks closure validation failed`. An in-process import of `validate_tasks.validated_slice_contract` (already importable — `tools/test_parallel_plan.py` does exactly that) would be shorter and fail more loudly. |
 
-**Status**: 19/19 matched. Count command: `rg -c '^\| MAS-(UT|IT)-[0-9]{3} \|' .specs/features/merge-alone-slices/validation.md`.
+## Verdict
 
-## Discrimination Sensor
-
-Sensor used detached temporary worktree `/tmp/mas-r3-sensor.GQo9yW/tree`; real-tree porcelain was empty before creation and after forced removal.
-
-| Mutation | File:line | Targeted command | Result |
-| --- | --- | --- | --- |
-| Replace closure-owned `len(slice_ids)` with `tasks.md` `### Phase` count. | `.agents/skills/workflow-config/scripts/workflow_config.py:643` | `python3 -c 'import tools.test_workflow_config as t; t.test_initial_resolution_derives_one_slice_from_tasks()'` | KILLED: expected `[[1]]`, mutant derived 3 cohorts. |
-| Change planner active workflow predicate from v2 to v1. | `.agents/skills/workflow-config/scripts/parallel_plan.py:46` | `python3 tools/test_parallel_plan.py` | KILLED: suite exited 1. |
-| Change executor active workflow predicate from v2 to v1. | `.agents/skills/autonomous/scripts/parallel_execute.py:496` | `python3 tools/test_parallel_executor.py` | KILLED: suite exited 1 with `invalid workflow snapshot`. |
-
-**Sensor depth**: lightweight, highest-risk closure/cohort and active-version boundaries.
-**Result**: 3/3 killed; 0 survived. Count command: `rg -c '^\| (Replace|Change) ' .specs/features/merge-alone-slices/validation.md`.
-
-## Gate Check
-
-| Gate | Command | Fresh result |
-| --- | --- | --- |
-| Actual feature contract | `python3 .agents/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/merge-alone-slices/tasks.md --slice-contract-json` | Exit 0; 5 primary tasks, 1 slice, 1 closure. |
-| Validator | `python3 tools/test_tlc_validators.py` | 17 passed, 0 failed. |
-| Resolver | `python3 tools/test_workflow_config.py` | 54 passed, 0 failed. |
-| Planner | `python3 tools/test_parallel_plan.py` | 20 passed, 0 failed. |
-| Executor | `python3 tools/test_parallel_executor.py` | 46 passed, 0 failed. |
-| QA pilot | `python3 tools/test_qa_parallel_pilot.py` | 13 passed, 0 failed. |
-| Adoption | `python3 scripts/test_adopt.py` | Exit 0, final `ok`. |
-| Full | `npm run test:all` | 383 passed: 116 Bun + 267 Python; 0 failed, 0 skipped. `expr 9 + 59 + 46 + 20 + 13 + 6 + 54 + 10 + 5 + 28 + 17` = 267; `expr 116 + 267` = 383. Bun count was emitted by `bun test`. |
-
-No test count decreased from the prior 380-check verified tree; `expr 383 - 380` = +3. No tests were weakened, removed, or skipped.
-
-## Schema and History Boundaries
-
-- Resolver emits active workflow v2 at `.agents/skills/workflow-config/scripts/workflow_config.py:834`.
-- Planner output remains plan schema v1 at `.agents/skills/workflow-config/scripts/parallel_plan.py:224`; executor runtime/result schemas remain v1 at `.agents/skills/autonomous/scripts/parallel_execute.py:82` and `.agents/skills/autonomous/scripts/parallel_execute.py:415`.
-- QA pilot workflow is v2 at `tools/qa_parallel_pilot.py:72`; its lifecycle/tombstone schemas remain v1 at `tools/qa_parallel_pilot.py:24` and `tools/qa_parallel_pilot.py:191`.
-- `git diff --exit-code 459ece2..HEAD -- '.specs/features/*/workflow.json'` exited 0. Historical v1 snapshots remain at `.specs/features/optional-design-tools/workflow.json:35`, `.specs/features/parallel-slice-dispatch/workflow.json:37`, and `.specs/features/security-skills/workflow.json:36`.
-
-## Code Quality and QA Impact
-
-| Check | Result |
-| --- | --- |
-| Minimum code, surgical scope, no speculative compatibility | PASS |
-| Existing validator/resolver/planner/executor patterns preserved | PASS |
-| All tests map to ACs, test-contract rows, or existing lifecycle invariants | PASS |
-| Guidelines followed: `TEST-CONTRACT.md`, `VERIFICATION-EVIDENCE.md`, `GATES.md`, `REVIEW-ROUNDS.md`, `QA-SCENARIOS.md` | PASS |
-| QA impact | Public workflow behaviour changed; existing `CFG-plan-parallel-slice-dispatch` remains pending retest. Technical verification authorizes QA retest, not feature closure. |
-
-## Summary
-
-**Overall**: PASS — R3 verified; whole feature ready for QA retest.
-
-**Spec-anchored check**: 13/13 ACs matched; 0 precision gaps.
-**Test contract**: 19/19 rows matched.
-**Sensor**: 3/3 mutants killed.
-**Full gate**: 383 passed, 0 failed, 0 skipped.
-**Next step**: Fresh QA Execute retest for `CFG-plan-parallel-slice-dispatch`, then feature-closing QA decision.
+**PASS.** All 12 acceptance criteria and all 17 test-contract rows map to asserting tests that assert
+the spec-defined outcome. All five named gates return exit code 0, including the full `bun run
+test:all`. All seven required mutants were killed by the suite the packet named. The `dx.md` contract
+shape, ordering, optionality, and error text match the implementation. The frozen QA scenario set and
+the instruction-budget files are untouched. No mutant, edit, or fix was left in the tree
+(`git status --porcelain` clean apart from the pre-existing untracked `.gate-cache/` and this file).
