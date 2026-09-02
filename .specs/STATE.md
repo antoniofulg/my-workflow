@@ -2,14 +2,24 @@
 
 ## Handoff
 
-- **Feature**: `.specs/features/hybrid-slice-execution`
-- **Phase / Task**: Execute / T13 — authorize halted audit generations
-- **Completed**: T1-T7; CP-S1 and CP-S2 PASS; CP-S4 generation 1 halted after three failed remediations; resumed planning recorded in AD-016
+- **Feature**: local `main` reconciliation onto `origin/main` (branch `build/reconcile-local-main`)
+- **Phase / Task**: merge resolved; full gate and pull request pending
+- **Completed**: origin `hybrid-slice-execution`, `bun-tooling-runtime`, `layered-workflow-adoption`,
+  `gate-result-cache`, and release 0.8.0 are the base. Local `host-owned-session-continuation`
+  (ai-memory removal, AD-019) and the credential-free configuration path in `GATES.md` are carried.
+  Local `host-agnostic-slice-parallelization` and `bun-test-runner` implementations are superseded by
+  the origin base; their specs, QA reports, bugs, and charters remain as history. Local decisions
+  AD-015–AD-020 are renumbered AD-019–AD-024 because origin already used those ids.
 - **In-progress** (file:line): none
-- **Next step**: Implement T13, open generation 2 through the scripted authorization reference, then implement T14 and dispatch a fresh independent CP-S4 Technical Verifier.
-- **Blockers**: CP-S4 remains blocked until generation 2 receives independent PASS. Live Orca host verification remains `blocked-verify`; fake physical ledgers and adoption dry-run own automated evidence.
-- **Uncommitted files**: resumed planning package until commit `docs(workflow): plan assisted halt recovery`.
-- **Branch**: `feat/hybrid-slice-execution`
+- **Next step**: Re-port `merge-alone-slices` (`.specs/features/merge-alone-slices/spec.md`, AD-020)
+  onto `workflow-spec-driven` `validate_tasks.py` and `workflow_config.py`. Its local implementation,
+  fixtures, and tests targeted the removed `tlc-spec-driven` skill and were not carried.
+- **Blockers**: Live Orca transport stays `blocked-verify`
+  (`BUG-20260827-orca-terminal-send-truncates-claude-worker-packet`).
+  `.specs/features/host-agnostic-slice-parallelization/tasks.md` keeps 17 unchecked Maestri/preflight
+  tasks the superseded executor never shipped; no port is planned.
+- **Uncommitted files**: none after the merge commit.
+- **Branch**: `build/reconcile-local-main`
 
 ## Decisions
 
@@ -135,7 +145,7 @@
   `README.md`, `docs/guidelines/REVIEW-ROUNDS.md`, `docs/qa/`, the ai-memory feature contracts and
   threat model, and this decision record.
 - **Date**: 2026-08-23
-- **Status**: active
+- **Status**: superseded by AD-019
 
 ### AD-009
 
@@ -292,4 +302,109 @@
   separate decision, deferred with the wiring; `.agents/skills/autonomous/SKILL.md` still refuses
   cached results and this delivery does not change it.
 - **Date**: 2026-09-01
+- **Status**: active
+
+### AD-019
+
+- **Decision**: Cross-provider session continuation is owned by the host. Repository files, Git
+  state, feature artifacts, and explicit handoff prompts remain the durable semantic context.
+- **Reason**: Host-native continuation now covers provider unavailability, instability, and token
+  exhaustion; Praxis CRM proved the approach with Orca's `Continue in New Session`, selectable
+  destination agents, focused handoffs, older transcript access, and unchanged original sessions.
+- **Trade-off**: Host capabilities vary, so the repository provides no replacement runtime,
+  wrapper, database, hook, protocol, or compatibility layer; operators use the host UI to continue.
+- **Scope**: Cross-provider continuation guidance, reviewer packets, adoption, QA, and release
+  contracts in this workflow pack.
+- **Date**: 2026-08-25
+- **Status**: active
+
+### AD-020
+
+- **Decision**: Vertical slice count is derived from validated task outcomes that remain worth
+  merging if all later slices are cancelled. Technical phases, cohorts, directories, runners, and
+  worker batches do not create slices without an independently mergeable outcome.
+- **Reason**: A manual count froze technical organization as delivery structure and multiplied
+  Verifier, gate, and review cost before Tasks proved the cut.
+- **Trade-off**: Every planned primary task must declare slice membership and every slice needs an
+  explicit closure row; old task documents require the new contract before refresh, while normal
+  resume keeps its frozen snapshot.
+- **Scope**: TLC task templates and validation, workflow configuration, parallel task planning,
+  feature snapshots, adoption, tests, and workflow documentation.
+- **Date**: 2026-08-27
+- **Status**: active
+
+### AD-021
+
+- **Decision**: When automatic host orchestration is incompatible, explicit human authorization may
+  enable coordinator-assisted inter-slice execution through the host's direct worktree and terminal
+  primitives. The coordinator owns worker launch, dependency checkpoints, same-terminal follow-up,
+  synchronization, integration, and cleanup; slice workers never spawn workers. This path never
+  marks the automatic adapter compatible.
+- **Reason**: Direct Orca worktree creation and prompt delivery work on `1.4.188`, so a supervising
+  coordinator can overlap eligible slices without weakening TLC task order, verification, review,
+  gates, QA, or fail-closed automatic execution.
+- **Trade-off**: The coordinator must supervise and reconstruct parked workers from Orca and Git
+  state. It lacks transactional `worker_done`, ack, and release receipts, so dirty, ambiguous,
+  conflicting, or unrecoverable state returns to serial execution.
+- **Scope**: Autonomous inter-slice coordination, Orca direct worktree/terminal handoffs, dependency
+  checkpoints, follow-up, integration, and exact owned-resource cleanup.
+- **Date**: 2026-08-26
+- **Status**: superseded by AD-015
+
+### AD-022
+
+- **Decision**: The assisted coordinator writes each complete slice packet to a coordinator-owned
+  file outside every slice worktree and sends only a short fixed-shape pointer to that file through
+  the host's one mandated `terminal send`. The inline-packet transport is removed, not retained as a
+  fallback or length-threshold alternative. `exec_payload` and the pre-packet recording obligations
+  are unchanged.
+- **Reason**: `BUG-20260827-orca-terminal-send-truncates-claude-worker-packet` proves
+  `orca terminal send --text` reports a complete write while the receiving TUI gets a mangled
+  fragment. Loss is timing-dependent, `--text` is the only expressible transport, and the one-send
+  and no-replacement-worker rules make the loss unrecoverable. A pointer keeps the mandated payload
+  at a size the observed loss did not reach.
+- **Trade-off**: This does not make the host transport reliable; it only shrinks the mandated
+  payload. The coordinator owns packet-file lifecycle outside every worktree, and the worker must
+  read a file before acting. A truncated pointer cannot produce a valid marker, so truncation still
+  fails closed rather than half-executing.
+- **Scope**: Assisted Orca packet delivery, the `parallelization.md` contract, AST-04, IT-005, and
+  the assisted QA charter and scenario.
+- **Date**: 2026-08-27
+- **Status**: active
+
+### AD-023
+
+- **Decision**: `assisted` is the default inter-slice execution mode whenever the frozen task DAG
+  exposes independent safe slices. The main agent owns direct worktree and terminal creation,
+  pointer-only packet delivery, dependency parking, producer verification, exact commit sync,
+  affected-gate rerun, same-handle continuation, deterministic integration, and cleanup. `disabled`
+  is the explicit sequential override; `safe` and `full` retain their automatic-adapter semantics.
+  Fewer than two ready slices or any isolation, resource, ownership, or reconciliation uncertainty
+  falls back to sequential execution. AD-022 remains active until upstream transport is proven.
+- **Reason**: Retest 12 proved useful overlap and exact cleanup under supervised coordination, while
+  the upstream Orca transport and lifecycle gaps still prevent trustworthy automatic orchestration.
+- **Trade-off**: Default development can consume more local CPU and memory, and the main coordinator
+  must supervise fail-closed mechanics until upstream support replaces the workaround. Operators who
+  need lower machine use must select `disabled` explicitly.
+- **Scope**: Workflow mode resolution, feature snapshots, assisted planning and dispatch, adopted
+  agent instructions and probe tooling, pointer delivery, checkpoint continuation, integration, and
+  exact owned-resource cleanup.
+- **Date**: 2026-08-27
+- **Status**: superseded by AD-015
+
+### AD-024
+
+- **Decision**: Merge the workflow-side assisted-parallelization remediation with the affected live
+  QA scenario truthfully left `untested`; defer live Orca QA until the upstream `orca terminal send
+  --text` transport support is corrected. The pointer-only workaround and all technical fake-Orca
+  evidence remain required, and no live run is claimed by this waiver.
+- **Reason**: The human authorized commit and merge without publishing while explicitly choosing to
+  wait for the Orca team to fix the host transport. Holding the workflow-side fail-closed and
+  pointer-only delivery improvements would delay usable intermediate parallelization without making
+  live QA possible in this repository.
+- **Trade-off**: Autonomous readiness accepts technical/fake-host evidence for this merge, while
+  the changed user journey remains visibly untested and must be walked after upstream support lands.
+- **Scope**: This feature merge only: assisted default dispatch, adopted probe, pointer delivery,
+  direct capability/resource proof, same-handle reconciliation, and cleanup.
+- **Date**: 2026-08-28
 - **Status**: active

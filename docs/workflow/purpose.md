@@ -22,8 +22,10 @@ with the human.
 `SEC-` cases, a Verifier that is not the author, a persona walk for anything a user can see, and a
 full gate once — on the tree you actually ship.
 
-Neither side is optional. A slice that skips the Verifier to go faster is not this workflow. A
-slice that re-reviews Cosmetics until the diff stops moving is not this workflow either.
+Neither side is optional for feature slices. A feature slice that skips the Verifier is not this
+workflow; neither is one that re-reviews Cosmetics until the diff stops moving. Credential-free
+declarative agent-tool configuration is a separate maintenance path defined by
+[`GATES.md`](../guidelines/GATES.md).
 
 ## What the caps buy
 

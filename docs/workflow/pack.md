@@ -10,7 +10,7 @@ The workflow ships six local capabilities:
 | `qa-plan` | Maps changed user-visible promises to durable QA journeys and charters. |
 | `qa-execute` | Walks those journeys through the consuming project's existing adapter. |
 | `ponytail` (`full`) | Shortest code that works. Stdlib before a dependency. |
-| `autonomous` | Unattended run: classify feature vs filed issue, settle or halt, prove readiness, and deliver one feature branch through one pull request. |
+| `autonomous` | Unattended run: classify work; credential-free configuration stays local, while eligible work may deliver one feature branch through one pull request. |
 | `deep-review` | Multi-lane review orchestration, context assembly, findings, and rendered review artifacts. |
 
 Canonical copies: `.agents/skills/`. Claude: symlinks in `.claude/skills/`. Cursor / Codex /

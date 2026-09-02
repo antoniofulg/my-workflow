@@ -48,12 +48,14 @@ A slice that is not observable or not complete is not a slice. Tests are never a
 e2e is only for a journey nothing else already walks; a second slice in the same journey proves
 itself at integration.
 
-## Two paths
+## Work classes
 
 | Work | Path |
 | --- | --- |
 | **Feature** — a capability the product lacks | The full table above |
+| **Direct correction** — one exact, unambiguous invariant | The auto-sized `workflow-spec-driven` correction path |
 | **Filed issue** — already reviewed, then parked | `implement → scoped gate → one commit` |
+| **Credential-free declarative agent-tool configuration** | The local light path in [GATES.md](../guidelines/GATES.md) |
 
 A defect nobody filed is a feature at auto-sized depth. A “one-line fix” that opens a schema or a
 design question stopped being a filed issue; say so and take the feature path.

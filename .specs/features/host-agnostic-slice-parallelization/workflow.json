@@ -1,0 +1,50 @@
+{
+  "deep_review": {
+    "cadence": "grouped.3",
+    "groups": [
+      [
+        1,
+        2
+      ],
+      [
+        3,
+        4
+      ]
+    ]
+  },
+  "feature": "host-agnostic-slice-parallelization",
+  "git_head": "4ba8a0fc48acf31f308632ff9fc7c6be933c54ed",
+  "overrides": {},
+  "parallelization": {
+    "mode": "assisted",
+    "resource_provider": null
+  },
+  "profile": null,
+  "roles": {
+    "deep_reviewer": {
+      "agent_file": ".claude/agents/deep-reviewer.md",
+      "effort": "high",
+      "model": "sonnet",
+      "provider": "claude"
+    },
+    "explorer": {
+      "agent_file": ".claude/agents/explorer.md",
+      "effort": "medium",
+      "model": "sonnet",
+      "provider": "claude"
+    },
+    "implementer": {
+      "agent_file": ".claude/agents/implementer.md",
+      "effort": "medium",
+      "model": "sonnet",
+      "provider": "claude"
+    },
+    "verifier": {
+      "agent_file": ".claude/agents/verifier.md",
+      "effort": "medium",
+      "model": "sonnet",
+      "provider": "claude"
+    }
+  },
+  "version": 2
+}

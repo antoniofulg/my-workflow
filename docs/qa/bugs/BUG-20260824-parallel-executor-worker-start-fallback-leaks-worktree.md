@@ -2,7 +2,7 @@
 
 - **Status:** open — live retest `blocked-verify` at external Orca/Codex boundary
 - **Severity:** major
-- **Scenario:** `QAS-run-resource-free-parallel-orca-slices`; `CFG-fallback-unproven-parallel-execution`
+- **Scenario:** `QAS-run-resource-free-parallel-orca-slices`; `CFG-fallback-unproven-parallel-execution`; `QAS-coordinate-assisted-orca-slices`
 - **Expected:** With proven Orca `orchestration.contract.v1`, public `start --adapter auto` starts both validated resource-free lanes; if worker start fails, fallback reports and reconciles every accepted partial effect without hiding a worktree, Run, Task, Dispatch, terminal, or resource behind `actions: []`.
 - **Observed at discovery:** A validated two-lane fixture accepted A/T1's worktree and Orca state, then returned `worker-failed`; B/T2 never started. Earlier responses hid accepted effects behind `actions: []`.
 - **Adapter:** public `parallel_execute.py` plus read-only Orca and Git inspection
@@ -64,6 +64,8 @@ The links below preserve prior evidence while removing repeated interim narrativ
 | R18 | Provider canary exposed preflight side effect; fixed in `0ed8b55` | [`R18 report`](../reports/2026-08-25-parallel-slice-executor-r18.md); `docs/qa/evidence/2026-08-25-parallel-slice-executor-r18/resource-*.json` |
 | R19 | Provider-preflight subpath passed; real worker lifecycle intentionally not rerun | [`R19 report`](../reports/2026-08-25-parallel-slice-executor-r19.md); `docs/qa/evidence/2026-08-25-parallel-slice-executor-r19/` |
 | v0.6.0 safe retest | External boundary reproduced: A/T1 `agent_prompt_stalled`, exact owned terminal remained live/writable, B/T2 absent; product exposed/fenced partial effect | [`v0.6.0 safe retest`](../reports/2026-08-25-parallel-slice-executor-v060-safe-retest.md); `docs/qa/evidence/2026-08-25-parallel-slice-executor-v060-safe-retest/` |
+| Assisted Retest 5 | Exact A follow-up returned `agent_prompt_stalled`, but the same handle silently executed A:T7/A:T8 and created two commits; B parked correctly; coordinator stopped before sync/follow-up | [`assisted report`](../reports/2026-08-27-assisted-orca-slices.md); `docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-5/` |
+| Assisted Retest 6 | Two fresh verifier sends returned `agent_prompt_stalled`; no resend/replacement occurred, and same-handle bounded reconciliation accepted exactly one complete expected PASS effect for each. Worker sends were normal. Later shared-task-file conflict invalidated the happy-path fixture. Broader automatic lifecycle bug remains open. | [`assisted report`](../reports/2026-08-27-assisted-orca-slices.md); `docs/qa/evidence/2026-08-27-assisted-orca-slices/retest-6/` |
 
 ## Residue boundary
 

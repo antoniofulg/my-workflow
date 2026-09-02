@@ -275,10 +275,6 @@ available:
 - **Graft** can enrich deep-review context; absence or failure falls back to repository inspection.
 - **OpenDesign** can support visual iteration; the repository stores only the approved handoff, and
   absence or failure falls back to normal repository artifacts.
-- **ai-memory** is opt-in, is not installed by `adopt.py`, and carries one operator handoff between
-  Claude Code, Codex, and Cursor. Use the [handoff guide](docs/workflow/ai-memory.md) to enable,
-  disable, re-enable, or purge it; after enabling, source the helper in a new shell and restart
-  agents. `handoff` remains the fallback, and internal reviewers use explicit role packets.
 
 No integration is mandatory or installed by adoption. Keep daemon, port, CLI and version details in
 the relevant integration documentation.

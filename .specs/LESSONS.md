@@ -206,6 +206,96 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: validation-s1.md:125 (adoption) (+1 more)
 - last seen: 2026-08-30T04:28:36Z
 
+### L-033 - Exercise adapter compatibility through the executor boundary before accepting a host capability proof
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `host-adapters` · harmful: 0
+- features: host-agnostic-slice-parallelization
+- evidence: validation.md:ranked-gap-1/MAE-01 (host-adapters) (host-adapters)
+- last seen: 2026-09-02T01:21:09Z
+
+### L-034 - Test every lifecycle failure stage for no success receipt and exact retained-resource evidence
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `host-adapters` · harmful: 0
+- features: host-agnostic-slice-parallelization
+- evidence: validation.md:ranked-gap-3/ORC-05 (host-adapters) (host-adapters)
+- last seen: 2026-09-02T01:21:09Z
+
+### L-035 - Keep canonical workflow wording synchronized with contract assertions when changing published policy
+- signal: `gate_fail` · recurrence: 1 feature(s) · scope: `workflow-contracts` · harmful: 0
+- features: host-agnostic-slice-parallelization
+- evidence: validation.md:gate-check (workflow-contracts) (workflow-contracts)
+- last seen: 2026-09-02T01:21:09Z
+
+### L-036 - Parse task status from canonical task records before reconciling expected task IDs
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `assisted-probe` · harmful: 0
+- features: host-agnostic-slice-parallelization
+- evidence: validation.md AST-04 (assisted-probe) (assisted-probe)
+- last seen: 2026-09-02T01:21:09Z
+
+### L-037 - Cleanup tests must fail when any foreign branch reference changes
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `assisted-probe` · harmful: 0
+- features: host-agnostic-slice-parallelization
+- evidence: validation.md M4 (assisted-probe) (assisted-probe)
+- last seen: 2026-09-02T01:21:09Z
+
+### L-038 - Treat only the documented not-found exit status as absence; every command error must fail closed
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `assisted-probe` · harmful: 0
+- features: host-agnostic-slice-parallelization
+- evidence: .specs/features/host-agnostic-slice-parallelization/validation.md:121 (assisted-probe) (assisted-probe)
+- last seen: 2026-09-02T01:21:09Z
+
+### L-039 - Cleanup proof must audit host inventory, filesystem path, branch ref, and Git worktree registration from the same ownership receipt
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `assisted-probe` · harmful: 0
+- features: host-agnostic-slice-parallelization
+- evidence: AST-06 (assisted-probe) (assisted-probe)
+- last seen: 2026-09-02T01:21:09Z
+
+### L-040 - Inject retained cleanup residue so tests fail when final registration proof is removed
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `assisted-cleanup` · harmful: 0
+- features: host-agnostic-slice-parallelization
+- evidence: .specs/features/host-agnostic-slice-parallelization/validation.md:AST-06 sensor (assisted-cleanup) (assisted-cleanup)
+- last seen: 2026-09-02T01:21:10Z
+
+### L-041 - Require every task effect to prove at least one packet-declared atomic commit
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `assisted-reconciliation` · harmful: 0
+- features: host-agnostic-slice-parallelization
+- evidence: AST-04 (assisted-reconciliation) (assisted-reconciliation)
+- last seen: 2026-09-02T01:21:10Z
+
+### L-042 - Exercise incomplete canonical task state at the effect-reconciliation boundary
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `assisted-reconciliation` · harmful: 0
+- features: host-agnostic-slice-parallelization
+- evidence: .specs/features/host-agnostic-slice-parallelization/validation.md:AST-04 task-state sensor (assisted-reconciliation) (assisted-reconciliation)
+- last seen: 2026-09-02T01:21:10Z
+
+### L-043 - Failure-path tests assert the offending record identity, not only the error category
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `workflow-validation` · harmful: 0
+- features: merge-alone-slices
+- evidence: MAS-03/MAS-04 (workflow-validation) (workflow-validation)
+- last seen: 2026-09-02T01:21:10Z
+
+### L-044 - Failure atomicity tests assert pre-existing artifact bytes remain unchanged
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `workflow-resolution` · harmful: 0
+- features: merge-alone-slices
+- evidence: MAS-05/MAS-07 (workflow-resolution) (workflow-resolution)
+- last seen: 2026-09-02T01:21:10Z
+
+### L-045 - Fixtures exercise every identifier shape named by the acceptance criterion
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `workflow-validation` · harmful: 0
+- features: merge-alone-slices
+- evidence: MAS-10 (workflow-validation) (workflow-validation)
+- last seen: 2026-09-02T01:21:11Z
+
+### L-046 - Cross-component contract tests compare producer output directly with consumer output
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `workflow-planning` · harmful: 0
+- features: merge-alone-slices
+- evidence: MAS-11 (workflow-planning) (workflow-planning)
+- last seen: 2026-09-02T01:21:11Z
+
+### L-047 - Boundary values named by the specification receive explicit regression assertions
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `workflow-resolution` · harmful: 0
+- features: merge-alone-slices
+- evidence: MAS-05 edge (workflow-resolution) (workflow-resolution)
+- last seen: 2026-09-02T01:21:11Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

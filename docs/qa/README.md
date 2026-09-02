@@ -13,7 +13,6 @@ For consuming projects, those authorities are their executable manifests or CI j
 | `QAS` | Manual agent-file inspection, checkout-local CLI recipes, and Orca-backed workflow execution | `.agents/skills/qa-plan/`, `.agents/skills/qa-execute/`, `.agents/skills/autonomous/scripts/parallel_execute.py`, `tools/gate_cache.py`, `.agents/skills/deep-review/references/publish-github.md`, provider Verifier packets | [Skills contract](../../README.md#skills), [parallel executor contract](../../.agents/skills/autonomous/references/parallelization.md), [Deep Review publication recipe](../../.agents/skills/deep-review/references/publish-github.md) |
 | `DOC` | Documentation | `README.md` | [`README.md`](../../README.md) |
 | `CFG` | Workflow configuration, generated state, and Git visibility | `.my-workflow.toml.example`; `.my-workflow.toml`; `templates/agents/`; `.agents/skills/workflow-config/scripts/workflow_config.py`; `.gitignore`; `.specs/` | [README configuration contract](../../README.md#adopt-the-workflow), [`workflow-config` skill](../../.agents/skills/workflow-config/SKILL.md), [artifact lifecycle](../guidelines/ARTIFACT-LIFECYCLE.md) |
-| `WFL` | Cross-provider workflow handoff | `docs/workflow/ai-memory.md`; `scripts/ai-memory.zsh`; Claude Code, Codex, and Cursor lifecycle hooks | [ai-memory handoff contract](../workflow/ai-memory.md), [`scripts/ai-memory.zsh`](../../scripts/ai-memory.zsh) |
 | `REL` | Package metadata | `package.json`, `bun.lock` | [`package.json`](../../package.json) |
 
 No browser, API, or mobile surface exists in this repository.

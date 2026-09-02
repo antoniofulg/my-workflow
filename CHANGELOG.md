@@ -2,6 +2,28 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+### Changed
+
+- Local `main` is reconciled onto the published 0.8.0 base. The local assisted-Orca executor and
+  Bun test-runner variants are superseded by the released hybrid slice execution and Bun tooling;
+  merge-alone slice derivation is scheduled for a re-port onto `workflow-spec-driven`.
+
+### Removed
+
+- Removed the optional ai-memory integration, including its repository scripts, guide,
+  feature-specific test, and active QA promise. Session continuation is now a host responsibility.
+- my-workflow keeps versioned repository artifacts and explicit prompts as the durable semantic
+  context; adoption never removes external operator state.
+
+### Migration
+
+- Operators who previously enabled ai-memory must follow the exact lifecycle commands in the
+  [v0.5.0 tagged guide](https://github.com/antoniofulg/my-workflow/blob/v0.5.0/docs/workflow/ai-memory.md).
+  This release does not execute or invent cleanup commands, and adoption never removes external
+  operator state.
+
 ## [0.8.0] - 2026-08-31
 
 ### Added
