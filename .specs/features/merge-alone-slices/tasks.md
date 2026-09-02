@@ -7,7 +7,7 @@
 3. One atomic Conventional Commit per task; the task gate is green before the commit.
 
 **Design**: `.specs/features/merge-alone-slices/design.md`
-**Status**: Approved — re-plan on `workflow-spec-driven`, 2026-09-02
+**Status**: Done — Technical Verifier PASS at `ee895c6`; Deep Review and QA pending
 
 ## Vertical Slice Closure
 

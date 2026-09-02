@@ -28,9 +28,18 @@ run made on its own.
 | Rewrite existing resolver tests that asserted `--slices > 1` to carry a matching derived `tasks.md` | `--slices` no longer owns the count (MAS-05); each test keeps its original invariant | Keeping manual counts alive for tests only | None | None |
 | `_derived_slice_count` shells out to `validate_tasks.py --slice-contract-json` | The design chose the validator CLI as the one executable authority and the resolver already runs subprocesses | Importing `validated_slice_contract` directly (Verifier G5) | One function | One extra interpreter start per initial resolution or refresh |
 
-### Follow-ups (not blocking; from the Technical Verifier)
+### Follow-ups (not blocking; from the Technical Verifiers and Deep Review round 1)
 
-- G3: `_parse_closure_table` stops only at `#`/`##`; a `###` after the table is unreachable under the template but unpinned.
-- G4: sub-heading inside a task body drops trailing fields (see above).
-- G5: subprocess vs direct import in `_derived_slice_count`.
+- Planner task *start* is narrower than the validator's (`parallel_plan.py` `^###\s+(T\d+)\s*:` case-sensitive vs `validate_tasks.py` `^#{2,4}\s+(T\d+)\s*:` case-insensitive): a `## T2:` or `#### T2:` heading is validated but silently dropped from the plan. Reuse `validate_tasks.TASK_RE` in `_parse_tasks`. Not reachable from the published template.
+- `_parse_closure_table` stops only at `#`/`##`; a `###` after the table is unreachable under the template but unpinned.
+- `_derived_slice_count` shells out to the validator CLI instead of importing `validated_slice_contract` (one interpreter start per initial resolution or refresh).
 - Every other `.specs/features/*/tasks.md` now fails `check()` for a missing closure section. Intentional hard cut recorded in `design.md` § Risks; normal resume never re-validates them.
+
+### Remediation history
+
+| Round | Finding | Fix |
+| --- | --- | --- |
+| Verifier 1 | Two-slice fixture diagram disagreed with its `Depends on` fields; `dx.md` overstated resolver validation | `1c91883` |
+| Deep Review 1 (Major) | Planner parsed `**Slice:**` itself, so membership could diverge from the validator (AC-11) | `f7676c2`: planner takes membership from `validated_slice_contract`, fails closed |
+| Verifier 2 (Major) | MAS-IT-008 fixture could not distinguish validator membership from a local fallback | `a872208`: `T2R1` record in the fixture |
+| Implementer flag → AC-13 | Planner absorbed a remediation record's fields into the preceding task | `ee895c6` (R1): planner ends a task at any heading |

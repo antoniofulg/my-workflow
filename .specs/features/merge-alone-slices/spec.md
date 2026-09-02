@@ -10,10 +10,10 @@ review cadence, and adds verification cost even when only the final combined sta
 
 ## Goals
 
-- [ ] Derive slice count from validated merge-alone outcomes in `tasks.md`.
-- [ ] Keep initial resolution, refresh, resume, templates, and parallel planning consistent with one
+- [x] Derive slice count from validated merge-alone outcomes in `tasks.md`.
+- [x] Keep initial resolution, refresh, resume, templates, and parallel planning consistent with one
       declared slice contract.
-- [ ] Preserve one-slice resolution when Tasks is correctly skipped.
+- [x] Preserve one-slice resolution when Tasks is correctly skipped.
 
 ## Out of Scope
 
@@ -95,30 +95,30 @@ it accepts it and reports the validator's membership.
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| MAS-01 | P1: Praxis regression derives one slice | Tasks | Planned |
-| MAS-02 | P1: Independent outcomes derive two slices | Tasks | Planned |
-| MAS-03 | P1: Closure fields validate | Tasks | Planned |
-| MAS-04 | P1: Task membership validates | Tasks | Planned |
-| MAS-05 | P1: Optional count asserts derived value | Tasks | Planned |
-| MAS-06 | P1: Missing tasks defaults to one slice | Tasks | Planned |
-| MAS-07 | P1: Malformed tasks fail closed | Tasks | Planned |
-| MAS-08 | P1: Resume preserves frozen snapshot | Tasks | Planned |
-| MAS-09 | P1: Template distinguishes planning units | Tasks | Planned |
-| MAS-10 | P1: Remediation does not inflate slices | Tasks | Planned |
-| MAS-11 | P1: Downstream planners share membership | Tasks | Planned |
-| MAS-12 | P1: Planner accepts the derived snapshot | Tasks | Planned |
-| MAS-13 | P1: Planner ignores remediation records | R1 | Planned |
+| MAS-01 | P1: Praxis regression derives one slice | Tasks | Verified |
+| MAS-02 | P1: Independent outcomes derive two slices | Tasks | Verified |
+| MAS-03 | P1: Closure fields validate | Tasks | Verified |
+| MAS-04 | P1: Task membership validates | Tasks | Verified |
+| MAS-05 | P1: Optional count asserts derived value | Tasks | Verified |
+| MAS-06 | P1: Missing tasks defaults to one slice | Tasks | Verified |
+| MAS-07 | P1: Malformed tasks fail closed | Tasks | Verified |
+| MAS-08 | P1: Resume preserves frozen snapshot | Tasks | Verified |
+| MAS-09 | P1: Template distinguishes planning units | Tasks | Verified |
+| MAS-10 | P1: Remediation does not inflate slices | Tasks | Verified |
+| MAS-11 | P1: Downstream planners share membership | Tasks | Verified |
+| MAS-12 | P1: Planner accepts the derived snapshot | Tasks | Verified |
+| MAS-13 | P1: Planner ignores remediation records | R1 | Verified |
 
 **Coverage:** 13 total, 13 mapped to tasks, 0 unmapped.
 
-**Verification:** pending — the earlier `R3 PASS at 5dee2e2` verified the dropped implementation and
-does not cover this port.
+**Verification:** Technical Verifier PASS at `ee895c6` (`validation.md`): 13/13 acceptance criteria and
+18/18 test-contract rows matched; 9/10 mutants killed, the tenth proven equivalent.
 
 ## Success Criteria
 
-- [ ] The Praxis/Bun five-task migration resolves to one slice.
-- [ ] Two independently mergeable capabilities resolve to two slices.
-- [ ] Invalid closure contracts and count mismatches fail before snapshot replacement.
-- [ ] Resume and no-Tasks behaviour preserve their declared semantics.
-- [ ] All repository gates pass without adding dependencies or compatibility parsers.
-- [ ] Parallel planning consumes the resolver's derived snapshot with the validator's membership.
+- [x] The Praxis/Bun five-task migration resolves to one slice.
+- [x] Two independently mergeable capabilities resolve to two slices.
+- [x] Invalid closure contracts and count mismatches fail before snapshot replacement.
+- [x] Resume and no-Tasks behaviour preserve their declared semantics.
+- [x] All repository gates pass without adding dependencies or compatibility parsers.
+- [x] Parallel planning consumes the resolver's derived snapshot with the validator's membership.
