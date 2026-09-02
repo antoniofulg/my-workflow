@@ -183,7 +183,7 @@ function documentedBunScripts(
   return [...scripts].sort();
 }
 
-const historicalQaBaseline = "69914e831cb8001307dfa69219265c8e2e9700fb";
+const historicalQaBaseline = "b3b42c7bd0a8ab8e72d4c5367f4559df31f8d647";
 
 function changedHistoricalQaArtifacts(
   root = repositoryRoot,
