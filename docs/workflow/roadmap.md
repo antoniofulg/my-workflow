@@ -125,7 +125,12 @@ runtime. Also publish to PyPI for `uvx my-workflow`.
 ## Slices
 
 1. Skill split, preload, materializer renders `skills:`. No behaviour change.
-2. Slash entry points with `context: fork`.
+2. Slash entry points with `context: fork`: `/wspecify`, `/wdesign`, `/wtasks`, `/wimplement`,
+   `/wverify`, plus `wreview` (forks into the deep-reviewer running `deep-review` on the current
+   diff) and `wqa` (forks into a fresh verifier running `qa-execute`). `deep-review`, `qa-plan`,
+   and `qa-execute` keep their names; the entry points wrap them. `/wqa <flow>` walks the journeys
+   tagged with that flow through the project's QA adapter, adds one exploratory charter for unhappy
+   paths, and records evidence and defects; defects file into Linear Triage once slice 7 lands.
 3. `uiux.md` and impact map to Specify; gap-hunt question; designer agent.
 4. Mockup fidelity rule, reuse inventory, lint on raw elements, token extraction, visual diff gate.
 5. Global config file, defaults, worktree walker, spawn-time sync hook.
@@ -133,6 +138,14 @@ runtime. Also publish to PyPI for `uvx my-workflow`.
 7. Linear module: MCP config, standard states and labels with a setup script, ticket link, PR attach.
 8. Autofix consumer on `autonomous`, PR only, human gate.
 9. Runner script, PreCompact successor hook, morning report, agreement metric, kill switch.
+
+## Later: telemetry intake
+
+Sentry errors and product analytics signals (PostHog or Datadog: crash rate, rage clicks, session
+replays, failed conversions) create Linear tickets in Triage with the event link attached, so the
+qualify, approve, autofix loop also runs on defects nobody reported. The qualifier gains one input,
+the telemetry link, and machine sources carry their own `source` label (`sentry`, `analytics`) so
+their precision is measured apart from user reports. Independent of the current slices.
 
 ## Deferred: deterministic installer
 

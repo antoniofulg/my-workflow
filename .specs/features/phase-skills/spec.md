@@ -79,7 +79,7 @@ that procedure and nothing else.
 2. The phase SKILL.md SHALL contain the procedure sections of the reference it replaces (`specify.md`, `design.md`, `tasks.md`, `implement.md`, `validate.md`) and SHALL be at most 200 lines.
 3. WHEN a phase writes an artifact from a template THEN the template SHALL live under that skill's `references/` and the SKILL.md SHALL name it by relative path.
 4. WHEN a phase runs a validator THEN the SKILL.md SHALL cite it as `.agents/skills/workflow-spec-driven/scripts/<name>.py` with `--root` semantics unchanged.
-5. The five references above SHALL no longer exist under `workflow-spec-driven/references/`, and the sum of lines across each phase skill (SKILL.md plus its references) SHALL not exceed the line count of the reference it replaced plus its frontmatter.
+5. The five references above SHALL no longer exist under `workflow-spec-driven/references/`, and the sum of lines across each phase skill (SKILL.md plus its references) SHALL not exceed the line count of the reference it replaced plus ten lines for frontmatter and headings.
 6. The skill tree SHALL keep `discuss.md` at `wspecify/references/discuss.md`, and `lessons.md`, `memory.md`, `sub-agents.md`, `code-analysis.md`, `coding-principles.md` SHALL stay in the router.
 
 **Independent Test**: `wc -l .agents/skills/w*/SKILL.md` shows five files at or under 200
