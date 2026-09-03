@@ -2,15 +2,12 @@
 
 ## Handoff
 
-- **Feature**: `phase-skills` (branch `feat/phase-skills`, roadmap slice 1 of `docs/workflow/roadmap.md`)
-- **Phase / Task**: complete; awaiting human go-ahead to push and open the pull request
-- **Completed**: S1, S2, T12 remediation; deep review rounds 1 (FIX_BEFORE_SHIP) and 2 (SHIP); QA plan and QA execute 10/10 pass; feature `validation.md` PASS, sensor 10/10; `validate_state.py` exit 0; `bun run test:all` exit 0 at load 17
+- **Feature**: `w-entry-points` (branch `feat/w-entry-points`, roadmap slice 2)
+- **Phase / Task**: complete; delivery (push, pull request, merge) in progress under `autonomous`
+- **Completed**: S1 on Cursor (gemini 3.8 flash high), verified PASS on Cursor (grok 4.6 xhigh fast, sensor 5/5); deep review rounds 1 (FIX_BEFORE_SHIP, 5 fixed) and 2 (SHIP) on Cursor; QA plan and execute on Cursor, all pass; feature `validation.md` PASS; `validate_state.py` exit 0
 - **In-progress** (file:line): none
-- **Next step**: push `feat/phase-skills`, open one PR to `main`; merge commit carries
-  `Review-Signal: tier=large slices=2 verified=2 sensor=29/31 rounds=2 findings=7 fixed=7 dismissed=0`.
-  Then roadmap slice 2 (`/w*` fork entry points, `wreview`, `wqa`).
-- **Blockers**: none for this feature. Live Orca transport stays `blocked-verify`
-  (`BUG-20260827-orca-terminal-send-truncates-claude-worker-packet`).
+- **Next step**: roadmap slice 3 (`uiux.md` and impact map into Specify, gap-hunt question, designer agent). Human should try `/wspecify <slug>` once to observe the live fork (not observable from a subagent).
+- **Blockers**: none. Live Orca transport stays `blocked-verify`; Cursor route bracket-effort bug filed (`BUG-20260903-cursor-route-bracket-effort-rejected`).
 
 ## Decisions
 

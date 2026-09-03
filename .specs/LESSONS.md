@@ -326,6 +326,30 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: Edge Case 3 / tools/test_phase_skills.py:253 (tools)
 - last seen: 2026-09-03T09:45:54Z
 
+### L-053 - A fork key is not evidence of an empty-history spawn; assert the host start state or mark the AC host-runtime
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `w-skills` · harmful: 0
+- features: w-entry-points
+- evidence: WEP-01 AC2 (w-skills)
+- last seen: 2026-09-03T19:53:56Z
+
+### L-054 - A fork key is not evidence that only the final message returns; assert the host return shape or mark the AC host-runtime
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `w-skills` · harmful: 0
+- features: w-entry-points
+- evidence: WEP-01 AC3 (w-skills)
+- last seen: 2026-09-03T19:53:56Z
+
+### L-055 - Assert the exact refuse sentence in an entry-skill body, not only frontmatter keys
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `w-skills` · harmful: 0
+- features: w-entry-points
+- evidence: WEP-02 AC2 (w-skills)
+- last seen: 2026-09-03T19:53:56Z
+
+### L-056 - Assert the exact one-phase and no-tag-stop sentences in an entry-skill body, not only frontmatter keys
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `w-skills` · harmful: 0
+- features: w-entry-points
+- evidence: WEP-02 AC3 (w-skills)
+- last seen: 2026-09-03T19:53:56Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.
