@@ -3,9 +3,13 @@
 
   python3 tools/review-metrics.py [<rev-range>] [--json]
 
-A delivery is a first-parent merge commit in the range. One carrying a
-`Review-Signal` trailer is signalled; one carrying none is unsigned. `tier=direct`
-and `tier=batch` are reviewed by design, never unreviewed.
+A delivery is a first-parent commit in the range, merged or squashed alike. One
+carrying a `Review-Signal` trailer is signalled; one carrying none is unsigned.
+`tier=direct` and `tier=batch` are reviewed by design, never unreviewed.
+
+Read the default branch's history, where every first-parent commit arrived through
+a pull request. Over a feature branch each task commit reads as its own unsigned
+delivery, which is true but not what the report is for.
 
 The trailer grammar lives in the docstring of `check_commit.py`, which enforces it
 at commit time; this reader only aggregates what is already there,
@@ -25,16 +29,18 @@ SUMMED = ("slices", "verified", "findings", "fixed", "dismissed")
 
 
 def deliveries(rev_range: str) -> list[tuple[str, str]]:
-    """(sha, trailer) per first-parent merge. Unreadable range: usage error, exit 2."""
+    """(sha, trailer) per first-parent commit. Unreadable range: usage error, exit 2."""
     proc = subprocess.run(
-        ["git", "log", "-z", "--first-parent", "--merges", f"--format={FORMAT}", rev_range],
+        ["git", "log", "-z", "--first-parent", f"--format={FORMAT}", rev_range],
         capture_output=True,
         text=True,
     )
     if proc.returncode:
-        # A repository with no commits at all has no deliveries; anything else is a bad range.
+        # A repository with no commits at all has no deliveries; a bad range, or no
+        # repository to read at all, is a usage error.
+        inside = subprocess.run(["git", "rev-parse", "--git-dir"], capture_output=True)
         unborn = subprocess.run(["git", "rev-parse", "--verify", "-q", "HEAD"], capture_output=True)
-        if unborn.returncode == 0:
+        if inside.returncode or not unborn.returncode:
             print(proc.stderr.strip(), file=sys.stderr)
             raise SystemExit(2)
         return []
@@ -105,7 +111,12 @@ def render(r: dict) -> str:
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("rev_range", nargs="?", default="HEAD", help="range to read (default HEAD)")
+    parser.add_argument(
+        "rev_range",
+        nargs="?",
+        default="HEAD",
+        help="range to read (default HEAD); meant for the default branch's history",
+    )
     parser.add_argument("--json", action="store_true", help="emit the report as JSON")
     args = parser.parse_args(argv)
     result = report(args.rev_range)

@@ -33,6 +33,7 @@ class Repo:
 
     def __init__(self, path: Path) -> None:
         self.path = path
+        self.base: str | None = None
         self.git("init", "-q", "-b", "main")
 
     def git(self, *args: str) -> str:
@@ -46,7 +47,9 @@ class Repo:
         ).stdout
 
     def root(self) -> None:
+        """Scaffolding, not a delivery: the default range starts after it."""
         self.git("commit", "-q", "--allow-empty", "-m", "chore(repo): root")
+        self.base = self.git("rev-parse", "HEAD").strip()
 
     def deliver(self, name: str, trailer: str | None = None) -> None:
         """A merge commit standing in for a delivered pull request."""
@@ -58,7 +61,16 @@ class Repo:
             message += f"\n\n{SIGNAL} {trailer}"
         self.git("merge", "--no-ff", "-q", "-m", message, name)
 
+    def squash(self, name: str, trailer: str | None = None) -> None:
+        """A single-parent commit standing in for a squash-merged pull request."""
+        message = f"feat({name}): work (#1)"
+        if trailer is not None:
+            message += f"\n\n{SIGNAL} {trailer}"
+        self.git("commit", "-q", "--allow-empty", "-m", message)
+
     def run(self, *args: str) -> subprocess.CompletedProcess:
+        if not args and self.base:
+            args = (f"{self.base}..HEAD",)
         return subprocess.run(
             [sys.executable, str(TOOL), *args, "--json"],
             cwd=self.path,
@@ -128,6 +140,29 @@ class ReviewMetricsTests(unittest.TestCase):
         self.assertEqual(report["deliveries"], 0)
         self.assertEqual(report["unsigned"], 0)
         self.assertIsNone(report["reviewed_fraction"])
+
+    def test_a_squash_merged_delivery_is_counted(self) -> None:
+        self.repo.root()
+        self.repo.squash("squashed", self.MEDIUM)
+        self.repo.squash("bare")
+        report = self.repo.metrics()
+        self.assertEqual(report["deliveries"], 2)
+        self.assertEqual(report["signalled"], 1)
+        self.assertEqual(report["unsigned"], 1)
+        self.assertEqual(report["tiers"], {"medium": 1})
+
+    def test_outside_a_repository_fails_instead_of_reporting_zeros(self) -> None:
+        with tempfile.TemporaryDirectory() as outside:
+            result = subprocess.run(
+                [sys.executable, str(TOOL), "--json"],
+                cwd=outside,
+                env=ENV,
+                capture_output=True,
+                text=True,
+            )
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("not a git repository", result.stderr)
 
     def test_an_unreadable_rev_range_fails_instead_of_reporting_zeros(self) -> None:
         self.repo.root()

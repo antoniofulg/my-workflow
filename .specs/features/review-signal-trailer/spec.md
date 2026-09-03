@@ -64,9 +64,9 @@ what fraction of delivered work was really reviewed without opening any feature 
 
 **Assumptions:**
 
-- Pull requests reach `main` as merge commits, so a merge commit message exists to carry the trailer.
-  A squash or fast-forward merge would lose it; the reader treats a missing signal as unproven, which
-  is the honest reading.
+- Every first-parent commit on the default branch arrived through a pull request, merge or squash
+  alike, so each one is a delivery the reader counts. A squash merge keeps its signal when the squash
+  message carries the trailer and reads as unsigned when it does not - unproven, never invisible.
 - `git log --format=%(trailers:key=Review-Signal,valueonly)` is available in the installed git.
 - Python standard library only, consistent with every existing tool under `tools/`.
 
