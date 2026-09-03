@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 75,
+  "next_id": 77,
   "lessons": [
     {
       "id": "L-001",
@@ -1347,6 +1347,42 @@
       ],
       "created": "2026-09-03T23:34:56Z",
       "last_seen": "2026-09-03T23:44:02Z"
+    },
+    {
+      "id": "L-075",
+      "key": "surviving_mutant::pin a when present load instruction to the line that names that file a sibling sentence with the same words does not prove it",
+      "text": "Pin a when-present load instruction to the line that names that file; a sibling sentence with the same words does not prove it",
+      "signal": "surviving_mutant",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s1-r6.md N20 SID-01 AC4 (skill-text-tests)"
+      ],
+      "created": "2026-09-03T23:50:49Z",
+      "last_seen": "2026-09-03T23:50:49Z"
+    },
+    {
+      "id": "L-076",
+      "key": "ac_gap::a step body substring is not evidence when a later sibling sentence contains the same words",
+      "text": "A step-body substring is not evidence when a later sibling sentence contains the same words",
+      "signal": "ac_gap",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s1-r6.md SID-01 AC4 (skill-text-tests)"
+      ],
+      "created": "2026-09-03T23:50:49Z",
+      "last_seen": "2026-09-03T23:50:49Z"
     }
   ]
 }

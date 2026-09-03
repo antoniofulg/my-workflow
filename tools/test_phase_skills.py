@@ -486,7 +486,8 @@ def test_downstream_phases_wired_for_impact_and_designer() -> None:
     step1_end = wdesign_text.find("### 1.5", step1_idx) if "### 1.5" in wdesign_text else wdesign_text.find("### 2", step1_idx)
     step1_body = wdesign_text[step1_idx:step1_end]
     assert "uiux.md" in step1_body, "wdesign step 1 does not name uiux.md"
-    assert "exists, load it" in step1_body, "wdesign step 1 does not load uiux.md when present"
+    uiux_sentence = next((sentence for sentence in step1_body.replace("\n", " ").split(". ") if "uiux.md" in sentence), "")
+    assert "exists, load it" in uiux_sentence, "wdesign step 1 must load uiux.md when it exists, in the uiux.md sentence itself"
     assert "designer" in step1_body, "wdesign step 1 does not name designer dispatch"
     assert "before internal design" in step1_body, "wdesign step 1 does not dispatch designer before internal design"
     assert "architecture half" in step1_body, "wdesign step 1 does not keep the architecture half with the planner"

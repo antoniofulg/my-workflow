@@ -458,6 +458,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: validation-s1-r4.md SID-02 AC2 (skill-text-tests) (+1 more)
 - last seen: 2026-09-03T23:44:02Z
 
+### L-075 - Pin a when-present load instruction to the line that names that file; a sibling sentence with the same words does not prove it
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s1-r6.md N20 SID-01 AC4 (skill-text-tests)
+- last seen: 2026-09-03T23:50:49Z
+
+### L-076 - A step-body substring is not evidence when a later sibling sentence contains the same words
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s1-r6.md SID-01 AC4 (skill-text-tests)
+- last seen: 2026-09-03T23:50:49Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.
