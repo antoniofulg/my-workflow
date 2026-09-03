@@ -36,11 +36,14 @@ def deliveries(rev_range: str) -> list[tuple[str, str]]:
         text=True,
     )
     if proc.returncode:
-        # A repository with no commits at all has no deliveries; a bad range, or no
-        # repository to read at all, is a usage error.
-        inside = subprocess.run(["git", "rev-parse", "--git-dir"], capture_output=True)
-        unborn = subprocess.run(["git", "rev-parse", "--verify", "-q", "HEAD"], capture_output=True)
-        if inside.returncode or not unborn.returncode:
+        # Only a repository with no commit anywhere has no deliveries. A bad range, a
+        # repository whose refs are broken while its commits survive, or no repository
+        # at all is a usage error: refs and reflogs both come up empty only when there
+        # is genuinely nothing committed yet.
+        anywhere = subprocess.run(
+            ["git", "rev-list", "-n", "1", "--all", "--reflog"], capture_output=True, text=True
+        )
+        if anywhere.returncode or anywhere.stdout.strip():
             print(proc.stderr.strip(), file=sys.stderr)
             raise SystemExit(2)
         return []

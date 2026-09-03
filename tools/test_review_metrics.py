@@ -68,8 +68,9 @@ class Repo:
             message += f"\n\n{SIGNAL} {trailer}"
         self.git("commit", "-q", "--allow-empty", "-m", message)
 
-    def run(self, *args: str) -> subprocess.CompletedProcess:
-        if not args and self.base:
+    def run(self, *args: str, whole_history: bool = False) -> subprocess.CompletedProcess:
+        """No range narrows to `<root>..HEAD`; `whole_history` passes none, as an operator does."""
+        if not args and self.base and not whole_history:
             args = (f"{self.base}..HEAD",)
         return subprocess.run(
             [sys.executable, str(TOOL), *args, "--json"],
@@ -79,8 +80,8 @@ class Repo:
             text=True,
         )
 
-    def metrics(self, *args: str) -> dict:
-        result = self.run(*args)
+    def metrics(self, *args: str, whole_history: bool = False) -> dict:
+        result = self.run(*args, whole_history=whole_history)
         assert result.returncode == 0, result.stderr
         return json.loads(result.stdout)
 
@@ -134,6 +135,27 @@ class ReviewMetricsTests(unittest.TestCase):
         self.assertEqual(report["signalled"], 0)
         self.assertEqual(report["unsigned"], 1)
         self.assertIsNone(report["reviewed_fraction"])
+
+    def test_the_documented_default_range_reads_the_whole_history(self) -> None:
+        """No range argument: bare HEAD, so the root commit counts as unsigned too (AD-027)."""
+        self.repo.root()
+        self.repo.deliver("signed", self.MEDIUM)
+        self.repo.deliver("bare")
+        report = self.repo.metrics(whole_history=True)
+        self.assertEqual(report["range"], "HEAD")
+        self.assertEqual(report["deliveries"], 3)
+        self.assertEqual(report["signalled"], 1)
+        self.assertEqual(report["unsigned"], 2)  # the scaffolding root and the bare merge
+
+    def test_a_repository_whose_branch_ref_is_gone_fails_instead_of_reporting_zeros(self) -> None:
+        self.repo.squash("one", self.MEDIUM)
+        self.repo.squash("two")
+        (self.repo.path / ".git/refs/heads/main").unlink()
+        self.assertFalse((self.repo.path / ".git/packed-refs").exists())
+        result = self.repo.run()
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("HEAD", result.stderr)
 
     def test_an_empty_history_exits_zero(self) -> None:
         report = self.repo.metrics()

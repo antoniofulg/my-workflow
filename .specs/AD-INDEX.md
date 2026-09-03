@@ -33,3 +33,4 @@ When recording an `AD-NNN`, run `python3 tools/ad-index.py` in the same commit.
 | `AD-024` | active | Merge the workflow-side assisted-parallelization remediation with the affected live QA scenario truthfully left `untested`; defer live Orca… |
 | `AD-025` | active | One `Review-Signal` trailer per delivered pull request, carried on its merge commit, aggregating the feature through `slices=<n> verified=<… |
 | `AD-026` | active | `check_commit.py` validates the `Review-Signal` trailer only when present; it never requires one. |
+| `AD-027` | active | Round 2's Finding 1 is resolved as documentation, not code. |

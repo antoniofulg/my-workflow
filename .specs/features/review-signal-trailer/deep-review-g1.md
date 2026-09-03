@@ -226,3 +226,184 @@ references remain, docstring verified accurate and complete against the enforcin
 `qa-skills.test.ts` suite registration (required, not scaffolding); the bulk of both new test suites
 (assert observable behavior, do not mirror implementation) aside from the one instance the diff
 itself already fixed.
+
+---
+
+## Round 2
+
+Reviewer: fresh deep-review identity, distinct from Round 1's, read-only. Scope: `git show ee46c5c`
+and its effect on the tree only, per this round's charter — Round 1's cleared diff is not
+re-reviewed. This is the final round (`docs/guidelines/REVIEW-ROUNDS.md` allows no round 3).
+
+### Verdict
+
+**Two new Major findings.** Both Round 1 Majors were partially remediated: the squash-merge fix is
+directionally correct and independently verified, and the not-a-repository/bad-range fix is
+independently verified, but each remediation has a hole that reproduces on real data — one on this
+very repository's own `main` branch, the other on a corrupted-but-present repository, which Round 1's
+own Finding 2 named as the residual case ("a corrupted `.git`") and which `ee46c5c` did not close.
+Neither issue existed in the form found here before `ee46c5c`; both are directly caused by this
+round's remediation and are reported fresh, not re-raised.
+
+### Finding 1 — Major: dropping `--merges` sweeps non-PR direct commits into "unsigned deliveries," demonstrated on this project's own `main`
+
+**Premise.** `tools/review-metrics.py:34` now runs `git log -z --first-parent --format=... rev_range`
+with no `--merges` filter. Every first-parent commit — merge, squash, or a plain commit pushed
+directly to the branch outside any pull request — is now a "delivery."
+
+**Path.** Reproduced directly against this repository's real `origin/main`:
+
+```
+$ git log --oneline --first-parent origin/main | wc -l
+60
+$ git log --oneline --first-parent --no-merges origin/main | wc -l
+9
+$ git log --oneline --first-parent --no-merges origin/main | tail -5
+d53b832 docs(workflow): fire ponytail full on plan and issue selection
+03ad41e docs(guidelines): add Why this exists to every protocol file
+f86362f docs(workflow): explain the delivery–reliability loop for humans
+eddecdb docs(workflow): extract stack-agnostic agent operating system
+d22d4a9 Initial commit
+```
+
+Six of these nine (`d22d4a9` "Initial commit", the four `docs(workflow):`/pre-workflow commits, and
+`0a906a4 build: set version 0.1.0`) were never a pull request at all — they predate the PR-based
+delivery process this feature's own AD-025 defines ("One `Review-Signal` trailer per delivered pull
+request, carried on its merge commit"). Running `python3 tools/review-metrics.py` exactly as
+documented (no arguments, the tool's own default) against this project's `main` reports these six as
+`unsigned` deliveries, inflating both `deliveries` and `unsigned` and pulling the reported "reviewed
+by design"/"unsigned" ratio away from reality for a repository this tool will actually be run
+against.
+
+**Why it matters.** This is the same defect class Round 1 was written to catch — a silent, wrong
+number a reader would trust — just inverted in direction: Round 1's Major 1 hid real deliveries
+(flattering the fraction by shrinking the denominator); this sweeps in non-deliveries (unflattering
+the fraction by padding the denominator with items that were never subject to review at all, most
+concretely a repository's own bootstrap "Initial commit," which by construction cannot carry a PR
+trailer). The tool's own docstring (`tools/review-metrics.py:9-11`) and the rewritten spec assumption
+(`.specs/features/review-signal-trailer/spec.md:67`, "Every first-parent commit on the default
+branch arrived through a pull request, merge or squash alike") both assert the premise this
+reproduction falsifies on the project's actual history.
+
+**Verdict: Major.** Untested: every test in `tools/test_review_metrics.py` that builds a repo with
+more than one commit calls `Repo.root()` first and lets `Repo.run()`'s new default narrow the range
+to `base..HEAD` (see Finding 2 below), so no test ever asks the tool to count deliveries over a range
+that contains a non-PR direct commit sitting anywhere but at the very start of an otherwise-empty
+history. `file:line` — `tools/review-metrics.py:34` (the dropped `--merges` filter); contradicted
+premise at `.specs/features/review-signal-trailer/spec.md:67` and `tools/review-metrics.py:9-11`.
+
+### Finding 2 — Major: the test fixture's new default range structurally cannot exercise the scenario in Finding 1, and one test masks (rather than proves) the widened definition is safe
+
+**Premise.** `tools/test_review_metrics.py:49-52` adds `Repo.root()`, which commits scaffolding and
+records `self.base`; `tools/test_review_metrics.py:71-73` makes `Repo.run()` default to
+`f"{self.base}..HEAD"` whenever `self.base` is set and no explicit range is given. Every existing
+test that calls `root()` (all of them except `test_an_empty_history_exits_zero`) therefore has its
+default `.metrics()` call silently rewritten from "read the whole visible history, the tool's own
+documented default" to "read everything after the scaffolding commit" — precisely so the pre-existing
+assertions keep their exact old numbers unchanged after `--merges` was dropped.
+
+**Path.** `git diff 58abdba..ee46c5c -- tools/test_review_metrics.py` confirms: no pre-existing
+assertion's expected numbers changed. But this narrowing is exactly the mechanism, not a side effect
+of it — before `Repo.run()` learned to auto-narrow, dropping `--merges` would have made `root()`'s own
+"chore(repo): root" commit newly count as an extra unsigned delivery in every one of those tests,
+which would have forced every old assertion's numbers to change. The fixture was adjusted specifically
+to keep the numbers stable, and in doing so it removed the one thing that would have surfaced Finding
+1 in-suite: **no test in this file invokes the tool's actual documented default (bare `HEAD`, no
+range argument) against a history containing more than one commit.** `test_an_empty_history_exits_zero`
+(`tools/test_review_metrics.py:138-142`) is the only test that reaches the true default, and it does
+so on a repo with zero commits (unborn `HEAD`), so it cannot exercise "does a non-delivery commit that
+isn't scaffolding-and-excluded get correctly excluded from the count" at all.
+
+**Why it matters.** This is exactly the risk the round charter named: "A fixture narrowed so that
+tests keep their old numbers can hide the very behaviour change it was introduced for." It did. The
+new `test_a_squash_merged_delivery_is_counted` (`tools/test_review_metrics.py:144-152`) also calls
+`root()` and inherits the same narrowing, so even the test written specifically to prove Finding-1's
+premise-in-miniature never asks the question Finding 1 answers on real data.
+
+**Verdict: Major**, tied to Finding 1 above rather than independent of it: the fixture change is the
+reason Finding 1 shipped green. `file:line` — `tools/test_review_metrics.py:71-73` (the auto-narrowing
+default), `tools/test_review_metrics.py:49-52` (`Repo.root()`), absence confirmed across
+`tools/test_review_metrics.py:97-202` (every multi-commit test narrows via `root()`).
+
+### Major 1 (Round 1) remediation — otherwise sound
+
+The squash-merge counting itself is correctly fixed and independently verified: `test_a_squash_merged_delivery_is_counted` (`tools/test_review_metrics.py:144-152`) builds two real single-parent
+commits via `Repo.squash`, one with a valid trailer and one without, and the tool correctly reports
+`signalled: 1, unsigned: 1` rather than excluding either — closing the "invisible, not unsigned"
+defect Round 1 raised. This part of the fix is not in question; Finding 1 above is a distinct,
+newly-introduced side effect of the same code change, not a re-statement of the original defect.
+
+### Finding 3 — Major: Major 2 (Round 1) is only partially closed — a corrupted/unresolvable `HEAD` in a genuine repository still returns a fabricated zero report at exit 0
+
+**Premise.** `tools/review-metrics.py:38-44`:
+```python
+inside = subprocess.run(["git", "rev-parse", "--git-dir"], capture_output=True)
+unborn = subprocess.run(["git", "rev-parse", "--verify", "-q", "HEAD"], capture_output=True)
+if inside.returncode or not unborn.returncode:
+    print(proc.stderr.strip(), file=sys.stderr)
+    raise SystemExit(2)
+return []
+```
+This closes exactly one sub-case of Round 1's Finding 2: "not a git repository at all" (`inside`
+fails). Round 1's Finding 2 named a second, harder sub-case in the same paragraph: "any other
+`rev-parse` failure — e.g. a corrupted `.git`." That sub-case is not distinguished from a genuinely
+unborn `HEAD` by this branch: both make `inside.returncode == 0` (a `.git` directory is present and
+identifiable) and `unborn.returncode != 0` (verify fails), which is the same combination the code uses
+to mean "no commits yet, return `[]`."
+
+**Path.** Reproduced directly: a real repository with two real commits, then its current branch's ref
+file deleted (a realistic corruption: e.g. a crashed `git gc`, a bad `fsck` state, a partially-restored
+backup) with no `packed-refs` fallback:
+```
+$ git rev-parse --git-dir; echo rc=$?
+.git
+rc=0
+$ git rev-parse --verify -q HEAD; echo rc=$?
+rc=1
+$ python3 tools/review-metrics.py --json; echo exit=$?
+{"deliveries": 0, "signalled": 0, ... "reviewed_fraction": null, ...}
+exit=0
+```
+This is a `.git` directory that is present, identifiable, and was, moments earlier, a repository with
+two real commits — not an unborn history. It produces a fully-formed, well-typed, all-zero JSON
+report at exit 0, exactly the failure mode Round 1's Finding 2 was written to close, and exactly the
+sub-case that finding named as still open one step further out.
+
+**Why it matters.** The round charter asked specifically to check "any case where both subprocesses
+could disagree." They do not disagree here — and that is the bug: the code needs `unborn` to mean
+"genuinely zero commits," but `unborn.returncode != 0` is also true for "HEAD cannot be resolved for
+any other reason," including repository damage, which is a materially different condition that should
+fail loudly, not report zeros silently.
+
+**Verdict: Major.** Untested: `tools/test_review_metrics.py` covers "not a git repository"
+(`:154-165`, new) and "bad range in a good repository" (`:167-172`, pre-existing), but nothing
+exercises a present-but-damaged repository. `file:line` — `tools/review-metrics.py:38-44`.
+
+### Item 3 — spec Assumptions paragraph: wording matches the code
+
+`.specs/features/review-signal-trailer/spec.md:67-69` now reads "Every first-parent commit on the
+default branch arrived through a pull request, merge or squash alike, so each one is a delivery the
+reader counts. A squash merge keeps its signal when the squash message carries the trailer and reads
+as unsigned when it does not - unproven, never invisible." Checked clause-by-clause against
+`tools/review-metrics.py:34` (every first-parent commit is read) and `:64-70` (signalled/unsigned
+classification by trailer presence): the prose is an accurate, literal description of what the code
+does — no divergence between spec and implementation. (The premise itself is empirically false on
+this project's own history, per Finding 1, but that is a defect in the code's counting logic and the
+premise it rests on, not a mismatch between this paragraph and the code — the paragraph correctly
+describes the code's actual behavior.)
+
+### Summary of Round 2 findings
+
+| # | Severity | Finding | Location |
+| - | -------- | ------- | -------- |
+| 1 | Major | Dropping `--merges` counts non-PR direct commits (an "Initial commit," pre-workflow docs commits, a version-bump commit) as unsigned deliveries; reproduced on this repository's actual `main` (6 of 60 first-parent commits are non-PR) | `tools/review-metrics.py:34`; contradicted by `.specs/features/review-signal-trailer/spec.md:67`, `tools/review-metrics.py:9-11` |
+| 2 | Major | Test fixture's new default-range narrowing (`Repo.root()` + auto `base..HEAD`) structurally prevents any test from exercising the tool's actual documented default range on a history with more than one commit, hiding Finding 1 | `tools/test_review_metrics.py:71-73`, `:49-52` |
+| 3 | Major | Round 1's Major 2 is only partially closed: a present-but-damaged repository (resolvable `--git-dir`, unresolvable `HEAD` for a reason other than "no commits yet") still silently returns a zero report at exit 0 instead of failing | `tools/review-metrics.py:38-44` |
+
+No advisory (Minor/Cosmetic) items are added this round; Round 1's own advisory list (items 3-5 in
+its summary table) stands unchanged and is not re-litigated here per the round's scope.
+
+**This is the final round; no round 3 is available under `docs/guidelines/REVIEW-ROUNDS.md`.** The
+findings above are reported as required by the charter, not manufactured — each carries independent,
+reproducible evidence against either this repository's real history or a constructed repository, and
+each ties to a specific line the remediation touched.

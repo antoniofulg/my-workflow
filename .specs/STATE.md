@@ -438,3 +438,23 @@
 - **Scope**: `check_commit.py` only.
 - **Date**: 2026-09-03
 - **Status**: active
+
+### AD-027
+
+- **Decision**: Round 2's Finding 1 is resolved as documentation, not code. `review-metrics.py` keeps
+  counting every first-parent commit as a delivery, including commits that reached `main` before the
+  pull-request process existed. The operator narrows the range; the tool adds no heuristic for
+  whether a commit "went through a pull request".
+- **Reason**: Those commits did reach `main` and were not reviewed, so reporting them as unsigned is
+  the true reading, and the bias runs pessimistic - it understates review coverage rather than
+  flattering it, which is the opposite of the failure this feature exists to prevent. Any rule that
+  guessed which historical commits count would be exactly the cleverness the reviewer would flag
+  next, and it would decide from the tool what is properly the operator's question.
+- **Trade-off**: Run over this repository's whole history today, 6 of 60 first-parent commits predate
+  the process and dilute the fraction by roughly a tenth. That noise decays as history grows, and a
+  reader who wants the post-adoption number passes a range. A reader who does not pass one, and does
+  not read the help text, will read a number lower than the truth.
+- **Scope**: `tools/review-metrics.py` delivery enumeration only. Findings 2 and 3 of the same round
+  are accepted as defects and remediated in code.
+- **Date**: 2026-09-03
+- **Status**: active
