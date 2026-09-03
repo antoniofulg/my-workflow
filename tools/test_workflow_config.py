@@ -7,6 +7,8 @@ import subprocess
 import tempfile
 import hashlib
 import json
+import os
+import re
 from pathlib import Path
 import sys
 
@@ -764,7 +766,7 @@ def test_sync_renders_all_native_metadata_and_reports_changes() -> None:
         shutil.rmtree(root)
 
 
-def test_sync_initializes_local_config_and_generates_fifteen_runtime_packets() -> None:
+def test_sync_initializes_local_config_and_generates_eighteen_runtime_packets() -> None:
     root = make_root()
     try:
         write_config(root, filename=".my-workflow.toml.example")
@@ -773,10 +775,10 @@ def test_sync_initializes_local_config_and_generates_fifteen_runtime_packets() -
         templates_before = {path: path.read_bytes() for path in template_paths(root)}
         result = workflow_config.sync_agents(root)
         assert (root / ".my-workflow.toml").read_bytes() == example
-        assert len(result["changed"]) == 15
+        assert len(result["changed"]) == 18
         assert result["unchanged"] == []
         assert {path: path.read_bytes() for path in template_paths(root)} == templates_before
-        assert len(packet_paths(root)) == 15
+        assert len(packet_paths(root)) == 18
     finally:
         shutil.rmtree(root)
 
@@ -1719,7 +1721,10 @@ def make_preload_root() -> Path:
     root = make_root()
     write_config(root)
     write_packets(root, runtime=False)
-    shutil.copytree(ROOT / "templates/agents/claude", root / "templates/agents/claude", dirs_exist_ok=True)
+    for provider in ("claude", "codex", "cursor"):
+        src = ROOT / "templates" / "agents" / provider
+        if src.is_dir():
+            shutil.copytree(src, root / "templates" / "agents" / provider, dirs_exist_ok=True)
     for role in workflow_config.ROLES:
         template = root / workflow_config._template_relative("claude", role)
         header, _ = workflow_config._header("claude", template.read_text(encoding="utf-8"), template)
@@ -1786,6 +1791,120 @@ def test_sync_rejects_a_preload_skill_directory_without_a_skill_file() -> None:
         assert_sync_rejects_preload_skill(root, "hollow")
     finally:
         shutil.rmtree(root)
+
+
+def test_ut005_roles_matrix_includes_designer() -> None:
+    """UT-005: Roles matrix includes designer (SID-03 AC1)."""
+    assert "designer" in workflow_config.ROLES
+    assert "designer" in workflow_config.DELEGATED_ROLES
+    example_path = ROOT / ".my-workflow.toml.example"
+    example_config = workflow_config._load_config(example_path, ".my-workflow.toml.example")
+    models = example_config.get("models", {})
+    assert models.get("claude", {}).get("designer") == {"model": "inherit", "effort": "high"}
+    assert models.get("codex", {}).get("designer") == {"model": "gpt-5.6-sol", "effort": "high"}
+    assert models.get("cursor", {}).get("designer") == {"model": "claude-fable-5-1-thinking-high", "effort": "high"}
+
+
+def test_it001_sync_renders_designer_packets() -> None:
+    """IT-001: Sync renders designer packets (SID-03 AC3)."""
+    root = make_root()
+    try:
+        shutil.copy(ROOT / ".my-workflow.toml.example", root / ".my-workflow.toml.example")
+        write_packets(root, runtime=False)
+        for provider in ("claude", "codex", "cursor"):
+            src = ROOT / "templates" / "agents" / provider
+            if src.is_dir():
+                shutil.copytree(src, root / "templates" / "agents" / provider, dirs_exist_ok=True)
+        claude_designer = root / "templates/agents/claude/designer.md"
+        if not claude_designer.is_file() or "skills: [wdesign, ponytail]" not in claude_designer.read_text(encoding="utf-8"):
+            claude_designer.parent.mkdir(parents=True, exist_ok=True)
+            claude_designer.write_text(
+                "---\nname: designer\nmodel: inherit\neffort: high\nskills: [wdesign, ponytail]\n---\nInstructions for designer.\n",
+                encoding="utf-8",
+            )
+        for role in workflow_config.ROLES:
+            template = root / workflow_config._template_relative("claude", role)
+            if template.is_file():
+                header, _ = workflow_config._header("claude", template.read_text(encoding="utf-8"), template)
+                for name in workflow_config._preload_skills(header):
+                    skill = root / ".agents/skills" / name / "SKILL.md"
+                    skill.parent.mkdir(parents=True, exist_ok=True)
+                    skill.write_text(f"---\nname: {name}\n---\n", encoding="utf-8")
+        completed = subprocess.run(
+            [sys.executable, str(ROOT / ".agents/skills/workflow-config/scripts/workflow_config.py"),
+             "--root", str(root), "--sync-agents"],
+            capture_output=True, text=True,
+        )
+        assert completed.returncode == 0, completed.stderr
+        claude_runtime_path = root / ".claude/agents/designer.md"
+        codex_runtime_path = root / ".codex/agents/designer.toml"
+        cursor_runtime_path = root / ".cursor/agents/designer.md"
+        assert claude_runtime_path.is_file()
+        assert codex_runtime_path.is_file()
+        assert cursor_runtime_path.is_file()
+        claude_runtime = claude_runtime_path.read_text(encoding="utf-8")
+        codex_runtime = codex_runtime_path.read_text(encoding="utf-8")
+        cursor_runtime = cursor_runtime_path.read_text(encoding="utf-8")
+        assert "skills: [wdesign, ponytail]" in claude_runtime
+        claude_designer_skills = [line for line in claude_designer.read_text(encoding="utf-8").splitlines() if line.startswith("skills:")][0]
+        claude_runtime_skills = [line for line in claude_runtime.splitlines() if line.startswith("skills:")][0]
+        assert claude_designer_skills == claude_runtime_skills
+        assert "model: inherit" in claude_runtime
+        assert "effort: high" in claude_runtime
+        assert 'model = "gpt-5.6-sol"' in codex_runtime
+        assert 'model_reasoning_effort = "high"' in codex_runtime
+        assert "model: claude-fable-5-1-thinking-high[effort=high]" in cursor_runtime
+    finally:
+        shutil.rmtree(root)
+
+
+def test_it002_sync_rejects_missing_designer_table_or_template() -> None:
+    """IT-002: Sync rejects a config missing the designer table or missing designer template (SID-03 AC4, EC3)."""
+    # 1. Config lacking [models.claude.designer]
+    root = make_root()
+    try:
+        write_config(root)
+        write_packets(root, runtime=False)
+        config_path = root / ".my-workflow.toml"
+        config_text = config_path.read_text(encoding="utf-8")
+        table_pattern = re.compile(r"\[models\.claude\.designer\][\s\S]*?(?=\n\[|\Z)", re.MULTILINE)
+        new_config = table_pattern.sub("", config_text)
+        config_path.write_text(new_config, encoding="utf-8")
+        before = tree_state(root)
+        completed = subprocess.run(
+            [sys.executable, str(ROOT / ".agents/skills/workflow-config/scripts/workflow_config.py"),
+             "--root", str(root), "--sync-agents"],
+            capture_output=True, text=True,
+        )
+        assert completed.returncode != 0
+        assert "models.claude.designer" in completed.stderr
+        assert tree_state(root) == before
+        for provider in workflow_config.PROVIDERS:
+            assert not (root / f".{provider}" / "agents").exists()
+    finally:
+        shutil.rmtree(root)
+
+    # 2. Missing designer template
+    root2 = make_root()
+    try:
+        write_config(root2)
+        write_packets(root2, runtime=False)
+        designer_template = root2 / "templates/agents/claude/designer.md"
+        if designer_template.exists():
+            designer_template.unlink()
+        before2 = tree_state(root2)
+        completed2 = subprocess.run(
+            [sys.executable, str(ROOT / ".agents/skills/workflow-config/scripts/workflow_config.py"),
+             "--root", str(root2), "--sync-agents"],
+            capture_output=True, text=True,
+        )
+        assert completed2.returncode != 0
+        assert "templates/agents/claude/designer.md" in completed2.stderr
+        assert tree_state(root2) == before2
+        for provider in workflow_config.PROVIDERS:
+            assert not (root2 / f".{provider}" / "agents").exists()
+    finally:
+        shutil.rmtree(root2)
 
 
 if __name__ == "__main__":

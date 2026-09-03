@@ -146,8 +146,8 @@ T4 → T5 → T6
 
 **Done when**:
 
-- [ ] UT-005, IT-001, IT-002 pass
-- [ ] Full gate passes
+- [x] UT-005, IT-001, IT-002 pass
+- [x] Full gate passes
 
 **Tests**: unit (UT-005), integration (IT-001, IT-002)
 **Gate**: full
