@@ -1,6 +1,6 @@
 ---
 name: wverify
-description: "Verify phase - independent spec-anchored validation: AC evidence, edge cases, build gate, discrimination sensor, code quality, UAT, fix plans, and the lessons hook. Preloaded by the verifier agent; enter with /wverify."
+description: "Verify phase - independent spec-anchored validation: AC evidence, edge cases, build gate, discrimination sensor, code quality, UAT, fix plans, and the lessons hook. Argument: the feature or slice. Preloaded by the verifier agent; enter with /wverify."
 argument-hint: "<feature-or-slice>"
 context: fork
 agent: verifier
@@ -9,7 +9,7 @@ background: false
 
 # Execute: Validate & Verify
 
-Run this phase for: $ARGUMENTS. If empty, stop and ask for the feature or slice.
+Slash argument: $ARGUMENTS — when this skill was entered with /wverify and the argument is empty, stop and ask for the feature or slice; when preloaded into an agent, the packet names the slice and this line is informational.
 
 **Goal**: Verify implementation meets spec AND coding principles. This is NOT a separate phase - verification is part of every task's completion within Execute.
 

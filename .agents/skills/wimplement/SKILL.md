@@ -1,6 +1,6 @@
 ---
 name: wimplement
-description: Execute phase - implement one task at a time with spec-derived tests, a deterministic gate, an atomic Conventional Commit, and slice-level verification. Preloaded by the implementer agent; enter with /wimplement.
+description: "Execute phase - implement one task at a time with spec-derived tests, a deterministic gate, an atomic Conventional Commit, and slice-level verification. Argument: the feature or slice. Preloaded by the implementer agent; enter with /wimplement."
 argument-hint: "<feature-or-slice>"
 context: fork
 agent: implementer
@@ -9,7 +9,7 @@ background: false
 
 # Execute
 
-Run this phase for: $ARGUMENTS. If empty, stop and ask for the feature or slice.
+Slash argument: $ARGUMENTS — when this skill was entered with /wimplement and the argument is empty, stop and ask for the feature or slice; when preloaded into an agent, the packet names the slice and this line is informational.
 
 **Goal**: Implement one task at a time. Surgical changes. Verify. Commit. Repeat.
 

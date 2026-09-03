@@ -1,6 +1,6 @@
 ---
 name: wtasks
-description: Tasks phase - break an approved design into granular atomic tasks with dependencies, a test coverage matrix, gate commands, and an execution plan. Preloaded by the planner agent; enter with /wtasks.
+description: "Tasks phase - break an approved design into granular atomic tasks with dependencies, a test coverage matrix, gate commands, and an execution plan. Argument: the feature slug. Preloaded by the planner agent; enter with /wtasks."
 argument-hint: "<feature-or-slice>"
 context: fork
 agent: planner
@@ -9,7 +9,7 @@ background: false
 
 # Tasks
 
-Run this phase for: $ARGUMENTS. If empty, stop and ask for the feature.
+Slash argument: $ARGUMENTS — when this skill was entered with /wtasks and the argument is empty, stop and ask for the feature or slice; when preloaded into an agent, the packet names the slice and this line is informational.
 
 **Goal**: Break into granular, atomic tasks. Clear dependencies. Right tools. Dependency-ordered execution plan.
 

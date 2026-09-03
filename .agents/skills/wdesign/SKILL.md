@@ -1,6 +1,6 @@
 ---
 name: wdesign
-description: "Design phase - define HOW to build a specified feature: architecture, components, interfaces, data models, reuse, and risks. Pulled on demand by the planner agent; enter with /wdesign."
+description: "Design phase - define HOW to build a specified feature: architecture, components, interfaces, data models, reuse, and risks. Argument: the feature slug. Pulled on demand by the planner agent; enter with /wdesign."
 argument-hint: "<feature-or-slice>"
 context: fork
 agent: planner
@@ -9,7 +9,7 @@ background: false
 
 # Design
 
-Run this phase for: $ARGUMENTS. If empty, stop and ask for the feature.
+Slash argument: $ARGUMENTS — when this skill was entered with /wdesign and the argument is empty, stop and ask for the feature or slice; when preloaded into an agent, the packet names the slice and this line is informational.
 
 **Goal**: Define HOW to build it. Architecture, components, what to reuse.
 

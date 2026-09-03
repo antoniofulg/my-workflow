@@ -1,6 +1,6 @@
 ---
 name: wreview
-description: Review phase - deep review of branch diffs, working trees, or PRs. Enter with /wreview.
+description: "Review phase - deep review of branch diffs, working trees, or PRs. Argument: review flags such as --base or --pr; never --publish. Enter with /wreview."
 argument-hint: "[--pr N | --base <ref> | --staged | --worktree] [--files p1,p2] [--spec <path>] [--subagent native|claude-opus|grok|codex] [--max-cohort-files N] [--full] [--out <dir>] [--no-workflow]"
 context: fork
 agent: planner

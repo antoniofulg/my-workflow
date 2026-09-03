@@ -86,7 +86,7 @@ feature A, then feature B, each in a fresh agent, from one terminal. Deep review
 3. WHEN `/wqa <flow>` runs THEN the forked verifier SHALL run exactly the `qa-execute` phase over the journeys tagged `<flow>`; WHEN `/wqa plan <flow>` runs THEN it SHALL run exactly the `qa-plan` phase.
 4. The two entry skills SHALL be git-tracked symlinks under `.claude/skills/` and members of `CORE_PATHS`.
 
-**Independent Test**: `python3 scripts/adopt.py plan <tmp> --layers core --json` lists both; `ls .claude/skills/w*` shows seven.
+**Independent Test**: `python3 scripts/adopt.py plan <tmp> --layers core --json` lists both; `ls .claude/skills | grep -E '^w(specify|design|tasks|implement|verify|review|qa)$' | wc -l` shows 7.
 
 ---
 

@@ -204,7 +204,7 @@ def test_phase_skills_cite_validator_and_template_paths_that_exist() -> None:
 def test_docs_list_the_phase_skills() -> None:
     pack = (ROOT / "docs/workflow/pack.md").read_text(encoding="utf-8").splitlines()
     rows = [line for line in pack if line.startswith("| `")]
-    for name in PHASES:
+    for name in ALL_W_SKILLS:
         assert any(line.startswith(f"| `{name}` |") for line in rows), f"pack.md has no row for {name}"
     roadmap = (ROOT / "docs/workflow/roadmap.md").read_text(encoding="utf-8")
     assert "under 200 lines" in roadmap, "roadmap.md does not state the phase SKILL.md cap"
@@ -310,7 +310,7 @@ def test_entry_skills_contract() -> None:
 
 
 def test_exactly_seven_user_invocable_w_skills() -> None:
-    """UT-011: exactly seven user-invocable w* skills, each description starts with phase name."""
+    """UT-011: exactly seven user-invocable w* skills, each description starts with phase name and states argument."""
     w_skill_dirs = {p.name for p in SKILLS.glob("w*") if (p / "SKILL.md").is_file() and not p.name.startswith("workflow-")}
     assert w_skill_dirs == set(ALL_W_SKILLS), f"found w* skills: {sorted(w_skill_dirs)}, expected: {sorted(ALL_W_SKILLS)}"
     for name in ALL_W_SKILLS:
@@ -321,6 +321,7 @@ def test_exactly_seven_user_invocable_w_skills() -> None:
         assert description.startswith(f"{phase_prefix} phase") or description.startswith(f'"{phase_prefix} phase'), (
             f"{name}: description {description!r} does not start with {phase_prefix} phase"
         )
+        assert "Argument:" in description, f"{name}: description does not state its argument: {description!r}"
 
 
 if __name__ == "__main__":
