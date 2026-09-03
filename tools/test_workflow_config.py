@@ -1746,30 +1746,44 @@ def test_sync_passes_preload_keys_through_untouched() -> None:
         shutil.rmtree(root)
 
 
+def assert_sync_rejects_preload_skill(root: Path, name: str) -> None:
+    """Sync must fail loudly on a preload name that resolves to no SKILL.md, before any write."""
+    template = root / "templates/agents/claude/implementer.md"
+    template.write_text(
+        template.read_text(encoding="utf-8").replace(
+            "skills: [wimplement, ponytail]", f"skills: [wimplement, {name}]"
+        ),
+        encoding="utf-8",
+    )
+    before = tree_state(root)
+    completed = subprocess.run(
+        [sys.executable, str(ROOT / ".agents/skills/workflow-config/scripts/workflow_config.py"),
+         "--root", str(root), "--sync-agents"],
+        capture_output=True, text=True,
+    )
+    assert completed.returncode != 0, f"sync accepted preload skill {name!r}"
+    assert completed.stdout == "", f"sync wrote stdout: {completed.stdout!r}"
+    assert "templates/agents/claude/implementer.md" in completed.stderr, completed.stderr
+    assert name in completed.stderr, completed.stderr
+    for provider in workflow_config.PROVIDERS:
+        directory = root / f".{provider}" / "agents"
+        assert not directory.exists(), f"{directory} was written"
+    assert tree_state(root) == before, "sync mutated the tree before failing"
+
+
 def test_sync_rejects_an_unknown_preload_skill_before_any_write() -> None:
     root = make_preload_root()
     try:
-        template = root / "templates/agents/claude/implementer.md"
-        template.write_text(
-            template.read_text(encoding="utf-8").replace(
-                "skills: [wimplement, ponytail]", "skills: [wimplement, nope]"
-            ),
-            encoding="utf-8",
-        )
-        before = tree_state(root)
-        completed = subprocess.run(
-            [sys.executable, str(ROOT / ".agents/skills/workflow-config/scripts/workflow_config.py"),
-             "--root", str(root), "--sync-agents"],
-            capture_output=True, text=True,
-        )
-        assert completed.returncode != 0, "sync accepted an unknown preload skill"
-        assert completed.stdout == "", f"sync wrote stdout: {completed.stdout!r}"
-        assert "templates/agents/claude/implementer.md" in completed.stderr, completed.stderr
-        assert "nope" in completed.stderr, completed.stderr
-        for provider in workflow_config.PROVIDERS:
-            directory = root / f".{provider}" / "agents"
-            assert not directory.exists(), f"{directory} was written"
-        assert tree_state(root) == before, "sync mutated the tree before failing"
+        assert_sync_rejects_preload_skill(root, "nope")
+    finally:
+        shutil.rmtree(root)
+
+
+def test_sync_rejects_a_preload_skill_directory_without_a_skill_file() -> None:
+    root = make_preload_root()
+    try:
+        (root / ".agents/skills/hollow").mkdir(parents=True)
+        assert_sync_rejects_preload_skill(root, "hollow")
     finally:
         shutil.rmtree(root)
 
