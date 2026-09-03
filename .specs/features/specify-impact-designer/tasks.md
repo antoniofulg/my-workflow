@@ -122,8 +122,8 @@ T4 → T5 → T6
 
 **Done when**:
 
-- [ ] UT-001 four cases pass; this feature's spec still validates
-- [ ] Full gate passes
+- [x] UT-001 four cases pass; this feature's spec still validates
+- [x] Full gate passes
 
 **Tests**: unit (UT-001)
 **Gate**: full
