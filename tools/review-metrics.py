@@ -103,7 +103,8 @@ def render(r: dict) -> str:
         f"Deliveries in {r['range']}: {r['deliveries']}"
         f" (signalled {r['signalled']}, unsigned {r['unsigned']})",
         f"Reviewed fraction: {r['verified']}/{r['slices']} slices verified"
-        f" ({'n/a' if fraction is None else format(fraction, '.1%')})",
+        f" ({'n/a' if fraction is None else format(fraction, '.1%')})"
+        f", across {r['signalled']} of {r['deliveries']} deliveries",
         f"Reviewed by design (tier=direct|batch): {r['reviewed_by_design']}",
         f"Findings: {r['findings']} (fixed {r['fixed']}, dismissed {r['dismissed']})",
         f"Surviving mutants: {r['surviving_mutants']}"
@@ -113,7 +114,9 @@ def render(r: dict) -> str:
 
 
 def main(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument(
         "rev_range",
         nargs="?",

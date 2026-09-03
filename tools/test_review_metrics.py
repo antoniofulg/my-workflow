@@ -68,12 +68,14 @@ class Repo:
             message += f"\n\n{SIGNAL} {trailer}"
         self.git("commit", "-q", "--allow-empty", "-m", message)
 
-    def run(self, *args: str, whole_history: bool = False) -> subprocess.CompletedProcess:
+    def run(
+        self, *args: str, whole_history: bool = False, as_json: bool = True
+    ) -> subprocess.CompletedProcess:
         """No range narrows to `<root>..HEAD`; `whole_history` passes none, as an operator does."""
         if not args and self.base and not whole_history:
             args = (f"{self.base}..HEAD",)
         return subprocess.run(
-            [sys.executable, str(TOOL), *args, "--json"],
+            [sys.executable, str(TOOL), *args, *(["--json"] if as_json else [])],
             cwd=self.path,
             env=ENV,
             capture_output=True,
@@ -212,6 +214,21 @@ class ReviewMetricsTests(unittest.TestCase):
         self.assertEqual(report["dismissed"], 2)
         self.assertEqual(report["surviving_mutants"], 2)
         self.assertEqual(report["tiers"], {"direct": 1, "medium": 1, "small": 1})
+
+    def test_the_fraction_line_names_how_many_deliveries_it_covers(self) -> None:
+        """AD-027: unsigned deliveries add no slices, so the percentage alone reads high."""
+        self.repo.root()
+        self.repo.deliver("one", self.MEDIUM)
+        self.repo.deliver("two", self.SMALL)
+        self.repo.deliver("bare")
+        result = self.repo.run(as_json=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        line = next(
+            one for one in result.stdout.splitlines() if one.startswith("Reviewed fraction:")
+        )
+        self.assertIn("4/5", line)
+        self.assertIn("2 of 3", line)
+        self.assertIn("deliveries", line)
 
     def test_a_rev_range_limits_what_is_read(self) -> None:
         self.repo.root()
