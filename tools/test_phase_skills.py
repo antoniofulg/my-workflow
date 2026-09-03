@@ -45,7 +45,7 @@ FORBIDDEN_ROUTER_HEADINGS = ("## Commands", "## Context Loading Strategy", "## C
 AGENTS_LINE_CAP = 134
 
 TEMPLATES = ROOT / "templates/agents"
-TEMPLATE_ROLES = ("planner", "implementer", "verifier", "explorer", "deep-reviewer")
+TEMPLATE_ROLES = ("planner", "implementer", "verifier", "explorer", "deep-reviewer", "designer")
 # Providers whose templates UT-006 scans.
 SCANNED_PROVIDERS: tuple[str, ...] = ("claude", "codex", "cursor")
 
@@ -53,6 +53,7 @@ CLAUDE_PRELOAD = {
     "planner": ("workflow-spec-driven", "wspecify", "wtasks", "ponytail"),
     "implementer": ("wimplement", "ponytail"),
     "verifier": ("wverify",),
+    "designer": ("wdesign", "ponytail"),
 }
 CLAUDE_NO_SKILL_TOOL = ("implementer", "explorer", "deep-reviewer")
 READ_ONLY_TOOLS = "Read, Grep, Glob, Bash"
@@ -61,6 +62,7 @@ ROLE_PHASE_SKILLS = {
     "planner": ("wspecify", "wdesign", "wtasks"),
     "implementer": ("wimplement",),
     "verifier": ("wverify",),
+    "designer": ("wdesign",),
 }
 # Reference filenames a load line must never name; the first three are gone from the pack entirely.
 REFERENCE_FILENAMES = {"specify.md", "discuss.md", "design.md", "tasks.md", "implement.md", "validate.md"}
@@ -385,6 +387,34 @@ def test_downstream_phases_wired_for_impact_and_designer() -> None:
     uiux_guideline = uiux_path.read_text(encoding="utf-8")
     assert line_count(uiux_path) < 120, "UI-UX.md exceeds 120 lines"
     assert "written in Specify" in uiux_guideline, "UI-UX.md does not state written in Specify"
+
+
+def test_designer_templates_and_preload() -> None:
+    """UT-004: Designer templates and preload (SID-03 AC2)."""
+    claude_path = TEMPLATES / "claude" / "designer.md"
+    codex_path = TEMPLATES / "codex" / "designer.toml"
+    cursor_path = TEMPLATES / "cursor" / "designer.md"
+
+    assert claude_path.is_file(), "Claude designer template missing"
+    assert codex_path.is_file(), "Codex designer template missing"
+    assert cursor_path.is_file(), "Cursor designer template missing"
+
+    claude_fields = frontmatter(claude_path)
+    assert claude_fields.get("skills") == "[wdesign, ponytail]", f"Claude designer skills: {claude_fields.get('skills')!r}"
+    assert "disallowedTools" not in claude_fields, "Claude designer must not set disallowedTools"
+    assert claude_fields.get("model") == "inherit"
+    assert claude_fields.get("effort") == "high"
+
+    claude_text = claude_path.read_text(encoding="utf-8")
+    assert "uiux.md" in claude_text
+    assert "docs/design/" in claude_text
+    assert "uiux-review.md" in claude_text
+    assert "never write product code" in claude_text.lower() or "do not implement product code" in claude_text.lower()
+
+    codex_text = codex_path.read_text(encoding="utf-8")
+    assert "wdesign" in codex_text
+    cursor_text = cursor_path.read_text(encoding="utf-8")
+    assert "wdesign" in cursor_text
 
 
 if __name__ == "__main__":

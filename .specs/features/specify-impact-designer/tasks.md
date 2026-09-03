@@ -170,8 +170,8 @@ T4 → T5 → T6
 
 **Done when**:
 
-- [ ] UT-004, IT-003 pass; sync reports three designer packets
-- [ ] Full gate passes
+- [x] UT-004, IT-003 pass; sync reports three designer packets
+- [x] Full gate passes
 
 **Tests**: unit (UT-004), integration (IT-003)
 **Gate**: full

@@ -826,14 +826,14 @@ describe("agent configuration", () => {
 
     const config = readRepositoryFile(".my-workflow.toml.example");
     const settings = new Map<string, { model: string; effort: string }>();
-    const section = /\[models\.(claude|codex|cursor)\.(planner|implementer|verifier|explorer|deep_reviewer)\]\s+model = "([^"]+)"\s+effort = "([^"]+)"/g;
+    const section = /\[models\.(claude|codex|cursor)\.(planner|implementer|verifier|explorer|deep_reviewer|designer)\]\s+model = "([^"]+)"\s+effort = "([^"]+)"/g;
     for (const match of config.matchAll(section)) {
       settings.set(`${match[1]}.${match[2]}`, { model: match[3], effort: match[4] });
     }
-    expect(settings.size).toBe(15);
+    expect(settings.size).toBe(18);
 
     for (const provider of ["claude", "codex", "cursor"] as const) {
-      for (const role of ["planner", "implementer", "verifier", "explorer", "deep_reviewer"] as const) {
+      for (const role of ["planner", "implementer", "verifier", "explorer", "deep_reviewer", "designer"] as const) {
         const agentName = role === "deep_reviewer" ? "deep-reviewer" : role;
         const extension = provider === "codex" ? "toml" : "md";
         const format = provider === "codex" ? "toml" : "frontmatter";
