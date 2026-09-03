@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 69,
+  "next_id": 75,
   "lessons": [
     {
       "id": "L-001",
@@ -1237,6 +1237,116 @@
       ],
       "created": "2026-09-03T22:47:08Z",
       "last_seen": "2026-09-03T22:47:08Z"
+    },
+    {
+      "id": "L-069",
+      "key": "surviving_mutant::when an ac names size tiered offer rules assert each tier not only the autonomous exception",
+      "text": "When an AC names size-tiered offer rules, assert each tier, not only the autonomous exception",
+      "signal": "surviving_mutant",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s1-r3.md N5 N6 SID-02 AC1 (skill-text-tests)"
+      ],
+      "created": "2026-09-03T23:14:28Z",
+      "last_seen": "2026-09-03T23:14:28Z"
+    },
+    {
+      "id": "L-070",
+      "key": "surviving_mutant::when an ac requires a list of nouns assert every listed noun not a subset",
+      "text": "When an AC requires a list of nouns, assert every listed noun, not a subset",
+      "signal": "surviving_mutant",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s1-r3.md N8 SID-01 AC1 (skill-text-tests)"
+      ],
+      "created": "2026-09-03T23:14:28Z",
+      "last_seen": "2026-09-03T23:14:28Z"
+    },
+    {
+      "id": "L-071",
+      "key": "surviving_mutant::when an ac requires following a named guideline assert that path in the procedure body",
+      "text": "When an AC requires following a named guideline, assert that path in the procedure body",
+      "signal": "surviving_mutant",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s1-r3.md N7 SID-01 AC3 (skill-text-tests)"
+      ],
+      "created": "2026-09-03T23:14:28Z",
+      "last_seen": "2026-09-03T23:14:28Z"
+    },
+    {
+      "id": "L-072",
+      "key": "ac_gap::re derive every ac clause to an assertion a sibling clause in the same sentence does not cover the rest",
+      "text": "Re-derive every AC clause to an assertion; a sibling clause in the same sentence does not cover the rest",
+      "signal": "ac_gap",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s1-r3.md SID-01 AC1 AC3 SID-02 AC1 (skill-text-tests)"
+      ],
+      "created": "2026-09-03T23:14:28Z",
+      "last_seen": "2026-09-03T23:14:28Z"
+    },
+    {
+      "id": "L-073",
+      "key": "surviving_mutant::when an ac names a procedure clause assert it in the step body not a phrase that can live only in an example",
+      "text": "When an AC names a procedure clause, assert it in the step body, not a phrase that can live only in an example",
+      "signal": "surviving_mutant",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s1-r4.md N14 SID-02 AC2 (skill-text-tests)",
+        "validation-s1-r5.md N19 SID-02 AC2 (skill-text-tests)"
+      ],
+      "created": "2026-09-03T23:34:56Z",
+      "last_seen": "2026-09-03T23:44:01Z"
+    },
+    {
+      "id": "L-074",
+      "key": "ac_gap::a whole file substring is not evidence when the same words appear in an example block",
+      "text": "A whole-file substring is not evidence when the same words appear in an example block",
+      "signal": "ac_gap",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s1-r4.md SID-02 AC2 (skill-text-tests)",
+        "validation-s1-r5.md SID-02 AC2 (skill-text-tests)"
+      ],
+      "created": "2026-09-03T23:34:56Z",
+      "last_seen": "2026-09-03T23:44:02Z"
     }
   ]
 }

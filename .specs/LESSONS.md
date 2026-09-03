@@ -422,6 +422,42 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: validation-s1-r2.md SID-01 AC1 AC2 AC3 AC5 AC6 (skill-text-tests)
 - last seen: 2026-09-03T22:47:08Z
 
+### L-069 - When an AC names size-tiered offer rules, assert each tier, not only the autonomous exception
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s1-r3.md N5 N6 SID-02 AC1 (skill-text-tests)
+- last seen: 2026-09-03T23:14:28Z
+
+### L-070 - When an AC requires a list of nouns, assert every listed noun, not a subset
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s1-r3.md N8 SID-01 AC1 (skill-text-tests)
+- last seen: 2026-09-03T23:14:28Z
+
+### L-071 - When an AC requires following a named guideline, assert that path in the procedure body
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s1-r3.md N7 SID-01 AC3 (skill-text-tests)
+- last seen: 2026-09-03T23:14:28Z
+
+### L-072 - Re-derive every AC clause to an assertion; a sibling clause in the same sentence does not cover the rest
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s1-r3.md SID-01 AC1 AC3 SID-02 AC1 (skill-text-tests)
+- last seen: 2026-09-03T23:14:28Z
+
+### L-073 - When an AC names a procedure clause, assert it in the step body, not a phrase that can live only in an example
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s1-r4.md N14 SID-02 AC2 (skill-text-tests) (+1 more)
+- last seen: 2026-09-03T23:44:01Z
+
+### L-074 - A whole-file substring is not evidence when the same words appear in an example block
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s1-r4.md SID-02 AC2 (skill-text-tests) (+1 more)
+- last seen: 2026-09-03T23:44:02Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.
