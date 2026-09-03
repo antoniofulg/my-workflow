@@ -18,6 +18,7 @@ ROUTER_LINE_CAP = 150
 PHASES: dict[str, tuple[tuple[str, ...], int]] = {
     "wspecify": (("specify.md", "discuss.md"), 228 + 159 + 10),
     "wdesign": (("design.md",), 193 + 10),
+    "wtasks": (("tasks.md",), 443 + 10),
 }
 
 VALIDATOR_PREFIX = ".agents/skills/workflow-spec-driven/scripts/"
