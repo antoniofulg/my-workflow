@@ -17,6 +17,7 @@ ROUTER_LINE_CAP = 150
 # phase skill -> (router references it replaces, total-line budget for the phase tree)
 PHASES: dict[str, tuple[tuple[str, ...], int]] = {
     "wspecify": (("specify.md", "discuss.md"), 228 + 159 + 10),
+    "wdesign": (("design.md",), 193 + 10),
 }
 
 VALIDATOR_PREFIX = ".agents/skills/workflow-spec-driven/scripts/"

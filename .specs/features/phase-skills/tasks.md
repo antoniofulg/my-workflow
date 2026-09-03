@@ -104,8 +104,8 @@ T10
 
 **Done when**:
 
-- [ ] Contract tests pass with `wdesign` in `PHASES`
-- [ ] Quick gate passes
+- [x] Contract tests pass with `wdesign` in `PHASES`
+- [x] Quick gate passes
 
 **Tests**: unit (UT-001, UT-002, UT-003, UT-007, UT-008)
 **Gate**: quick
