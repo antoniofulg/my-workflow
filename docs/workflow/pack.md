@@ -2,7 +2,7 @@
 
 ## Skills
 
-The workflow ships eleven local capabilities:
+The workflow ships thirteen local capabilities:
 
 | Skill | Role |
 | --- | --- |
@@ -12,6 +12,8 @@ The workflow ships eleven local capabilities:
 | `wtasks` | Tasks phase: atomic tasks, coverage matrix, gate commands. |
 | `wimplement` | Execute phase: per-task cycle, gate, atomic commit. |
 | `wverify` | Verify phase: spec-anchored evidence, sensor, UAT, fix plans. |
+| `wreview` | Review phase: deep review of branch diffs, working trees, or PRs. |
+| `wqa` | QA phase: run user-visible QA plans or walks over tagged journeys. |
 | `qa-plan` | Maps changed user-visible promises to durable QA journeys and charters. |
 | `qa-execute` | Walks those journeys through the consuming project's existing adapter. |
 | `ponytail` (`full`) | Shortest code that works. Stdlib before a dependency. |
