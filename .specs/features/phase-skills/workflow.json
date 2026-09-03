@@ -1,0 +1,49 @@
+{
+  "deep_review": {
+    "cadence": "grouped.3",
+    "groups": [
+      [
+        1,
+        2
+      ]
+    ]
+  },
+  "feature": "phase-skills",
+  "git_head": "b5dc370332d2e5fa1381b2d08f66b237f3ded8bd",
+  "overrides": {},
+  "parallelization": {
+    "automatic_baseline": 2,
+    "automatic_ceiling": 4,
+    "max_workers": "auto",
+    "mode": "assisted",
+    "resource_provider": null
+  },
+  "profile": null,
+  "roles": {
+    "deep_reviewer": {
+      "agent_file": ".claude/agents/deep-reviewer.md",
+      "effort": "high",
+      "model": "sonnet",
+      "provider": "claude"
+    },
+    "explorer": {
+      "agent_file": ".claude/agents/explorer.md",
+      "effort": "medium",
+      "model": "sonnet",
+      "provider": "claude"
+    },
+    "implementer": {
+      "agent_file": ".claude/agents/implementer.md",
+      "effort": "high",
+      "model": "opus",
+      "provider": "claude"
+    },
+    "verifier": {
+      "agent_file": ".claude/agents/verifier.md",
+      "effort": "medium",
+      "model": "opus",
+      "provider": "claude"
+    }
+  },
+  "version": 3
+}

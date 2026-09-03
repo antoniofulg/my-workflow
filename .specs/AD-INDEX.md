@@ -34,3 +34,4 @@ When recording an `AD-NNN`, run `python3 tools/ad-index.py` in the same commit.
 | `AD-025` | active | One `Review-Signal` trailer per delivered pull request, carried on its merge commit, aggregating the feature through `slices=<n> verified=<… |
 | `AD-026` | active | `check_commit.py` validates the `Review-Signal` trailer only when present; it never requires one. |
 | `AD-027` | active | Round 2's Finding 1 is resolved as documentation, not code. |
+| `AD-028` | active | Each workflow phase (Specify, Design, Tasks, Implement, Verify) is its own skill (`wspecify`, `wdesign`, `wtasks`, `wimplement`, `wverify`)… |
