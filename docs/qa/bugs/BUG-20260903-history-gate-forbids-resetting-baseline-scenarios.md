@@ -1,6 +1,6 @@
 # BUG-20260903-history-gate-forbids-resetting-baseline-scenarios
 
-- **Status:** open
+- **Status:** fixed — retest pass
 - **Severity:** major
 - **Scenario:** `REL-report-current-workflow-release`
 - **Expected:** `bun run test:all` accepts a QA Plan resetting an affected scenario's `qa_status` to
@@ -12,7 +12,7 @@
 - **Adapter:** public Bun gate CLI
 - **Exact path:** at `e4df550e` on `feat/phase-skills`, reset an affected baseline scenario to
   `qa_status: untested` and run `bun test tools/shared/tests/qa-skills.test.ts`
-- **Evidence:** none captured — found during QA Plan, before any QA Execute session
+- **Evidence:** `docs/qa/evidence/2026-09-03-phase-skills/80-history-gate-retest.txt`
 
 ## Reproduction
 
@@ -46,3 +46,17 @@ tracker whose whole purpose is to change status between cycles. Keep `docs/qa/ch
 charters are immutable once written. Keep the mutation sensor that catches a rewritten historical
 report. Route this to an Implementer; a fresh Verifier confirms the fix, then QA Execute runs
 `CH-adopt-phase-skills-2026-09-03` from the opening gate.
+
+## Retest — 2026-09-03
+
+Fixed by `50ca157b`. Retested during QA Execute
+([report](../reports/2026-09-03-phase-skills.md)) on `feat/phase-skills` @ `ef18f54c`, whose tree
+carries the five reset baseline scenarios:
+
+- `bun test tools/shared/tests/qa-skills.test.ts` → exit `0` with the resets in place.
+- The mutation sensor still bites: appending a line to the historical report
+  `docs/qa/reports/2026-08-31-release-0-8-0.md` made `IT-006` fail with exit `1`; restoring the file
+  returned the gate to `0`.
+- `bun run test:all` → exit `0` as both the opening and closing gate of that cycle.
+
+`retest_status: pass` on `REL-report-current-workflow-release`.

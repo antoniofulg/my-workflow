@@ -6,13 +6,13 @@ persona: Workflow adopter
 journey: J-configure-feature-workflow
 expected: Sync renders each Claude packet's `skills:` and `disallowedTools:` lines byte-identical to its template with only model and effort replaced, and refuses a template that preloads a skill with no `SKILL.md`, naming the template and the skill and writing nothing.
 entry_points: templates/agents/claude/; templates/agents/cursor/; templates/agents/codex/; python3 .agents/skills/workflow-config/scripts/workflow_config.py --root . --sync-agents; .claude/agents/
-qa_status: untested
+qa_status: pass
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence:
-last_report:
+evidence: docs/qa/evidence/2026-09-03-phase-skills/34-perturbed-diff.txt; docs/qa/evidence/2026-09-03-phase-skills/35-skills-lines.txt; docs/qa/evidence/2026-09-03-phase-skills/41-neg-inline.log; docs/qa/evidence/2026-09-03-phase-skills/41-neg-block.log; docs/qa/evidence/2026-09-03-phase-skills/42-neg-inline-after.txt
+last_report: docs/qa/reports/2026-09-03-phase-skills.md
 overlaps: CFG-centralize-agent-model-routing
 ---
 

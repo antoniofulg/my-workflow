@@ -6,13 +6,13 @@ persona: Workflow adopter
 journey: J-adopt-workflow
 expected: A core-layer adoption reports the five phase skill directories as managed and leaves the target holding each `.agents/skills/w<phase>/SKILL.md` plus a `.claude/skills/w<phase>` link that resolves to it, while re-adoption preserves consumer-owned skill trees.
 entry_points: README.md#adopt-the-workflow; python3 scripts/adopt.py plan <target> --layers core --json; python3 scripts/adopt.py apply <target> --layers core; python3 scripts/adopt.py status <target>; .agents/skills/wspecify; .agents/skills/wdesign; .agents/skills/wtasks; .agents/skills/wimplement; .agents/skills/wverify; .claude/skills/
-qa_status: untested
+qa_status: pass
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence:
-last_report:
+evidence: docs/qa/evidence/2026-09-03-phase-skills/11-plan-core.json; docs/qa/evidence/2026-09-03-phase-skills/13-apply-core.log; docs/qa/evidence/2026-09-03-phase-skills/14-status.log; docs/qa/evidence/2026-09-03-phase-skills/15-phase-skill-links.txt; docs/qa/evidence/2026-09-03-phase-skills/18-consumer-after.txt
+last_report: docs/qa/reports/2026-09-03-phase-skills.md
 overlaps: ADP-adopt-workflow-safely; ADP-layered-workflow-adoption
 ---
 

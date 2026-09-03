@@ -6,13 +6,13 @@ persona: Workflow adopter
 journey: J-adopt-workflow
 expected: A project can plan and apply fixed core, parallel, quality, and extras layers incrementally; conflicts fail before writes, consumer prose and Bun package metadata survive, and status reports clean state.
 entry_points: README.md#adopt-the-workflow; docs/adoption-prompt.md; scripts/adopt.py
-qa_status: untested
+qa_status: pass
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-31-legacy-adoption-resolution/summary.json; docs/qa/evidence/2026-08-31-legacy-adoption-resolution/commands.jsonl
-last_report: docs/qa/reports/2026-08-31-legacy-adoption-resolution.md
+evidence: docs/qa/evidence/2026-09-03-phase-skills/11-plan-core.json; docs/qa/evidence/2026-09-03-phase-skills/52-apply-quality.log; docs/qa/evidence/2026-09-03-phase-skills/53-status-quality.log; docs/qa/evidence/2026-09-03-phase-skills/54-qa-layer-check.txt
+last_report: docs/qa/reports/2026-09-03-phase-skills.md
 overlaps: ADP-adopt-workflow-safely
 ---
 
