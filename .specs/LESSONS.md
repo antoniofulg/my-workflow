@@ -296,6 +296,24 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: MAS-05 edge (workflow-resolution) (workflow-resolution)
 - last seen: 2026-09-02T01:21:11Z
 
+### L-048 - Test a rejected-input branch with a value that would pass every other check, so removing the branch changes the outcome
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `validators` · harmful: 0
+- features: review-signal-trailer
+- evidence: tools/test_tlc_validators.py:297 (mutant M2) (validators)
+- last seen: 2026-09-03T03:33:00Z
+
+### L-049 - When a spec validates a text format, pin where in the input it may appear and which separators are legal, or the validator's tolerance is unproven
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `validators` · harmful: 0
+- features: review-signal-trailer
+- evidence: .agents/skills/workflow-spec-driven/scripts/check_commit.py:50 (RST-01 trailer location) (validators)
+- last seen: 2026-09-03T03:33:05Z
+
+### L-050 - A never-fail reporting tool must still separate an unreadable input from a genuinely empty one; verify the underlying command's own exit code before swallowing it
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `reporting` · harmful: 0
+- features: review-signal-trailer
+- evidence: tools/review-metrics.py:39 (RST-02 unreadable range) (reporting)
+- last seen: 2026-09-03T03:42:42Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

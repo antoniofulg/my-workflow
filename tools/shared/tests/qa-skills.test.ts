@@ -1133,6 +1133,7 @@ describe("Bun tooling runtime contract", () => {
       "tools/test_qa_parallel_pilot.py",
       "tools/test_remediation.py",
       "tools/test_review_convergence.py",
+      "tools/test_review_metrics.py",
       "tools/test_tlc_validators.py",
       "tools/test_workflow_config.py",
       "tools/test_workflow_spec_driven.py",
