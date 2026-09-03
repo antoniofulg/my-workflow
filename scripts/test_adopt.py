@@ -30,6 +30,8 @@ FROZEN_PRE_FEATURE_PATHS = (
     ".agents/skills/ponytail-audit", ".agents/skills/ponytail-debt", ".agents/skills/ponytail-gain",
     ".agents/skills/ponytail-help", ".agents/skills/ponytail-review", ".agents/skills/qa-plan",
     ".agents/skills/qa-execute", ".agents/skills/autonomous", ".agents/skills/workflow-config",
+    ".agents/skills/wspecify", ".agents/skills/wdesign", ".agents/skills/wtasks",
+    ".agents/skills/wimplement", ".agents/skills/wverify",
     "docs/qa/README.md", "tools/ad-index.py", ".my-workflow.toml.example", "templates/agents",
 )
 
@@ -108,6 +110,19 @@ def test_resolves_fixed_layers_and_plan_is_read_only() -> None:
         assert "add      tools/orca_assisted_probe.py (parallel)" in text_result.stdout
         assert "add      docs/guidelines/DX.md (core)" in text_result.stdout
         assert snapshot(target) == before
+    finally:
+        shutil.rmtree(target)
+
+
+def test_core_layer_installs_the_phase_skills() -> None:
+    target = temporary_target()
+    try:
+        result = invoke(target, "plan", "--layers", "core", "--json")
+        assert result.returncode == 0, result.stderr
+        managed = {item["path"] for item in json.loads(result.stdout)["actions"]}
+        for name in ("wspecify", "wdesign", "wtasks", "wimplement", "wverify"):
+            assert f".agents/skills/{name}/SKILL.md" in managed, f"core plan omits .agents/skills/{name}"
+            assert f".claude/skills/{name}" in managed, f"core plan omits .claude/skills/{name}"
     finally:
         shutil.rmtree(target)
 
@@ -1493,6 +1508,7 @@ def test_resolve_rejects_shell_metacharacters_in_replacement_as_literal() -> Non
 
 TESTS = (
     test_resolves_fixed_layers_and_plan_is_read_only,
+    test_core_layer_installs_the_phase_skills,
     test_full_profile_is_exactly_four_layers_and_legacy_cli_is_rejected,
     test_unknown_layer_and_invalid_manifest_fail_before_target_mutation,
     test_fresh_apply_is_valid_but_missing_manifest_status_is_invalid,

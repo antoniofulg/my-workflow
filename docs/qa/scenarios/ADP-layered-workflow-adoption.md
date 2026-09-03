@@ -11,8 +11,8 @@ bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-31-legacy-adoption-resolution/summary.json; docs/qa/evidence/2026-08-31-legacy-adoption-resolution/commands.jsonl
-last_report: docs/qa/reports/2026-08-31-legacy-adoption-resolution.md
+evidence: docs/qa/evidence/2026-09-03-phase-skills/11-plan-core.json; docs/qa/evidence/2026-09-03-phase-skills/52-apply-quality.log; docs/qa/evidence/2026-09-03-phase-skills/53-status-quality.log; docs/qa/evidence/2026-09-03-phase-skills/54-qa-layer-check.txt
+last_report: docs/qa/reports/2026-09-03-phase-skills.md
 overlaps: ADP-adopt-workflow-safely
 ---
 
@@ -43,3 +43,5 @@ The 2026-08-31 adjacent canary passed at `827d629`: a fresh target's read-only p
 byte-identical, normal parallel apply and status reached clean state, reversible managed drift
 returned status exit 1 without writes, restoration returned exit 0, and all disposable state was
 removed.
+
+The `phase-skills` feature changes the fixed core layer's managed path list, so what `plan`, `apply`, and `status` report for `--layers core` has changed; reset to `untested` pending the 2026-09-03 cycle. Prior evidence remains historical.

@@ -2,24 +2,15 @@
 
 ## Handoff
 
-- **Feature**: local `main` reconciliation onto `origin/main` (branch `build/reconcile-local-main`)
-- **Phase / Task**: merge resolved; full gate and pull request pending
-- **Completed**: origin `hybrid-slice-execution`, `bun-tooling-runtime`, `layered-workflow-adoption`,
-  `gate-result-cache`, and release 0.8.0 are the base. Local `host-owned-session-continuation`
-  (ai-memory removal, AD-019) and the credential-free configuration path in `GATES.md` are carried.
-  Local `host-agnostic-slice-parallelization` and `bun-test-runner` implementations are superseded by
-  the origin base; their specs, QA reports, bugs, and charters remain as history. Local decisions
-  AD-015–AD-020 are renumbered AD-019–AD-024 because origin already used those ids.
+- **Feature**: `phase-skills` (branch `feat/phase-skills`, roadmap slice 1 of `docs/workflow/roadmap.md`)
+- **Phase / Task**: complete; awaiting human go-ahead to push and open the pull request
+- **Completed**: S1, S2, T12 remediation; deep review rounds 1 (FIX_BEFORE_SHIP) and 2 (SHIP); QA plan and QA execute 10/10 pass; feature `validation.md` PASS, sensor 10/10; `validate_state.py` exit 0; `bun run test:all` exit 0 at load 17
 - **In-progress** (file:line): none
-- **Next step**: Re-port `merge-alone-slices` (`.specs/features/merge-alone-slices/spec.md`, AD-020)
-  onto `workflow-spec-driven` `validate_tasks.py` and `workflow_config.py`. Its local implementation,
-  fixtures, and tests targeted the removed `tlc-spec-driven` skill and were not carried.
-- **Blockers**: Live Orca transport stays `blocked-verify`
+- **Next step**: push `feat/phase-skills`, open one PR to `main`; merge commit carries
+  `Review-Signal: tier=large slices=2 verified=2 sensor=29/31 rounds=2 findings=7 fixed=7 dismissed=0`.
+  Then roadmap slice 2 (`/w*` fork entry points, `wreview`, `wqa`).
+- **Blockers**: none for this feature. Live Orca transport stays `blocked-verify`
   (`BUG-20260827-orca-terminal-send-truncates-claude-worker-packet`).
-  `.specs/features/host-agnostic-slice-parallelization/tasks.md` keeps 17 unchecked Maestri/preflight
-  tasks the superseded executor never shipped; no port is planned.
-- **Uncommitted files**: none after the merge commit.
-- **Branch**: `build/reconcile-local-main`
 
 ## Decisions
 
@@ -456,5 +447,25 @@
   not read the help text, will read a number lower than the truth.
 - **Scope**: `tools/review-metrics.py` delivery enumeration only. Findings 2 and 3 of the same round
   are accepted as defects and remediated in code.
+- **Date**: 2026-09-03
+- **Status**: active
+
+### AD-028
+
+- **Decision**: Each workflow phase (Specify, Design, Tasks, Implement, Verify) is its own skill
+  (`wspecify`, `wdesign`, `wtasks`, `wimplement`, `wverify`) whose `SKILL.md` carries the phase
+  procedure under 200 lines, with templates under `references/`. `workflow-spec-driven` remains
+  the router (sizing, phase-to-skill map, `.specs` layout, resume) and keeps `scripts/`. Claude agent
+  templates preload their phase skill through frontmatter `skills:`; implementer, explorer, and
+  deep-reviewer carry `disallowedTools: Skill`.
+- **Reason**: Preload injects only `SKILL.md`, so a phase skill that merely pointed at a reference
+  would scope nothing. A role that preloads one phase and cannot invoke others reads exactly its
+  own procedure, which is what makes a cheap qualifier, a forked `/w<phase>` entry point, and
+  per-role model choice possible.
+- **Trade-off**: Six skills instead of one directory; the router name stays because about ninety
+  references and the adopted gate path cite it. Cursor and Codex keep prose load lines until their
+  preload support is verified.
+- **Scope**: `.agents/skills/w*`, `workflow-spec-driven/SKILL.md`, `templates/agents/claude/*`,
+  `scripts/adopt.py` core catalog.
 - **Date**: 2026-09-03
 - **Status**: active

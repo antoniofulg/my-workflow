@@ -1,3 +1,8 @@
+---
+name: wverify
+description: "Verify phase - independent spec-anchored validation: AC evidence, edge cases, build gate, discrimination sensor, code quality, UAT, fix plans, and the lessons hook. Preloaded by the verifier agent; enter with /wverify."
+---
+
 # Execute: Validate & Verify
 
 **Goal**: Verify implementation meets spec AND coding principles. This is NOT a separate phase - verification is part of every task's completion within Execute.
@@ -6,7 +11,7 @@
 
 1. **Per-task verification (always, author self-check):** After implementing each task, verify its "Done when" criteria before committing. This is mandatory and automatic. The implementer runs it.
 
-2. **Slice-level validation (fresh Technical Verifier, always-on, never prompted):** After each code-changing slice reaches its checkpoint, the coordinator dispatches a **fresh Technical Verifier** (see [sub-agents.md](sub-agents.md)) before any dependent slice consumes that checkpoint. Independent slices may be verified concurrently; each dependent route waits only for its own verified checkpoint. It runs without asking the user. The Verifier:
+2. **Slice-level validation (fresh Technical Verifier, always-on, never prompted):** After each code-changing slice reaches its checkpoint, the coordinator dispatches a **fresh Technical Verifier** (see [sub-agents.md](.agents/skills/workflow-spec-driven/references/sub-agents.md)) before any dependent slice consumes that checkpoint. Independent slices may be verified concurrently; each dependent route waits only for its own verified checkpoint. It runs without asking the user. The Verifier:
    - Runs **read-only** over the real implementation and tests - mutations run in a scratch/throwaway state only (see Discrimination Sensor section)
    - Scopes coverage to the feature's **git diff surface** (not the full repository)
    - Re-derives coverage independently using **evidence-or-zero**: every AC must be traced to a `file:line` + assertion expression; a criterion with no `file:line` citation counts as NOT covered
@@ -117,7 +122,7 @@ The sensor provides the empirical guarantee that the tests can actually detect r
 
 ### 6. Code Quality Check
 
-For each changed file, verify against [coding-principles.md](coding-principles.md):
+For each changed file, verify against [coding-principles.md](.agents/skills/workflow-spec-driven/references/coding-principles.md):
 
 | Check                                | Pass? |
 | ------------------------------------ | ----- |
@@ -172,164 +177,16 @@ Fix tasks follow the same format as regular tasks and can be executed with the i
 
 After all checks complete, the Verifier:
 
-1. **Write the final feature report** to `.specs/features/[feature]/validation.md` (see template below) only after all slice reports exist and the verified slices are integrated. It is versioned workflow state and travels with the feature when committed. A slice-level Verifier writes `.specs/features/[feature]/validation-[slice].md` instead.
-2. **Return a compact summary in chat** to the orchestrator (see Compact Chat Summary section below). The orchestrator surfaces it to the user and routes any ranked gaps to fix tasks.
+1. **Write the final feature report** to `.specs/features/[feature]/validation.md` (see the Validation Report Template section of `references/validation-template.md`) only after all slice reports exist and the verified slices are integrated. It is versioned workflow state and travels with the feature when committed. A slice-level Verifier writes `.specs/features/[feature]/validation-[slice].md` instead.
+2. **Return a compact summary in chat** to the orchestrator (see the Compact Chat Summary section of `references/validation-template.md`). The orchestrator surfaces it to the user and routes any ranked gaps to fix tasks.
 
-**Deterministic backing (run it, do not eyeball it).** After writing the report, run `python3 <skill-dir>/scripts/validate_state.py <feature>`. It confirms the report is real - present, verdict filled to PASS, and backed by at least one `file:line` evidence citation - so a missing, hollow, placeholder, or FAIL report cannot slip through as done. A non-zero exit means the feature is NOT done: repair the report or route the FAIL gaps to fix tasks, then re-run. This is the closing gate of Execute and runs automatically, the same way the lessons layer runs at distillation; it is never a manual step. If no code-execution tool is available, confirm the same by reading `validation.md`.
+**Deterministic backing (run it, do not eyeball it).** After writing the report, run `python3 .agents/skills/workflow-spec-driven/scripts/validate_state.py <feature>`. It confirms the report is real - present, verdict filled to PASS, and backed by at least one `file:line` evidence citation - so a missing, hollow, placeholder, or FAIL report cannot slip through as done. A non-zero exit means the feature is NOT done: repair the report or route the FAIL gaps to fix tasks, then re-run. This is the closing gate of Execute and runs automatically, the same way the lessons layer runs at distillation; it is never a manual step. If no code-execution tool is available, confirm the same by reading `validation.md`.
 
 ### 10. Distill Lessons (when validation.md has signal)
 
-This is the closing action of validation - not a separate phase. Immediately after the report is written, turn its grounded failures into reusable, project-local guidance by following [lessons.md](lessons.md). In short: for each surviving mutant, spec-precision gap, failed/uncovered AC, or `// SPEC_DEVIATION`, record one terse general lesson via `python3 <skill-dir>/scripts/lessons.py add` (the script enforces grounding and owns all bookkeeping). A clean PASS with no signal → record nothing. Run the self-check: if there was signal but no lesson was recorded, say so in chat. See [lessons.md](lessons.md) for the exact commands, phrasing rules, scope discipline, and the no-script fallback.
+This is the closing action of validation - not a separate phase. Immediately after the report is written, turn its grounded failures into reusable, project-local guidance by following [lessons.md](.agents/skills/workflow-spec-driven/references/lessons.md). In short: for each surviving mutant, spec-precision gap, failed/uncovered AC, or `// SPEC_DEVIATION`, record one terse general lesson via `python3 .agents/skills/workflow-spec-driven/scripts/lessons.py add` (the script enforces grounding and owns all bookkeeping). A clean PASS with no signal → record nothing. Run the self-check: if there was signal but no lesson was recorded, say so in chat. See [lessons.md](.agents/skills/workflow-spec-driven/references/lessons.md) for the exact commands, phrasing rules, scope discipline, and the no-script fallback.
 
----
-
-## Compact Chat Summary (returned in chat after validation)
-
-The Verifier returns this block to the orchestrator after completing all checks:
-
-```markdown
-## Validation: [Feature] - [PASS ✅ | FAIL ❌]
-
-**Spec-anchored check**: [N/N ACs matched spec outcome | M spec-precision gaps flagged]
-**Gate**: [X passed, 0 failed]
-**Sensor**: [N mutations injected, N killed, N survived]
-**Report**: `.specs/features/[feature]/validation-[slice].md` for a slice Verifier, or `.specs/features/[feature]/validation.md` for the final integrated Verifier (versioned workflow state)
-
-**Ranked gaps** (if FAIL):
-1. [Gap description] - [AC or criterion] - [file:line or "no evidence"]
-2. ...
-```
-
----
-
-## Validation Report Template (`.specs/features/[feature]/validation-[slice].md` for a slice; `validation.md` only for final integrated validation)
-
-```markdown
-# [Feature] Validation
-
-**Date**: [YYYY-MM-DD]
-**Spec**: `.specs/features/[feature]/spec.md`
-**Diff range**: [commit range or branch..HEAD]
-**Verifier**: independent sub-agent (author ≠ verifier)
-
----
-
-## Task Completion
-
-| Task | Status     | Notes   |
-| ---- | ---------- | ------- |
-| T1   | ✅ Done    | -       |
-| T2   | ✅ Done    | -       |
-| T3   | ⚠️ Partial | [Issue] |
-
----
-
-## Spec-Anchored Acceptance Criteria
-
-| Criterion (WHEN X THEN Y) | Spec-defined outcome | `file:line` + assertion | Result |
-| ------------------------- | -------------------- | ----------------------- | ------ |
-| WHEN X THEN Y             | [precise value/state from spec] | `path/to/test.ts:42` - `expect(result.field).toBe(expected)` | ✅ PASS |
-| WHEN A THEN B             | [expected value]     | `path/to/test.ts:88` - `expect(res.status).toBe(400)` | ✅ PASS |
-| WHEN C THEN D             | not precisely defined in spec | - | ⚠️ Spec-precision gap |
-
-**Status**: ✅ All ACs covered / ❌ Gaps present / ⚠️ Spec-precision gaps flagged
-
----
-
-## Discrimination Sensor
-
-| Mutation | File:line | Description | Killed? |
-| -------- | --------- | ----------- | ------- |
-| 1        | `src/service.ts:42` | Flipped condition `x > 0` → `x >= 0` | ✅ Killed |
-| 2        | `src/service.ts:88` | Changed return value `status: 'active'` → `status: 'inactive'` | ✅ Killed |
-| 3        | `src/handler.ts:15` | Removed side-effect call to `notify()` | ❌ Survived → fix task created |
-
-**Sensor depth**: [lightweight / P0-full]
-**Result**: [N/N killed] - [PASS ✅ | FAIL ❌]
-
----
-
-## Interactive UAT Results (if performed)
-
-| #   | Test        | Result   | Details                                         |
-| --- | ----------- | -------- | ----------------------------------------------- |
-| 1   | [Test name] | ✅ Pass  | -                                               |
-| 2   | [Test name] | ❌ Issue | [Verbatim user response] - Severity: [inferred] |
-| 3   | [Test name] | ⏭️ Skip  | [Reason]                                        |
-
----
-
-## Code Quality
-
-| Principle        | Status |
-| ---------------- | ------ |
-| Minimum code     | ✅     |
-| Surgical changes | ✅     |
-| No scope creep   | ✅     |
-| Matches patterns | ✅     |
-| Spec-anchored outcome check (asserted values match spec) | ✅ |
-| Per-layer Coverage Expectation met (domain 1:1 ACs; routes happy+edge+error) | ✅ |
-| Every test maps to a spec requirement - no unclaimed tests | ✅ |
-| Documented guidelines followed: [file(s) or "none - strong defaults applied"] | ✅ |
-
----
-
-## Edge Cases
-
-- [x] Edge case 1: Handled correctly
-- [ ] Edge case 2: NOT handled - needs fix
-
----
-
-## Gate Check
-
-- **Gate command**: [Build gate command from `tasks.md` when present, or the inline execution plan's verify command]
-- **Result**: [X] passed, [Y] failed, [Z] skipped
-- **Test count before feature**: [N]
-- **Test count after feature**: [M]
-- **Delta**: [+(M - N) new tests]
-- **Skipped tests**: [list with justification for each]
-- **Failures**: [list with details]
-
----
-
-## Fix Plans (if issues found)
-
-### Fix 1: [Issue description]
-
-- **Root cause**: [What's actually wrong]
-- **Fix task**: [Task definition]
-- **Priority**: [Blocker/Major/Minor/Cosmetic]
-
----
-
-## Requirement Traceability Update
-
-Update spec.md requirement statuses:
-
-| Requirement | Previous Status | New Status   |
-| ----------- | --------------- | ------------ |
-| [FEAT]-01   | Implementing    | ✅ Verified  |
-| [FEAT]-02   | Implementing    | ❌ Needs Fix |
-
----
-
-## Summary
-
-**Overall**: ✅ Ready | ⚠️ Issues | ❌ Not Ready
-
-**Spec-anchored check**: [N/N ACs matched spec outcome | M spec-precision gaps]
-**Sensor**: [N/N mutations killed]
-**Gate**: [X passed]
-
-**What works**: [List]
-
-**Issues found**: [Issue 1: How to fix]
-
-**Next steps**: [Action]
-```
-
----
+Write the compact chat summary and `validation[-slice].md` from `references/validation-template.md`.
 
 ## Tips
 

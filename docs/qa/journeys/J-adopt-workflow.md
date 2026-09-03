@@ -16,7 +16,10 @@
    `--skip-agents`. Otherwise `apply` the reviewed plan. Use `status` after resolution, each
    incremental apply, and one reversible managed-file drift.
 4. Confirm bundled workflow assets are discoverable, including the workflow-owned
-   `workflow-spec-driven` skill, pointer-only assisted probe, and Bun-native knowledge sources; the
+   `workflow-spec-driven` router and its five phase skills (`wspecify`, `wdesign`, `wtasks`,
+   `wimplement`, `wverify`) reachable through both `.agents/skills/` and the `.claude/skills/`
+   links, pointer-only assisted probe, and Bun-native knowledge sources; open each phase skill and
+   confirm the templates, references, and validator paths it names exist; the
    installed instructions activate Ponytail at workflow start and keep it active through the full
    cycle, the copied workflow tour omits the source-only pack guide and its links, repository-only
    TypeScript tests remain absent, all three external security skills remain absent, and adoption
@@ -39,6 +42,8 @@ the complete apply before any write; this workflow has no layer-removal command.
 ## Promises
 
 - [`ADP-adopt-workflow-safely`](../scenarios/ADP-adopt-workflow-safely.md)
+- [`ADP-install-phase-skills`](../scenarios/ADP-install-phase-skills.md)
+- [`QAS-resolve-phase-skill-procedures`](../scenarios/QAS-resolve-phase-skill-procedures.md)
 - [`ADP-layered-workflow-adoption`](../scenarios/ADP-layered-workflow-adoption.md)
 - [`ADP-resolve-legacy-adoption-conflicts`](../scenarios/ADP-resolve-legacy-adoption-conflicts.md)
 - [`ADP-separate-external-security-skills`](../scenarios/ADP-separate-external-security-skills.md)
@@ -61,3 +66,8 @@ For the configurable-workflow cycle, this journey is also the adjacent canary fo
 QA Execute on 2026-08-31 passed the legacy no-manifest ownership-transfer path and its fresh normal
 `plan`/`apply`/`status` canary at `827d629`. Durable result:
 [`2026-08-31-legacy-adoption-resolution`](../reports/2026-08-31-legacy-adoption-resolution.md).
+
+The 2026-09-03 `phase-skills` cycle resets `ADP-adopt-workflow-safely` and
+`ADP-layered-workflow-adoption` to `untested` and adds `ADP-install-phase-skills` and
+`QAS-resolve-phase-skill-procedures`; see
+[`CH-adopt-phase-skills-2026-09-03`](../charters/CH-adopt-phase-skills-2026-09-03.md).

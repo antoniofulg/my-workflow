@@ -314,6 +314,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: tools/review-metrics.py:39 (RST-02 unreadable range) (reporting)
 - last seen: 2026-09-03T03:42:42Z
 
+### L-051 - When an AC quantifies over a set, check every member: PSK-01 AC1 demanded a 'preloading agent' in each phase skill description, but wdesign is pulled on demand and has none.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `.specs/features` · harmful: 0
+- features: phase-skills
+- evidence: PSK-01 AC1 / .agents/skills/wdesign/SKILL.md:3 (.specs/features)
+- last seen: 2026-09-03T09:45:53Z
+
+### L-052 - An AC that promises a specific failure message must be tested for that message: Edge Case 3 required naming both disagreeing templates, but the assertion names only one.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `tools` · harmful: 0
+- features: phase-skills
+- evidence: Edge Case 3 / tools/test_phase_skills.py:253 (tools)
+- last seen: 2026-09-03T09:45:54Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

@@ -11,8 +11,8 @@ bug_ids: BUG-20260822-deep-review-learnings-untrackable; BUG-20260822-feature-sp
 fix_status: fixed
 retest_status: pass
 fix_commits: 0413862; a7397d2; 43e9910; a3fc718; 5b5474e; 816afd6; 9653ed1
-evidence: docs/qa/evidence/2026-08-29-hybrid-slice-execution/summary.json; docs/qa/evidence/2026-08-29-hybrid-slice-execution/commands.json
-last_report: docs/qa/reports/2026-08-29-hybrid-slice-execution.md
+evidence: docs/qa/evidence/2026-09-03-phase-skills/13-apply-core.log; docs/qa/evidence/2026-09-03-phase-skills/17-readopt.log; docs/qa/evidence/2026-09-03-phase-skills/18-consumer-after.txt; docs/qa/evidence/2026-09-03-phase-skills/53-status-quality.log
+last_report: docs/qa/reports/2026-09-03-phase-skills.md
 overlaps:
 ---
 
@@ -87,3 +87,5 @@ Sixty-five selected managed files matched source bytes, probe import made zero O
 re-adoption preserved consumer-owned config and QA profile hashes, and package plus one-ready
 serial-integration canaries passed. The closing full gate exited zero. Real Orca/Codex scenarios
 remain `blocked-verify`; this offline adoption pass does not change that boundary.
+
+The `phase-skills` feature adds five phase skill directories to the core catalog and makes `.agents/skills` a sync input in `_prepare_sync`; the set of assets a fresh target receives and re-adoption preserves has changed, so this scenario is reset to `untested` pending the 2026-09-03 cycle. Prior evidence remains historical.

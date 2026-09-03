@@ -1,6 +1,7 @@
 # my-workflow
 
 An operating system for agents. It ships the workflow-owned [`workflow-spec-driven`](.agents/skills/workflow-spec-driven/SKILL.md)
+router and its five phase skills (`wspecify`, `wdesign`, `wtasks`, `wimplement`, `wverify`)
 with a capped delivery loop, countable tests and security surfaces, and a knowledge bundle. It is
 not a product template and not a stack starter.
 
@@ -299,7 +300,8 @@ Codex and OpenCode consume `.agents`. Do not add `.cursor/skills` or other agent
 project-owned `qa-plan` and `qa-execute` skills use the consuming project's profile in
 `docs/qa/README.md`; they do not select a framework or replace the project's gate.
 
-`adopt.py` installs and updates only the workflow-owned `workflow-spec-driven`, Ponytail, Deep
+`adopt.py` installs and updates only the workflow-owned `workflow-spec-driven` router, its five
+phase skills (`wspecify`, `wdesign`, `wtasks`, `wimplement`, `wverify`), Ponytail, Deep
 Review, QA, workflow-config, and autonomous skills. Keep those canonical copies in
 `.agents/skills/` and the Claude Code
 symlinks in `.claude/skills/`. The three external security skills are a separate authorized step:

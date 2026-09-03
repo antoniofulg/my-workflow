@@ -1,3 +1,8 @@
+---
+name: wdesign
+description: "Design phase - define HOW to build a specified feature: architecture, components, interfaces, data models, reuse, and risks. Pulled on demand by the planner agent; enter with /wdesign."
+---
+
 # Design
 
 **Goal**: Define HOW to build it. Architecture, components, what to reuse.
@@ -17,13 +22,13 @@ Read `.specs/features/[feature]/spec.md` before designing. If `.specs/features/[
 
 Silently ignoring an active decision is not an option - it creates invisible inconsistency across features.
 
-**Also load confirmed lessons** relevant to this feature: `python3 <skill-dir>/scripts/lessons.py list --status confirmed` (filter with `--scope`/`--query`). These are past verification failures distilled into guidance - apply them while designing. Load only `confirmed`. Skip silently if no store or no code tool. See [lessons.md](lessons.md).
+**Also load confirmed lessons** relevant to this feature: `python3 .agents/skills/workflow-spec-driven/scripts/lessons.py list --status confirmed` (filter with `--scope`/`--query`). These are past verification failures distilled into guidance - apply them while designing. Load only `confirmed`. Skip silently if no store or no code tool. See [lessons.md](.agents/skills/workflow-spec-driven/references/lessons.md).
 
 ### 1.5. Research (Optional but Recommended)
 
 If the feature involves unfamiliar technology, patterns, or integrations, research before designing. Document findings briefly in the design doc or as inline notes. This prevents incorrect assumptions from propagating into tasks.
 
-Follow the **Knowledge Verification Chain** in SKILL.md; its last step, flagging uncertainty, is the answer when the chain finds nothing.
+Follow the **Knowledge Verification Chain** in the `workflow-spec-driven` router SKILL.md; its last step, flagging uncertainty, is the answer when the chain finds nothing.
 
 Good triggers for research: new libraries, unfamiliar APIs, performance-sensitive features, security-sensitive features, patterns you haven't used in this codebase before.
 
@@ -57,129 +62,11 @@ Each component: Purpose, Location, Interfaces, Dependencies, What it reuses.
 
 If the feature involves data, define models before implementation.
 
----
+**Loading ceiling:** load the smallest set that answers the current step; never two architecture docs at once.
 
-## Template: `.specs/features/[feature]/design.md`
+## Template
 
-````markdown
-# [Feature] Design
-
-**Spec**: `.specs/features/[feature]/spec.md`
-**Status**: Draft | Approved
-
----
-
-## Architecture Overview
-
-[Brief description of the architecture approach]
-
-```mermaid
-graph TD
-    A[User Action] --> B[Component A]
-    B --> C[Service Layer]
-    C --> D[Data Store]
-    B --> E[Component B]
-```
-````
-
----
-
-## Code Reuse Analysis
-
-### Existing Components to Leverage
-
-| Component            | Location            | How to Use                |
-| -------------------- | ------------------- | ------------------------- |
-| [Existing Component] | `src/path/to/file`  | [Extend/Import/Reference] |
-| [Existing Utility]   | `src/utils/file`    | [How it helps]            |
-| [Existing Pattern]   | `src/patterns/file` | [Apply same pattern]      |
-
-### Integration Points
-
-| System         | Integration Method                      |
-| -------------- | --------------------------------------- |
-| [Existing API] | [How new feature connects]              |
-| [Database]     | [How data connects to existing schemas] |
-
----
-
-## Components
-
-### [Component Name]
-
-- **Purpose**: [What this component does - one sentence]
-- **Location**: `src/path/to/component/`
-- **Interfaces**:
-  - `methodName(param: Type): ReturnType` - [description]
-  - `methodName(param: Type): ReturnType` - [description]
-- **Dependencies**: [What it needs to function]
-- **Reuses**: [Existing code this builds upon]
-
-### [Component Name]
-
-- **Purpose**: [What this component does]
-- **Location**: `src/path/to/component/`
-- **Interfaces**:
-  - `methodName(param: Type): ReturnType`
-- **Dependencies**: [Dependencies]
-- **Reuses**: [Existing code]
-
----
-
-## Data Models (if applicable)
-
-### [Model Name]
-
-```typescript
-interface ModelName {
-  id: string
-  field1: string
-  field2: number
-  createdAt: Date
-}
-```
-
-**Relationships**: [How this relates to other models]
-
-### [Model Name]
-
-```typescript
-interface AnotherModel {
-  id: string
-  // ...
-}
-```
-
----
-
-## Error Handling Strategy
-
-| Error Scenario | Handling      | User Impact      |
-| -------------- | ------------- | ---------------- |
-| [Scenario 1]   | [How handled] | [What user sees] |
-| [Scenario 2]   | [How handled] | [What user sees] |
-
----
-
-## Risks & Concerns
-
-| Concern | Location (file:line) | Impact | Mitigation |
-| ------- | -------------------- | ------ | ---------- |
-| [Fragile code / tech debt / security / perf / test gap] | `src/path/file.ts:42` | [What breaks or degrades] | [How the design or a follow-up task addresses it] |
-
-> None found - is a valid entry.
-
----
-
-## Tech Decisions (only non-obvious ones)
-
-| Decision          | Choice          | Rationale     |
-| ----------------- | --------------- | ------------- |
-| [What we decided] | [What we chose] | [Why - brief] |
-
-> **Project-level decisions:** If a decision here sets a convention, pattern, or constraint that future features must follow, append it to `.specs/STATE.md` `## Decisions` as the next `AD-NNN` entry (see [memory.md](memory.md)). Feature-local decisions stay only in this table.
-
----
+Write `.specs/features/[feature]/design.md` from `references/design-template.md`.
 
 ## Tips
 

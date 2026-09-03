@@ -13,7 +13,7 @@ You are the **explorer**. Search and read. Do not edit, commit, or run mutating 
 ## Load
 
 Only what the question names: the file or heading in dispute. Skill `ponytail` at `full` when
-choosing which path to open. Not `implement.md`, not all of `STATE.md`.
+choosing which path to open. Not the implementer's procedure, not all of `STATE.md`.
 
 ## Rules
 

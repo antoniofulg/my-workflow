@@ -7,12 +7,12 @@ journey: J-review-workflow-release
 expected: The newest changelog release matches the package manifest, while Bun 1.4's lockfile identifies the root package and dependency graph; the documented install, knowledge, full-gate, frozen-lockfile, and package commands expose the current source pack without checkout residue.
 entry_points: CHANGELOG.md; README.md; package.json; bun.lock; bunfig.toml
 qa_status: pass
-bug_ids: BUG-20260824-release-overstates-lifecycle-qa; BUG-20260825-adoption-omits-parallel-pilot; BUG-20260829-bun-history-gate-rejects-new-qa-charters
+bug_ids: BUG-20260824-release-overstates-lifecycle-qa; BUG-20260825-adoption-omits-parallel-pilot; BUG-20260829-bun-history-gate-rejects-new-qa-charters; BUG-20260903-history-gate-forbids-resetting-baseline-scenarios
 fix_status: fixed
 retest_status: pass
-fix_commits: 61f2e74; 816afd6; fb4c61f
-evidence: docs/qa/evidence/2026-08-31-release-0-8-0/opening-gate.txt; docs/qa/evidence/2026-08-31-release-0-8-0/release-readback.txt; docs/qa/evidence/2026-08-31-release-0-8-0/package-dry-run.txt; docs/qa/evidence/2026-08-31-release-0-8-0/summary.json; docs/qa/evidence/2026-08-31-release-0-8-0/commands.json; docs/qa/evidence/2026-08-31-release-0-8-0/post-walk-residue.txt
-last_report: docs/qa/reports/2026-08-31-release-0-8-0.md
+fix_commits: 61f2e74; 816afd6; fb4c61f; 50ca157b
+evidence: docs/qa/evidence/2026-09-03-phase-skills/71-rel-readback.txt; docs/qa/evidence/2026-09-03-phase-skills/72-pack-dry-run.txt; docs/qa/evidence/2026-09-03-phase-skills/80-history-gate-retest.txt
+last_report: docs/qa/reports/2026-09-03-phase-skills.md
 overlaps:
 ---
 
@@ -80,3 +80,9 @@ Fresh QA on 2026-08-24 retested fix `61f2e74`. Release identity, bounded evidenc
 package dry-run contents, disposable adoption/re-adoption, lifecycle documentation and hook-only
 dry-run, reviewer-isolation pointers, and final gates passed. The original defect remains linked as
 fixed history; see `docs/qa/reports/2026-08-24-release-0-4-0.md`.
+
+The 2026-09-03 `phase-skills` QA Plan registered
+`BUG-20260903-history-gate-forbids-resetting-baseline-scenarios`: the documented full gate rejects
+the scenario resets that `docs/guidelines/QA-SCENARIOS.md` requires, so the source pack a reader
+installs currently cannot run a compliant QA cycle. Reset to `untested` pending the 2026-09-03
+cycle; prior evidence remains historical.

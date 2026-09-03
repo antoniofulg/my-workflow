@@ -99,17 +99,13 @@ const historicalAuthorityAllowlist = [
   /^docs\/qa\/scenarios\/(?!REL-report-current-workflow-release\.md$)/,
 ] as const;
 
-const historicalQaArtifactAllowlist = [
-  /^docs\/qa\/(?:evidence|reports|charters|bugs)\//,
-  /^docs\/qa\/scenarios\/(?!REL-report-current-workflow-release\.md$)/,
-] as const;
-
-const historicalQaRoots = [
+// Scenarios are exempt from the command-authority scan but stay editable: QA-SCENARIOS.md
+// requires resetting an affected scenario to `untested`, so they are never frozen history.
+const frozenQaRoots = [
   "docs/qa/evidence",
   "docs/qa/reports",
   "docs/qa/charters",
   "docs/qa/bugs",
-  "docs/qa/scenarios",
 ] as const;
 
 function trackedRepositoryPaths(): string[] {
@@ -130,8 +126,8 @@ function isHistoricalAuthority(relativePath: string): boolean {
   return historicalAuthorityAllowlist.some((pattern) => pattern.test(relativePath));
 }
 
-function isHistoricalQaArtifact(relativePath: string): boolean {
-  return historicalQaArtifactAllowlist.some((pattern) => pattern.test(relativePath));
+function isFrozenQaArtifact(relativePath: string): boolean {
+  return frozenQaRoots.some((root) => isUnderRoot(relativePath, root));
 }
 
 function isTestSource(relativePath: string): boolean {
@@ -193,7 +189,7 @@ function changedHistoricalQaArtifacts(
   const baselinePaths = new Set(
     execFileSync(
       "git",
-      ["ls-tree", "-r", "--name-only", sourceRef, "--", ...historicalQaRoots],
+      ["ls-tree", "-r", "--name-only", sourceRef, "--", ...frozenQaRoots],
       gitOptions,
     )
       .trim()
@@ -202,21 +198,21 @@ function changedHistoricalQaArtifacts(
   );
   const committed = execFileSync(
     "git",
-    ["diff", "--name-only", `${sourceRef}...HEAD`, "--", ...historicalQaRoots],
+    ["diff", "--name-only", `${sourceRef}...HEAD`, "--", ...frozenQaRoots],
     gitOptions,
   );
   const working = execFileSync(
     "git",
-    ["diff", "--name-only", "HEAD", "--", ...historicalQaRoots],
+    ["diff", "--name-only", "HEAD", "--", ...frozenQaRoots],
     gitOptions,
   );
   const staged = execFileSync(
     "git",
-    ["diff", "--cached", "--name-only", "--", ...historicalQaRoots],
+    ["diff", "--cached", "--name-only", "--", ...frozenQaRoots],
     gitOptions,
   );
   return [...new Set(`${committed}${working}${staged}`.split(/\r?\n/).filter(Boolean))]
-    .filter(isHistoricalQaArtifact)
+    .filter(isFrozenQaArtifact)
     .filter((relativePath) => baselinePaths.has(relativePath))
     .sort();
 }
@@ -282,8 +278,8 @@ describe("QA workflow artifact policy", () => {
     const agents = readRepositoryFile("AGENTS.md");
     const loop = readRepositoryFile("docs/workflow/loop.md");
     const specDriven = readRepositoryFile(".agents/skills/workflow-spec-driven/SKILL.md");
-    const implementer = readRepositoryFile(".agents/skills/workflow-spec-driven/references/implement.md");
-    const validator = readRepositoryFile(".agents/skills/workflow-spec-driven/references/validate.md");
+    const implementer = readRepositoryFile(".agents/skills/wimplement/SKILL.md");
+    const validator = readRepositoryFile(".agents/skills/wverify/SKILL.md");
     const memory = readRepositoryFile(".agents/skills/workflow-spec-driven/references/memory.md");
     const providerPackets = [
       readRepositoryFile("templates/agents/cursor/implementer.md"),
@@ -359,14 +355,17 @@ describe("canonical QA skills", () => {
   it("UT-001 installs one attributed slice-native workflow authority", () => {
     const skill = readRepositoryFile(".agents/skills/workflow-spec-driven/SKILL.md");
     const notice = readRepositoryFile(".agents/skills/workflow-spec-driven/NOTICE.md");
-    const validator = readRepositoryFile(".agents/skills/workflow-spec-driven/references/validate.md");
-    const tasksReference = readRepositoryFile(".agents/skills/workflow-spec-driven/references/tasks.md");
+    const validator = readRepositoryFile(".agents/skills/wverify/SKILL.md");
+    const tasksReference = [
+      readRepositoryFile(".agents/skills/wtasks/SKILL.md"),
+      readRepositoryFile(".agents/skills/wtasks/references/tasks-template.md"),
+    ].join("\n");
     const activeContract = [
       skill,
       notice,
       readRepositoryFile(".agents/skills/workflow-spec-driven/references/sub-agents.md"),
       tasksReference,
-      readRepositoryFile(".agents/skills/workflow-spec-driven/references/implement.md"),
+      readRepositoryFile(".agents/skills/wimplement/SKILL.md"),
     ].join("\n");
 
     expect(skillMetadata(".agents/skills/workflow-spec-driven/SKILL.md").name).toBe(
@@ -475,10 +474,9 @@ describe("canonical QA skills", () => {
     expect(reviewRounds).not.toMatch(/one global (?:remediation|blocker) counter/i);
 
     for (const relativePath of [
-      ".agents/skills/workflow-spec-driven/SKILL.md",
-      ".agents/skills/workflow-spec-driven/references/validate.md",
+      ".agents/skills/wverify/SKILL.md",
       ".agents/skills/workflow-spec-driven/references/sub-agents.md",
-      ".agents/skills/workflow-spec-driven/references/implement.md",
+      ".agents/skills/wimplement/SKILL.md",
       ".agents/skills/autonomous/SKILL.md",
       "docs/workflow/reviews.md",
       "docs/workflow/README.md",
@@ -488,7 +486,11 @@ describe("canonical QA skills", () => {
       expect(source).toContain("REVIEW-ROUNDS.md");
       expect(source).toContain("fingerprint");
     }
-    expect(readRepositoryFile(".agents/skills/workflow-spec-driven/references/validate.md")).toContain(
+    // The router no longer restates the loop; it routes to the phase skills that own it.
+    const router = readRepositoryFile(".agents/skills/workflow-spec-driven/SKILL.md");
+    expect(router).toContain("wimplement");
+    expect(router).toContain("wverify");
+    expect(readRepositoryFile(".agents/skills/wverify/SKILL.md")).toContain(
       "diagnostic cap is per issue and separate from review-remediation fingerprint accounting",
     );
     const convergence = readRepositoryFile(".agents/skills/workflow-spec-driven/scripts/review_convergence.py");
@@ -1130,6 +1132,7 @@ describe("Bun tooling runtime contract", () => {
       "tools/test_parallel_executor.py",
       "tools/test_parallel_plan.py",
       "tools/test_parallel_resource_lock.py",
+      "tools/test_phase_skills.py",
       "tools/test_qa_parallel_pilot.py",
       "tools/test_remediation.py",
       "tools/test_review_convergence.py",
@@ -1231,9 +1234,20 @@ describe("Bun tooling runtime contract", () => {
     try {
       execFileSync("git", ["init", "--quiet", "--initial-branch=main"], { cwd: root });
       mkdirSync(join(root, "docs/qa/reports"), { recursive: true });
+      mkdirSync(join(root, "docs/qa/scenarios"), { recursive: true });
       writeFileSync(join(root, "docs/qa/reports/historical.md"), "original\n", "utf8");
+      writeFileSync(
+        join(root, "docs/qa/scenarios/ADP-baseline.md"),
+        "qa_status: pass\n",
+        "utf8",
+      );
       const baseline = commitFixture(root, "baseline");
       writeFileSync(join(root, "docs/qa/reports/historical.md"), "changed\n", "utf8");
+      writeFileSync(
+        join(root, "docs/qa/scenarios/ADP-baseline.md"),
+        "qa_status: untested\n",
+        "utf8",
+      );
       mkdirSync(join(root, "docs/qa/charters"), { recursive: true });
       writeFileSync(join(root, "docs/qa/charters/current-cycle.md"), "new charter\n", "utf8");
       commitFixture(root, "historical change");

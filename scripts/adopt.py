@@ -38,6 +38,8 @@ CORE_PATHS = (
     "docs/guidelines", *WORKFLOW_DOCS, "knowledge/AGENTS.md", "knowledge/raw/README.md",
     "knowledge/wiki", "tools/knowledge/src", "tools/shared/src/frontmatter.ts",
     ".agents/skills/workflow-spec-driven", ".agents/skills/ponytail", ".agents/skills/workflow-config",
+    ".agents/skills/wspecify", ".agents/skills/wdesign", ".agents/skills/wtasks",
+    ".agents/skills/wimplement", ".agents/skills/wverify",
     "templates/adoption/agents",
 )
 CORE_MISSING_PATHS = ("tools/ad-index.py", ".my-workflow.toml.example", "templates/agents")
@@ -445,7 +447,7 @@ def _prepare_sync(source_root: Path, root: Path, staged: dict[str, bytes]) -> di
         return {}
     with tempfile.TemporaryDirectory(prefix="my-workflow-sync-") as name:
         scratch = Path(name)
-        for relative in ("templates/agents",):
+        for relative in ("templates/agents", ".agents/skills"):
             source = root / relative
             if source.exists() or source.is_symlink():
                 _preflight_tree(root, relative, "sync input")

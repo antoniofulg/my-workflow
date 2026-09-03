@@ -1,0 +1,178 @@
+---
+name: wtasks
+description: Tasks phase - break an approved design into granular atomic tasks with dependencies, a test coverage matrix, gate commands, and an execution plan. Preloaded by the planner agent; enter with /wtasks.
+---
+
+# Tasks
+
+**Goal**: Break into granular, atomic tasks. Clear dependencies. Right tools. Dependency-ordered execution plan.
+
+**Skip this phase when:** There are ≤3 obvious steps. In that case, tasks are implicit - go straight to Execute and list them inline in your implementation plan.
+
+## Why Granular Tasks?
+
+| Vague Task (BAD) | Granular Tasks (GOOD)             |
+| ---------------- | --------------------------------- |
+| "Create form"    | T1: Create email input component  |
+|                  | T2: Add email validation function |
+|                  | T3: Create submit button          |
+|                  | T4: Add form state management     |
+|                  | T5: Connect form to API           |
+| "Implement auth" | T1: Create login form             |
+|                  | T2: Create register form          |
+|                  | T3: Add token storage utility     |
+|                  | T4: Create auth API service       |
+|                  | T5: Add route protection          |
+
+**Benefits of granular:**
+
+- **Agents don't err** - Single focus, no ambiguity
+- **Easy to test** - Each task = one verifiable outcome
+- **Clean commits** - Each task = one atomic, revertable commit
+- **Errors isolated** - One failure doesn't block everything
+
+**Rule**: One task = ONE of these:
+
+- One component
+- One function
+- One API endpoint
+- One file change
+
+---
+
+## Process
+
+### 1. Review Design
+
+Read `.specs/features/[feature]/design.md` before creating tasks.
+
+### 1.5. Generate the Test Coverage Matrix
+
+This step runs for every `tasks.md`; there is no precondition. Decide which of two paths to take, then generate the three sections below.
+
+**Step 0 - Read project quality/testing guidelines first.**
+
+Before sampling tests or inferring anything, scan the project for documented quality and testing standards. Stack-agnostic sources to check (illustrative, not exhaustive):
+
+- Agent/AI convention files, if the repo has any: `AGENTS.md` (the vendor-neutral standard) and any tool-specific rules file or rules directory the project happens to use
+- Contributor guides: `CONTRIBUTING.md`, `docs/` (testing, quality, or standards subdocs), README testing section
+- Tool configuration: coverage thresholds in the test runner config (e.g., `jest.config.*`, `vitest.config.*`, `pytest.ini`, `.nycrc`, `Makefile` coverage targets, CI coverage gates)
+
+**If guidelines are found:** the Coverage Expectation (see matrix below) conforms to them. Existing test samples fill gaps in style/location/framework only. Cite the specific files found in the matrix provenance note.
+
+**If no guidelines are found:** apply the strong default - cover every spec AC and every listed edge case; domain/business logic maps 1:1 to spec ACs; routes/e2e cover happy + edge + error paths. This default may exceed the current repo's depth, which is intentional.
+
+**Decision:**
+
+- **Existing tests in the repo** → infer the matrix and gate commands by sampling the codebase.
+- **No tests at all** → ask the user: "What test types will this project use (unit / integration / e2e / none)? What commands run them?"
+
+**How to infer (path 1 - existing tests):**
+
+1. **Sample test files.** Locate 5-10 existing test files. Map each file's location relative to its source file to identify which code layers are exercised and at what level (unit, integration, e2e). Use these samples for style, location patterns, framework, and test type - and as a **floor** (never produce tests less thorough than existing ones for the same layer). Existing tests are not a ceiling on thoroughness; the thoroughness target comes from the spec ACs, listed edge cases, and guidelines (or strong default). The Coverage Expectation column captures the target per layer.
+2. **Discover commands from the repo.** Do not invent commands or assume an ecosystem. Read the project's own build/task manifests, test config, and CI workflows to extract the actual commands - for example: `package.json` / `project.json` (JS/TS), `Makefile`, `pyproject.toml` / `tox.ini` / `pytest` (Python), `Cargo.toml` (Rust), `go test` invocations (Go), `pom.xml` / `build.gradle` (Java/Kotlin), `Gemfile` / `Rakefile` (Ruby), `composer.json` (PHP), `.github/workflows` / `.gitlab-ci.yml`. The list is illustrative; detect what this repo actually uses. Capture the **linter/formatter** command too (e.g. the configured `lint`/`format`/`typecheck` script, or a `.pre-commit-config`, `.golangci.yml`, `ruff`/`eslint`/`biome` config) - the Build gate runs it alongside the tests.
+
+**Output contract - render these two sections verbatim into `tasks.md`** (the exact headings downstream phases reference):
+
+---
+
+## Test Coverage Matrix
+
+> Generated from codebase, project guidelines, and spec - confirm before Execute. Guidelines found: [list files, e.g. `AGENTS.md`, `jest.config.ts` - or "none - strong defaults applied"].
+
+| Code Layer | Required Test Type | Coverage Expectation | Location Pattern | Run Command |
+| ---------- | ------------------ | -------------------- | ---------------- | ----------- |
+| [layer] | [unit/integration/e2e/none] | [depth target for this layer] | [glob or path pattern] | [command] |
+
+**Coverage Expectation values** - set from guidelines first; use strong defaults when no guideline applies:
+
+| Layer type | Strong default (no guideline) |
+| ---------- | ----------------------------- |
+| Domain / business-logic (service, use-case, domain model) | All branches; 1:1 to spec ACs; every listed edge case has a test |
+| Route / controller / e2e / integration | All routes in scope: happy path + every listed edge case + error/failure paths |
+| Repository / data-access | Key query paths + error handling; infer from existing repo tests |
+| Entity / config / schema | none - build gate only |
+
+These defaults may exceed the current repo's depth. That is intentional - they are a **target**, not a reflection of what already exists.
+
+*Example (filled in):*
+
+| Code Layer | Required Test Type | Coverage Expectation | Location Pattern | Run Command |
+| ---------- | ------------------ | -------------------- | ---------------- | ----------- |
+| Service | unit | All branches; 1:1 to spec ACs; all listed edge cases | `src/**/__test__/*.spec.ts` | `yarn test:unit` |
+| Repository | integration | Key query paths + error paths | `src/**/__test__/*.e2e-spec.ts` | `yarn test:e2e` |
+| Controller/Resolver | e2e | All routes: happy + edge + error | `src/**/__test__/*.e2e-spec.ts` | `yarn test:e2e` |
+| Entity / Config | none | - (build gate only) | - | build gate only |
+
+## Gate Check Commands
+
+> Generated from codebase - confirm before Execute.
+
+| Gate Level | When to Use | Command |
+| ---------- | ----------- | ------- |
+| Quick | After tasks with unit tests only | [unit test command] |
+| Full | After tasks with e2e/integration tests | [unit + e2e commands] |
+| Build | After phase completion or config/entity-only tasks | [build + lint + all tests] |
+
+---
+
+**Co-located tests:** Every task that creates or modifies a code layer with a required test type includes writing/updating those tests in the same task. Tests are not separate tasks. The tests must satisfy the layer's **Coverage Expectation** from the matrix - not merely exist.
+
+| Task creates...                           | Done When must include...                                                                                          |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Code layer with "unit" requirement        | Unit tests written satisfying the layer's Coverage Expectation (e.g., 1:1 AC mapping for domain logic; all listed edge cases covered) + quick gate passes |
+| Code layer with "e2e" requirement         | E2E tests written satisfying the layer's Coverage Expectation (e.g., every route the task adds: happy path + edge + error paths) + full gate passes |
+| Code layer with "integration" requirement | Integration tests written satisfying the layer's Coverage Expectation + full gate passes                           |
+| Code layer with "none" requirement        | Gate check at appropriate level                                                                                    |
+
+### 2. Break Into Atomic Tasks
+
+**Task = ONE deliverable**. Examples:
+
+- ✅ "Create UserService interface" (one file, one concept)
+- ❌ "Implement user management" (too vague, multiple files)
+
+### 3. Define Dependencies
+
+What must be done before this task can start?
+
+### 4. Create Execution Plan
+
+Group tasks by dependency and cohesion labels. Dependencies determine order; compatible slices
+may be dispatched together by the coordinator, while tasks within each slice remain sequential.
+
+### 5. Validate Before Presenting
+
+Before showing tasks to the user, run the three pre-approval checks below; they are gates. If any check fails, restructure the tasks and re-run until all pass.
+
+**Deterministic backing (run it, do not eyeball it).** `python3 .agents/skills/workflow-spec-driven/scripts/validate_tasks.py <tasks-path-or-feature>` enforces the structural half of these checks so they cannot drift: it flags a `Where` that names multiple files (granularity smell, Check 1), a diagram edge with no matching `Depends on` within a phase and vice-versa (Check 2), a task missing its `Tests` or `Gate` field, a `Tests: none` to confirm against the matrix (Check 3), and any dependency pointing to a later phase. A non-zero exit means restructure before presenting. The script checks structure; you still build the two tables below (the layer-to-test co-location judgment is yours). If no code-execution tool is available, run the checks by reading `tasks.md`.
+
+**Check 1: Task Granularity** - verify each task is atomic (see the Task Granularity Check section of `references/tasks-template.md`).
+
+**Check 2: Diagram-Definition Cross-Check** - verify the execution diagram matches every task's `Depends on` field (see the Diagram-Definition Cross-Check section of `references/tasks-template.md`). Build the cross-check table and include it in the output.
+
+**Check 3: Test Co-location Validation** - verify every task's `Tests` field matches the **Test Coverage Matrix** generated above (see the Test Co-location Validation section of `references/tasks-template.md`). Build the validation table and include it in the output.
+
+**Output both tables with the tasks** so the user can see the validation results. Any ❌ means restructure before presenting; failing tasks are not shown for approval.
+
+**Note on the generated matrix:** The two sections (`Test Coverage Matrix`, `Gate Check Commands`) are provisional - generated from codebase sampling or user input and included in this file for user confirmation as part of task approval. They become authoritative once the user approves the tasks.
+
+**Loading ceiling:** load the smallest set that answers the current step; never two feature specs at once.
+
+## Template
+
+Write `.specs/features/[feature]/tasks.md` from `references/tasks-template.md`, including the
+Dependency Execution Map, Task Granularity Check, Diagram-Definition Cross-Check, and Test
+Co-location Validation tables the checks above require.
+
+## Tips
+
+- **Dependencies are gates** - Each task waits only for its declared prerequisites; independent slices can run together
+- **Done when = Testable** - If you can't verify it, rewrite it
+- **Requirement ID = Traceable** - Every task traces back to a spec requirement
+
+---
+
+## Task Verification Standards
+
+Every task carries the `Done when` + `Tests` + `Gate` fields defined in the **Task Breakdown** template above. Each `Done when` entry must be specific, testable (binary pass/fail), and reference the gate check command from the `Gate Check Commands` section. Include the expected test count to prevent silent deletions.

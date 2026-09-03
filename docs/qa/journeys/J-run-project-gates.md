@@ -36,7 +36,7 @@ unchanged, and keep the cache from ever standing between the operator and a real
 5. Run the same command under a different `--gate` label, then the original label with a different
    command. Each must advance the counter and write its own record under its own fingerprint.
 6. Read `docs/guidelines/GATES.md`, `.agents/skills/autonomous/SKILL.md`,
-   `.agents/skills/workflow-spec-driven/references/implement.md` and `.agents/skills/qa-execute/SKILL.md`
+   `.agents/skills/wimplement/SKILL.md` and `.agents/skills/qa-execute/SKILL.md`
    in the repository. Confirm each names the cached invocation an operator is told to run, and that
    `autonomous` admits a passing record only when gate scope **and** fingerprint match the claimed
    tree.
