@@ -3,11 +3,13 @@
 ## Handoff
 
 - **Feature**: `phase-skills` (branch `feat/phase-skills`, roadmap slice 1 of `docs/workflow/roadmap.md`)
-- **Phase / Task**: S2 remediation verification (9693e1e hollow-skill test, b9d34e2 T12 preloadable skills); S1 and S2 verified PASS
-- **Completed**: planning; S1 dcb03b2..85dd338; S2 215a50c..e8b9e50; live probe confirms implementer preloads `wimplement` + `ponytail` with no Skill tool
+- **Phase / Task**: complete; awaiting human go-ahead to push and open the pull request
+- **Completed**: S1, S2, T12 remediation; deep review rounds 1 (FIX_BEFORE_SHIP) and 2 (SHIP); QA plan and QA execute 10/10 pass; feature `validation.md` PASS, sensor 10/10; `validate_state.py` exit 0; `bun run test:all` exit 0 at load 17
 - **In-progress** (file:line): none
-- **Next step**: fresh verifier on 3644d4e..b9d34e2; then deep review group [S1,S2]; QA plan packet; rerun `bun run test:python` when load < 20 (test_parallel_resource_lock flaked at load 40)
-- **Blockers**: Live Orca transport stays `blocked-verify`
+- **Next step**: push `feat/phase-skills`, open one PR to `main`; merge commit carries
+  `Review-Signal: tier=large slices=2 verified=2 sensor=29/31 rounds=2 findings=7 fixed=7 dismissed=0`.
+  Then roadmap slice 2 (`/w*` fork entry points, `wreview`, `wqa`).
+- **Blockers**: none for this feature. Live Orca transport stays `blocked-verify`
   (`BUG-20260827-orca-terminal-send-truncates-claude-worker-packet`).
 
 ## Decisions

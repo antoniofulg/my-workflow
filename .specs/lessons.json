@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 51,
+  "next_id": 53,
   "lessons": [
     {
       "id": "L-001",
@@ -906,6 +906,42 @@
       ],
       "created": "2026-09-03T03:42:42Z",
       "last_seen": "2026-09-03T03:42:42Z"
+    },
+    {
+      "id": "L-051",
+      "key": "spec_precision_gap::when an ac quantifies over a set check every member psk 01 ac1 demanded a preloading agent in each phase skill description but wdesign is pulled on demand and has none",
+      "text": "When an AC quantifies over a set, check every member: PSK-01 AC1 demanded a 'preloading agent' in each phase skill description, but wdesign is pulled on demand and has none.",
+      "signal": "spec_precision_gap",
+      "scope": ".specs/features",
+      "status": "candidate",
+      "features": [
+        "phase-skills"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "PSK-01 AC1 / .agents/skills/wdesign/SKILL.md:3 (.specs/features)"
+      ],
+      "created": "2026-09-03T09:45:53Z",
+      "last_seen": "2026-09-03T09:45:53Z"
+    },
+    {
+      "id": "L-052",
+      "key": "spec_precision_gap::an ac that promises a specific failure message must be tested for that message edge case 3 required naming both disagreeing templates but the assertion names only one",
+      "text": "An AC that promises a specific failure message must be tested for that message: Edge Case 3 required naming both disagreeing templates, but the assertion names only one.",
+      "signal": "spec_precision_gap",
+      "scope": "tools",
+      "status": "candidate",
+      "features": [
+        "phase-skills"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "Edge Case 3 / tools/test_phase_skills.py:253 (tools)"
+      ],
+      "created": "2026-09-03T09:45:54Z",
+      "last_seen": "2026-09-03T09:45:54Z"
     }
   ]
 }
