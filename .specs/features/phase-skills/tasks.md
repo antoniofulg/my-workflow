@@ -176,9 +176,9 @@ T10
 
 **Done when**:
 
-- [ ] Contract tests pass with all five in `PHASES`
-- [ ] `ls .agents/skills/workflow-spec-driven/references/` lists exactly the five shared files
-- [ ] Quick gate passes
+- [x] Contract tests pass with all five in `PHASES`
+- [x] `ls .agents/skills/workflow-spec-driven/references/` lists exactly the five shared files
+- [x] Quick gate passes
 
 **Tests**: unit (UT-001, UT-002, UT-003, UT-007, UT-008)
 **Gate**: quick

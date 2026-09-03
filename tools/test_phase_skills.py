@@ -20,7 +20,10 @@ PHASES: dict[str, tuple[tuple[str, ...], int]] = {
     "wdesign": (("design.md",), 193 + 10),
     "wtasks": (("tasks.md",), 443 + 10),
     "wimplement": (("implement.md",), 426 + 10),
+    "wverify": (("validate.md",), 339 + 10),
 }
+
+SHARED_REFERENCES = {"code-analysis.md", "coding-principles.md", "lessons.md", "memory.md", "sub-agents.md"}
 
 VALIDATOR_PREFIX = ".agents/skills/workflow-spec-driven/scripts/"
 ROUTER_REFERENCE_PREFIX = ".agents/skills/workflow-spec-driven/references/"
@@ -68,6 +71,11 @@ def test_moved_references_are_gone_and_no_phase_grew() -> None:
             assert not (ROUTER / "references" / reference).exists(), f"{reference} still in the router"
         total = sum(line_count(path) for path in phase_tree(name))
         assert total <= budget, f"{name} totals {total} lines, budget is {budget}"
+
+
+def test_router_keeps_only_the_shared_references() -> None:
+    kept = {path.name for path in (ROUTER / "references").glob("*.md")}
+    assert kept == SHARED_REFERENCES, f"router references are {sorted(kept)}"
 
 
 def test_claude_symlinks_resolve() -> None:
