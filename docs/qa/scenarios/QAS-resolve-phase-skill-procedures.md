@@ -6,13 +6,13 @@ persona: Workflow adopter
 journey: J-adopt-workflow
 expected: Each of the five phase skills is invocable, carries the procedure for its phase, and every template, reference, and validator path it names exists, while the router names the phase skills and links no retired reference file.
 entry_points: .agents/skills/wspecify/SKILL.md; .agents/skills/wdesign/SKILL.md; .agents/skills/wtasks/SKILL.md; .agents/skills/wimplement/SKILL.md; .agents/skills/wverify/SKILL.md; .agents/skills/workflow-spec-driven/SKILL.md; .agents/skills/workflow-spec-driven/references/
-qa_status: untested
+qa_status: pass
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-09-03-phase-skills/20-pointer-resolution.txt; docs/qa/evidence/2026-09-03-phase-skills/22-pointer-resolution-charter.txt; docs/qa/evidence/2026-09-03-phase-skills/23-phase-frontmatter.txt
-last_report: docs/qa/reports/2026-09-03-phase-skills.md
+evidence: docs/qa/evidence/2026-09-03-w-entry-points/16-frontmatter-assert.txt; docs/qa/evidence/2026-09-03-w-entry-points/20-pointer-resolution.txt; docs/qa/evidence/2026-09-03-w-entry-points/20-pointer-fragment-note.txt
+last_report: docs/qa/reports/2026-09-03-w-entry-points.md
 overlaps: QAS-fork-w-skills; QAS-list-seven-w-entries
 ---
 

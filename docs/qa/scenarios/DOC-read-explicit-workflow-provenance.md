@@ -11,8 +11,8 @@ bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-09-03-phase-skills/70-doc-provenance.txt
-last_report: docs/qa/reports/2026-09-03-phase-skills.md
+evidence: docs/qa/evidence/2026-09-03-w-entry-points/70-doc-provenance.txt; docs/qa/evidence/2026-09-03-w-entry-points/70-doc-provenance-table.txt
+last_report: docs/qa/reports/2026-09-03-w-entry-points.md
 overlaps:
 ---
 
