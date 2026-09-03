@@ -201,8 +201,8 @@ T10
 
 **Done when**:
 
-- [ ] UT-002 (router ≤150) and UT-004 pass
-- [ ] Quick gate passes
+- [x] UT-002 (router ≤150) and UT-004 pass
+- [x] Quick gate passes
 
 **Tests**: unit (UT-002, UT-004)
 **Gate**: quick

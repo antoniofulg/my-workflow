@@ -30,6 +30,8 @@ ROUTER_REFERENCE_PREFIX = ".agents/skills/workflow-spec-driven/references/"
 
 SCRIPT_TOKEN = re.compile(r"[\w./-]*scripts/[\w-]+\.py")
 REFERENCE_TOKEN = re.compile(r"[\w./-]*references/[\w.-]+\.md")
+PHASE_REFERENCE = re.compile(r"references/(?:specify|discuss|design|tasks|implement|validate)\.md")
+FORBIDDEN_ROUTER_HEADINGS = ("## Commands", "## Context Loading Strategy", "## Coordinator-assisted")
 
 
 def frontmatter(path: Path) -> dict[str, str]:
@@ -63,6 +65,25 @@ def test_phase_skill_line_cap() -> None:
     for name in PHASES:
         count = line_count(SKILLS / name / "SKILL.md")
         assert count <= SKILL_LINE_CAP, f"{name}/SKILL.md is {count} lines, cap is {SKILL_LINE_CAP}"
+
+
+def test_router_line_cap() -> None:
+    count = line_count(ROUTER / "SKILL.md")
+    assert count <= ROUTER_LINE_CAP, f"router SKILL.md is {count} lines, cap is {ROUTER_LINE_CAP}"
+
+
+def test_router_links_skills_not_references() -> None:
+    lines = (ROUTER / "SKILL.md").read_text(encoding="utf-8").splitlines()
+    stale = PHASE_REFERENCE.search("\n".join(lines))
+    assert stale is None, f"router still links {stale.group(0) if stale else ''}"
+    for line in lines:
+        for heading in FORBIDDEN_ROUTER_HEADINGS:
+            assert not line.startswith(heading), f"router still carries {heading}"
+    start = next(index for index, line in enumerate(lines) if line.startswith("| Scope"))
+    end = next(index for index in range(start, len(lines)) if not lines[index].startswith("|"))
+    sizing = "\n".join(lines[start:end])
+    for skill in ("wspecify", "wdesign", "wtasks", "wimplement"):
+        assert skill in sizing, f"sizing table does not name {skill}"
 
 
 def test_moved_references_are_gone_and_no_phase_grew() -> None:
