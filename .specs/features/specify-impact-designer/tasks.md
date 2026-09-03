@@ -74,8 +74,8 @@ T4 → T5 → T6
 
 **Done when**:
 
-- [ ] UT-002 passes; `wc -l` ≤ 200
-- [ ] Quick gate passes
+- [x] UT-002 passes; `wc -l` ≤ 200
+- [x] Quick gate passes
 
 **Tests**: unit (UT-002, UT-003)
 **Gate**: quick

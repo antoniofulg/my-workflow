@@ -16,7 +16,7 @@ ROUTER_LINE_CAP = 150
 
 # phase skill -> (router references it replaces, total-line budget for the phase tree)
 PHASES: dict[str, tuple[tuple[str, ...], int]] = {
-    "wspecify": (("specify.md", "discuss.md"), 228 + 159 + 10),
+    "wspecify": (("specify.md", "discuss.md"), 228 + 159 + 10 + 80),
     "wdesign": (("design.md",), 193 + 10),
     "wtasks": (("tasks.md",), 443 + 10),
     "wimplement": (("implement.md",), 426 + 10),
@@ -322,6 +322,45 @@ def test_exactly_seven_user_invocable_w_skills() -> None:
             f"{name}: description {description!r} does not start with {phase_prefix} phase"
         )
         assert "Argument:" in description, f"{name}: description does not state its argument: {description!r}"
+
+
+def test_specify_carries_the_new_steps() -> None:
+    """UT-002: Specify carries Impact, uiux.md, and gap-hunt steps, reference exists, <= 200 lines."""
+    skill_path = SKILLS / "wspecify" / "SKILL.md"
+    text = skill_path.read_text(encoding="utf-8")
+    count = line_count(skill_path)
+    assert count <= SKILL_LINE_CAP, f"wspecify/SKILL.md is {count} lines, cap is {SKILL_LINE_CAP}"
+
+    impact_idx = text.find("Impact")
+    user_stories_idx = text.find("User Stories")
+    assert impact_idx != -1, "wspecify does not contain an Impact step"
+    assert user_stories_idx != -1, "wspecify does not contain User Stories"
+    assert impact_idx < user_stories_idx, "Impact step must appear before User Stories"
+
+    ac_idx = text.find("Acceptance Criteria")
+    uiux_idx = text.find("uiux.md")
+    closure_idx = text.find("Closure Gate")
+    if closure_idx == -1:
+        closure_idx = text.find("closure gate")
+    assert ac_idx != -1, "wspecify does not contain Acceptance Criteria"
+    assert uiux_idx != -1, "wspecify does not contain uiux.md step"
+    assert closure_idx != -1, "wspecify does not contain Closure Gate step"
+    assert ac_idx < uiux_idx < closure_idx, "uiux.md step must be after Acceptance Criteria and before closure gate"
+
+    assert "references/gap-hunt.md" in text, "wspecify does not cite references/gap-hunt.md"
+    assert (SKILLS / "wspecify" / "references" / "gap-hunt.md").is_file(), "references/gap-hunt.md does not exist"
+
+
+def test_spec_template_carries_impact() -> None:
+    """UT-003 (template half): spec-template carries ## Impact between Assumptions and User Stories."""
+    template_text = (SKILLS / "wspecify" / "references" / "spec-template.md").read_text(encoding="utf-8")
+    assumptions_idx = template_text.find("## Assumptions & Open Questions")
+    impact_idx = template_text.find("## Impact")
+    stories_idx = template_text.find("## User Stories")
+    assert assumptions_idx != -1, "spec-template missing Assumptions & Open Questions"
+    assert impact_idx != -1, "spec-template missing ## Impact"
+    assert stories_idx != -1, "spec-template missing ## User Stories"
+    assert assumptions_idx < impact_idx < stories_idx, "template must have ## Impact between Assumptions and User Stories"
 
 
 if __name__ == "__main__":
