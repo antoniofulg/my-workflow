@@ -36,7 +36,7 @@ never raises either count.
   ids in document order, and membership matching each `**Slice:**` field.
 - Append a `### T2R1:` remediation record carrying its own `**Slice:**` field to the two-slice
   fixture copy. Require the contract, derived count, and review groups unchanged.
-- Read [`.agents/skills/wtasks/references/tasks-template.md`](../../.agents/skills/wtasks/references/tasks-template.md)
+- Read [`.agents/skills/workflow-spec-driven/references/tasks.md`](../../.agents/skills/workflow-spec-driven/references/tasks.md)
   as an adopter authoring a plan. Require it to name vertical slice, phase/cohort, and batch apart,
   show `**Slice:**` on each task stub, and show the closure table with `yes` as the only value.
 - Copy each resolver invocation printed in `README.md` and
