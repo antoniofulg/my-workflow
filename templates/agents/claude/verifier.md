@@ -4,6 +4,7 @@ description: >-
   Fresh independent proof session for one technical, QA Plan, or QA Execute phase. Author ≠ verifier. Writes checkout-local validation.md.
 model: opus
 effort: medium
+skills: [wverify]
 ---
 
 You are the **verifier**. You did not write this code. Receive a fresh role packet,
@@ -17,7 +18,7 @@ every artifact in the active checkout.
 - Branch diff / slice commit range.
 - Tests in scope.
 - Assigned evidence named by the packet.
-- `validate.md` from skill `workflow-spec-driven`.
+- Skill `wverify`, the phase procedure.
 - `docs/guidelines/TEST-CONTRACT.md` only if a case looks hollow or uses the wrong layer.
 
 ## Do not load

@@ -249,8 +249,8 @@ T10
 
 **Done when**:
 
-- [ ] UT-005 and UT-006 pass for `templates/agents/claude/`
-- [ ] Quick gate passes
+- [x] UT-005 and UT-006 pass for `templates/agents/claude/`
+- [x] Quick gate passes
 
 **Tests**: unit (UT-005, UT-006)
 **Gate**: quick

@@ -35,6 +35,31 @@ FORBIDDEN_ROUTER_HEADINGS = ("## Commands", "## Context Loading Strategy", "## C
 
 AGENTS_LINE_CAP = 134
 
+TEMPLATES = ROOT / "templates/agents"
+TEMPLATE_ROLES = ("planner", "implementer", "verifier", "explorer", "deep-reviewer")
+# Providers whose templates UT-006 scans; grows one entry per provider task.
+SCANNED_PROVIDERS: tuple[str, ...] = ("claude",)
+
+CLAUDE_PRELOAD = {
+    "planner": ("workflow-spec-driven", "wspecify", "wtasks", "ponytail"),
+    "implementer": ("wimplement", "ponytail"),
+    "verifier": ("wverify",),
+}
+CLAUDE_NO_SKILL_TOOL = ("implementer", "explorer", "deep-reviewer")
+READ_ONLY_TOOLS = "Read, Grep, Glob, Bash"
+
+ROLE_PHASE_SKILLS = {
+    "planner": ("wspecify", "wdesign", "wtasks"),
+    "implementer": ("wimplement",),
+    "verifier": ("wverify",),
+}
+# Reference filenames a load line must never name; the first three are gone from the pack entirely.
+REFERENCE_FILENAMES = {"specify.md", "discuss.md", "design.md", "tasks.md", "implement.md", "validate.md"}
+REMOVED_REFERENCES = ("specify.md", "implement.md", "validate.md")
+LOAD_HEADINGS = ("## Load", "## Do not load")
+MD_TOKEN = re.compile(r"[\w./-]+\.md")
+SKILL_MENTION = re.compile(r"[Ss]kills?\s+`?([a-z][\w-]*)`?")
+
 
 def frontmatter(path: Path) -> dict[str, str]:
     lines = path.read_text(encoding="utf-8").splitlines()
@@ -116,16 +141,21 @@ def test_claude_symlinks_resolve() -> None:
 def test_phase_skills_cite_validator_and_template_paths_that_exist() -> None:
     for name in PHASES:
         skill = SKILLS / name
-        text = (skill / "SKILL.md").read_text(encoding="utf-8")
-        for token in SCRIPT_TOKEN.findall(text):
-            assert token.startswith(VALIDATOR_PREFIX), f"{name}: {token} is not a router validator path"
-            assert (ROOT / token).is_file(), f"{name}: {token} does not exist"
-        for token in REFERENCE_TOKEN.findall(text):
-            if token.startswith(ROUTER_REFERENCE_PREFIX):
-                assert (ROOT / token).is_file(), f"{name}: {token} does not exist"
-                continue
-            assert token.startswith("references/"), f"{name}: {token} is neither local nor a router reference"
-            assert (skill / token).is_file(), f"{name}: {token} does not resolve inside the skill"
+        entry = (skill / "SKILL.md").read_text(encoding="utf-8")
+        for reference in sorted((skill / "references").glob("*.md")):
+            token = f"references/{reference.name}"
+            assert token in entry, f"{name}/SKILL.md does not name {token}"
+        for path in phase_tree(name):
+            text = path.read_text(encoding="utf-8")
+            for token in SCRIPT_TOKEN.findall(text):
+                assert token.startswith(VALIDATOR_PREFIX), f"{path}: {token} is not a router validator path"
+                assert (ROOT / token).is_file(), f"{path}: {token} does not exist"
+            for token in REFERENCE_TOKEN.findall(text):
+                if token.startswith(ROUTER_REFERENCE_PREFIX):
+                    assert (ROOT / token).is_file(), f"{path}: {token} does not exist"
+                    continue
+                assert token.startswith("references/"), f"{path}: {token} is neither local nor a router reference"
+                assert (skill / token).is_file(), f"{path}: {token} does not resolve inside the skill"
 
 
 def test_docs_list_the_phase_skills() -> None:
@@ -137,6 +167,62 @@ def test_docs_list_the_phase_skills() -> None:
     assert "under 200 lines" in roadmap, "roadmap.md does not state the phase SKILL.md cap"
     agents = line_count(ROOT / "AGENTS.md")
     assert agents <= AGENTS_LINE_CAP, f"AGENTS.md is {agents} lines, cap is {AGENTS_LINE_CAP}"
+
+
+def template_path(provider: str, role: str) -> Path:
+    return TEMPLATES / provider / (f"{role}.toml" if provider == "codex" else f"{role}.md")
+
+
+def load_lines(text: str) -> list[str]:
+    """Lines under a `## Load` or `## Do not load` heading."""
+    lines: list[str] = []
+    inside = False
+    for line in text.splitlines():
+        if line.startswith("## "):
+            inside = line.startswith(LOAD_HEADINGS)
+            continue
+        if inside:
+            lines.append(line)
+    return lines
+
+
+def test_claude_templates_declare_preload_and_tool_scope() -> None:
+    for role in TEMPLATE_ROLES:
+        path = template_path("claude", role)
+        fields = frontmatter(path)
+        expected = CLAUDE_PRELOAD.get(role)
+        if expected is None:
+            assert "skills" not in fields, f"{role}: preloads {fields.get('skills')!r}, expected none"
+        else:
+            assert fields.get("skills") == "[" + ", ".join(expected) + "]", f"{role}: skills are {fields.get('skills')!r}"
+            for name in expected:
+                assert (SKILLS / name / "SKILL.md").is_file(), f"{role}: preloads missing skill {name}"
+        if role in CLAUDE_NO_SKILL_TOOL:
+            assert fields.get("disallowedTools") == "Skill", f"{role}: disallowedTools is {fields.get('disallowedTools')!r}"
+        else:
+            assert "disallowedTools" not in fields, f"{role}: must not set disallowedTools"
+    for role in ("explorer", "deep-reviewer"):
+        fields = frontmatter(template_path("claude", role))
+        assert fields.get("tools") == READ_ONLY_TOOLS, f"{role}: tools are {fields.get('tools')!r}"
+
+
+def test_template_load_lines_name_skills_and_existing_paths() -> None:
+    for provider in SCANNED_PROVIDERS:
+        for role in TEMPLATE_ROLES:
+            path = template_path(provider, role)
+            text = path.read_text(encoding="utf-8")
+            label = path.relative_to(ROOT).as_posix()
+            for removed in REMOVED_REFERENCES:
+                assert removed not in text, f"{label} still names the removed reference {removed}"
+            for name in ROLE_PHASE_SKILLS.get(role, ()):
+                assert name in text, f"{label} does not name its phase skill {name}"
+            for line in load_lines(text):
+                for token in MD_TOKEN.findall(line):
+                    assert token not in REFERENCE_FILENAMES, f"{label} loads reference file {token}"
+                    if "/" in token:
+                        assert (ROOT / token).exists(), f"{label} loads missing path {token}"
+                for name in SKILL_MENTION.findall(line):
+                    assert (SKILLS / name / "SKILL.md").is_file(), f"{label} loads unknown skill {name}"
 
 
 if __name__ == "__main__":

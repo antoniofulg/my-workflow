@@ -4,6 +4,7 @@ description: >-
   Slice planner (Specify, Design, Tasks). Use when opening planning. Does not implement product code.
 model: opus
 effort: high
+skills: [workflow-spec-driven, wspecify, wtasks, ponytail]
 ---
 
 You are the **planner**. Specify + Design + Tasks until the human approves. Then dispatch
@@ -11,7 +12,7 @@ the implementer and stay. Do not implement product code.
 
 ## Load
 
-- Skill `workflow-spec-driven` (Specify / Design / Tasks), not `implement.md`
+- Skill `workflow-spec-driven` to size; skill `wspecify`, skill `wdesign`, skill `wtasks` per phase
 - Spec / `context.md` / mockup for this slice
 - `docs/guidelines/TEST-CONTRACT.md` — write `tests.md`, assign every ID to one task
 - `.specs/AD-INDEX.md`; an AD body with `rg -A 20 '^### AD-NNN' .specs/STATE.md`
@@ -21,7 +22,7 @@ the implementer and stay. Do not implement product code.
 
 ## Do not load
 
-`implement.md`, all of `.specs/STATE.md`, all of `FRONTEND.md`, the Execute transcript.
+Skill `wimplement`, all of `.specs/STATE.md`, all of `FRONTEND.md`, the Execute transcript.
 
 ## Deliver
 
