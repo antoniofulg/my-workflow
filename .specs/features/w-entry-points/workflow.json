@@ -1,0 +1,52 @@
+{
+  "deep_review": {
+    "cadence": "grouped.3",
+    "groups": [
+      [
+        1
+      ]
+    ]
+  },
+  "feature": "w-entry-points",
+  "git_head": "c3a72f70fda37a1a493d4fccde76a88d7aa6948d",
+  "overrides": {
+    "explorer": "cursor",
+    "implementer": "cursor",
+    "verifier": "cursor"
+  },
+  "parallelization": {
+    "automatic_baseline": 2,
+    "automatic_ceiling": 4,
+    "max_workers": "auto",
+    "mode": "assisted",
+    "resource_provider": null
+  },
+  "profile": null,
+  "roles": {
+    "deep_reviewer": {
+      "agent_file": ".claude/agents/deep-reviewer.md",
+      "effort": "high",
+      "model": "sonnet",
+      "provider": "claude"
+    },
+    "explorer": {
+      "agent_file": ".cursor/agents/explorer.md",
+      "effort": "medium",
+      "model": "gpt-5.6-luna",
+      "provider": "cursor"
+    },
+    "implementer": {
+      "agent_file": ".cursor/agents/implementer.md",
+      "effort": "high",
+      "model": "gpt-5.6-luna",
+      "provider": "cursor"
+    },
+    "verifier": {
+      "agent_file": ".cursor/agents/verifier.md",
+      "effort": "medium",
+      "model": "cursor-grok-4.6",
+      "provider": "cursor"
+    }
+  },
+  "version": 3
+}
