@@ -36,10 +36,10 @@ def deliveries(rev_range: str) -> list[tuple[str, str]]:
         text=True,
     )
     if proc.returncode:
-        # Only a repository with no commit anywhere has no deliveries. A bad range, a
-        # repository whose refs are broken while its commits survive, or no repository
-        # at all is a usage error: refs and reflogs both come up empty only when there
-        # is genuinely nothing committed yet.
+        # A bad range, a repository whose refs are broken while its commits survive, or
+        # no repository at all is a usage error. Refs and reflogs both coming up empty
+        # means no commit is reachable anywhere: a repository with nothing committed
+        # yet, or one whose refs and reflogs were both erased, which reports zeros.
         anywhere = subprocess.run(
             ["git", "rev-list", "-n", "1", "--all", "--reflog"], capture_output=True, text=True
         )
