@@ -194,8 +194,8 @@ T4 → T5 → T6
 
 **Done when**:
 
-- [ ] UT-006 passes
-- [ ] Build gate passes
+- [x] UT-006 passes
+- [x] Build gate passes
 
 **Tests**: unit (UT-006)
 **Gate**: build

@@ -417,6 +417,19 @@ def test_designer_templates_and_preload() -> None:
     assert "wdesign" in cursor_text
 
 
+def test_agents_and_pack_name_designer() -> None:
+    """UT-006: AGENTS.md and pack.md name the designer (SID-03 AC6)."""
+    agents_path = ROOT / "AGENTS.md"
+    agents_text = agents_path.read_text(encoding="utf-8")
+    assert line_count(agents_path) <= AGENTS_LINE_CAP, f"AGENTS.md exceeds line cap {AGENTS_LINE_CAP}"
+    assert "designer" in agents_text, "AGENTS.md does not name designer"
+
+    pack_path = ROOT / "docs/workflow/pack.md"
+    pack_text = pack_path.read_text(encoding="utf-8")
+    assert "designer" in pack_text, "pack.md does not name designer"
+    assert "five windows" in pack_text, "pack.md does not state five windows"
+
+
 if __name__ == "__main__":
     tests = [function for name, function in sorted(globals().items()) if name.startswith("test_")]
     for function in tests:

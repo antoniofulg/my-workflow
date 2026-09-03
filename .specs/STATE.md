@@ -466,3 +466,16 @@
   `scripts/adopt.py` core catalog.
 - **Date**: 2026-09-03
 - **Status**: active
+
+### AD-029
+
+- **Decision**: `designer` is a delegated matrix role that owns mockups and `uiux-review.md`;
+  Claude runs it on `inherit`.
+- **Reason**: Isolates mockup and UX review responsibilities from planner, implementer, and
+  verifier. Keeps product code out of the designer's scope. Running Claude on `inherit` lets the
+  session model drive design output without forcing a separate expensive tier by default.
+- **Trade-off**: Introduces a sixth role to the configuration matrix and adoption sync across
+  Claude, Codex, and Cursor.
+- **Scope**: `templates/agents/*`, `.my-workflow.toml.example`, `scripts/adopt.py`, `workflow_config.py`.
+- **Date**: 2026-09-03
+- **Status**: active
