@@ -297,8 +297,8 @@ T10
 
 **Done when**:
 
-- [ ] UT-006 passes for `templates/agents/cursor/`
-- [ ] Quick gate passes
+- [x] UT-006 passes for `templates/agents/cursor/`
+- [x] Quick gate passes
 
 **Tests**: unit (UT-006)
 **Gate**: quick
