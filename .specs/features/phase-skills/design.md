@@ -54,7 +54,7 @@ gate paths and four suites cite the router path; (c) this: procedure in SKILL.md
 
 - **Purpose**: one phase's procedure, preloadable alone.
 - **Location**: `.agents/skills/w<phase>/SKILL.md`, `references/`.
-- **Interfaces**: frontmatter `name`, `description`, `disable-model-invocation: true`; body cites
+- **Interfaces**: frontmatter `name` and a `description` naming the preloading agent and `/w<phase>` entry (no `disable-model-invocation`: it blocks preload); body cites
   validators as `.agents/skills/workflow-spec-driven/scripts/<x>.py` and templates by relative path.
 - **Reuses**: the current reference text, split at its `## Template` heading.
 

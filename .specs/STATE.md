@@ -3,10 +3,10 @@
 ## Handoff
 
 - **Feature**: `phase-skills` (branch `feat/phase-skills`, roadmap slice 1 of `docs/workflow/roadmap.md`)
-- **Phase / Task**: Execute S2 (T8–T11); S1 verified PASS (`validation-s1.md`, sensor 7/8)
-- **Completed**: planning; S1 commits dcb03b2..85dd338 (five phase skills, router, adopt catalog)
+- **Phase / Task**: S2 remediation verification (9693e1e hollow-skill test, b9d34e2 T12 preloadable skills); S1 and S2 verified PASS
+- **Completed**: planning; S1 dcb03b2..85dd338; S2 215a50c..e8b9e50; live probe confirms implementer preloads `wimplement` + `ponytail` with no Skill tool
 - **In-progress** (file:line): none
-- **Next step**: S2 implementer (templates preload, sync check) carrying the two minor UT-008 gaps from validation-s1; fresh verifier after S2; then deep review group 1 and QA plan
+- **Next step**: fresh verifier on 3644d4e..b9d34e2; then deep review group [S1,S2]; QA plan packet; rerun `bun run test:python` when load < 20 (test_parallel_resource_lock flaked at load 40)
 - **Blockers**: Live Orca transport stays `blocked-verify`
   (`BUG-20260827-orca-terminal-send-truncates-claude-worker-packet`).
 
