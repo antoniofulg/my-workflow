@@ -5,7 +5,7 @@ Gate (scoped): `python3 tools/test_phase_skills.py && python3 tools/test_workflo
 ## Unit
 | ID | Behaviour | Given / When | Expected |
 | --- | --- | --- | --- |
-| UT-001 | Five phase skills exist with scoped frontmatter (PSK-01 AC1) | read `.agents/skills/w{specify,design,tasks,implement,verify}/SKILL.md` | each has frontmatter `name` equal to its directory and `disable-model-invocation: true` |
+| UT-001 | Five phase skills exist with scoped frontmatter (PSK-01 AC1) | read `.agents/skills/w{specify,design,tasks,implement,verify}/SKILL.md` | each has frontmatter `name` equal to its directory, no `disable-model-invocation` key, and a `description` containing the preloading agent name and `/w<phase>` |
 | UT-002 | Line caps hold (PSK-01 AC2, PSK-02 AC1) | `wc -l` on each phase SKILL.md and the router | each phase SKILL.md ≤ 200; router ≤ 150 |
 | UT-003 | Moved references are gone and no phase grew (PSK-01 AC5) | list router `references/`; sum lines per phase skill | `specify.md`, `design.md`, `tasks.md`, `implement.md`, `validate.md`, `discuss.md` absent from router; per-phase totals ≤ 228+159 (specify incl. discuss), 193, 443, 426, 339, each plus 10 |
 | UT-004 | Router links skills, not references (PSK-02 AC2–4) | grep router SKILL.md | no `references/<phase>.md` link, no `## Commands`, `## Context Loading Strategy`, or `## Coordinator-assisted` heading; sizing table cells contain `wspecify`, `wdesign`, `wtasks`, `wimplement` |

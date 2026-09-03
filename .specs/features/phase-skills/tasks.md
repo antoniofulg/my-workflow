@@ -54,7 +54,7 @@ T1 → T2 → T3 → T4 → T5 → T6 → T7
 Every task here depends on T5 from Phase 1.
 
 ```
-T8 → T11
+T8 → T11 → T12
 T9
 T10
 ```
@@ -329,11 +329,35 @@ T10
 
 ---
 
+---
+
+### T12: Make the phase skills preloadable
+
+**Slice:** S2
+**What**: Remove `disable-model-invocation: true` from the five phase skills (the flag blocks `skills:` preload); give each a `description` naming its preloading agent and `/w<phase>` entry; update UT-001 to assert the key is absent and the description carries both; probe an implementer spawn to confirm `wimplement` text is present and the `Skill` tool is absent.
+**Where**: `.agents/skills/w*/SKILL.md`
+**Depends on**: T11
+**Reuses**: `tools/test_phase_skills.py` UT-001
+**Requirement**: PSK-01
+
+**Tools**:
+
+- MCP: NONE
+- Skill: NONE
+
+**Done when**:
+
+- [ ] UT-001 asserts no `disable-model-invocation` key and the description contract; suite passes
+- [ ] Full gate passes
+
+**Tests**: unit (UT-001)
+**Gate**: full
+
 ## Dependency Execution Map
 
 ```
 Phase 1:  T1 → T2 → T3 → T4 → T5 → T6 → T7
-Phase 2:  T8 → T11        (T8, T9, T10 depend on T5)
+Phase 2:  T8 → T11 → T12  (T8, T9, T10 depend on T5)
           T9
           T10
 ```
@@ -347,6 +371,7 @@ Phase 2:  T8 → T11        (T8, T9, T10 depend on T5)
 | T7 | 1 catalog tuple + doc rows | ✅ Granular |
 | T8–T10 | 1 provider template directory each | ✅ Granular |
 | T11 | 1 check in 1 function | ✅ Granular |
+| T12 | 1 frontmatter key across the five phase skills | ✅ Granular |
 
 ## Diagram-Definition Cross-Check
 
@@ -363,11 +388,12 @@ Phase 2:  T8 → T11        (T8, T9, T10 depend on T5)
 | T9 | T5 | T5 | ✅ Match |
 | T10 | T5 | T5 | ✅ Match |
 | T11 | T8 | T8 | ✅ Match |
+| T12 | T11 | T11 | ✅ Match |
 
 ## Test Co-location Validation
 
 | Task | Code Layer Created/Modified | Matrix Requires | Task Says | Status |
 | --- | --- | --- | --- | --- |
-| T1–T6, T8–T10 | Skill and template text | unit | unit | ✅ OK |
+| T1–T6, T8–T10, T12 | Skill and template text | unit | unit | ✅ OK |
 | T7 | Adopt catalog + docs | integration | unit + integration | ✅ OK |
 | T11 | Config materializer | integration | integration | ✅ OK |

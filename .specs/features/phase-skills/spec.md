@@ -41,7 +41,7 @@ and per-role model choice.
 | `discuss.md` home | `wspecify/references/discuss.md` | Discuss is triggered inside Specify only | y |
 | Shared references | `lessons.md`, `memory.md`, `sub-agents.md`, `code-analysis.md`, `coding-principles.md` stay in the router | Used by more than one phase or by the coordinator | y |
 | Which roles lose the `Skill` tool | implementer, explorer, deep-reviewer via `disallowedTools: Skill` | They receive a packet and one preloaded skill; planner pulls design on demand; verifier invokes `qa-plan` or `qa-execute` per packet | y |
-| Hidden from auto-invocation | All five phase skills set `disable-model-invocation: true` | The main chat enters a phase explicitly; agents preload | y |
+| Hidden from auto-invocation | Not by flag. `disable-model-invocation: true` blocks `skills:` preload (Claude Code docs, verified by probe on 2026-09-03), so phase skills stay invocable and their `description` states which agent preloads them and the `/w<phase>` entry | y |
 | Lock files | No new entries in `skills-lock.json` or `.agents/.skill-lock.json` | Those pin externally sourced skills; the new ones are workflow-owned | y |
 | SKILL.md cap | 200 lines per phase skill; router under 150 | Context reduction is the goal; measured with `wc -l` | y |
 
@@ -75,7 +75,7 @@ that procedure and nothing else.
 
 **Acceptance Criteria**:
 
-1. The repository SHALL contain `.agents/skills/<name>/SKILL.md` for each of `wspecify`, `wdesign`, `wtasks`, `wimplement`, `wverify`, each with frontmatter `name` equal to its directory and `disable-model-invocation: true`.
+1. The repository SHALL contain `.agents/skills/<name>/SKILL.md` for each of `wspecify`, `wdesign`, `wtasks`, `wimplement`, `wverify`, each with frontmatter `name` equal to its directory, no `disable-model-invocation` key, and a `description` that names the preloading agent and its `/w<phase>` entry.
 2. The phase SKILL.md SHALL contain the procedure sections of the reference it replaces (`specify.md`, `design.md`, `tasks.md`, `implement.md`, `validate.md`) and SHALL be at most 200 lines.
 3. WHEN a phase writes an artifact from a template THEN the template SHALL live under that skill's `references/` and the SKILL.md SHALL name it by relative path.
 4. WHEN a phase runs a validator THEN the SKILL.md SHALL cite it as `.agents/skills/workflow-spec-driven/scripts/<name>.py` with `--root` semantics unchanged.
@@ -148,6 +148,7 @@ resolve for Claude, so that adoption keeps working.
 
 ## Edge Cases
 
+- IF a phase skill sets `disable-model-invocation: true` THEN the contract test SHALL fail naming the skill, because that flag blocks preload.
 - IF a phase SKILL.md exceeds 200 lines after the move THEN the implementer SHALL move template or
   example text to `references/`, never delete a rule.
 - IF two templates disagree on a skill name THEN the contract test SHALL fail naming both files.

@@ -17,7 +17,7 @@ skills it needs, and model or effort changes happen once, globally, for every pr
   the shared references stay in the router and are cited by path. Critical rules live only in
   `AGENTS.md`.
 - Scoping: agent frontmatter `skills:` preloads; agents without the `Skill` tool see only the
-  preload. Phase skills set `disable-model-invocation: true`. Entry points `/specify`, `/design`,
+  preload. Phase skills must not set `disable-model-invocation: true`: it blocks `skills:` preload (verified 2026-09-03). Their descriptions steer the main chat instead. Entry points `/specify`, `/design`,
   `/tasks`, `/implement`, `/verify`, `/qualify` use `context: fork` + `agent:`.
 - `uiux.md` moves to Specify. It maps every screen, every user action, and every blocker that
   stops the user from completing the action. Design consumes it.
