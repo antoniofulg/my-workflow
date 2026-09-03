@@ -56,7 +56,7 @@ Done | Not a Bug | Rejected.
 States and label groups are a pack-owned standard applied identically to every product, so one
 qualifier prompt works everywhere. Label groups: kind (`bug`, `feature`, `idea`, `question`,
 `duplicate`, `chore`, `tech-debt`); severity (`S1-blocker`, `S2-major`, `S3-minor`,
-`S4-cosmetic`); source (`user`, `support`, `internal`, `market`); surface (`security`, `data`,
+`S4-cosmetic`); source (`user`, `support`, `internal`, `market`, `sentry`, `analytics`); surface (`security`, `data`,
 `payment`, `auth`, `ui`); route (`autofix`, `human`). Size maps to Linear estimate. Only area
 labels are product-owned. The Linear module ships a script that creates missing states and labels
 in a workspace, so setup is one command per product.

@@ -3,10 +3,10 @@
 ## Handoff
 
 - **Feature**: `phase-skills` (branch `feat/phase-skills`, roadmap slice 1 of `docs/workflow/roadmap.md`)
-- **Phase / Task**: planning approved; Execute S1 (T1–T7) next, then S2 (T8–T11)
-- **Completed**: spec, tests, design, tasks validated; AD-028 recorded
+- **Phase / Task**: Execute S2 (T8–T11); S1 verified PASS (`validation-s1.md`, sensor 7/8)
+- **Completed**: planning; S1 commits dcb03b2..85dd338 (five phase skills, router, adopt catalog)
 - **In-progress** (file:line): none
-- **Next step**: dispatch implementer for S1 with the frozen route; fresh verifier after S1
+- **Next step**: S2 implementer (templates preload, sync check) carrying the two minor UT-008 gaps from validation-s1; fresh verifier after S2; then deep review group 1 and QA plan
 - **Blockers**: Live Orca transport stays `blocked-verify`
   (`BUG-20260827-orca-terminal-send-truncates-claude-worker-packet`).
 
