@@ -225,8 +225,8 @@ T10
 
 **Done when**:
 
-- [ ] UT-009 and IT-003 pass
-- [ ] Full gate passes
+- [x] UT-009 and IT-003 pass
+- [x] Full gate passes
 
 **Tests**: unit (UT-009), integration (IT-003)
 **Gate**: full

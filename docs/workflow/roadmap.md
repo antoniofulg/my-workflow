@@ -11,10 +11,11 @@ skills it needs, and model or effort changes happen once, globally, for every pr
 
 ## Decisions so far
 
-- Phase skills: `workflow` (router: sizing, chain, resume), `specify`, `design`, `tasks`,
-  `implement`, `verify`, `qualify`. Each SKILL.md under 60 lines, reference underneath, validator
-  moves with its phase. Shared references stay in `workflow/` and are cited by path. Critical rules
-  live only in `AGENTS.md`.
+- Phase skills: `workflow-spec-driven` (router: sizing, chain, resume), `wspecify`, `wdesign`,
+  `wtasks`, `wimplement`, `wverify`, `qualify`. A phase SKILL.md carries its procedure
+  under 200 lines, with templates and long examples underneath in its own `references/`. Validators and
+  the shared references stay in the router and are cited by path. Critical rules live only in
+  `AGENTS.md`.
 - Scoping: agent frontmatter `skills:` preloads; agents without the `Skill` tool see only the
   preload. Phase skills set `disable-model-invocation: true`. Entry points `/specify`, `/design`,
   `/tasks`, `/implement`, `/verify`, `/qualify` use `context: fork` + `agent:`.

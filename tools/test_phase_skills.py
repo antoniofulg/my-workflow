@@ -33,6 +33,8 @@ REFERENCE_TOKEN = re.compile(r"[\w./-]*references/[\w.-]+\.md")
 PHASE_REFERENCE = re.compile(r"references/(?:specify|discuss|design|tasks|implement|validate)\.md")
 FORBIDDEN_ROUTER_HEADINGS = ("## Commands", "## Context Loading Strategy", "## Coordinator-assisted")
 
+AGENTS_LINE_CAP = 134
+
 
 def frontmatter(path: Path) -> dict[str, str]:
     lines = path.read_text(encoding="utf-8").splitlines()
@@ -124,6 +126,17 @@ def test_phase_skills_cite_validator_and_template_paths_that_exist() -> None:
                 continue
             assert token.startswith("references/"), f"{name}: {token} is neither local nor a router reference"
             assert (skill / token).is_file(), f"{name}: {token} does not resolve inside the skill"
+
+
+def test_docs_list_the_phase_skills() -> None:
+    pack = (ROOT / "docs/workflow/pack.md").read_text(encoding="utf-8").splitlines()
+    rows = [line for line in pack if line.startswith("| `")]
+    for name in PHASES:
+        assert any(line.startswith(f"| `{name}` |") for line in rows), f"pack.md has no row for {name}"
+    roadmap = (ROOT / "docs/workflow/roadmap.md").read_text(encoding="utf-8")
+    assert "under 200 lines" in roadmap, "roadmap.md does not state the phase SKILL.md cap"
+    agents = line_count(ROOT / "AGENTS.md")
+    assert agents <= AGENTS_LINE_CAP, f"AGENTS.md is {agents} lines, cap is {AGENTS_LINE_CAP}"
 
 
 if __name__ == "__main__":

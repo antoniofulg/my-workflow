@@ -2,11 +2,16 @@
 
 ## Skills
 
-The workflow ships six local capabilities:
+The workflow ships eleven local capabilities:
 
 | Skill | Role |
 | --- | --- |
-| `workflow-spec-driven` | Planner. Specify, Design, Tasks, Execute. Auto-sizes. |
+| `workflow-spec-driven` | Router. Sizing, phase chain, `.specs` layout, resume. |
+| `wspecify` | Specify phase: EARS requirements, discuss, closure gate. |
+| `wdesign` | Design phase: architecture, components, reuse, risks. |
+| `wtasks` | Tasks phase: atomic tasks, coverage matrix, gate commands. |
+| `wimplement` | Execute phase: per-task cycle, gate, atomic commit. |
+| `wverify` | Verify phase: spec-anchored evidence, sensor, UAT, fix plans. |
 | `qa-plan` | Maps changed user-visible promises to durable QA journeys and charters. |
 | `qa-execute` | Walks those journeys through the consuming project's existing adapter. |
 | `ponytail` (`full`) | Shortest code that works. Stdlib before a dependency. |
