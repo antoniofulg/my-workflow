@@ -353,26 +353,26 @@ Seen once or not yet corroborated. Tracked, not trusted.
 ### L-057 - Assert the contracted procedure clause, not a section heading or a shared substring
 - signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
 - features: specify-impact-designer
-- evidence: M6 wspecify/SKILL.md:70 (skill-text-tests) (+1 more)
-- last seen: 2026-09-03T22:32:17Z
+- evidence: M6 wspecify/SKILL.md:70 (skill-text-tests) (+2 more)
+- last seen: 2026-09-03T22:47:08Z
 
 ### L-058 - When a size is exempted from a required section, add a fixture for that size; a sibling size does not prove it
 - signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `validators` · harmful: 0
 - features: specify-impact-designer
-- evidence: M7 validate_spec.py:167 (validators)
-- last seen: 2026-09-03T21:32:05Z
+- evidence: M7 validate_spec.py:167 (validators) (+1 more)
+- last seen: 2026-09-03T22:47:08Z
 
 ### L-059 - Assert the required report statuses and the none-means-no-reruns rule, not the words Impact scenario rerun
 - signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
 - features: specify-impact-designer
-- evidence: M12 wverify/SKILL.md:69 (skill-text-tests)
-- last seen: 2026-09-03T21:32:05Z
+- evidence: M12 wverify/SKILL.md:69 (skill-text-tests) (+1 more)
+- last seen: 2026-09-03T22:47:08Z
 
 ### L-060 - When a reference file carries explorer, settlement, or autonomous rules, assert those clauses in the file, not only that the path exists
 - signal: `ac_gap` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
 - features: specify-impact-designer
-- evidence: SID-02 AC2 AC3 AC4 (skill-text-tests)
-- last seen: 2026-09-03T21:32:05Z
+- evidence: SID-02 AC2 AC3 AC4 (skill-text-tests) (+1 more)
+- last seen: 2026-09-03T22:47:08Z
 
 ### L-061 - Assert every document a role template is required to load, not a subset of nearby tokens
 - signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
@@ -409,6 +409,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - features: specify-impact-designer
 - evidence: validation-s2.md:30 (SID-03 AC5) (skill-text-tests)
 - last seen: 2026-09-03T22:32:17Z
+
+### L-067 - Assert the screen-only uiux.md gate, not only that the step sits between Acceptance Criteria and the closure gate
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s1-r2.md N2 wspecify/SKILL.md:97 (skill-text-tests)
+- last seen: 2026-09-03T22:47:08Z
+
+### L-068 - Assert the contracted procedure clause, not a section heading or a shared substring
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s1-r2.md SID-01 AC1 AC2 AC3 AC5 AC6 (skill-text-tests)
+- last seen: 2026-09-03T22:47:08Z
 
 ## Quarantined (failed when applied - ignore)
 

@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 67,
+  "next_id": 69,
   "lessons": [
     {
       "id": "L-001",
@@ -1029,10 +1029,11 @@
       "harmful": 0,
       "evidence": [
         "M6 wspecify/SKILL.md:70 (skill-text-tests)",
-        "validation-s2.md:61 (M17) (skill-text-tests)"
+        "validation-s2.md:61 (M17) (skill-text-tests)",
+        "validation-s1-r2.md M6 M9 N3 (skill-text-tests)"
       ],
       "created": "2026-09-03T21:32:05Z",
-      "last_seen": "2026-09-03T22:32:17Z"
+      "last_seen": "2026-09-03T22:47:08Z"
     },
     {
       "id": "L-058",
@@ -1047,10 +1048,11 @@
       "recurrence": 1,
       "harmful": 0,
       "evidence": [
-        "M7 validate_spec.py:167 (validators)"
+        "M7 validate_spec.py:167 (validators)",
+        "validation-s1-r2.md M7 (validators)"
       ],
       "created": "2026-09-03T21:32:05Z",
-      "last_seen": "2026-09-03T21:32:05Z"
+      "last_seen": "2026-09-03T22:47:08Z"
     },
     {
       "id": "L-059",
@@ -1065,10 +1067,11 @@
       "recurrence": 1,
       "harmful": 0,
       "evidence": [
-        "M12 wverify/SKILL.md:69 (skill-text-tests)"
+        "M12 wverify/SKILL.md:69 (skill-text-tests)",
+        "validation-s1-r2.md M12 N4 (skill-text-tests)"
       ],
       "created": "2026-09-03T21:32:05Z",
-      "last_seen": "2026-09-03T21:32:05Z"
+      "last_seen": "2026-09-03T22:47:08Z"
     },
     {
       "id": "L-060",
@@ -1083,10 +1086,11 @@
       "recurrence": 1,
       "harmful": 0,
       "evidence": [
-        "SID-02 AC2 AC3 AC4 (skill-text-tests)"
+        "SID-02 AC2 AC3 AC4 (skill-text-tests)",
+        "validation-s1-r2.md SID-02 AC2 AC3 AC4 (skill-text-tests)"
       ],
       "created": "2026-09-03T21:32:05Z",
-      "last_seen": "2026-09-03T21:32:05Z"
+      "last_seen": "2026-09-03T22:47:08Z"
     },
     {
       "id": "L-061",
@@ -1197,6 +1201,42 @@
       ],
       "created": "2026-09-03T22:32:17Z",
       "last_seen": "2026-09-03T22:32:17Z"
+    },
+    {
+      "id": "L-067",
+      "key": "surviving_mutant::assert the screen only uiux md gate not only that the step sits between acceptance criteria and the closure gate",
+      "text": "Assert the screen-only uiux.md gate, not only that the step sits between Acceptance Criteria and the closure gate",
+      "signal": "surviving_mutant",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s1-r2.md N2 wspecify/SKILL.md:97 (skill-text-tests)"
+      ],
+      "created": "2026-09-03T22:47:08Z",
+      "last_seen": "2026-09-03T22:47:08Z"
+    },
+    {
+      "id": "L-068",
+      "key": "ac_gap::assert the contracted procedure clause not a section heading or a shared substring",
+      "text": "Assert the contracted procedure clause, not a section heading or a shared substring",
+      "signal": "ac_gap",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s1-r2.md SID-01 AC1 AC2 AC3 AC5 AC6 (skill-text-tests)"
+      ],
+      "created": "2026-09-03T22:47:08Z",
+      "last_seen": "2026-09-03T22:47:08Z"
     }
   ]
 }
