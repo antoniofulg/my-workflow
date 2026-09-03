@@ -18,7 +18,7 @@ Implement these tasks with the `wimplement` skill and the `workflow-spec-driven`
 | Code Layer | Required Test Type | Coverage Expectation | Location Pattern | Run Command |
 | ---------- | ------------------ | -------------------- | ---------------- | ----------- |
 | Skill and template text | unit | 1:1 to spec ACs | `tools/test_phase_skills.py` | `python3 tools/test_phase_skills.py` |
-| Spec validator | unit | every branch: Large, Complex, Medium, `none` body | `tools/test_tlc_validators.py` | `python3 tools/test_tlc_validators.py` |
+| Spec validator | unit | every branch: Large, Complex, Medium, Small, `none` body | `tools/test_tlc_validators.py` | `python3 tools/test_tlc_validators.py` |
 | Config materializer | integration | designer render and reject paths | `tools/test_workflow_config.py` | `python3 tools/test_workflow_config.py` |
 | Adopt catalog and TS suites | integration | runtime paths and template enumerations | `scripts/test_adopt.py`, `tools/shared/tests/*.ts` | `python3 scripts/test_adopt.py && bun test` |
 | Docs | none | build gate only | - | - |
@@ -236,3 +236,21 @@ Phase 2:  T4 → T5 → T6
 | T4 | Config materializer | integration | unit + integration | ✅ OK |
 | T5 | Templates, adopt, TS suites | integration | unit + integration | ✅ OK |
 | T6 | Docs | none | unit (text contract) | ✅ OK |
+
+---
+
+### TR1: Lock the rule sentences the sensors exposed
+
+**Slice:** S1+S2 remediation
+**What**: Strengthen UT-001/002/003/004 and IT-002 so survived mutants M6–M13 (S1) and M6, M7, M8, M12, M17, M23 (S2) die. Small fixture for Impact exemption. No skill-sentence additions; the rules were already present.
+**Where**: `tools/test_phase_skills.py`, `tools/test_tlc_validators.py`, `tools/test_workflow_config.py`
+**Depends on**: T6
+**Requirement**: SID-01, SID-02, SID-03
+
+**Done when**:
+
+- [x] Canonical suite discriminates each listed mutant
+- [x] Gate below passes
+
+**Tests**: unit (UT-001–004), integration (IT-002)
+**Gate**: full

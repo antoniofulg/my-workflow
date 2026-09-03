@@ -108,7 +108,7 @@ class WorkflowValidatorTests(unittest.TestCase):
         )
         self.assertTrue(any("acceptance criterion has no SHALL" in error for error in errors))
 
-    # SID-UT-001: Large and Complex specs require Impact; Medium does not; none body accepted.
+    # SID-UT-001: Large and Complex specs require Impact; Medium and Small do not; none body accepted.
     def test_large_spec_without_impact_is_rejected(self) -> None:
         errors, _warnings = validate_spec.check(
             str(FIXTURES / "spec-size-large-no-impact.md")
@@ -132,6 +132,15 @@ class WorkflowValidatorTests(unittest.TestCase):
         self.assertEqual(errors, [])
         self.assertEqual(warnings, [])
         ret = validate_spec.main([str(FIXTURES / "spec-size-medium-no-impact.md")])
+        self.assertEqual(ret, 0)
+
+    def test_small_spec_without_impact_is_accepted(self) -> None:
+        errors, warnings = validate_spec.check(
+            str(FIXTURES / "spec-size-small-no-impact.md")
+        )
+        self.assertEqual(errors, [])
+        self.assertEqual(warnings, [])
+        ret = validate_spec.main([str(FIXTURES / "spec-size-small-no-impact.md")])
         self.assertEqual(ret, 0)
 
     def test_large_spec_with_impact_none_is_accepted(self) -> None:

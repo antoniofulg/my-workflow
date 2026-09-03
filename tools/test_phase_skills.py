@@ -231,6 +231,26 @@ def load_lines(text: str) -> list[str]:
     return lines
 
 
+def heading_body(text: str, heading: str) -> str:
+    """Lines after `heading` until the next heading of the same or higher level."""
+    lines = text.splitlines()
+    level = len(heading) - len(heading.lstrip("#"))
+    collecting = False
+    collected: list[str] = []
+    for line in lines:
+        if not collecting:
+            if line.startswith(heading):
+                collecting = True
+            continue
+        if line.startswith("#"):
+            hashes = len(line) - len(line.lstrip("#"))
+            if hashes <= level and line[hashes : hashes + 1] == " ":
+                break
+        collected.append(line)
+    assert collecting, f"missing heading {heading!r}"
+    return "\n".join(collected)
+
+
 def test_claude_templates_declare_preload_and_tool_scope() -> None:
     for role in TEMPLATE_ROLES:
         path = template_path("claude", role)
@@ -352,6 +372,30 @@ def test_specify_carries_the_new_steps() -> None:
     assert "references/gap-hunt.md" in text, "wspecify does not cite references/gap-hunt.md"
     assert (SKILLS / "wspecify" / "references" / "gap-hunt.md").is_file(), "references/gap-hunt.md does not exist"
 
+    impact_body = heading_body(text, "### 2. Map Impact")
+    assert "Data and model dependencies" in impact_body, "Impact step missing the data/model explorer trace"
+    assert "Pages, journeys, and QA scenarios" in impact_body, "Impact step missing the pages/journeys/QA explorer trace"
+    assert "affected features" in impact_body, "Impact step does not list affected features"
+    assert "scenario ids" in impact_body, "Impact step does not list scenario ids"
+    assert "ubiquitous acceptance criterion" in impact_body, "Impact step missing the ubiquitous no-regression AC"
+    assert "behaviour is unchanged" in impact_body, "Impact step missing unchanged-behaviour wording"
+
+    uiux_body = heading_body(text, "### 5. UI/UX Surface Map")
+    assert "Only when a screen is added or changed" in uiux_body, "uiux.md step missing the screen-only gate"
+
+    gap_offer = heading_body(text, "### 7. Plan Approval")
+    assert "only for Complex" in gap_offer, "wspecify missing the autonomous-only-Complex gap-hunt rule"
+    assert "one line and proceed" in gap_offer, "wspecify missing the one-line empty-hunt rule"
+    assert "decisions.md" in gap_offer, "autonomous skip is not recorded in decisions.md"
+
+    hunt = (SKILLS / "wspecify" / "references" / "gap-hunt.md").read_text(encoding="utf-8")
+    assert "Unhappy paths explorer" in hunt, "gap-hunt.md missing the unhappy-paths explorer"
+    assert "Domain & data gaps explorer" in hunt, "gap-hunt.md missing the domain/data explorer"
+    assert "recommended answer" in hunt, "gap-hunt.md missing frontier rounds with a recommended answer"
+    assert "acceptance criterion" in hunt, "gap-hunt.md does not settle findings as acceptance criteria"
+    assert "context.md" in hunt, "gap-hunt.md does not settle findings as context.md decisions"
+    assert "Never leave a settled finding as an informal note" in hunt, "gap-hunt.md missing the never-a-note rule"
+
 
 def test_spec_template_carries_impact() -> None:
     """UT-003 (template half): spec-template carries ## Impact between Assumptions and User Stories."""
@@ -375,6 +419,8 @@ def test_downstream_phases_wired_for_impact_and_designer() -> None:
     step1_body = wdesign_text[step1_idx:step1_end]
     assert "uiux.md" in step1_body, "wdesign step 1 does not name uiux.md"
     assert "designer" in step1_body, "wdesign step 1 does not name designer dispatch"
+    assert "before internal design" in step1_body, "wdesign step 1 does not dispatch designer before internal design"
+    assert "architecture half" in step1_body, "wdesign step 1 does not keep the architecture half with the planner"
 
     wverify_path = SKILLS / "wverify" / "SKILL.md"
     wverify_text = wverify_path.read_text(encoding="utf-8")
@@ -382,6 +428,9 @@ def test_downstream_phases_wired_for_impact_and_designer() -> None:
     assert "Impact" in wverify_text, "wverify does not name Impact"
     assert "scenario" in wverify_text.lower(), "wverify does not name scenarios"
     assert "rerun" in wverify_text.lower(), "wverify does not name rerun"
+    rerun_body = heading_body(wverify_text, "### 3.5.")
+    assert "pass, fail, or untested" in rerun_body, "wverify rerun body does not name pass, fail, or untested"
+    assert "no reruns" in rerun_body, "wverify rerun body does not say none means no reruns"
 
     uiux_path = ROOT / "docs/guidelines/UI-UX.md"
     uiux_guideline = uiux_path.read_text(encoding="utf-8")
@@ -410,11 +459,23 @@ def test_designer_templates_and_preload() -> None:
     assert "docs/design/" in claude_text
     assert "uiux-review.md" in claude_text
     assert "never write product code" in claude_text.lower() or "do not implement product code" in claude_text.lower()
+    claude_load = heading_body(claude_text, "## Load")
+    assert "spec.md" in claude_load, "Claude designer Load list missing spec.md"
+    assert "UI-UX.md" in claude_load, "Claude designer Load list missing UI-UX.md"
+    assert "FRONTEND.md" in claude_load, "Claude designer Load list missing FRONTEND.md"
 
+    never_write_codex = (
+        "You are the designer. Produce mockups and review notes for UI-bearing features. Never write product code."
+    )
+    never_write_cursor = (
+        "You are the **designer**. Produce mockups and review notes for UI-bearing features. Never write product code."
+    )
     codex_text = codex_path.read_text(encoding="utf-8")
     assert "wdesign" in codex_text
+    assert never_write_codex in codex_text, "Codex designer body missing never-write-product-code"
     cursor_text = cursor_path.read_text(encoding="utf-8")
     assert "wdesign" in cursor_text
+    assert never_write_cursor in cursor_text, "Cursor designer body missing never-write-product-code"
 
 
 def test_agents_and_pack_name_designer() -> None:

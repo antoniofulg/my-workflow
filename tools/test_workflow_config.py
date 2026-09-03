@@ -1860,31 +1860,33 @@ def test_it001_sync_renders_designer_packets() -> None:
 
 def test_it002_sync_rejects_missing_designer_table_or_template() -> None:
     """IT-002: Sync rejects a config missing the designer table or missing designer template (SID-03 AC4, EC3)."""
-    # 1. Config lacking [models.claude.designer]
-    root = make_root()
-    try:
-        write_config(root)
-        write_packets(root, runtime=False)
-        config_path = root / ".my-workflow.toml"
-        config_text = config_path.read_text(encoding="utf-8")
-        table_pattern = re.compile(r"\[models\.claude\.designer\][\s\S]*?(?=\n\[|\Z)", re.MULTILINE)
-        new_config = table_pattern.sub("", config_text)
-        config_path.write_text(new_config, encoding="utf-8")
-        before = tree_state(root)
-        completed = subprocess.run(
-            [sys.executable, str(ROOT / ".agents/skills/workflow-config/scripts/workflow_config.py"),
-             "--root", str(root), "--sync-agents"],
-            capture_output=True, text=True,
-        )
-        assert completed.returncode != 0
-        assert "models.claude.designer" in completed.stderr
-        assert tree_state(root) == before
-        for provider in workflow_config.PROVIDERS:
-            assert not (root / f".{provider}" / "agents").exists()
-    finally:
-        shutil.rmtree(root)
+    for provider in workflow_config.PROVIDERS:
+        root = make_root()
+        try:
+            write_config(root)
+            write_packets(root, runtime=False)
+            config_path = root / ".my-workflow.toml"
+            config_text = config_path.read_text(encoding="utf-8")
+            table_pattern = re.compile(
+                rf"\[models\.{re.escape(provider)}\.designer\][\s\S]*?(?=\n\[|\Z)",
+                re.MULTILINE,
+            )
+            new_config = table_pattern.sub("", config_text)
+            config_path.write_text(new_config, encoding="utf-8")
+            before = tree_state(root)
+            completed = subprocess.run(
+                [sys.executable, str(ROOT / ".agents/skills/workflow-config/scripts/workflow_config.py"),
+                 "--root", str(root), "--sync-agents"],
+                capture_output=True, text=True,
+            )
+            assert completed.returncode != 0, f"{provider}: expected non-zero, got {completed.returncode}"
+            assert f"models.{provider}.designer" in completed.stderr, completed.stderr
+            assert tree_state(root) == before
+            for runtime_provider in workflow_config.PROVIDERS:
+                assert not (root / f".{runtime_provider}" / "agents").exists()
+        finally:
+            shutil.rmtree(root)
 
-    # 2. Missing designer template
     root2 = make_root()
     try:
         write_config(root2)
@@ -1901,8 +1903,8 @@ def test_it002_sync_rejects_missing_designer_table_or_template() -> None:
         assert completed2.returncode != 0
         assert "templates/agents/claude/designer.md" in completed2.stderr
         assert tree_state(root2) == before2
-        for provider in workflow_config.PROVIDERS:
-            assert not (root2 / f".{provider}" / "agents").exists()
+        for runtime_provider in workflow_config.PROVIDERS:
+            assert not (root2 / f".{runtime_provider}" / "agents").exists()
     finally:
         shutil.rmtree(root2)
 
