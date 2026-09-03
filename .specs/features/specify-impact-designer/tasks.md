@@ -98,8 +98,8 @@ T4 → T5 → T6
 
 **Done when**:
 
-- [ ] UT-003 passes; caps hold
-- [ ] Quick gate passes
+- [x] UT-003 passes; caps hold
+- [x] Quick gate passes
 
 **Tests**: unit (UT-003)
 **Gate**: quick

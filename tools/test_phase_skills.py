@@ -363,6 +363,30 @@ def test_spec_template_carries_impact() -> None:
     assert assumptions_idx < impact_idx < stories_idx, "template must have ## Impact between Assumptions and User Stories"
 
 
+def test_downstream_phases_wired_for_impact_and_designer() -> None:
+    """UT-003 (downstream half): wdesign step 1 names uiux.md and designer dispatch; wverify names Impact scenario reruns; UI-UX.md says Specify."""
+    wdesign_text = (SKILLS / "wdesign" / "SKILL.md").read_text(encoding="utf-8")
+    assert line_count(SKILLS / "wdesign" / "SKILL.md") <= SKILL_LINE_CAP, "wdesign exceeds line cap"
+    step1_idx = wdesign_text.find("### 1. Load Context")
+    assert step1_idx != -1, "wdesign missing step 1"
+    step1_end = wdesign_text.find("### 1.5", step1_idx) if "### 1.5" in wdesign_text else wdesign_text.find("### 2", step1_idx)
+    step1_body = wdesign_text[step1_idx:step1_end]
+    assert "uiux.md" in step1_body, "wdesign step 1 does not name uiux.md"
+    assert "designer" in step1_body, "wdesign step 1 does not name designer dispatch"
+
+    wverify_path = SKILLS / "wverify" / "SKILL.md"
+    wverify_text = wverify_path.read_text(encoding="utf-8")
+    assert line_count(wverify_path) <= SKILL_LINE_CAP, "wverify exceeds line cap"
+    assert "Impact" in wverify_text, "wverify does not name Impact"
+    assert "scenario" in wverify_text.lower(), "wverify does not name scenarios"
+    assert "rerun" in wverify_text.lower(), "wverify does not name rerun"
+
+    uiux_path = ROOT / "docs/guidelines/UI-UX.md"
+    uiux_guideline = uiux_path.read_text(encoding="utf-8")
+    assert line_count(uiux_path) < 120, "UI-UX.md exceeds 120 lines"
+    assert "written in Specify" in uiux_guideline, "UI-UX.md does not state written in Specify"
+
+
 if __name__ == "__main__":
     tests = [function for name, function in sorted(globals().items()) if name.startswith("test_")]
     for function in tests:
