@@ -408,3 +408,33 @@
   direct capability/resource proof, same-handle reconciliation, and cleanup.
 - **Date**: 2026-08-28
 - **Status**: active
+
+### AD-025
+
+- **Decision**: One `Review-Signal` trailer per delivered pull request, carried on its merge commit,
+  aggregating the feature through `slices=<n> verified=<m>` counts. Not one trailer per slice.
+- **Reason**: No per-slice commit can carry the verdict. The per-slice lifecycle commits each task
+  before the fresh Verifier runs (`references/sub-agents.md:50-57`), and integration may be a
+  fast-forward with no commit of its own, so a slice has no commit that exists after its verdict is
+  known. A merge commit always exists and is the unit principle 9 names. `slices`/`verified` sum
+  across deliveries to the same slice-level fraction a per-slice trailer would give.
+- **Trade-off**: A pull request squashed or merged outside the documented command loses its signal.
+  The reader counts a missing signal as unproven rather than as reviewed, which is the honest
+  reading, but it makes the metric sensitive to how a human merges.
+- **Scope**: The trailer grammar, `check_commit.py` validation, and `tools/review-metrics.py`.
+- **Date**: 2026-09-03
+- **Status**: active
+
+### AD-026
+
+- **Decision**: `check_commit.py` validates the `Review-Signal` trailer only when present; it never
+  requires one. A malformed trailer is exit 1, an absent trailer is exit 0.
+- **Reason**: Every task commit inside a feature runs through the same validator, and only the
+  delivery commit carries a verdict. Requiring the trailer would reject every ordinary commit; not
+  validating it at all would let a mistyped signal poison the metric silently.
+- **Trade-off**: Nothing forces a delivery to carry the trailer, so the emitting step stays an
+  instruction rather than a gate. `review-metrics.py` reporting unsigned deliveries is what catches
+  omission, after the fact.
+- **Scope**: `check_commit.py` only.
+- **Date**: 2026-09-03
+- **Status**: active

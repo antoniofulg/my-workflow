@@ -88,6 +88,20 @@ identity and buys the same independence.
 ## Fingerprinted remediation accounting
 `fingerprint = requirement + root cause + failure path` is each finding's immutable identity. Maintain an independent cumulative failed-remediation counter and append-only generation history for each fingerprint; count every failed post-fix Verifier result, whether or not the build gate is green. The current generation's consecutive-stall state is separate and halts only at the live `[remediation].stall_attempts` threshold. The executable state lives in `review-fingerprints.json` through the stdlib convergence script, which delegates the pure transition to `remediation.py`.
 Rewording or reopening a finding preserves its fingerprint and counter. A distinct blocker starts at count zero and does not consume another fingerprint's counter; the diagnostic cap is separate.
+## The Review-Signal trailer
+
+The delivery commit for a pull request carries one line recording its review outcome, so the record
+survives the pruning of `.specs/features/` (AD-025):
+
+```
+Review-Signal: tier=<direct|batch|small|medium|large|complex> slices=<int> verified=<int> sensor=<killed>/<injected> rounds=<int> findings=<int> fixed=<int> dismissed=<int>
+```
+
+`tier=direct` and `tier=batch` need no other key; every other tier needs all of them. Optional
+`remediation-failed=<int>` defaults to 0. `fixed + dismissed` equals `findings`, `verified` does not
+exceed `slices`, `slices` is at least 1, and sensor killed does not exceed injected.
+`check_commit.py` validates the line when present and never requires one (AD-026).
+
 ## Finding shape
 Every finding states, in this order:
 
