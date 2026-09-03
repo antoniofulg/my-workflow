@@ -457,7 +457,7 @@ def test_specify_carries_the_new_steps() -> None:
     assert "Domain & data gaps explorer" in hunt, "gap-hunt.md missing the domain/data explorer"
     assert "numbered questions" in hunt, "gap-hunt.md missing numbered questions"
     assert "frontier" in hunt.lower(), "gap-hunt.md missing frontier rounds"
-    assert "recommended answer" in hunt, "gap-hunt.md missing frontier rounds with a recommended answer"
+    assert "each providing a concrete recommended answer" in hunt, "gap-hunt.md procedure must require a recommended answer per question"
     assert "acceptance criterion" in hunt, "gap-hunt.md does not settle findings as acceptance criteria"
     assert "context.md" in hunt, "gap-hunt.md does not settle findings as context.md decisions"
     assert "Never leave a settled finding as an informal note" in hunt, "gap-hunt.md missing the never-a-note rule"
