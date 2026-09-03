@@ -79,15 +79,33 @@ intended change.
 
 ## When verification fails
 
-1. **Read the failure.** Which command, which test, which rule. Quote the lines.
-2. **Diagnose.** Trace it to the source. Do not guess. Multiple failures: fix the first one first.
-3. **Fix the cause.** The minimal change that addresses the actual error. Never a workaround, a
-   suppressed warning, or a skipped check.
-4. **Re-verify from scratch.** The full command, not the previously-failing subset.
-5. **Report with evidence.**
+A scoped re-run — one test, one file, one `--grep` — is for diagnosis and for working through a
+batch of failures. It never closes one.
 
-Never claim partial success, never skip re-verification after a fix, never blame the tooling without
-evidence of a false positive, and never move to the next task while verification is failing.
+1. **Read every failure before fixing any.** Which command, which test, which assertion. Quote the
+   line, then cluster by cause — several failures usually have one.
+2. **Re-run them untouched.** Passing with nothing changed means the defect is isolation, order or
+   load, not the assertion. Fix that instead.
+3. **Fix the cause, not the symptom.** One fix per cluster.
+4. **Climb back to the gate that closes the claim.** The failing tests while iterating, then the
+   scoped gate for the surface touched, then the declared gate for the level being claimed — whole
+   and unfiltered, never a subset assembled by hand. `docs/guidelines/GATES.md` names which is which.
+   If that gate cannot run, use the project's *declared* reduced target, whose scope is fixed in the
+   build file; a scope picked to match what failed is the one that quietly drops a stage.
+5. **Report that command, its exit code and its numbers**, in the shape above.
+
+Some failures exist only in the whole run: a hook that fits its budget alone and times out on a busy
+machine, a suite that mutates state another suite reads, a test that passes because an earlier one
+left the right state. All three go green in isolation, so stopping at the subset ships them and
+reports success — and the report is what everyone downstream trusts.
+
+Between steps 1 and 4 the tree is known-red and the results are partial. That is deliberate: four
+failures in a 500-test end-to-end suite at twenty minutes a run is eighty minutes to learn what one
+run at the end tells you, and a fix is not more correct for having been measured alone. The
+guarantee is not that every intermediate state was green — it is that **no claim rests on a subset.**
+
+Never claim partial success, never blame the tooling without evidence of a false positive, and never
+move to the next task while verification is failing.
 
 ## Stop and hand it back
 
