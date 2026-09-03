@@ -40,6 +40,7 @@ CORE_PATHS = (
     ".agents/skills/workflow-spec-driven", ".agents/skills/ponytail", ".agents/skills/workflow-config",
     ".agents/skills/wspecify", ".agents/skills/wdesign", ".agents/skills/wtasks",
     ".agents/skills/wimplement", ".agents/skills/wverify",
+    ".agents/skills/wreview", ".agents/skills/wqa",
     "templates/adoption/agents",
 )
 CORE_MISSING_PATHS = ("tools/ad-index.py", ".my-workflow.toml.example", "templates/agents")
