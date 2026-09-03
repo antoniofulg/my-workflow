@@ -119,7 +119,7 @@ mid-session are unverified; slice 5 opens with that research. Provider-independe
 runner script runs the sync before every spawn, and interactive sessions run it on start.
 
 Distribution: keep the Python runtime and publish an npm wrapper package whose `bin` execs
-`python3` on the bundled pack, so `npx my-workflow install` works. npm is a channel, not a
+`python3` on the bundled pack, so the pack installs from the npm channel. npm is a channel, not a
 runtime. Also publish to PyPI for `uvx my-workflow`.
 
 ## Slices

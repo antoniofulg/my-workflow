@@ -355,9 +355,10 @@ describe("autonomous parallel slice dispatch contract", () => {
       "serial execution is reserved for explicit `disabled` mode or a fail-closed condition",
     );
 
-    const validation = readRepositoryFile(
-      ".agents/skills/workflow-spec-driven/references/validate.md",
-    );
+    const validation = [
+      readRepositoryFile(".agents/skills/wverify/SKILL.md"),
+      readRepositoryFile(".agents/skills/wverify/references/validation-template.md"),
+    ].join("\n");
     expect(validation).toContain("validation-[slice].md");
     expect(validation).toContain("`validation.md` only for final integrated validation");
   });

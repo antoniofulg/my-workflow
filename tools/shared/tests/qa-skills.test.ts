@@ -282,8 +282,8 @@ describe("QA workflow artifact policy", () => {
     const agents = readRepositoryFile("AGENTS.md");
     const loop = readRepositoryFile("docs/workflow/loop.md");
     const specDriven = readRepositoryFile(".agents/skills/workflow-spec-driven/SKILL.md");
-    const implementer = readRepositoryFile(".agents/skills/workflow-spec-driven/references/implement.md");
-    const validator = readRepositoryFile(".agents/skills/workflow-spec-driven/references/validate.md");
+    const implementer = readRepositoryFile(".agents/skills/wimplement/SKILL.md");
+    const validator = readRepositoryFile(".agents/skills/wverify/SKILL.md");
     const memory = readRepositoryFile(".agents/skills/workflow-spec-driven/references/memory.md");
     const providerPackets = [
       readRepositoryFile("templates/agents/cursor/implementer.md"),
@@ -359,14 +359,17 @@ describe("canonical QA skills", () => {
   it("UT-001 installs one attributed slice-native workflow authority", () => {
     const skill = readRepositoryFile(".agents/skills/workflow-spec-driven/SKILL.md");
     const notice = readRepositoryFile(".agents/skills/workflow-spec-driven/NOTICE.md");
-    const validator = readRepositoryFile(".agents/skills/workflow-spec-driven/references/validate.md");
-    const tasksReference = readRepositoryFile(".agents/skills/workflow-spec-driven/references/tasks.md");
+    const validator = readRepositoryFile(".agents/skills/wverify/SKILL.md");
+    const tasksReference = [
+      readRepositoryFile(".agents/skills/wtasks/SKILL.md"),
+      readRepositoryFile(".agents/skills/wtasks/references/tasks-template.md"),
+    ].join("\n");
     const activeContract = [
       skill,
       notice,
       readRepositoryFile(".agents/skills/workflow-spec-driven/references/sub-agents.md"),
       tasksReference,
-      readRepositoryFile(".agents/skills/workflow-spec-driven/references/implement.md"),
+      readRepositoryFile(".agents/skills/wimplement/SKILL.md"),
     ].join("\n");
 
     expect(skillMetadata(".agents/skills/workflow-spec-driven/SKILL.md").name).toBe(
@@ -475,10 +478,9 @@ describe("canonical QA skills", () => {
     expect(reviewRounds).not.toMatch(/one global (?:remediation|blocker) counter/i);
 
     for (const relativePath of [
-      ".agents/skills/workflow-spec-driven/SKILL.md",
-      ".agents/skills/workflow-spec-driven/references/validate.md",
+      ".agents/skills/wverify/SKILL.md",
       ".agents/skills/workflow-spec-driven/references/sub-agents.md",
-      ".agents/skills/workflow-spec-driven/references/implement.md",
+      ".agents/skills/wimplement/SKILL.md",
       ".agents/skills/autonomous/SKILL.md",
       "docs/workflow/reviews.md",
       "docs/workflow/README.md",
@@ -488,7 +490,11 @@ describe("canonical QA skills", () => {
       expect(source).toContain("REVIEW-ROUNDS.md");
       expect(source).toContain("fingerprint");
     }
-    expect(readRepositoryFile(".agents/skills/workflow-spec-driven/references/validate.md")).toContain(
+    // The router no longer restates the loop; it routes to the phase skills that own it.
+    const router = readRepositoryFile(".agents/skills/workflow-spec-driven/SKILL.md");
+    expect(router).toContain("wimplement");
+    expect(router).toContain("wverify");
+    expect(readRepositoryFile(".agents/skills/wverify/SKILL.md")).toContain(
       "diagnostic cap is per issue and separate from review-remediation fingerprint accounting",
     );
     const convergence = readRepositoryFile(".agents/skills/workflow-spec-driven/scripts/review_convergence.py");
@@ -1130,6 +1136,7 @@ describe("Bun tooling runtime contract", () => {
       "tools/test_parallel_executor.py",
       "tools/test_parallel_plan.py",
       "tools/test_parallel_resource_lock.py",
+      "tools/test_phase_skills.py",
       "tools/test_qa_parallel_pilot.py",
       "tools/test_remediation.py",
       "tools/test_review_convergence.py",

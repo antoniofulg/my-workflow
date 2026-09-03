@@ -1,6 +1,6 @@
 ---
 name: wverify
-description: Verify phase - independent spec-anchored validation: AC evidence, edge cases, build gate, discrimination sensor, code quality, UAT, fix plans, and the lessons hook. Preloaded by the verifier agent; enter with /wverify.
+description: "Verify phase - independent spec-anchored validation: AC evidence, edge cases, build gate, discrimination sensor, code quality, UAT, fix plans, and the lessons hook. Preloaded by the verifier agent; enter with /wverify."
 ---
 
 # Execute: Validate & Verify
@@ -177,8 +177,8 @@ Fix tasks follow the same format as regular tasks and can be executed with the i
 
 After all checks complete, the Verifier:
 
-1. **Write the final feature report** to `.specs/features/[feature]/validation.md` (see template below) only after all slice reports exist and the verified slices are integrated. It is versioned workflow state and travels with the feature when committed. A slice-level Verifier writes `.specs/features/[feature]/validation-[slice].md` instead.
-2. **Return a compact summary in chat** to the orchestrator (see Compact Chat Summary section below). The orchestrator surfaces it to the user and routes any ranked gaps to fix tasks.
+1. **Write the final feature report** to `.specs/features/[feature]/validation.md` (see the Validation Report Template section of `references/validation-template.md`) only after all slice reports exist and the verified slices are integrated. It is versioned workflow state and travels with the feature when committed. A slice-level Verifier writes `.specs/features/[feature]/validation-[slice].md` instead.
+2. **Return a compact summary in chat** to the orchestrator (see the Compact Chat Summary section of `references/validation-template.md`). The orchestrator surfaces it to the user and routes any ranked gaps to fix tasks.
 
 **Deterministic backing (run it, do not eyeball it).** After writing the report, run `python3 .agents/skills/workflow-spec-driven/scripts/validate_state.py <feature>`. It confirms the report is real - present, verdict filled to PASS, and backed by at least one `file:line` evidence citation - so a missing, hollow, placeholder, or FAIL report cannot slip through as done. A non-zero exit means the feature is NOT done: repair the report or route the FAIL gaps to fix tasks, then re-run. This is the closing gate of Execute and runs automatically, the same way the lessons layer runs at distillation; it is never a manual step. If no code-execution tool is available, confirm the same by reading `validation.md`.
 

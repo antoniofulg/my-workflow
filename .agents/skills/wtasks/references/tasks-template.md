@@ -5,7 +5,7 @@
 
 ## Execution Protocol
 
-Implement these tasks with the `workflow-spec-driven` skill: activate it by name and follow its Execute flow and Critical Rules. Do not search for skill files by filesystem path. The skill is the source of truth for the full flow (per-task cycle, sub-agent delegation, adequacy review, Verifier, discrimination sensor). If the skill cannot be activated, stop and tell the user.
+Implement these tasks with the `wimplement` skill and verify them with `wverify`: activate them by name, and take the Critical Rules from the `workflow-spec-driven` router. Do not search for skill files by filesystem path. `wimplement` is the source of truth for the Execute flow (per-task cycle, sub-agent delegation, adequacy review) and `wverify` for the Verifier and discrimination sensor. If a skill cannot be activated, stop and tell the user.
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: wdesign
-description: Design phase - define HOW to build a specified feature: architecture, components, interfaces, data models, reuse, and risks. Pulled on demand by the planner agent; enter with /wdesign.
+description: "Design phase - define HOW to build a specified feature: architecture, components, interfaces, data models, reuse, and risks. Pulled on demand by the planner agent; enter with /wdesign."
 ---
 
 # Design

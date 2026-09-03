@@ -81,6 +81,26 @@ def frontmatter(path: Path) -> dict[str, str]:
     return fields
 
 
+# One-off Bun program: the repo's own frontmatter reader over every path given on argv.
+BUN_STRICT_YAML = """
+import { readFrontmatter } from "./tools/shared/src/frontmatter.ts";
+for (const path of Bun.argv.slice(1)) {
+  const parsed = readFrontmatter(await Bun.file(path).text());
+  if (!parsed.present || parsed.error || !parsed.data) {
+    console.error(`${path}: ${parsed.error ?? "no frontmatter mapping"}`);
+    process.exit(1);
+  }
+}
+"""
+
+
+def strict_yaml_frontmatter(paths: list[str]) -> subprocess.CompletedProcess[str]:
+    """Parse each path with the repo's Bun frontmatter reader. Exit 0 means strict YAML."""
+    return subprocess.run(
+        ["bun", "-e", BUN_STRICT_YAML, *paths], cwd=ROOT, text=True, capture_output=True
+    )
+
+
 def line_count(path: Path) -> int:
     return len(path.read_text(encoding="utf-8").splitlines())
 
@@ -99,6 +119,8 @@ def test_phase_skills_declare_scoped_frontmatter() -> None:
         agent = PRELOADING_AGENT[name]
         assert agent in description, f"{name}: description does not name the {agent} agent"
         assert f"/{name}" in description, f"{name}: description does not name the /{name} entry"
+    parsed = strict_yaml_frontmatter([f".agents/skills/{name}/SKILL.md" for name in PHASES])
+    assert parsed.returncode == 0, f"frontmatter is not strict YAML: {parsed.stderr.strip()}"
 
 
 def test_phase_skill_line_cap() -> None:

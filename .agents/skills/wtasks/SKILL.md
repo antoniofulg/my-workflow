@@ -147,11 +147,11 @@ Before showing tasks to the user, run the three pre-approval checks below; they 
 
 **Deterministic backing (run it, do not eyeball it).** `python3 .agents/skills/workflow-spec-driven/scripts/validate_tasks.py <tasks-path-or-feature>` enforces the structural half of these checks so they cannot drift: it flags a `Where` that names multiple files (granularity smell, Check 1), a diagram edge with no matching `Depends on` within a phase and vice-versa (Check 2), a task missing its `Tests` or `Gate` field, a `Tests: none` to confirm against the matrix (Check 3), and any dependency pointing to a later phase. A non-zero exit means restructure before presenting. The script checks structure; you still build the two tables below (the layer-to-test co-location judgment is yours). If no code-execution tool is available, run the checks by reading `tasks.md`.
 
-**Check 1: Task Granularity** - verify each task is atomic (see Granularity Check section).
+**Check 1: Task Granularity** - verify each task is atomic (see the Task Granularity Check section of `references/tasks-template.md`).
 
-**Check 2: Diagram-Definition Cross-Check** - verify the execution diagram matches every task's `Depends on` field (see Diagram-Definition Cross-Check section). Build the cross-check table and include it in the output.
+**Check 2: Diagram-Definition Cross-Check** - verify the execution diagram matches every task's `Depends on` field (see the Diagram-Definition Cross-Check section of `references/tasks-template.md`). Build the cross-check table and include it in the output.
 
-**Check 3: Test Co-location Validation** - verify every task's `Tests` field matches the **Test Coverage Matrix** generated above (see Test Co-location Validation section). Build the validation table and include it in the output.
+**Check 3: Test Co-location Validation** - verify every task's `Tests` field matches the **Test Coverage Matrix** generated above (see the Test Co-location Validation section of `references/tasks-template.md`). Build the validation table and include it in the output.
 
 **Output both tables with the tasks** so the user can see the validation results. Any ❌ means restructure before presenting; failing tasks are not shown for approval.
 
