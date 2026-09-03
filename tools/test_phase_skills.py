@@ -38,7 +38,7 @@ AGENTS_LINE_CAP = 134
 TEMPLATES = ROOT / "templates/agents"
 TEMPLATE_ROLES = ("planner", "implementer", "verifier", "explorer", "deep-reviewer")
 # Providers whose templates UT-006 scans; grows one entry per provider task.
-SCANNED_PROVIDERS: tuple[str, ...] = ("claude",)
+SCANNED_PROVIDERS: tuple[str, ...] = ("claude", "codex")
 
 CLAUDE_PRELOAD = {
     "planner": ("workflow-spec-driven", "wspecify", "wtasks", "ponytail"),

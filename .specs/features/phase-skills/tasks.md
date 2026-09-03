@@ -273,8 +273,8 @@ T10
 
 **Done when**:
 
-- [ ] UT-006 passes for `templates/agents/codex/`
-- [ ] Quick gate passes
+- [x] UT-006 passes for `templates/agents/codex/`
+- [x] Quick gate passes
 
 **Tests**: unit (UT-006)
 **Gate**: quick
