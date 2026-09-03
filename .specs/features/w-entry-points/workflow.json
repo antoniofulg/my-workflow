@@ -8,8 +8,9 @@
     ]
   },
   "feature": "w-entry-points",
-  "git_head": "c3a72f70fda37a1a493d4fccde76a88d7aa6948d",
+  "git_head": "e5ba8cdeaf8ecc25d951fdb551ecab0a6c17d2e9",
   "overrides": {
+    "deep_reviewer": "cursor",
     "explorer": "cursor",
     "implementer": "cursor",
     "verifier": "cursor"
@@ -24,10 +25,10 @@
   "profile": null,
   "roles": {
     "deep_reviewer": {
-      "agent_file": ".claude/agents/deep-reviewer.md",
+      "agent_file": ".cursor/agents/deep-reviewer.md",
       "effort": "high",
-      "model": "sonnet",
-      "provider": "claude"
+      "model": "cursor-grok-4.6-xhigh-fast",
+      "provider": "cursor"
     },
     "explorer": {
       "agent_file": ".cursor/agents/explorer.md",
@@ -38,13 +39,13 @@
     "implementer": {
       "agent_file": ".cursor/agents/implementer.md",
       "effort": "high",
-      "model": "gpt-5.6-luna",
+      "model": "gemini-3.8-flash-high",
       "provider": "cursor"
     },
     "verifier": {
       "agent_file": ".cursor/agents/verifier.md",
-      "effort": "medium",
-      "model": "cursor-grok-4.6",
+      "effort": "high",
+      "model": "cursor-grok-4.6-xhigh-fast",
       "provider": "cursor"
     }
   },
