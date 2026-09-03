@@ -30,7 +30,7 @@ Implement these tasks with the `workflow-spec-driven` skill: activate it by name
 | ---------- | ----------- | ------- |
 | Quick | After skill and template text tasks | `python3 tools/test_phase_skills.py` |
 | Full | After materializer or adopt tasks | `python3 tools/test_phase_skills.py && python3 tools/test_workflow_config.py && python3 scripts/test_adopt.py` |
-| Build | After phase completion | `bun run test:python && git diff --check` |
+| Build | After phase completion | `bun run test:all && git diff --check` (the TS suites under `tools/shared/tests` read skill paths; deep-review round 1 caught their omission) |
 
 ---
 

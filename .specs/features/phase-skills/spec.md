@@ -13,10 +13,10 @@ and per-role model choice.
 
 ## Goals
 
-- [ ] Each phase (Specify, Design, Tasks, Implement, Verify) is one skill an agent can preload alone.
-- [ ] The router shrinks to sizing, phase chain, `.specs` layout, critical rules, and resume.
-- [ ] Claude agents declare their skills in frontmatter; narrow roles cannot invoke other skills.
-- [ ] No instruction text is duplicated between the router and a phase skill.
+- [x] Each phase (Specify, Design, Tasks, Implement, Verify) is one skill an agent can preload alone.
+- [x] The router shrinks to sizing, phase chain, `.specs` layout, critical rules, and resume.
+- [x] Claude agents declare their skills in frontmatter; narrow roles cannot invoke other skills.
+- [x] No instruction text is duplicated between the router and a phase skill.
 
 ## Out of Scope
 
@@ -161,18 +161,19 @@ resolve for Claude, so that adoption keeps working.
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| PSK-01 | P1: Phase skills carry their procedure | Design | Pending |
-| PSK-02 | P1: Router shrinks to dispatch | Design | Pending |
-| PSK-03 | P1: Agents preload their skills | Design | Pending |
-| PSK-04 | P2: Skills are discoverable and adoptable | Design | Pending |
+| PSK-01 | P1: Phase skills carry their procedure | Execute (T1–T5, T12) | Verified (`validation-s1.md`, `validation-s2-r2.md`) |
+| PSK-02 | P1: Router shrinks to dispatch | Execute (T6) | Verified (`validation-s1.md`) |
+| PSK-03 | P1: Agents preload their skills | Execute (T8–T11) | Verified (`validation-s2.md`) |
+| PSK-04 | P2: Skills are discoverable and adoptable | Execute (T7) | Verified (`validation-s1.md`) |
 
-**Coverage:** 4 total, 0 mapped to tasks, 4 unmapped ⚠️
+**Coverage:** 4 total, 4 mapped to tasks, 0 unmapped
 
 ---
 
 ## Success Criteria
 
-- [ ] An implementer dispatched with the new template has `wimplement` and `ponytail` in
-      context and no `Skill` tool, verified by asking it to list its tools.
-- [ ] Planner context at Specify drops from router plus reference to router plus one phase skill,
-      measured by `wc -l` on the loaded files.
+- [x] An implementer dispatched with the new template has `wimplement` and `ponytail` in
+      context and no `Skill` tool, verified by asking it to list its tools (probe on 2026-09-03
+      after T12: no `Skill`, `# Execute` present, `# Ponytail` present).
+- [x] Planner context at Specify drops from router plus reference to router plus one phase skill:
+      `wc -l` 200 + 228 before, 136 + 117 after.
