@@ -16,4 +16,4 @@ Two rules, both detailed in [the operating schema](../AGENTS.md):
   before writing anything here. Never store credentials or customer data. Applicable privacy law
   applies to the whole repository, and rewriting git history is not a remedy you want to need.
 
-No sources collected yet.
+Collected so far: `2026-09-03-e2e-gate-remediation-cost.md`.
