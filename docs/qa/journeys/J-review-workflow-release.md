@@ -38,3 +38,5 @@ This journey is the adjacent canary for `J-adopt-workflow`.
 For the parallel release contract, its adjacent journeys are
 [`J-configure-feature-workflow`](J-configure-feature-workflow.md) and
 [`J-execute-parallel-slices`](J-execute-parallel-slices.md).
+
+The 2026-09-03 `phase-skills` cycle resets [`DOC-read-explicit-workflow-provenance`](../scenarios/DOC-read-explicit-workflow-provenance.md) to `untested`: the pack guide now declares eleven local capabilities and `docs/workflow/roadmap.md` is new. This journey is the adjacent canary for [`CH-adopt-phase-skills-2026-09-03`](../charters/CH-adopt-phase-skills-2026-09-03.md).

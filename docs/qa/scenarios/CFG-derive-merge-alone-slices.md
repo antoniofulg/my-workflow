@@ -6,7 +6,7 @@ persona: Workflow adopter
 journey: J-configure-feature-workflow
 expected: The resolver derives the slice count from the validated vertical-slice closure contract in `tasks.md` and groups those slices under the cadence configured in `.my-workflow.toml`; it uses one slice when Tasks was skipped, treats `--slices` as an assertion only, and returns the frozen snapshot on normal resume.
 entry_points: python3 .agents/skills/workflow-config/scripts/workflow_config.py --root . --feature <slug> --native-provider <provider>; python3 .agents/skills/workflow-config/scripts/workflow_config.py --root . --feature <slug> --native-provider <provider> --slices <expected-count>; python3 .agents/skills/workflow-config/scripts/workflow_config.py --root . --feature <slug> --native-provider <provider> --refresh; python3 .agents/skills/workflow-spec-driven/scripts/validate_tasks.py <tasks.md> --slice-contract-json; python3 .agents/skills/workflow-config/scripts/parallel_plan.py; .agents/skills/wtasks/references/tasks-template.md; .agents/skills/workflow-config/SKILL.md; README.md
-qa_status: pass
+qa_status: untested
 bug_ids:
 fix_status:
 retest_status:
@@ -54,3 +54,5 @@ task's status, resources, and dependencies are what they would be with the recor
 Walked 2026-09-02 through the CLI/manual adapter in a disposable repository built from `dfdf227`:
 derived counts, twelve one-defect refusals with before/after snapshot hashes, resume-versus-refresh
 freezing, and planner membership equality. See the report for the matrix and limitations.
+
+The installed task template moved from `workflow-spec-driven/references/tasks.md` to `.agents/skills/wtasks/references/tasks-template.md`. The `phase-skills` diff updated this entry point in place while leaving the verdict at `pass`; the promise is now read through a path no session has walked, so it is reset to `untested` pending the 2026-09-03 cycle. Prior evidence remains historical.

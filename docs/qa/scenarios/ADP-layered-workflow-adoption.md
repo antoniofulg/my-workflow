@@ -6,7 +6,7 @@ persona: Workflow adopter
 journey: J-adopt-workflow
 expected: A project can plan and apply fixed core, parallel, quality, and extras layers incrementally; conflicts fail before writes, consumer prose and Bun package metadata survive, and status reports clean state.
 entry_points: README.md#adopt-the-workflow; docs/adoption-prompt.md; scripts/adopt.py
-qa_status: pass
+qa_status: untested
 bug_ids:
 fix_status:
 retest_status:
@@ -43,3 +43,5 @@ The 2026-08-31 adjacent canary passed at `827d629`: a fresh target's read-only p
 byte-identical, normal parallel apply and status reached clean state, reversible managed drift
 returned status exit 1 without writes, restoration returned exit 0, and all disposable state was
 removed.
+
+The `phase-skills` feature changes the fixed core layer's managed path list, so what `plan`, `apply`, and `status` report for `--layers core` has changed; reset to `untested` pending the 2026-09-03 cycle. Prior evidence remains historical.

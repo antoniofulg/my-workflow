@@ -6,7 +6,7 @@ persona: Workflow adopter
 journey: J-adopt-workflow
 expected: A fresh target receives the v3 assisted workflow, pointer-only probe, tracked example/templates, initialized local config, generated runtime packets, and valid guidance; re-adoption preserves consumer-owned local state and feature workflow state remains visible to Git.
 entry_points: README.md#adopt-the-workflow; docs/guidelines/ARTIFACT-LIFECYCLE.md; scripts/adopt.py; tools/orca_assisted_probe.py; .my-workflow.toml.example; .my-workflow.toml; templates/agents/
-qa_status: pass
+qa_status: untested
 bug_ids: BUG-20260822-deep-review-learnings-untrackable; BUG-20260822-feature-specs-ignored; BUG-20260822-feature-state-gate-conflicts; BUG-20260825-adoption-omits-parallel-pilot; BUG-20260829-final-qa-pass-conflicts-with-adoption-gate
 fix_status: fixed
 retest_status: pass
@@ -87,3 +87,5 @@ Sixty-five selected managed files matched source bytes, probe import made zero O
 re-adoption preserved consumer-owned config and QA profile hashes, and package plus one-ready
 serial-integration canaries passed. The closing full gate exited zero. Real Orca/Codex scenarios
 remain `blocked-verify`; this offline adoption pass does not change that boundary.
+
+The `phase-skills` feature adds five phase skill directories to the core catalog and makes `.agents/skills` a sync input in `_prepare_sync`; the set of assets a fresh target receives and re-adoption preserves has changed, so this scenario is reset to `untested` pending the 2026-09-03 cycle. Prior evidence remains historical.
