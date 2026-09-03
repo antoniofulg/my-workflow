@@ -13,6 +13,20 @@ All notable changes to this project are documented here.
 - Local `main` is reconciled onto the published 0.8.0 base. The local assisted-Orca executor and
   Bun test-runner variants are superseded by the released hybrid slice execution and Bun tooling;
   merge-alone slice derivation is scheduled for a re-port onto `workflow-spec-driven`.
+- `workflow-spec-driven` drops prompt text written for earlier model generations: the 200K-window
+  context arithmetic and its rendered token countdown, a model-tier rubric that contradicted
+  `.my-workflow.toml` owning model and effort, the blocking per-task MCP question, and a
+  keyword-to-severity lookup table now deferred to `docs/guidelines/REVIEW-ROUNDS.md`. Test
+  integrity, planning, and progress rules are stated once instead of three times. No validator,
+  gate, or script behaviour changes.
+- Agent packet templates no longer restate the model and effort that `.my-workflow.toml` owns, so a
+  reroute propagates through `--sync-agents` alone.
+
+### Fixed
+
+- Claude Code resolves `workflow-spec-driven`, `workflow-config`, `deep-review`, `qa-plan`, and
+  `qa-execute` by name again. The tracked `.claude/skills/tlc-spec-driven` link had dangled since
+  the rename, so those skills silently fell through to whatever the host had installed globally.
 
 ### Removed
 
