@@ -295,7 +295,8 @@ class ReviewSignalTrailerTests(unittest.TestCase):
         self.assertEqual(self._exit_code(self._commit(broken)), 1)
 
     def test_an_unknown_key_is_rejected_and_named(self) -> None:
-        broken = self.GOOD + " reviewer=alice"
+        # A valid integer value so only the unknown-key rule can reject it.
+        broken = self.GOOD + " reviewer=3"
         self.assertEqual(self._exit_code(self._commit(broken)), 1)
         errors, _ = check_commit.check(self._commit(broken))
         self.assertTrue(any("reviewer" in e for e in errors), errors)

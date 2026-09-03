@@ -46,8 +46,8 @@ what fraction of delivered work was really reviewed without opening any feature 
   signal in range.
 - WHERE a delivery declares `tier=direct` or `tier=batch`, `review-metrics.py` shall count it as
   reviewed by design rather than as an unreviewed delivery.
-- WHEN the range contains no `Review-Signal` trailer, `review-metrics.py` shall report zero
-  deliveries and exit 0 rather than fail.
+- WHEN the range contains no `Review-Signal` trailer, `review-metrics.py` shall report zero signalled
+  deliveries, still report the unsigned count, and exit 0 rather than fail.
 - The report shall aggregate `findings`, `fixed`, `dismissed`, and surviving mutants across the
   range so a run of zero-finding reviews is visible.
 
@@ -76,5 +76,5 @@ what fraction of delivered work was really reviewed without opening any feature 
 
 | ID | Requirement | Status |
 | --- | --- | --- |
-| RST-01 | `Review-Signal` trailer grammar validated at commit time | implemented |
+| RST-01 | `Review-Signal` trailer grammar validated at commit time | verified |
 | RST-02 | Reviewed fraction reported from git history | pending |

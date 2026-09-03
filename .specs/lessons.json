@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 48,
+  "next_id": 50,
   "lessons": [
     {
       "id": "L-001",
@@ -852,6 +852,42 @@
       ],
       "created": "2026-09-02T01:21:11Z",
       "last_seen": "2026-09-02T01:21:11Z"
+    },
+    {
+      "id": "L-048",
+      "key": "surviving_mutant::test a rejected input branch with a value that would pass every other check so removing the branch changes the outcome",
+      "text": "Test a rejected-input branch with a value that would pass every other check, so removing the branch changes the outcome",
+      "signal": "surviving_mutant",
+      "scope": "validators",
+      "status": "candidate",
+      "features": [
+        "review-signal-trailer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "tools/test_tlc_validators.py:297 (mutant M2) (validators)"
+      ],
+      "created": "2026-09-03T03:33:00Z",
+      "last_seen": "2026-09-03T03:33:00Z"
+    },
+    {
+      "id": "L-049",
+      "key": "spec_precision_gap::when a spec validates a text format pin where in the input it may appear and which separators are legal or the validator s tolerance is unproven",
+      "text": "When a spec validates a text format, pin where in the input it may appear and which separators are legal, or the validator's tolerance is unproven",
+      "signal": "spec_precision_gap",
+      "scope": "validators",
+      "status": "candidate",
+      "features": [
+        "review-signal-trailer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".agents/skills/workflow-spec-driven/scripts/check_commit.py:50 (RST-01 trailer location) (validators)"
+      ],
+      "created": "2026-09-03T03:33:05Z",
+      "last_seen": "2026-09-03T03:33:05Z"
     }
   ]
 }
