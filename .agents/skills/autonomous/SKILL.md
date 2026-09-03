@@ -154,6 +154,10 @@ This authority excludes deploy or release, production mutations, force-push, dir
 and unrelated remote actions; those require explicit instruction. Readiness is evidence, not
 authorization for those actions.
 
+The merge commit carries one `Review-Signal` trailer for the pull request, aggregating its
+slices through `slices` and `verified`, so the review record survives the pruning of
+`.specs/features/`. Grammar and keys: `docs/guidelines/REVIEW-ROUNDS.md`.
+
 One pull request per run — a batch of issues ships together, the same way a feature's slices do.
 
 **Done when:** readiness is proven and the scoped feature-branch push, one pull request, and merge
