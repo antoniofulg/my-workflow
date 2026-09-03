@@ -1714,6 +1714,66 @@ def test_distinct_checkouts_sync_only_their_local_configuration() -> None:
             shutil.rmtree(root)
 
 
+def make_preload_root() -> Path:
+    """A temp root carrying the repository's real Claude templates and the skills they preload."""
+    root = make_root()
+    write_config(root)
+    write_packets(root, runtime=False)
+    shutil.copytree(ROOT / "templates/agents/claude", root / "templates/agents/claude", dirs_exist_ok=True)
+    for role in workflow_config.ROLES:
+        template = root / workflow_config._template_relative("claude", role)
+        header, _ = workflow_config._header("claude", template.read_text(encoding="utf-8"), template)
+        for name in workflow_config._preload_skills(header):
+            skill = root / ".agents/skills" / name / "SKILL.md"
+            skill.parent.mkdir(parents=True, exist_ok=True)
+            skill.write_text(f"---\nname: {name}\n---\n", encoding="utf-8")
+    return root
+
+
+def test_sync_passes_preload_keys_through_untouched() -> None:
+    root = make_preload_root()
+    try:
+        workflow_config.sync_agents(root)
+        template = (root / "templates/agents/claude/implementer.md").read_text(encoding="utf-8")
+        generated = (root / ".claude/agents/implementer.md").read_text(encoding="utf-8")
+        setting = MODELS["claude"]["implementer"]
+        assert generated == template.replace(
+            "model: opus\neffort: medium\n", f"model: {setting['model']}\neffort: {setting['effort']}\n"
+        ), "generated implementer differs from its template beyond model and effort"
+        for key in ("skills: [wimplement, ponytail]", "disallowedTools: Skill"):
+            assert key in template and key in generated, f"{key!r} did not survive rendering"
+    finally:
+        shutil.rmtree(root)
+
+
+def test_sync_rejects_an_unknown_preload_skill_before_any_write() -> None:
+    root = make_preload_root()
+    try:
+        template = root / "templates/agents/claude/implementer.md"
+        template.write_text(
+            template.read_text(encoding="utf-8").replace(
+                "skills: [wimplement, ponytail]", "skills: [wimplement, nope]"
+            ),
+            encoding="utf-8",
+        )
+        before = tree_state(root)
+        completed = subprocess.run(
+            [sys.executable, str(ROOT / ".agents/skills/workflow-config/scripts/workflow_config.py"),
+             "--root", str(root), "--sync-agents"],
+            capture_output=True, text=True,
+        )
+        assert completed.returncode != 0, "sync accepted an unknown preload skill"
+        assert completed.stdout == "", f"sync wrote stdout: {completed.stdout!r}"
+        assert "templates/agents/claude/implementer.md" in completed.stderr, completed.stderr
+        assert "nope" in completed.stderr, completed.stderr
+        for provider in workflow_config.PROVIDERS:
+            directory = root / f".{provider}" / "agents"
+            assert not directory.exists(), f"{directory} was written"
+        assert tree_state(root) == before, "sync mutated the tree before failing"
+    finally:
+        shutil.rmtree(root)
+
+
 if __name__ == "__main__":
     tests = [function for name, function in sorted(globals().items()) if name.startswith("test_")]
     for function in tests:

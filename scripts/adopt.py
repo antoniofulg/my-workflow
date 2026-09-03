@@ -447,7 +447,7 @@ def _prepare_sync(source_root: Path, root: Path, staged: dict[str, bytes]) -> di
         return {}
     with tempfile.TemporaryDirectory(prefix="my-workflow-sync-") as name:
         scratch = Path(name)
-        for relative in ("templates/agents",):
+        for relative in ("templates/agents", ".agents/skills"):
             source = root / relative
             if source.exists() or source.is_symlink():
                 _preflight_tree(root, relative, "sync input")

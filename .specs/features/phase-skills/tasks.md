@@ -321,8 +321,8 @@ T10
 
 **Done when**:
 
-- [ ] IT-001 and IT-002 pass
-- [ ] Full gate passes; `bun run test:python` passes
+- [x] IT-001 and IT-002 pass
+- [x] Full gate passes; `bun run test:python` passes
 
 **Tests**: integration (IT-001, IT-002)
 **Gate**: full

@@ -46,6 +46,10 @@ FRONTMATTER_RE = re.compile(
     r"\A---(?P<open_newline>\r\n|\n)(?P<header>.*?)(?P<close_newline>\r\n|\n)---(?P<after_newline>\r\n|\n|\Z)",
     re.DOTALL,
 )
+CLAUDE_SKILLS_RE = re.compile(
+    r"^skills:(?P<inline>[^\r\n]*)(?P<block>(?:(?:\r\n|\n)[ \t]*-[^\r\n]*)*)",
+    re.MULTILINE,
+)
 CLAUDE_MODEL_RE = re.compile(
     r"^model:[ \t]*(?P<model>[^\r\n]+?)(?P<suffix>[ \t]*)(?P<newline>\r\n|\n|\Z)",
     re.MULTILINE,
@@ -330,6 +334,17 @@ def _header(provider: str, content: str, path: Path) -> tuple[str, int]:
     return content[:end], 0
 
 
+def _preload_skills(header: str) -> list[str]:
+    """Skill names from a Claude `skills:` inline or block list."""
+    match = CLAUDE_SKILLS_RE.search(header)
+    if not match:
+        return []
+    inline = match.group("inline").strip().strip("[]")
+    entries = inline.split(",") if inline else []
+    entries += [line.strip().lstrip("-") for line in match.group("block").splitlines()]
+    return [name for name in (entry.strip().strip("\"'") for entry in entries) if name]
+
+
 def _coerce_content(content: str | bytes) -> tuple[str, bool]:
     if isinstance(content, bytes):
         return content.decode("utf-8"), True
@@ -557,6 +572,13 @@ def sync_agents(root: Path) -> dict[str, list[str]]:
             except FileNotFoundError as exc:
                 raise _error(f"missing agent template {template_relative.as_posix()}") from exc
             packet_setting(provider, template, template_relative)
+            if provider == "claude":
+                header, _ = _header(provider, template.decode("utf-8"), template_relative)
+                for skill in _preload_skills(header):
+                    if not (root / ".agents" / "skills" / skill / "SKILL.md").is_file():
+                        raise _error(
+                            f"{template_relative.as_posix()} preloads unknown skill {skill!r}"
+                        )
             rendered = render_agent_packet(
                 provider, template, model_setting(config, provider, role), template_relative
             )
