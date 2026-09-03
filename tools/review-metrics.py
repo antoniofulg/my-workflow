@@ -7,8 +7,8 @@ A delivery is a first-parent merge commit in the range. One carrying a
 `Review-Signal` trailer is signalled; one carrying none is unsigned. `tier=direct`
 and `tier=batch` are reviewed by design, never unreviewed.
 
-The trailer grammar lives in `docs/guidelines/REVIEW-ROUNDS.md` and is enforced at
-commit time by `check_commit.py`; this reader only aggregates what is already there,
+The trailer grammar lives in the docstring of `check_commit.py`, which enforces it
+at commit time; this reader only aggregates what is already there,
 so a range with no trailers reports zeros and exits 0.
 """
 

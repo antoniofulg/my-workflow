@@ -5,14 +5,6 @@
 **Why this exists:** Remediating every nitpick in one iteration is unbounded: each fix changes the
 diff and the next round finds new nits. Caps, monotonic findings, and filed issues make review end.
 
-## Why loops run away
-
-The failure has one cause, and it is a rule that sounds responsible:
-
-> *remediate every confirmed finding **and every nitpick** in this same iteration*
-
-Every nitpick changes the diff, so the next round finds new nitpicks. The loop is unbounded by construction, not by bad luck.
-
 ## The review stages, and what each is for
 
 | Stage | Asks | Cap |
@@ -90,17 +82,10 @@ identity and buys the same independence.
 Rewording or reopening a finding preserves its fingerprint and counter. A distinct blocker starts at count zero and does not consume another fingerprint's counter; the diagnostic cap is separate.
 ## The Review-Signal trailer
 
-The delivery commit for a pull request carries one line recording its review outcome, so the record
-survives the pruning of `.specs/features/` (AD-025):
-
-```
-Review-Signal: tier=<direct|batch|small|medium|large|complex> slices=<int> verified=<int> sensor=<killed>/<injected> rounds=<int> findings=<int> fixed=<int> dismissed=<int>
-```
-
-`tier=direct` and `tier=batch` need no other key; every other tier needs all of them. Optional
-`remediation-failed=<int>` defaults to 0. `fixed + dismissed` equals `findings`, `verified` does not
-exceed `slices`, `slices` is at least 1, and sensor killed does not exceed injected.
-`check_commit.py` validates the line when present and never requires one (AD-026).
+The delivery commit for a pull request carries one `Review-Signal:` line recording its review
+outcome, so the record survives the pruning of `.specs/features/` (AD-025). `check_commit.py`
+validates the line when present and never requires one (AD-026); that validator's docstring owns
+the field-by-field grammar.
 
 ## Finding shape
 Every finding states, in this order:

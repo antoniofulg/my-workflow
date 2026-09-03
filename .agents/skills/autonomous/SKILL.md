@@ -156,7 +156,7 @@ authorization for those actions.
 
 The merge commit carries one `Review-Signal` trailer for the pull request, aggregating its
 slices through `slices` and `verified`, so the review record survives the pruning of
-`.specs/features/`. Grammar and keys: `docs/guidelines/REVIEW-ROUNDS.md`.
+`.specs/features/`. Grammar and keys: the `check_commit.py` docstring.
 
 One pull request per run — a batch of issues ships together, the same way a feature's slices do.
 
