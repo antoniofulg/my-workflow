@@ -124,13 +124,13 @@ runtime. Also publish to PyPI for `uvx my-workflow`.
 
 ## Slices
 
-1. Skill split, preload, materializer renders `skills:`. No behaviour change.
+1. Skill split, preload, materializer renders `skills:`. No behaviour change. (done)
 2. Slash entry points with `context: fork`: `/wspecify`, `/wdesign`, `/wtasks`, `/wimplement`,
-   `/wverify`, plus `wreview` (forks into the deep-reviewer running `deep-review` on the current
-   diff) and `wqa` (forks into a fresh verifier running `qa-execute`). `deep-review`, `qa-plan`,
-   and `qa-execute` keep their names; the entry points wrap them. `/wqa <flow>` walks the journeys
-   tagged with that flow through the project's QA adapter, adds one exploratory charter for unhappy
-   paths, and records evidence and defects; defects file into Linear Triage once slice 7 lands.
+   `/wverify`, plus `wreview` (forks into the planner, which dispatches deep-reviewer jobs, and
+   never publishes) and `wqa` (forks into a fresh verifier; `[plan] <flow>` runs exactly one QA
+   phase over journeys tagged with the flow and stops when none carries the tag; no exploratory
+   charter is added by the entry point). `deep-review`, `qa-plan`, and `qa-execute` keep their
+   names; the entry points wrap them. Defects file into Linear Triage once slice 7 lands. (done)
 3. `uiux.md` and impact map to Specify; gap-hunt question; designer agent.
 4. Mockup fidelity rule, reuse inventory, lint on raw elements, token extraction, visual diff gate.
 5. Global config file, defaults, worktree walker, spawn-time sync hook.

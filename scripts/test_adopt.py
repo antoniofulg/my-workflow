@@ -32,6 +32,7 @@ FROZEN_PRE_FEATURE_PATHS = (
     ".agents/skills/qa-execute", ".agents/skills/autonomous", ".agents/skills/workflow-config",
     ".agents/skills/wspecify", ".agents/skills/wdesign", ".agents/skills/wtasks",
     ".agents/skills/wimplement", ".agents/skills/wverify",
+    ".agents/skills/wreview", ".agents/skills/wqa",
     "docs/qa/README.md", "tools/ad-index.py", ".my-workflow.toml.example", "templates/agents",
 )
 
@@ -120,7 +121,7 @@ def test_core_layer_installs_the_phase_skills() -> None:
         result = invoke(target, "plan", "--layers", "core", "--json")
         assert result.returncode == 0, result.stderr
         managed = {item["path"] for item in json.loads(result.stdout)["actions"]}
-        for name in ("wspecify", "wdesign", "wtasks", "wimplement", "wverify"):
+        for name in ("wspecify", "wdesign", "wtasks", "wimplement", "wverify", "wreview", "wqa"):
             assert f".agents/skills/{name}/SKILL.md" in managed, f"core plan omits .agents/skills/{name}"
             assert f".claude/skills/{name}" in managed, f"core plan omits .claude/skills/{name}"
     finally:

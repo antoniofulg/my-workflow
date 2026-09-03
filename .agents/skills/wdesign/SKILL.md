@@ -1,9 +1,15 @@
 ---
 name: wdesign
-description: "Design phase - define HOW to build a specified feature: architecture, components, interfaces, data models, reuse, and risks. Pulled on demand by the planner agent; enter with /wdesign."
+description: "Design phase - define HOW to build a specified feature: architecture, components, interfaces, data models, reuse, and risks. Argument: the feature slug. Pulled on demand by the planner agent; enter with /wdesign."
+argument-hint: "<feature-or-slice>"
+context: fork
+agent: planner
+background: false
 ---
 
 # Design
+
+Slash argument: $ARGUMENTS — when this skill was entered with /wdesign and the argument is empty, stop and ask for the feature or slice; when preloaded into an agent, the packet names the slice and this line is informational.
 
 **Goal**: Define HOW to build it. Architecture, components, what to reuse.
 
@@ -18,9 +24,7 @@ Read `.specs/features/[feature]/spec.md` before designing. If `.specs/features/[
 **Read `.specs/STATE.md` `## Decisions` before any architectural choice.** Every `active` `AD-NNN` entry is a project-level constraint this design must conform to. If a decision from a prior feature conflicts with what is best for this feature, you have two options - both require an explicit choice:
 
 1. **Conform** - Design within the active constraint.
-2. **Supersede** - Append a new `AD-NNN` entry to `.specs/STATE.md` `## Decisions` that supersedes the old one (set the old entry's `status` to `superseded by AD-NNN`) and document the reason. The new decision becomes the project standard going forward.
-
-Silently ignoring an active decision is not an option - it creates invisible inconsistency across features.
+2. **Supersede** - Append a new `AD-NNN` entry to `.specs/STATE.md` `## Decisions` that supersedes the old one (set the old entry's `status` to `superseded by AD-NNN`) and document the reason. The new decision becomes the project standard going forward. Silently ignoring an active decision creates invisible inconsistency across features.
 
 **Also load confirmed lessons** relevant to this feature: `python3 .agents/skills/workflow-spec-driven/scripts/lessons.py list --status confirmed` (filter with `--scope`/`--query`). These are past verification failures distilled into guidance - apply them while designing. Load only `confirmed`. Skip silently if no store or no code tool. See [lessons.md](.agents/skills/workflow-spec-driven/references/lessons.md).
 
@@ -61,8 +65,6 @@ Each component: Purpose, Location, Interfaces, Dependencies, What it reuses.
 ### 5. Define Data Models
 
 If the feature involves data, define models before implementation.
-
-**Loading ceiling:** load the smallest set that answers the current step; never two architecture docs at once.
 
 ## Template
 

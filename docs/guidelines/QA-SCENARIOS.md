@@ -19,6 +19,7 @@ docs/qa/
 ├── README.md                          area codes, entry points, how to reach the product
 ├── personas.md                        who walks the journeys
 ├── journeys/J-<slug>.md               journey maps and flows
+│                                      (optional `**Tags:** <flow>` line; `/wqa <flow>` selects by it)
 ├── scenarios/<AREA>-<slug>.md         the tracker — one file per promise
 ├── bugs/BUG-<YYYYMMDD>-<slug>.md      registry, deduplicated by symptom
 ├── charters/CH-<slug>.md              session missions, immutable once written

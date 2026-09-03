@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 53,
+  "next_id": 57,
   "lessons": [
     {
       "id": "L-001",
@@ -942,6 +942,78 @@
       ],
       "created": "2026-09-03T09:45:54Z",
       "last_seen": "2026-09-03T09:45:54Z"
+    },
+    {
+      "id": "L-053",
+      "key": "spec_precision_gap::a fork key is not evidence of an empty history spawn assert the host start state or mark the ac host runtime",
+      "text": "A fork key is not evidence of an empty-history spawn; assert the host start state or mark the AC host-runtime",
+      "signal": "spec_precision_gap",
+      "scope": "w-skills",
+      "status": "candidate",
+      "features": [
+        "w-entry-points"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "WEP-01 AC2 (w-skills)"
+      ],
+      "created": "2026-09-03T19:53:56Z",
+      "last_seen": "2026-09-03T19:53:56Z"
+    },
+    {
+      "id": "L-054",
+      "key": "spec_precision_gap::a fork key is not evidence that only the final message returns assert the host return shape or mark the ac host runtime",
+      "text": "A fork key is not evidence that only the final message returns; assert the host return shape or mark the AC host-runtime",
+      "signal": "spec_precision_gap",
+      "scope": "w-skills",
+      "status": "candidate",
+      "features": [
+        "w-entry-points"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "WEP-01 AC3 (w-skills)"
+      ],
+      "created": "2026-09-03T19:53:56Z",
+      "last_seen": "2026-09-03T19:53:56Z"
+    },
+    {
+      "id": "L-055",
+      "key": "spec_precision_gap::assert the exact refuse sentence in an entry skill body not only frontmatter keys",
+      "text": "Assert the exact refuse sentence in an entry-skill body, not only frontmatter keys",
+      "signal": "spec_precision_gap",
+      "scope": "w-skills",
+      "status": "candidate",
+      "features": [
+        "w-entry-points"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "WEP-02 AC2 (w-skills)"
+      ],
+      "created": "2026-09-03T19:53:56Z",
+      "last_seen": "2026-09-03T19:53:56Z"
+    },
+    {
+      "id": "L-056",
+      "key": "spec_precision_gap::assert the exact one phase and no tag stop sentences in an entry skill body not only frontmatter keys",
+      "text": "Assert the exact one-phase and no-tag-stop sentences in an entry-skill body, not only frontmatter keys",
+      "signal": "spec_precision_gap",
+      "scope": "w-skills",
+      "status": "candidate",
+      "features": [
+        "w-entry-points"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "WEP-02 AC3 (w-skills)"
+      ],
+      "created": "2026-09-03T19:53:56Z",
+      "last_seen": "2026-09-03T19:53:56Z"
     }
   ]
 }

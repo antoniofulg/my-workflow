@@ -11,9 +11,9 @@ bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-09-03-phase-skills/20-pointer-resolution.txt; docs/qa/evidence/2026-09-03-phase-skills/22-pointer-resolution-charter.txt; docs/qa/evidence/2026-09-03-phase-skills/23-phase-frontmatter.txt
-last_report: docs/qa/reports/2026-09-03-phase-skills.md
-overlaps:
+evidence: docs/qa/evidence/2026-09-03-w-entry-points/16-frontmatter-assert.txt; docs/qa/evidence/2026-09-03-w-entry-points/20-pointer-resolution.txt; docs/qa/evidence/2026-09-03-w-entry-points/20-pointer-fragment-note.txt
+last_report: docs/qa/reports/2026-09-03-w-entry-points.md
+overlaps: QAS-fork-w-skills; QAS-list-seven-w-entries
 ---
 
 New promise from the `phase-skills` feature. The five phase procedures moved out of
@@ -31,3 +31,8 @@ router.
 Frontmatter is part of the promise: each skill's `name` equals its directory, no
 `disable-model-invocation` key is present (it would block preload), and the `description` names the
 agent that preloads it and its `/w<phase>` entry.
+
+The `w-entry-points` feature rewrites those five frontmatters (fork keys, `Argument:` in
+`description`, slash-scoped empty-arg line). Procedure and pointer resolution must be reconfirmed
+against the new files, so this row is reset to `untested`. Fork keys and the seven-name menu are
+owned by `QAS-fork-w-skills` and `QAS-list-seven-w-entries`. Prior evidence remains historical.

@@ -1,9 +1,15 @@
 ---
 name: wimplement
-description: Execute phase - implement one task at a time with spec-derived tests, a deterministic gate, an atomic Conventional Commit, and slice-level verification. Preloaded by the implementer agent; enter with /wimplement.
+description: "Execute phase - implement one task at a time with spec-derived tests, a deterministic gate, an atomic Conventional Commit, and slice-level verification. Argument: the feature or slice. Preloaded by the implementer agent; enter with /wimplement."
+argument-hint: "<feature-or-slice>"
+context: fork
+agent: implementer
+background: false
 ---
 
 # Execute
+
+Slash argument: $ARGUMENTS — when this skill was entered with /wimplement and the argument is empty, stop and ask for the feature or slice; when preloaded into an agent, the packet names the slice and this line is informational.
 
 **Goal**: Implement one task at a time. Surgical changes. Verify. Commit. Repeat.
 
@@ -24,17 +30,13 @@ slices use isolated worktrees; tasks inside one slice remain sequential. See
 
 If there is no `tasks.md` for this feature, list the atomic steps before writing any code. With Tasks skipped, this inline plan is the task record that step 7 updates before each commit and that resume reads, so it has to exist before the first edit. Use the plan block in `references/execution-template.md`.
 
-**Each step must be:**
-
-- One deliverable (one component, one function, one endpoint, one file change)
-- Independently verifiable (can prove it works before moving on)
-- Independently committable (gets its own atomic git commit)
+**Each step must be:** one deliverable, independently verifiable, and independently committable.
 
 If listing steps reveals >5 steps or complex dependencies, STOP and create a formal `tasks.md` instead. The Tasks phase was wrongly skipped.
 
 ### 1. Pick Task
 
-From tasks.md (if exists) or from the execution plan above. User specifies ("implement T3") or suggest next available.
+From tasks.md (if exists) or from the execution plan above. User specifies or take next available.
 
 ### 2. Verify Dependencies
 
@@ -184,4 +186,4 @@ The last Implementer writes only a compact handoff and never certifies the integ
 
 - **Commit per task** - Clean git history enables bisect and rollback
 - **Learn from mistakes** - If something goes wrong, surface it to the user so it informs the next task
-- **Plain voice in prose** - Commit bodies and the validation summary follow the writing rules in [coding-principles.md](.agents/skills/workflow-spec-driven/references/coding-principles.md): lead with what changed, no filler
+- **Plain voice in prose** - Lead with what changed, no filler per [coding-principles.md](.agents/skills/workflow-spec-driven/references/coding-principles.md)

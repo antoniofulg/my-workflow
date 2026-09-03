@@ -119,6 +119,14 @@ def test_phase_skills_declare_scoped_frontmatter() -> None:
         agent = PRELOADING_AGENT[name]
         assert agent in description, f"{name}: description does not name the {agent} agent"
         assert f"/{name}" in description, f"{name}: description does not name the /{name} entry"
+        assert fields.get("context") == "fork", f"{name}: context is {fields.get('context')!r}"
+        assert fields.get("agent") == agent, f"{name}: agent is {fields.get('agent')!r}"
+        assert fields.get("background") == "false", f"{name}: background is {fields.get('background')!r}"
+        assert fields.get("argument-hint") in ('"<feature-or-slice>"', "<feature-or-slice>"), f"{name}: argument-hint is {fields.get('argument-hint')!r}"
+        lines = (SKILLS / name / "SKILL.md").read_text(encoding="utf-8").splitlines()
+        h1_index = next(i for i, line in enumerate(lines) if line.startswith("# "))
+        first_body_line = next(line for line in lines[h1_index + 1:] if line.strip())
+        assert "$ARGUMENTS" in first_body_line, f"{name}: first body line does not bind $ARGUMENTS: {first_body_line!r}"
     parsed = strict_yaml_frontmatter([f".agents/skills/{name}/SKILL.md" for name in PHASES])
     assert parsed.returncode == 0, f"frontmatter is not strict YAML: {parsed.stderr.strip()}"
 
@@ -196,7 +204,7 @@ def test_phase_skills_cite_validator_and_template_paths_that_exist() -> None:
 def test_docs_list_the_phase_skills() -> None:
     pack = (ROOT / "docs/workflow/pack.md").read_text(encoding="utf-8").splitlines()
     rows = [line for line in pack if line.startswith("| `")]
-    for name in PHASES:
+    for name in ALL_W_SKILLS:
         assert any(line.startswith(f"| `{name}` |") for line in rows), f"pack.md has no row for {name}"
     roadmap = (ROOT / "docs/workflow/roadmap.md").read_text(encoding="utf-8")
     assert "under 200 lines" in roadmap, "roadmap.md does not state the phase SKILL.md cap"
@@ -258,6 +266,62 @@ def test_template_load_lines_name_skills_and_existing_paths() -> None:
                         assert (ROOT / token).exists(), f"{label} loads missing path {token}"
                 for name in SKILL_MENTION.findall(line):
                     assert (SKILLS / name / "SKILL.md").is_file(), f"{label} loads unknown skill {name}"
+
+
+ENTRY_SKILLS = {
+    "wreview": "planner",
+    "wqa": "verifier",
+}
+ALL_W_SKILLS = ("wspecify", "wdesign", "wtasks", "wimplement", "wverify", "wreview", "wqa")
+PHASE_NAMES = {
+    "wspecify": "Specify",
+    "wdesign": "Design",
+    "wtasks": "Tasks",
+    "wimplement": "Execute",
+    "wverify": "Verify",
+    "wreview": "Review",
+    "wqa": "QA",
+}
+
+
+def test_entry_skills_contract() -> None:
+    """UT-010: entry skills carry keys, agent mapping, line cap < 40, and tracked symlinks."""
+    tracked = subprocess.run(
+        ["git", "ls-files", ".claude/skills"], cwd=ROOT, text=True, capture_output=True, check=True
+    ).stdout.split()
+    for name, agent in ENTRY_SKILLS.items():
+        skill_path = SKILLS / name / "SKILL.md"
+        assert skill_path.is_file(), f"{name}/SKILL.md does not exist"
+        fields = frontmatter(skill_path)
+        assert fields.get("name") == name, f"{name}: frontmatter name is {fields.get('name')!r}"
+        assert fields.get("context") == "fork", f"{name}: context is {fields.get('context')!r}"
+        assert fields.get("agent") == agent, f"{name}: agent is {fields.get('agent')!r}"
+        assert fields.get("background") == "false", f"{name}: background is {fields.get('background')!r}"
+        assert "argument-hint" in fields, f"{name}: argument-hint missing"
+        count = line_count(skill_path)
+        assert count < 40, f"{name}/SKILL.md is {count} lines, must be < 40"
+        link = ROOT / ".claude/skills" / name
+        assert link.is_symlink(), f".claude/skills/{name} is not a symlink"
+        assert link.readlink().as_posix() == f"../../.agents/skills/{name}", f"{name}: wrong link target"
+        assert (link / "SKILL.md").is_file(), f".claude/skills/{name} does not resolve"
+        assert f".claude/skills/{name}" in tracked, f".claude/skills/{name} is not tracked by git"
+    parsed = strict_yaml_frontmatter([f".agents/skills/{name}/SKILL.md" for name in ENTRY_SKILLS])
+    assert parsed.returncode == 0, f"entry skills frontmatter is not strict YAML: {parsed.stderr.strip()}"
+
+
+def test_exactly_seven_user_invocable_w_skills() -> None:
+    """UT-011: exactly seven user-invocable w* skills, each description starts with phase name and states argument."""
+    w_skill_dirs = {p.name for p in SKILLS.glob("w*") if (p / "SKILL.md").is_file() and not p.name.startswith("workflow-")}
+    assert w_skill_dirs == set(ALL_W_SKILLS), f"found w* skills: {sorted(w_skill_dirs)}, expected: {sorted(ALL_W_SKILLS)}"
+    for name in ALL_W_SKILLS:
+        fields = frontmatter(SKILLS / name / "SKILL.md")
+        assert fields.get("disable-model-invocation") != "true", f"{name}: disable-model-invocation must not be true"
+        description = fields.get("description", "")
+        phase_prefix = PHASE_NAMES[name]
+        assert description.startswith(f"{phase_prefix} phase") or description.startswith(f'"{phase_prefix} phase'), (
+            f"{name}: description {description!r} does not start with {phase_prefix} phase"
+        )
+        assert "Argument:" in description, f"{name}: description does not state its argument: {description!r}"
 
 
 if __name__ == "__main__":

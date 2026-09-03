@@ -3,6 +3,7 @@
 **Persona:** Workflow adopter
 **Goal:** Adopt the workflow without losing consumer-owned repository state.
 **Entry point:** `README.md` → **Adopt the workflow** → `scripts/adopt.py plan/resolve/apply/status`
+**Tags:** w-entry-points
 
 ## Flow
 
@@ -16,9 +17,10 @@
    `--skip-agents`. Otherwise `apply` the reviewed plan. Use `status` after resolution, each
    incremental apply, and one reversible managed-file drift.
 4. Confirm bundled workflow assets are discoverable, including the workflow-owned
-   `workflow-spec-driven` router and its five phase skills (`wspecify`, `wdesign`, `wtasks`,
-   `wimplement`, `wverify`) reachable through both `.agents/skills/` and the `.claude/skills/`
-   links, pointer-only assisted probe, and Bun-native knowledge sources; open each phase skill and
+   `workflow-spec-driven` router, its five phase skills (`wspecify`, `wdesign`, `wtasks`,
+   `wimplement`, `wverify`), and the two entry skills (`wreview`, `wqa`) reachable through both
+   `.agents/skills/` and the `.claude/skills/` links — seven `/w` names, each carrying fork keys —
+   pointer-only assisted probe, and Bun-native knowledge sources; open each phase skill and
    confirm the templates, references, and validator paths it names exist; the
    installed instructions activate Ponytail at workflow start and keep it active through the full
    cycle, the copied workflow tour omits the source-only pack guide and its links, repository-only
@@ -43,7 +45,10 @@ the complete apply before any write; this workflow has no layer-removal command.
 
 - [`ADP-adopt-workflow-safely`](../scenarios/ADP-adopt-workflow-safely.md)
 - [`ADP-install-phase-skills`](../scenarios/ADP-install-phase-skills.md)
+- [`ADP-install-review-and-qa-entries`](../scenarios/ADP-install-review-and-qa-entries.md)
 - [`QAS-resolve-phase-skill-procedures`](../scenarios/QAS-resolve-phase-skill-procedures.md)
+- [`QAS-fork-w-skills`](../scenarios/QAS-fork-w-skills.md)
+- [`QAS-list-seven-w-entries`](../scenarios/QAS-list-seven-w-entries.md)
 - [`ADP-layered-workflow-adoption`](../scenarios/ADP-layered-workflow-adoption.md)
 - [`ADP-resolve-legacy-adoption-conflicts`](../scenarios/ADP-resolve-legacy-adoption-conflicts.md)
 - [`ADP-separate-external-security-skills`](../scenarios/ADP-separate-external-security-skills.md)
@@ -71,3 +76,8 @@ The 2026-09-03 `phase-skills` cycle resets `ADP-adopt-workflow-safely` and
 `ADP-layered-workflow-adoption` to `untested` and adds `ADP-install-phase-skills` and
 `QAS-resolve-phase-skill-procedures`; see
 [`CH-adopt-phase-skills-2026-09-03`](../charters/CH-adopt-phase-skills-2026-09-03.md).
+
+The 2026-09-03 `w-entry-points` cycle resets `ADP-install-phase-skills` and
+`QAS-resolve-phase-skill-procedures` and adds `ADP-install-review-and-qa-entries`,
+`QAS-fork-w-skills`, and `QAS-list-seven-w-entries`; see
+[`CH-w-entry-points-2026-09-03`](../charters/CH-w-entry-points-2026-09-03.md).

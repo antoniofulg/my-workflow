@@ -1,9 +1,15 @@
 ---
 name: wtasks
-description: Tasks phase - break an approved design into granular atomic tasks with dependencies, a test coverage matrix, gate commands, and an execution plan. Preloaded by the planner agent; enter with /wtasks.
+description: "Tasks phase - break an approved design into granular atomic tasks with dependencies, a test coverage matrix, gate commands, and an execution plan. Argument: the feature slug. Preloaded by the planner agent; enter with /wtasks."
+argument-hint: "<feature-or-slice>"
+context: fork
+agent: planner
+background: false
 ---
 
 # Tasks
+
+Slash argument: $ARGUMENTS — when this skill was entered with /wtasks and the argument is empty, stop and ask for the feature or slice; when preloaded into an agent, the packet names the slice and this line is informational.
 
 **Goal**: Break into granular, atomic tasks. Clear dependencies. Right tools. Dependency-ordered execution plan.
 
@@ -31,12 +37,7 @@ description: Tasks phase - break an approved design into granular atomic tasks w
 - **Clean commits** - Each task = one atomic, revertable commit
 - **Errors isolated** - One failure doesn't block everything
 
-**Rule**: One task = ONE of these:
-
-- One component
-- One function
-- One API endpoint
-- One file change
+- One component, function, endpoint, or file change
 
 ---
 
@@ -170,8 +171,6 @@ Co-location Validation tables the checks above require.
 - **Dependencies are gates** - Each task waits only for its declared prerequisites; independent slices can run together
 - **Done when = Testable** - If you can't verify it, rewrite it
 - **Requirement ID = Traceable** - Every task traces back to a spec requirement
-
----
 
 ## Task Verification Standards
 
