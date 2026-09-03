@@ -1,9 +1,15 @@
 ---
 name: wverify
 description: "Verify phase - independent spec-anchored validation: AC evidence, edge cases, build gate, discrimination sensor, code quality, UAT, fix plans, and the lessons hook. Preloaded by the verifier agent; enter with /wverify."
+argument-hint: "<feature-or-slice>"
+context: fork
+agent: verifier
+background: false
 ---
 
 # Execute: Validate & Verify
+
+Run this phase for: $ARGUMENTS. If empty, stop and ask for the feature or slice.
 
 **Goal**: Verify implementation meets spec AND coding principles. This is NOT a separate phase - verification is part of every task's completion within Execute.
 
@@ -32,13 +38,7 @@ description: "Verify phase - independent spec-anchored validation: AC evidence, 
 
 ### 1. Check Completed Work
 
-When `tasks.md` is present, go through its task records:
-
-- [ ] All tasks marked done?
-- [ ] Any blocked or partial?
-
-When Tasks was skipped, go through the inline execution plan instead and confirm every step is
-marked complete with its gate result.
+Confirm all tasks (or inline execution plan steps) are marked done with their gate results.
 
 ### 2. Spec-Anchored Acceptance Criteria Check
 
@@ -62,10 +62,7 @@ For each acceptance criterion in `spec.md`, the Verifier re-derives the **spec-d
 
 ### 3. Check Edge Cases
 
-From spec.md edge cases:
-
-- [ ] [Edge case 1] handled correctly
-- [ ] [Edge case 2] handled correctly
+From spec.md edge cases: verify each listed edge case is handled correctly.
 
 ### 4. Run Build-Level Gate Check
 

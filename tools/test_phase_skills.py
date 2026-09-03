@@ -119,6 +119,14 @@ def test_phase_skills_declare_scoped_frontmatter() -> None:
         agent = PRELOADING_AGENT[name]
         assert agent in description, f"{name}: description does not name the {agent} agent"
         assert f"/{name}" in description, f"{name}: description does not name the /{name} entry"
+        assert fields.get("context") == "fork", f"{name}: context is {fields.get('context')!r}"
+        assert fields.get("agent") == agent, f"{name}: agent is {fields.get('agent')!r}"
+        assert fields.get("background") == "false", f"{name}: background is {fields.get('background')!r}"
+        assert fields.get("argument-hint") in ('"<feature-or-slice>"', "<feature-or-slice>"), f"{name}: argument-hint is {fields.get('argument-hint')!r}"
+        lines = (SKILLS / name / "SKILL.md").read_text(encoding="utf-8").splitlines()
+        h1_index = next(i for i, line in enumerate(lines) if line.startswith("# "))
+        first_body_line = next(line for line in lines[h1_index + 1:] if line.strip())
+        assert "$ARGUMENTS" in first_body_line, f"{name}: first body line does not bind $ARGUMENTS: {first_body_line!r}"
     parsed = strict_yaml_frontmatter([f".agents/skills/{name}/SKILL.md" for name in PHASES])
     assert parsed.returncode == 0, f"frontmatter is not strict YAML: {parsed.stderr.strip()}"
 

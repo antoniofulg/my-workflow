@@ -1,9 +1,15 @@
 ---
 name: wspecify
 description: Specify phase - capture WHAT to build with testable, traceable EARS requirements, run the closure gate, and trigger discuss for gray areas. Preloaded by the planner agent; enter with /wspecify.
+argument-hint: "<feature-or-slice>"
+context: fork
+agent: planner
+background: false
 ---
 
 # Specify
+
+Run this phase for: $ARGUMENTS. If empty, stop and ask for the feature.
 
 **Goal**: Capture WHAT to build with testable, traceable requirements.
 
@@ -25,8 +31,6 @@ The canonical rubric for requirements that are easy to miss. Referenced by [disc
 | External-dependency failure | Circuit breakers, fallbacks |
 | State-transition integrity | Valid transitions, guards |
 
----
-
 ## Process
 
 ### 1. Clarify Requirements
@@ -42,11 +46,8 @@ Ask conversationally (not as a checklist):
 - "What problem are you solving?"
 - "Who is the user and what's their pain?"
 - "What does success look like?"
-
-If needed:
-
-- "What are the constraints (time, tech, resources)?"
-- "What is explicitly out of scope?"
+- "What are the constraints (time, tech, resources)?" (if needed)
+- "What is explicitly out of scope?" (if needed)
 
 **Facts you look up; decisions you ask.** Anything discoverable by reading the environment (the codebase, config, docs, existing conventions) you resolve yourself through the Knowledge Verification Chain - do not spend the user's attention asking for it. Reserve questions for genuine decisions that are the user's to make: scope, priorities, product behavior, trade-offs. A question you could have answered by reading the code erodes trust and wastes a turn.
 
