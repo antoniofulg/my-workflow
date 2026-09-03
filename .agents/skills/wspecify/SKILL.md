@@ -1,7 +1,6 @@
 ---
 name: wspecify
-description: Specify phase - capture WHAT to build with testable, traceable EARS requirements, run the closure gate, and trigger discuss for gray areas. Invoked by the planner; not auto-loaded.
-disable-model-invocation: true
+description: Specify phase - capture WHAT to build with testable, traceable EARS requirements, run the closure gate, and trigger discuss for gray areas. Preloaded by the planner agent; enter with /wspecify.
 ---
 
 # Specify

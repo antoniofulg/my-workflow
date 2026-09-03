@@ -1,7 +1,6 @@
 ---
 name: wimplement
-description: Execute phase - implement one task at a time with spec-derived tests, a deterministic gate, an atomic Conventional Commit, and slice-level verification. Preloaded by the implementer; not auto-loaded.
-disable-model-invocation: true
+description: Execute phase - implement one task at a time with spec-derived tests, a deterministic gate, an atomic Conventional Commit, and slice-level verification. Preloaded by the implementer agent; enter with /wimplement.
 ---
 
 # Execute

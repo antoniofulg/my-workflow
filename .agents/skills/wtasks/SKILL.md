@@ -1,7 +1,6 @@
 ---
 name: wtasks
-description: Tasks phase - break an approved design into granular atomic tasks with dependencies, a test coverage matrix, gate commands, and an execution plan. Invoked by the planner; not auto-loaded.
-disable-model-invocation: true
+description: Tasks phase - break an approved design into granular atomic tasks with dependencies, a test coverage matrix, gate commands, and an execution plan. Preloaded by the planner agent; enter with /wtasks.
 ---
 
 # Tasks

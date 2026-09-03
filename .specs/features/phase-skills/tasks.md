@@ -347,8 +347,8 @@ T10
 
 **Done when**:
 
-- [ ] UT-001 asserts no `disable-model-invocation` key and the description contract; suite passes
-- [ ] Full gate passes
+- [x] UT-001 asserts no `disable-model-invocation` key and the description contract; suite passes
+- [x] Full gate passes
 
 **Tests**: unit (UT-001)
 **Gate**: full

@@ -1,7 +1,6 @@
 ---
 name: wverify
-description: Verify phase - independent spec-anchored validation: AC evidence, edge cases, build gate, discrimination sensor, code quality, UAT, fix plans, and the lessons hook. Preloaded by the verifier; not auto-loaded.
-disable-model-invocation: true
+description: Verify phase - independent spec-anchored validation: AC evidence, edge cases, build gate, discrimination sensor, code quality, UAT, fix plans, and the lessons hook. Preloaded by the verifier agent; enter with /wverify.
 ---
 
 # Execute: Validate & Verify

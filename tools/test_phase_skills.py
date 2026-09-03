@@ -23,6 +23,15 @@ PHASES: dict[str, tuple[tuple[str, ...], int]] = {
     "wverify": (("validate.md",), 339 + 10),
 }
 
+# phase skill -> the agent whose preload its description must name (PSK-01 AC1)
+PRELOADING_AGENT = {
+    "wspecify": "planner",
+    "wdesign": "planner",
+    "wtasks": "planner",
+    "wimplement": "implementer",
+    "wverify": "verifier",
+}
+
 SHARED_REFERENCES = {"code-analysis.md", "coding-principles.md", "lessons.md", "memory.md", "sub-agents.md"}
 
 VALIDATOR_PREFIX = ".agents/skills/workflow-spec-driven/scripts/"
@@ -85,7 +94,11 @@ def test_phase_skills_declare_scoped_frontmatter() -> None:
     for name in PHASES:
         fields = frontmatter(SKILLS / name / "SKILL.md")
         assert fields.get("name") == name, f"{name}: frontmatter name is {fields.get('name')!r}"
-        assert fields.get("disable-model-invocation") == "true", f"{name}: not hidden from auto-invocation"
+        assert "disable-model-invocation" not in fields, f"{name}: the flag blocks `skills:` preload"
+        description = fields.get("description", "")
+        agent = PRELOADING_AGENT[name]
+        assert agent in description, f"{name}: description does not name the {agent} agent"
+        assert f"/{name}" in description, f"{name}: description does not name the /{name} entry"
 
 
 def test_phase_skill_line_cap() -> None:
