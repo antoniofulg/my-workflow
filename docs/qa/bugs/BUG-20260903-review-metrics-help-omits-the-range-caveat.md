@@ -1,6 +1,6 @@
 # BUG-20260903-review-metrics-help-omits-the-range-caveat
 
-- **Status:** open — usability defect, no AC failure
+- **Status:** fixed in `a1a6e37` — verified by the coordinator, not the author: `python3 tools/review-metrics.py --help` exits 0 and prints the delivery definition, the `unsigned` definition, and the default-branch range caveat AD-027 relies on
 - **Severity:** major (usability)
 - **Scenario:** `QAS-report-the-reviewed-fraction-from-git`
 - **Expected:** `--help` tells the operator what a delivery is, what `unsigned` means, and that the default range reads the whole history — the caveat AD-027 explicitly relies on.
