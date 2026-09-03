@@ -25,14 +25,18 @@ SUMMED = ("slices", "verified", "findings", "fixed", "dismissed")
 
 
 def deliveries(rev_range: str) -> list[tuple[str, str]]:
-    """(sha, trailer) per first-parent merge. An unreadable range yields none, never a failure."""
+    """(sha, trailer) per first-parent merge. Unreadable range: usage error, exit 2."""
     proc = subprocess.run(
         ["git", "log", "-z", "--first-parent", "--merges", f"--format={FORMAT}", rev_range],
         capture_output=True,
         text=True,
     )
     if proc.returncode:
-        print(proc.stderr.strip(), file=sys.stderr)
+        # A repository with no commits at all has no deliveries; anything else is a bad range.
+        unborn = subprocess.run(["git", "rev-parse", "--verify", "-q", "HEAD"], capture_output=True)
+        if unborn.returncode == 0:
+            print(proc.stderr.strip(), file=sys.stderr)
+            raise SystemExit(2)
         return []
     found = []
     for entry in proc.stdout.split("\0"):

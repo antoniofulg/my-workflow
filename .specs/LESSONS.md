@@ -308,6 +308,12 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: .agents/skills/workflow-spec-driven/scripts/check_commit.py:50 (RST-01 trailer location) (validators)
 - last seen: 2026-09-03T03:33:05Z
 
+### L-050 - A never-fail reporting tool must still separate an unreadable input from a genuinely empty one; verify the underlying command's own exit code before swallowing it
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `reporting` · harmful: 0
+- features: review-signal-trailer
+- evidence: tools/review-metrics.py:39 (RST-02 unreadable range) (reporting)
+- last seen: 2026-09-03T03:42:42Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

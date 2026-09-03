@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 50,
+  "next_id": 51,
   "lessons": [
     {
       "id": "L-001",
@@ -888,6 +888,24 @@
       ],
       "created": "2026-09-03T03:33:05Z",
       "last_seen": "2026-09-03T03:33:05Z"
+    },
+    {
+      "id": "L-050",
+      "key": "spec_precision_gap::a never fail reporting tool must still separate an unreadable input from a genuinely empty one verify the underlying command s own exit code before swallowing it",
+      "text": "A never-fail reporting tool must still separate an unreadable input from a genuinely empty one; verify the underlying command's own exit code before swallowing it",
+      "signal": "spec_precision_gap",
+      "scope": "reporting",
+      "status": "candidate",
+      "features": [
+        "review-signal-trailer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "tools/review-metrics.py:39 (RST-02 unreadable range) (reporting)"
+      ],
+      "created": "2026-09-03T03:42:42Z",
+      "last_seen": "2026-09-03T03:42:42Z"
     }
   ]
 }

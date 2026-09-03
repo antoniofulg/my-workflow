@@ -58,14 +58,17 @@ class Repo:
             message += f"\n\n{SIGNAL} {trailer}"
         self.git("merge", "--no-ff", "-q", "-m", message, name)
 
-    def metrics(self, *args: str) -> dict:
-        result = subprocess.run(
+    def run(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
             [sys.executable, str(TOOL), *args, "--json"],
             cwd=self.path,
             env=ENV,
             capture_output=True,
             text=True,
         )
+
+    def metrics(self, *args: str) -> dict:
+        result = self.run(*args)
         assert result.returncode == 0, result.stderr
         return json.loads(result.stdout)
 
@@ -125,6 +128,13 @@ class ReviewMetricsTests(unittest.TestCase):
         self.assertEqual(report["deliveries"], 0)
         self.assertEqual(report["unsigned"], 0)
         self.assertIsNone(report["reviewed_fraction"])
+
+    def test_an_unreadable_rev_range_fails_instead_of_reporting_zeros(self) -> None:
+        self.repo.root()
+        result = self.repo.run("no-such-ref..HEAD")
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("no-such-ref", result.stderr)
 
     def test_whitespace_runs_between_fields_parse(self) -> None:
         self.repo.root()

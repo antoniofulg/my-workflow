@@ -77,4 +77,4 @@ what fraction of delivered work was really reviewed without opening any feature 
 | ID | Requirement | Status |
 | --- | --- | --- |
 | RST-01 | `Review-Signal` trailer grammar validated at commit time | verified |
-| RST-02 | Reviewed fraction reported from git history | implemented |
+| RST-02 | Reviewed fraction reported from git history | verified |
