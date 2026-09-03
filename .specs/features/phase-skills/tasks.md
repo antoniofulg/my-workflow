@@ -79,9 +79,9 @@ T10
 
 **Done when**:
 
-- [ ] UT-001, UT-002, UT-003, UT-007, UT-008 pass for `wspecify`
-- [ ] `wc -l .agents/skills/wspecify/SKILL.md` ≤ 200
-- [ ] Quick gate passes
+- [x] UT-001, UT-002, UT-003, UT-007, UT-008 pass for `wspecify`
+- [x] `wc -l .agents/skills/wspecify/SKILL.md` ≤ 200
+- [x] Quick gate passes
 
 **Tests**: unit (UT-001, UT-002, UT-003, UT-007, UT-008)
 **Gate**: quick
