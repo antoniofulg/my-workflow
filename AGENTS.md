@@ -30,8 +30,9 @@ feature snapshots freeze delegated settings. Cursor also sees `.claude/` and `.c
   mirrors the implementation proves nothing.
 - **Never add a test just to raise coverage.** Name the invariant, the owning layer, and the canonical
   suite; extend that suite. If no invariant exists, do not write the test.
-- **Remote delivery follows `autonomous`.** Invoking it authorizes this run's feature-branch push,
-  one pull request, and merge after readiness is rechecked. Readiness is evidence, not authorization
+- **Remote delivery follows `autonomous`.** Invoking it, or a human "go ahead" on proven-ready
+  work, authorizes push, one pull request, and merge after readiness is rechecked; never ask between
+  those steps, and stop at the pull request only when told so up front. Readiness is not authorization
   for deploy/release, production mutations, force-push, direct push to `main`, or unrelated remote
   actions; those require explicit instruction.
 - **Instruction files cost every turn.** This file and `docs/guidelines/*.md` load into prompts.
