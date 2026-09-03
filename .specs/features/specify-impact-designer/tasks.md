@@ -254,3 +254,22 @@ Phase 2:  T4 → T5 → T6
 
 **Tests**: unit (UT-001–004), integration (IT-002)
 **Gate**: full
+
+---
+
+### TR2: Lock every SID-01 and SID-02 clause element
+
+**Slice:** S1 remediation
+**What**: One assertion per named SID-01 and SID-02 AC element so N5–N8 die and sibling clauses cannot hide behind a neighbour. Mapping comment at the top of the test group. No skill-sentence additions; the rules were already present.
+**Where**: `tools/test_phase_skills.py`, `tools/test_tlc_validators.py`
+**Depends on**: TR1
+**Requirement**: SID-01, SID-02
+
+**Done when**:
+
+- [x] Every named SID-01 and SID-02 AC element has an assertion
+- [x] N5–N8 fail in a temp copy
+- [x] Gate below passes
+
+**Tests**: unit (UT-001–003)
+**Gate**: full
