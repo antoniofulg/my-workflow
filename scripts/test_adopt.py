@@ -712,23 +712,39 @@ def test_adoption_installs_only_new_authority_byte_identically() -> None:
 
 
 def test_product_context_is_neutral_missing_only_and_consumer_owned() -> None:
-    target = temporary_target()
+    target_a, target_b = temporary_target(), temporary_target()
     try:
-        assert invoke(target, "apply", "--layers", "core").returncode == 0
-        profile = target / adopt.PRODUCT_CONTEXT_PATH
+        preexisting_profile = target_b / adopt.PRODUCT_CONTEXT_PATH
+        preexisting_profile.parent.mkdir(parents=True)
+        preexisting_profile.write_bytes(b"consumer product B\n")
+
+        assert invoke(target_a, "apply", "--layers", "core").returncode == 0
+        assert invoke(target_b, "apply", "--layers", "core").returncode == 0
+        agents_a = (target_a / "AGENTS.md").read_bytes()
+        agents_b = (target_b / "AGENTS.md").read_bytes()
+        assert agents_a == agents_b
+        assert b"docs/product/AGENT-CONTEXT.md" in agents_a
+        assert b"product-stencil:" not in agents_a
+
+        profile = target_a / adopt.PRODUCT_CONTEXT_PATH
         template = ROOT / adopt.PRODUCT_CONTEXT_TEMPLATE
         assert profile.read_bytes() == template.read_bytes()
         assert b"my-workflow source pack" not in profile.read_bytes()
-        manifest = json.loads((target / ".my-workflow/adoption.json").read_text(encoding="utf-8"))
+        assert preexisting_profile.read_bytes() == b"consumer product B\n"
+        manifest = json.loads((target_a / ".my-workflow/adoption.json").read_text(encoding="utf-8"))
         record = manifest["files"][adopt.PRODUCT_CONTEXT_PATH]
         assert record["ownership"] == "consumer"
         assert record["installed_sha256"] is None
 
-        profile.write_bytes(b"consumer product marker\n")
-        assert invoke(target, "apply", "--layers", "core").returncode == 0
-        assert profile.read_bytes() == b"consumer product marker\n"
+        profile.write_bytes(b"consumer product A\n")
+        preexisting_profile.write_bytes(b"consumer product B updated\n")
+        assert invoke(target_a, "apply", "--layers", "core").returncode == 0
+        assert invoke(target_b, "apply", "--layers", "core").returncode == 0
+        assert profile.read_bytes() == b"consumer product A\n"
+        assert preexisting_profile.read_bytes() == b"consumer product B updated\n"
     finally:
-        shutil.rmtree(target)
+        shutil.rmtree(target_a)
+        shutil.rmtree(target_b)
 
 
 def test_product_context_parent_symlink_is_rejected_before_writes() -> None:

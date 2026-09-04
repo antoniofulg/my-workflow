@@ -252,12 +252,20 @@ describe("QA workflow artifact policy", () => {
     const scenarios = readRepositoryFile("docs/guidelines/QA-SCENARIOS.md");
     const review = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
     const implement = readRepositoryFile(".agents/skills/wimplement/SKILL.md");
+    const tasks = readRepositoryFile(".agents/skills/wtasks/SKILL.md");
+    const taskTemplate = readRepositoryFile(".agents/skills/wtasks/references/tasks-template.md");
     expect(gates).toContain("not promoted to full e2e");
     expect(qaExecution).toContain("receives no QA Plan/Execute cycle");
     expect(scenarios).toContain("does not create/reset a scenario or start a QA");
     expect(review).toContain("issue` is neutral");
     expect(implement).toContain("no automatic all-tests expansion");
     expect(implement).not.toContain("Build + lint + all tests");
+    expect(tasks).toContain("no automatic all-tests expansion");
+    expect(tasks).toContain("owning scoped integration command");
+    expect(tasks).toContain("docs/guidelines/GATES.md");
+    expect(taskTemplate).toContain("owning scoped gate command");
+    expect(taskTemplate).toContain("canonical GATES.md classification");
+    expect(taskTemplate).not.toContain("[full gate command");
   });
 
   it("IT-007 ignores generated Deep Review output but keeps learnings eligible", () => {

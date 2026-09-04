@@ -21,7 +21,7 @@ enough product context to specify the affected capability and its dependencies.
 | --- | --- |
 | CRM or Creatista migration | This change prepares the reusable workflow; neither product checkout is modified. |
 | New context service, indexing engine, or token telemetry | Markdown routing and existing bounded packets are sufficient. |
-| QA, review cadence, remote authority, or release changes | Context selection does not grant new permissions or change task classification. |
+| QA/review execution, remote authority, or release work beyond proportional selection | This update defines proportional validation and explicit-skip routing, but runs no QA/deep-review/full gate and grants no new permission. |
 | Bulk rewriting product knowledge or old workflow snapshots | Existing product content remains consumer-owned. |
 
 ## Assumptions & Open Questions
@@ -78,6 +78,8 @@ As a developer, I want an agent's context to reflect its role and task so a visu
 7. WHEN a task only changes a button's color THEN the context contract SHALL select applicable design/accessibility guidance without loading customer voice, whole product flows, or historical learnings; WHEN it changes customer-facing copy THEN it SHALL select the voice reference; WHEN it changes a boundary THEN it SHALL select that boundary's architecture reference.
 8. WHEN a fresh worker or reviewer is dispatched THEN its provider instructions and materialized prompt SHALL expose the product context entry point and task scope, using existing packet fields for selected reference citations and preserving the existing packet schema and size budgets.
 9. WHILE applying context selection, the workflow SHALL retain current task classification, QA/review requirements, role separation, and explicit permission boundaries; project constraints may strengthen safeguards and conflicts SHALL be surfaced before the affected action.
+10. WHEN design work is required THEN the Designer SHALL state constraints first, inspect selected references and existing components read-only, use three alternatives only for a genuinely new screen or meaningful redesign, subtract redundant UI without harming accessibility, and stop after one exploration and one refinement unless a named choice remains.
+11. WHEN validation is selected THEN the workflow SHALL classify the resulting diff as documentation maintenance, instruction change, or mixed executable change, run only the canonical owning checks for that class, escalate only for named concrete risk or changed public promise, and honor explicit user skips with a recorded narrow limitation.
 
 **Independent test:** Exercise the existing packet renderer and provider generation, then walk the
 installed reference routes for a color correction, customer copy, feature specification, and a
@@ -106,6 +108,8 @@ bounded implementation. Source/consumer sentinels must not leak into unrelated c
 | SCP-07 | Task-specific selection examples | Complete |
 | SCP-08 | Fresh role/packet reachability and budgets | Complete |
 | SCP-09 | Existing safeguards and task classification | Complete |
+| SCP-10 | Constraint-first, selective, bounded Designer process and approved handoff | Complete |
+| SCP-11 | Proportional validation classification, owning checks, and explicit skips | Complete |
 
 ## Execution Plan
 

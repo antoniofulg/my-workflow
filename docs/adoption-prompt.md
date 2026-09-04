@@ -50,11 +50,13 @@ managed-file drift, unowned differing destination, malformed manifest, or unsafe
 before any target write and lists every conflict. Use `status` afterwards; exit 0 means clean, 1
 means drift, and 2 means invalid invocation or state.
 
-Review the complete diff, managed-path overwrites, and the target's declared full gate. Record the
-exact gate command and result. If the change exposes a user-visible UI, API, CLI, mobile, public
-configuration, adoption, or docs-as-interface promise, send the existing Verifier a fresh
-`qa-plan` packet followed by a separate `qa-execute` packet. For a purely internal refactor,
-record `no user-visible change` and do not run QA. Activate `workflow-spec-driven`. At the start of
-workflow work, activate `ponytail` at `full`; `AGENTS.md` carries the full-cycle session rule and
-the explicit stop commands.
+Review the complete diff, managed-path overwrites, and the target's declared full gate as a candidate
+check. Apply the proportional classifier in the adopted `docs/guidelines/GATES.md`: pure maintenance
+uses accuracy/link/heading/whitespace checks, instruction changes use consistency plus existing
+relevant contract checks, and mixed changes use canonical checks for changed executable behavior.
+Record selected commands, results, and any named risk. Send fresh `qa-plan` and `qa-execute` packets
+only when the classifier selects a public walk. For a purely internal refactor, record `no user-visible change` and do not run QA; otherwise record the narrow limitation. Preserve risk-based checks for
+adoption, auth, data, and public interfaces. Activate `workflow-spec-driven`. At the start of
+workflow work, activate `ponytail` at `full`; `AGENTS.md` carries the full-cycle session rule and the
+explicit stop commands.
 ```
