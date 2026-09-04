@@ -50,14 +50,18 @@ All notable changes to this project are documented here.
   status records and reset to `untested` when behaviour changes.
 - `VERIFICATION-EVIDENCE.md` names the gate remediation loop and its cost; the raw knowledge note
   `2026-09-03-e2e-gate-remediation-cost.md` records the observation behind it.
-- Router and reference prose trimmed after a prompt audit; the retired `context-limits.md` reference
-  is removed.
+- `workflow-spec-driven` drops prompt text written for earlier model generations: the 200K-window
+  context arithmetic and its rendered token countdown, a model-tier rubric that contradicted
+  `.my-workflow.toml` owning model and effort, the blocking per-task MCP question, and a
+  keyword-to-severity lookup table now deferred to `docs/guidelines/REVIEW-ROUNDS.md`. Test
+  integrity, planning, and progress rules are stated once instead of three times; the retired
+  `context-limits.md` reference is removed. No validator, gate, or script behavior changes.
+- Agent packet templates no longer restate the model and effort that `.my-workflow.toml` owns, so a
+  reroute propagates through `--sync-agents` alone.
 - Live Orca transport stays `blocked-verify`; Cursor headless dispatch uses full Cursor model ids
   (`BUG-20260903-cursor-route-bracket-effort-rejected`).
 - `docs/workflow/roadmap.md` records the modular workflow programme (Linear intake, qualifier,
   global config, mockup fidelity, telemetry intake, deterministic installer).
-### Changed
-
 - Workflow resolution derives its slice count from the validated `## Vertical Slice Closure`
   contract in `tasks.md` instead of a manually supplied number. A feature without `tasks.md`
   resolves to one slice, `--slices` is now an optional exact assertion on initial resolution and
@@ -65,15 +69,6 @@ All notable changes to this project are documented here.
 - Local `main` is reconciled onto the published 0.8.0 base. The local assisted-Orca executor and
   Bun test-runner variants are superseded by the released hybrid slice execution and Bun tooling;
   merge-alone slice derivation is scheduled for a re-port onto `workflow-spec-driven`.
-- `workflow-spec-driven` drops prompt text written for earlier model generations: the 200K-window
-  context arithmetic and its rendered token countdown, a model-tier rubric that contradicted
-  `.my-workflow.toml` owning model and effort, the blocking per-task MCP question, and a
-  keyword-to-severity lookup table now deferred to `docs/guidelines/REVIEW-ROUNDS.md`. Test
-  integrity, planning, and progress rules are stated once instead of three times. No validator,
-  gate, or script behaviour changes.
-- Agent packet templates no longer restate the model and effort that `.my-workflow.toml` owns, so a
-  reroute propagates through `--sync-agents` alone.
-
 ### Fixed
 
 - Claude Code resolves `workflow-spec-driven`, `workflow-config`, `deep-review`, `qa-plan`, and
