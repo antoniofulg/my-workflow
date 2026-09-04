@@ -164,11 +164,11 @@ T8 → T9
 **Done when**:
 
 - [ ] Feature works per acceptance criteria
-- [ ] Gate check passes: `[full gate command from the Gate Check Commands above]`
+- [ ] Gate check passes: `[owning scoped gate command from canonical GATES.md classification]`
 - [ ] Test count: [N] tests pass (no silent deletions)
 
 **Tests**: integration
-**Gate**: full
+**Gate**: declared
 
 **Commit**: `feat([scope]): [description]`
 
@@ -271,4 +271,3 @@ When a task creates code that can't be tested until a later task completes (e.g.
 2. **Merge backward:** Absorb the blocking dependency into the current task so it becomes self-testable (e.g., controller task includes its own module registration).
 
 Pick whichever option keeps tasks atomic and cohesive. The goal: no task produces unverified code. If code can't be tested in the task that creates it, the task boundaries are wrong.
-

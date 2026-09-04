@@ -70,3 +70,8 @@ Fresh QA Plan and fresh QA Execute sessions each run on the integrated final tre
   journey.
 
 If this session wrote the code, stop and dispatch a new verifier instead.
+
+## Product context
+
+Read `docs/product/AGENT-CONTEXT.md` before work. Follow its role/task route, load only cited paths
+or headings, and name missing required context as a gap.

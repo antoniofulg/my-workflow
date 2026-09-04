@@ -24,17 +24,18 @@ last column.
 | 4 | **Scoped gate** | Prove *this* diff, not the whole product | Escalate if the selector cannot scope it | [GATES.md](../guidelines/GATES.md) |
 | 5 | **Atomic commit** | One Conventional Commit; update `tasks.md` when present, or the inline execution plan when Tasks is skipped, first | — | `AGENTS.md` |
 | 6 | **Technical Verifier** | Do the tests prove the acceptance criteria? Mutants must die | Filed-issue path; no code in final QA session | [REVIEW-ROUNDS.md](../guidelines/REVIEW-ROUNDS.md) |
-| 7 | **QA Plan** | Map changed public promises to journeys, scenarios, and charters | No user-visible surface | [QA-EXECUTION.md](../guidelines/QA-EXECUTION.md) |
-| 8 | **QA Execute** | Walk public journeys through the declared adapter | No user-visible surface | [QA-EXECUTION.md](../guidelines/QA-EXECUTION.md) |
-| 9 | **Deep-review** | Correct, safe, maintainable — resolved groups, blocking findings only | Final QA session | [REVIEW-ROUNDS.md](../guidelines/REVIEW-ROUNDS.md) |
+| 7 | **QA Plan** | Map changed public promises to journeys, scenarios, and charters | No selected public promise | [QA-EXECUTION.md](../guidelines/QA-EXECUTION.md) |
+| 8 | **QA Execute** | Walk public journeys through the declared adapter | No selected public promise | [QA-EXECUTION.md](../guidelines/QA-EXECUTION.md) |
+| 9 | **Deep-review** | Correct, safe, maintainable — resolved groups, blocking findings only | Proportional classifier selects scoped validation | [REVIEW-ROUNDS.md](../guidelines/REVIEW-ROUNDS.md) |
 | 10 | **QA session** | The finished feature, as a person meets it | Feature has no user-visible change | [QA-EXECUTION.md](../guidelines/QA-EXECUTION.md) |
-| 11 | **Full gate** | The product gate, once, on the final tree | — | [GATES.md](../guidelines/GATES.md) |
+| 11 | **Full gate** | The product gate, once, when the proportional classifier selects it | Scoped gate is sufficient | [GATES.md](../guidelines/GATES.md) |
 | 12 | **Remote delivery** | `autonomous` authorizes the feature-branch push, one pull request, and merge after readiness is rechecked | Readiness is evidence, not authorization for deploy/release, production mutations, force-push, direct `main` push, and unrelated remote actions; those need explicit instruction | [VERIFICATION-EVIDENCE.md](../guidelines/VERIFICATION-EVIDENCE.md) |
 
-The **feature-closing step is the QA session**. It writes no product code, so it gets no technical
-Verifier or deep-review; two distinct fresh Verifier packets still run `qa-plan` and `qa-execute`.
-Implementation slices remain vertical and independently verified; deep-review follows resolved
-groups before this session.
+The feature-closing step is the QA session when the proportional classifier selects a public walk.
+Implementation slices remain vertical and independently verified; deep-review follows resolved groups
+when selected, then QA and the full/scoped gate follow the route rather than file count or feature wording.
+
+The selected route records its gate and limitation in the handoff.
 
 ## Why slices, not “the whole feature”
 

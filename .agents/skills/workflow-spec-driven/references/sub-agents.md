@@ -20,7 +20,7 @@ up to four. Missing, malformed, stale, or unhealthy evidence never admits a lane
 explicit integer cap is always respected and does not bypass health proof. Lifecycle, recovery, and role
 boundaries are below.
 
-**Technical Verifier (always-on):** After each code-changing slice reaches its checkpoint, the coordinator dispatches a fresh Verifier automatically. It re-derives spec evidence, runs the discrimination sensor in an isolated scratch, writes the slice validation report, and never fixes the inspected tree. Dependent slices consume only verified checkpoints. Deep Review and QA are separate fresh roles on the integrated tree. Review remediation uses the immutable finding `fingerprint` and `docs/guidelines/REVIEW-ROUNDS.md`.
+**Technical Verifier (always-on for code-changing slices):** After each code-changing slice reaches its checkpoint, the coordinator dispatches a fresh Verifier automatically. It re-derives spec evidence, runs the discrimination sensor in an isolated scratch, writes the slice validation report, and never fixes the inspected tree. Deep Review, QA, and feature-level validation are separate fresh roles only when the proportional classifier in `docs/guidelines/GATES.md` selects them. Review remediation uses the immutable finding `fingerprint` and `docs/guidelines/REVIEW-ROUNDS.md`.
 
 **Model and effort per role are configuration, not a per-dispatch judgment.** The frozen workflow route from `.agents/skills/workflow-config/SKILL.md` carries each role's model and effort; spawn the named agent and do not override them.
 
@@ -38,8 +38,8 @@ Full mechanics (slice packet, lane admission, failure handling, coordinator cont
 - An Explorer and read-only reviewers use the clean integration checkout.
 - A fresh Technical Verifier checks every code-changing slice before a dependent
   slice consumes its checkpoint.
-- A fresh Deep Reviewer checks each resolved review group on the integrated tree.
-  Fresh QA Plan and QA Execute sessions check the public result.
+- A fresh Deep Reviewer and QA Plan/Execute sessions check the integrated tree only when the
+  proportional classifier selects them.
 
 ## Admission
 
@@ -113,5 +113,5 @@ The orchestrator must:
 3. Keep author, verifier, reviewer, and QA identities distinct.
 4. Preserve operation, worktree, handle, lease, route, and commit identities.
 5. Stop before destructive cleanup when ownership or clean-tree proof is absent.
-6. Run the final full gate on the integrated tree and record exact commands and
-   results.
+6. Run the final full gate on the integrated tree only when the proportional classifier selects it,
+   and record exact commands and results. Otherwise record the selected scoped checks and limitation.

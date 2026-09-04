@@ -10,6 +10,34 @@ responsible and never finishes. A green suite with no spec contract ships bugs. 
 middle: small vertical slices, cheap gates while building, a hard cap on review rounds, and a
 human-owned merge.
 
+## Quick start
+
+Keep the immutable release checkout separate from the project receiving it. The target directory must
+already exist. A Git repository is recommended so plans, conflicts, and workflow state remain
+reviewable.
+
+```bash
+git clone --branch v0.10.0 --depth 1 https://github.com/antoniofulg/my-workflow.git /path/to/my-workflow-0.10.0
+mkdir -p /path/to/target-project
+python3 /path/to/my-workflow-0.10.0/scripts/adopt.py plan /path/to/target-project --layers core --json
+python3 /path/to/my-workflow-0.10.0/scripts/adopt.py apply /path/to/target-project --layers core
+python3 /path/to/my-workflow-0.10.0/scripts/adopt.py status /path/to/target-project
+```
+
+Use `core` for the operating loop and Bun tooling. Use `full` for parallel execution, quality and QA
+skills, and optional Ponytail utilities; selected layers are cumulative, and every non-core layer
+includes `core`. `full` installs capabilities but does not mandate every stage; the task classifier
+selects the work. Adoption requires Python 3. Bun 1.4.x is needed only for source-pack tooling, not
+adoption itself. Use the same target and `--layers` value with `plan` and `apply`; `status` reads
+installed layers from the manifest and takes no layer selector.
+
+After the first apply, immediately fill the consumer-owned `docs/product/AGENT-CONTEXT.md` with the
+product identity, critical constraints, and routes to existing files or headings. Do not create empty
+brand, design, or architecture files. Task-specific routes beat role defaults: visual polish reads
+design/accessibility (for example, a button color), customer copy reads voice, a planner reads the
+overview plus affected capabilities, and an implementer reads its approved task plus applicable
+architecture/design. Narrow context never bypasses safety, permission, QA, or review requirements.
+
 Start here: **[docs/workflow/](docs/workflow/)** — an index of every stage, guideline, and choice.
 
 ## Purpose
@@ -17,13 +45,58 @@ Start here: **[docs/workflow/](docs/workflow/)** — an index of every stage, gu
 | Delivery | Reliability |
 | --- | --- |
 | Auto-sized planning (one line needs no spec) | Tests assert spec outcomes, not the implementation |
-| Scoped gate per slice; full gate once | Never weaken a test to go green |
+| Proportional scoped gate; full gate only when selected | Never weaken a test to go green |
 | Nitpicks become filed issues, not extra rounds | Blocker and Major still hold the ship |
 | `ponytail` at `full` — shortest code that works | Security surfaces declared and given `SEC-` ids |
 | `autonomous` scopes remote delivery | Its invocation authorizes the feature-branch push, one pull request, and merge after readiness is rechecked; readiness is evidence, not authorization for deploy/release, production mutations, force-push, direct `main` push, or unrelated remote actions |
 
 The loop, the caps, and the guidelines are the mechanism. The tour explains **why** each exists.
 `AGENTS.md` is what agents run.
+
+## Current workflow
+
+Use plain intent in the request:
+
+- “Visual polish / UI-only correction; I am doing manual QA” keeps adjustments to colors, spacing,
+  typography, alignment, borders, and layout on the narrow inspect → implement → targeted check →
+  commit path when behavior stays unchanged.
+- “Feature” starts the smallest spec and slice route that fits the behavior. “Cross-feature” sets a
+  broader mapping floor. A neutral Linear `issue` is classified from its concrete outcome, not its
+  label.
+- Documentation maintenance, agent-instruction changes, and mixed executable changes automatically
+  use proportional checks from `GATES.md`. Named risk or changed public behavior selects stronger
+  evidence. Confirmed deep-review defects are fixed inside their run; cosmetics become follow-up work.
+
+The feature path is Specify → optional Design/Tasks → Execute. Each task uses its selected checks
+and an atomic commit. Technical verification, deep review, QA, and the full gate are selected by
+the changed behavior and concrete risk; installing their skills does not make every stage mandatory.
+
+For UI work, Designer starts with constraints, reads selected references, and inspects existing
+components read-only. A design tool or isolated prototype supports exploration when useful. Three
+alternatives apply when a new screen or meaningful redesign leaves an actual design choice open;
+existing patterns handle bounded compositions. One exploration and one refinement is the default.
+Human visual acceptance is recorded only after the human confirms it.
+
+The shared workflow stays in `AGENTS.md`. Keep the product index short and point to existing
+documents, for example:
+
+```markdown
+## Critical constraints
+- [Only the project constraints every task must see.]
+
+## Role/task routes
+| Role or task | Read only |
+| --- | --- |
+| Visual polish | docs/design/SYSTEM.md#tokens-and-accessibility |
+| Customer-facing copy | docs/brand/VOICE.md |
+| Feature planning | docs/product/OVERVIEW.md and affected journey references |
+| Implementation | Assigned spec/task and the relevant architecture sections |
+```
+
+These paths are examples: replace them with real files and headings in your project. A visual-polish
+task does not load the voice guide or all product journeys merely because those documents exist.
+Project-specific operational rules, such as Linear routing and environment setup, can live in
+separate references selected by the matching task.
 
 ## Credits and provenance
 
@@ -57,9 +130,12 @@ these dependencies.
 
 ## Adopt the workflow
 
-Copy the loop, not the product. For a new project, replace the stencil paragraph under **What this
-project is** in `AGENTS.md` and fill product documentation only as the product earns it. For an
-existing project, preserve its filled product paragraph and product-owned documentation.
+Copy the loop, not the product. New projects use the shared `AGENTS.md` pointer and receive a neutral,
+consumer-owned `docs/product/AGENT-CONTEXT.md` index; fill its identity and routes with existing
+project references instead of copying this source pack's profile. Existing projects preserve their
+filled product paragraph and product-owned documentation. For a legacy `AGENTS.md`, extract product
+rules into that index before deliberately replacing older prose; adoption never infers or performs
+that migration.
 
 Choose a fixed capability layer. `core` contains the operating loop and Bun tooling, `parallel`
 adds assisted slice execution, `quality` adds review and QA skills, and `extras` adds optional
@@ -73,9 +149,14 @@ python3 scripts/adopt.py apply /path/to/target-project --layers core
 python3 scripts/adopt.py status /path/to/target-project
 ```
 
+This release changes only this source pack's shared `AGENTS.md` and managed workflow files. Updating
+an existing consumer remains a separate adoption step. Start that update from a clean dedicated
+branch; adoption preserves unknown consumer files and aborts before writing when it finds conflicts.
+
 Add capabilities later with another apply; installed layers are cumulative and omitted layers are
-never removed. `--skip-agents` preserves both instruction files byte-for-byte. Without it, adoption
-appends managed `core`, `parallel`, and `quality` blocks while preserving consumer prose. A differing
+never removed. `--skip-agents` preserves both instruction files byte-for-byte and skips local-config
+initialization and packet synchronization. Without it, adoption appends managed `core`, `parallel`,
+and `quality` blocks while preserving consumer prose. A differing
 managed file or unowned destination is reported as a conflict and causes zero writes.
 
 ### Resolve a legacy no-manifest conflict
@@ -144,12 +225,14 @@ remains visible to Git. Adoption removes only the exact legacy `.specs/features/
 including duplicates, preserves consumer-owned lines and comments, and never stages or commits
 files.
 
-The tracked `.my-workflow.toml.example` documents the complete v2 matrix and `mixed` profile. Each
-checkout owns an ignored `.my-workflow.toml`, initialized from that example by sync or adoption;
+The tracked `.my-workflow.toml.example` documents the complete v3 matrix and `mixed` profile. Each
+checkout owns an ignored `.my-workflow.toml`, initialized from that example by adoption without
+`--skip-agents` or by explicit sync;
 it is the single editable source for all Claude, Codex, and Cursor model and effort choices. The
 tracked `templates/agents/` trees hold canonical instruction bodies, while sync generates the
 ignored native runtime packets. Re-adoption preserves an existing local config byte-for-byte and
-regenerates runtime packets from the templates and that config.
+regenerates runtime packets from the templates and that config when `--skip-agents` is not used.
+With `--skip-agents`, sync is an explicit later operator step.
 
 ```bash
 python3 .agents/skills/workflow-config/scripts/workflow_config.py \
@@ -240,15 +323,18 @@ python3 /path/to/my-workflow/scripts/adopt.py apply . --layers full --skip-agent
 git diff
 ```
 
-Use `--skip-agents` when the target has product-specific instructions. Read
+Use `--skip-agents` when the target has product-specific instructions. It preserves `AGENTS.md` and
+`CLAUDE.md`, skips local-config initialization and packet sync, and leaves managed instruction blocks
+for manual merge. Read
 [`CHANGELOG.md`](CHANGELOG.md) between the adopted version and the current package version before
 accepting the update. Apply is additive: it does not remove an installed layer or consumer file.
 
 Each release lists its upgrade steps under `### Migration` in the changelog; follow them in order
-after `apply`. Two things apply never does for you: it installs `templates/agents/` only when the
-directory is missing, so template changes are copied over by hand, and `--skip-agents` leaves
-`AGENTS.md` alone, so managed-block changes are merged by hand. The roadmap's deterministic
-installer (`docs/workflow/roadmap.md`) is the planned replacement for both.
+after `apply`. Templates install only when the directory is missing, so merge template changes by
+hand while retaining customizations, then run the explicit sync command. Without `--skip-agents`,
+apply performs normal sync; with it, local config and packets stay untouched until you sync later.
+The roadmap's deterministic installer (`docs/workflow/roadmap.md`) is the planned replacement for
+manual template merging.
 
 ## Managed paths
 
@@ -259,8 +345,8 @@ installed layer or consumer file. Product documentation, `.specs/`, `package.jso
 an existing local `.my-workflow.toml` remain consumer-owned.
 
 The local config is the source for generated provider packets. Adoption preserves an existing
-`.my-workflow.toml`, installs tracked templates when missing, and runs `--sync-agents`; sync creates
-the local config when absent and regenerates or overwrites the ignored `.claude/agents/`,
+`.my-workflow.toml` and installs tracked templates when missing. Without `--skip-agents`, apply runs
+`--sync-agents`; sync creates the local config when absent and regenerates or overwrites the ignored `.claude/agents/`,
 `.codex/agents/`, and `.cursor/agents/` packets from the templates and config. Edit the config or
 tracked templates, not generated runtime packets.
 
@@ -327,6 +413,8 @@ explorer and verifier runtimes live under the ignored `.cursor/agents/`, `.claud
 `.codex/agents/` directories.
 
 ## Knowledge checker
+
+These are optional source-pack maintainer checks, not adoption or consumer task gates.
 
 ```bash
 bun install --frozen-lockfile

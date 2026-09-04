@@ -18,7 +18,7 @@ from typing import Any
 
 STENCIL = "<!-- product-stencil:"
 MANIFEST_SCHEMA = 1
-WORKFLOW_VERSION = "0.9.2"
+WORKFLOW_VERSION = "0.10.0"
 SEMVER_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 MAX_SEMVER_COMPONENT_DIGITS = 9
 LAYERS = ("core", "parallel", "quality", "extras")
@@ -44,6 +44,9 @@ CORE_PATHS = (
     "templates/adoption/agents",
 )
 CORE_MISSING_PATHS = ("tools/ad-index.py", ".my-workflow.toml.example", "templates/agents")
+PRODUCT_CONTEXT_PATH = "docs/product/AGENT-CONTEXT.md"
+PRODUCT_CONTEXT_TEMPLATE = "templates/adoption/product/AGENT-CONTEXT.md"
+CONSUMER_MISSING_SOURCES = {PRODUCT_CONTEXT_PATH: PRODUCT_CONTEXT_TEMPLATE}
 PARALLEL_PATHS = (
     "tools/qa_parallel_pilot.py", "tools/orca_assisted_probe.py", "tools/resource_lock.py",
     ".agents/skills/autonomous",
@@ -219,7 +222,16 @@ def _catalog(root: Path, layers: list[str]) -> dict[str, str]:
                 if previous and previous != layer:
                     raise _error(f"workflow path belongs to multiple layers: {path}")
                 entries[path] = layer
+    if "core" in layers:
+        for destination, source in CONSUMER_MISSING_SOURCES.items():
+            _source_files(root, source)
+            entries[destination] = "core"
     return entries
+
+
+def _source_bytes(source_root: Path, relative: str) -> bytes:
+    source = CONSUMER_MISSING_SOURCES.get(relative, relative)
+    return (source_root / source).read_bytes()
 
 
 def _manifest_path(root: Path) -> Path:
@@ -303,11 +315,13 @@ def _record(layer: str, ownership: str, source: bytes, installed: bytes | None) 
 def _classify(root: Path, source_root: Path, selected: list[str], manifest: dict[str, Any]) -> tuple[list[dict[str, str]], dict[str, Any], list[str]]:
     catalog = _catalog(source_root, selected)
     missing_paths = {path for layer in selected for item in LAYER_MISSING_PATHS[layer] for path in _source_files(source_root, item)}
+    if "core" in selected:
+        missing_paths.update(CONSUMER_MISSING_SOURCES)
     actions: list[dict[str, str]] = []
     records: dict[str, Any] = {}
     conflicts: list[str] = []
     for relative, layer in sorted(catalog.items()):
-        source = (source_root / relative).read_bytes()
+        source = _source_bytes(source_root, relative)
         installed_source = _adopted_bytes(relative, source)
         destination = _safe_path(root, relative, "managed destination")
         previous = manifest["files"].get(relative)
@@ -689,7 +703,7 @@ def _build_plan(
             action["action"] = "replace"
             conflicts.remove(action["path"])
         if action["action"] in {"add", "update", "replace"}:
-            source = (source_root / action["path"]).read_bytes()
+            source = _source_bytes(source_root, action["path"])
             special[action["path"]] = _adopted_bytes(action["path"], source)
     staged = dict(special)
     staged.update(block_outputs)

@@ -90,9 +90,9 @@ execution plan when Tasks was skipped):**
 | Task includes                    | Gate level | What runs                |
 | -------------------------------- | ---------- | ------------------------ |
 | Unit tests only                  | Quick      | Unit test command        |
-| E2E or integration tests         | Full       | Unit + E2E commands      |
-| Last task in a phase             | Build      | Build + lint + all tests |
-| No tests (config, entities, etc) | Build      | Build + lint only        |
+| E2E or integration tests         | Declared   | The owning scoped integration command |
+| Last task in a phase             | Declared   | The task's declared gate; no automatic all-tests expansion |
+| No tests (config, entities, etc) | Declared   | The consuming project's documented check |
 
 The gate check is deterministic. The test runner decides if the code is correct,
 not the agent's self-assessment.

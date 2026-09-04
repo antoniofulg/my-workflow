@@ -84,6 +84,7 @@ def render_packet(request: dict[str, Any]) -> bytes:
         + "\n".join(f"- `{item}`" for item in request["acceptance_criteria"]),
         "\n## Tests\n" + "\n".join(f"- `{item}`" for item in request["test_ids"]),
         f"\n## Gate\n\n```text\n{request['gate']}\n```",
+        "\n## Product context\n\nRead `docs/product/AGENT-CONTEXT.md` first. Apply task-specific routes before role defaults. Selected reference citations live in the design excerpt and slice memory; load only those paths or headings.",
         f"\n## Design excerpt\n\n{request['design_excerpt']}",
         f"\n## Slice memory\n\n{request['memory']}",
         "",

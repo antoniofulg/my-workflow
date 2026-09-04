@@ -14,13 +14,17 @@ invent a command or install a QA framework during adoption.
 
 Before writing, set `<selected-layers>` to the requested fixed layers (`core`, `parallel`, `quality`,
 `extras`, or `full`). Run `python3 /path/to/my-workflow/scripts/adopt.py plan /path/to/target-project --layers <selected-layers> --json` and review its actions. Report the managed paths and every target path that could be replaced. Preserve
-product-owned product, architecture, design, and stack documentation. For a new project, replace
-the AGENTS.md product stencil and create product docs only as the product earns them. For an
-existing project, use `--skip-agents` when the product paragraph is filled; it preserves `AGENTS.md`
+product-owned product, architecture, design, and stack documentation. For a new project, adoption
+initializes a neutral, consumer-owned `docs/product/AGENT-CONTEXT.md` index; fill it with product
+identity and routes to existing docs only as the product earns them. For an existing project,
+preserve its filled product paragraph. Before deliberately replacing a legacy `AGENTS.md`, extract
+its product rules into that index and review the complete diff; adoption does not infer or perform
+that migration. Use `--skip-agents` when the product paragraph is filled; it preserves `AGENTS.md`
 and `CLAUDE.md`, so merge workflow instruction changes manually. Preserve an existing local
 `.my-workflow.toml` byte-for-byte. Install missing `.my-workflow.toml.example` and
-`templates/agents/`, then run `--sync-agents` to generate the ignored provider runtime packets
-from the tracked templates and local config; sync may overwrite those generated packets.
+`templates/agents/`. Without `--skip-agents`, apply then runs `--sync-agents` to generate ignored
+provider packets from tracked templates and local config; sync may overwrite generated packets.
+With `--skip-agents`, local config initialization and packet sync are skipped; run explicit sync later.
 
 If the plan reports conflicts and the target has no `.my-workflow/adoption.json`, review every
 conflict and move product customizations into product-owned files. Commit that clean Git baseline,
@@ -33,8 +37,8 @@ plus manual resolution for managed-file drift.
 Read the pack's `CHANGELOG.md` from the target's adopted version to the current package version
 before an update. Run `python3 /path/to/my-workflow/scripts/adopt.py apply /path/to/target-project --layers <selected-layers>` only
 after the review. Use the same `<selected-layers>` value in plan and apply; `full` selects all four.
-For a filled product paragraph, pass `--skip-agents`. Adoption also runs the
-target's explicit `--sync-agents` command after installing missing example/templates.
+For a filled product paragraph, pass `--skip-agents`; merge managed instructions and run the target's
+explicit `--sync-agents` command later after installing or merging example/templates.
 
 If `docs/qa/README.md` is absent, create it when `quality` is selected. If it exists, merge only newly discovered facts into
 the existing profile; never overwrite existing content. Record the discovered interfaces, existing
@@ -47,11 +51,13 @@ managed-file drift, unowned differing destination, malformed manifest, or unsafe
 before any target write and lists every conflict. Use `status` afterwards; exit 0 means clean, 1
 means drift, and 2 means invalid invocation or state.
 
-Review the complete diff, managed-path overwrites, and the target's declared full gate. Record the
-exact gate command and result. If the change exposes a user-visible UI, API, CLI, mobile, public
-configuration, adoption, or docs-as-interface promise, send the existing Verifier a fresh
-`qa-plan` packet followed by a separate `qa-execute` packet. For a purely internal refactor,
-record `no user-visible change` and do not run QA. Activate `workflow-spec-driven`. At the start of
-workflow work, activate `ponytail` at `full`; `AGENTS.md` carries the full-cycle session rule and
-the explicit stop commands.
+Review the complete diff, managed-path overwrites, and the target's declared full gate as a candidate
+check. Apply the proportional classifier in the adopted `docs/guidelines/GATES.md`: pure maintenance
+uses accuracy/link/heading/whitespace checks, instruction changes use consistency plus existing
+relevant contract checks, and mixed changes use canonical checks for changed executable behavior.
+Record selected commands, results, and any named risk. Send fresh `qa-plan` and `qa-execute` packets
+only when the classifier selects a public walk. For a purely internal refactor, record `no user-visible change` and do not run QA; otherwise record the narrow limitation. Preserve risk-based checks for
+adoption, auth, data, and public interfaces. Activate `workflow-spec-driven`. At the start of
+workflow work, activate `ponytail` at `full`; `AGENTS.md` carries the full-cycle session rule and the
+explicit stop commands.
 ```

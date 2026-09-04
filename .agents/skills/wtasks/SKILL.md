@@ -107,13 +107,14 @@ These defaults may exceed the current repo's depth. That is intentional - they a
 
 ## Gate Check Commands
 
-> Generated from codebase - confirm before Execute.
+> Generated from codebase - confirm before Execute. Apply the proportional classifier in
+> `docs/guidelines/GATES.md`; each declared row names its owning scoped command.
 
 | Gate Level | When to Use | Command |
 | ---------- | ----------- | ------- |
 | Quick | After tasks with unit tests only | [unit test command] |
-| Full | After tasks with e2e/integration tests | [unit + e2e commands] |
-| Build | After phase completion or config/entity-only tasks | [build + lint + all tests] |
+| Declared | After tasks with e2e/integration tests | owning scoped integration command |
+| Declared | After phase completion or config/entity-only tasks | Task's declared gate; no automatic all-tests expansion |
 
 ---
 
@@ -122,8 +123,8 @@ These defaults may exceed the current repo's depth. That is intentional - they a
 | Task creates...                           | Done When must include...                                                                                          |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | Code layer with "unit" requirement        | Unit tests written satisfying the layer's Coverage Expectation (e.g., 1:1 AC mapping for domain logic; all listed edge cases covered) + quick gate passes |
-| Code layer with "e2e" requirement         | E2E tests written satisfying the layer's Coverage Expectation (e.g., every route the task adds: happy path + edge + error paths) + full gate passes |
-| Code layer with "integration" requirement | Integration tests written satisfying the layer's Coverage Expectation + full gate passes                           |
+| Code layer with "e2e" requirement         | E2E tests written satisfying the layer's Coverage Expectation (e.g., every route the task adds: happy path + edge + error paths) + owning scoped gate passes |
+| Code layer with "integration" requirement | Integration tests written satisfying the layer's Coverage Expectation + owning scoped gate passes                 |
 | Code layer with "none" requirement        | Gate check at appropriate level                                                                                    |
 
 ### 2. Break Into Atomic Tasks

@@ -19,8 +19,8 @@ enough to run per slice, review cadence selected by workflow config, and merge a
 with the human.
 
 **Reliability** is: tests derived from acceptance criteria, security surfaces named and given
-`SEC-` cases, a Verifier that is not the author, a persona walk for anything a user can see, and a
-full gate once — on the tree you actually ship.
+`SEC-` cases, a Verifier that is not the author, a persona walk for anything a user can see when the
+classifier selects it, and a full gate once when the classifier selects it.
 
 Neither side is optional for feature slices. A feature slice that skips the Verifier is not this
 workflow; neither is one that re-reviews Cosmetics until the diff stops moving. Credential-free
@@ -34,7 +34,7 @@ declarative agent-tool configuration is a separate maintenance path defined by
 | Verifier fingerprint cap, then escalate | Stops a repeated blocker from eating the week |
 | Deep-review ≤2, Blocker/Major only | Stops nitpick churn from being called “quality” |
 | Stages do not loop into each other | Review groups bound repeated reading, then a human |
-| Full gate once per feature | Stops ten-task features from paying the product gate ten times |
+| Proportional gate selection | Stops low-risk maintenance from paying for unrelated product checks |
 | Approval is local-only | Stops an agent from pushing, merging, or deploying on a spec yes |
 
 Escalate is a result after the required post-cap remediation and gate. Shipping past a cap with a

@@ -284,6 +284,8 @@ def test_template_load_lines_name_skills_and_existing_paths() -> None:
             path = template_path(provider, role)
             text = path.read_text(encoding="utf-8")
             label = path.relative_to(ROOT).as_posix()
+            assert "docs/product/AGENT-CONTEXT.md" in text, f"{label} does not expose product context entry point"
+            assert "role/task" in text, f"{label} does not expose role/task context routing"
             for removed in REMOVED_REFERENCES:
                 assert removed not in text, f"{label} still names the removed reference {removed}"
             for name in ROLE_PHASE_SKILLS.get(role, ()):
@@ -510,6 +512,10 @@ def test_downstream_phases_wired_for_impact_and_designer() -> None:
     assert line_count(uiux_path) < 120, "UI-UX.md exceeds 120 lines"
     assert "uiux.md" in uiux_guideline, "UI-UX.md does not name uiux.md"
     assert "written in Specify" in uiux_guideline, "UI-UX.md does not state written in Specify"
+    assert "State constraints first" in uiux_guideline, "UI-UX.md must make constraints the first design step"
+    assert "three distinct directions" in uiux_guideline, "UI-UX.md must scale alternatives to new screens/redesigns"
+    assert "one exploration pass and one refinement" in uiux_guideline, "UI-UX.md must bound design iteration"
+    assert "Human local QA is recorded only after human confirmation" in uiux_guideline
 
 
 def test_designer_templates_and_preload() -> None:
@@ -537,6 +543,11 @@ def test_designer_templates_and_preload() -> None:
     assert "spec.md" in claude_load, "Claude designer Load list missing spec.md"
     assert "UI-UX.md" in claude_load, "Claude designer Load list missing UI-UX.md"
     assert "FRONTEND.md" in claude_load, "Claude designer Load list missing FRONTEND.md"
+    assert "Affected existing components, read-only" in claude_load
+    procedure = heading_body(claude_text, "## Procedure")
+    assert "three distinct directions" in procedure
+    assert "one exploration" in procedure and "one refinement" in procedure
+    assert "No new showcase" in procedure
 
     never_write_codex = (
         "You are the designer. Produce mockups and review notes for UI-bearing features. Never write product code."
@@ -547,9 +558,11 @@ def test_designer_templates_and_preload() -> None:
     codex_text = codex_path.read_text(encoding="utf-8")
     assert "wdesign" in codex_text
     assert never_write_codex in codex_text, "Codex designer body missing never-write-product-code"
+    assert "Affected existing components, read-only" in codex_text
     cursor_text = cursor_path.read_text(encoding="utf-8")
     assert "wdesign" in cursor_text
     assert never_write_cursor in cursor_text, "Cursor designer body missing never-write-product-code"
+    assert "Affected existing components, read-only" in cursor_text
 
 
 def test_agents_and_pack_name_designer() -> None:

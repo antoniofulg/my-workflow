@@ -65,16 +65,27 @@ Screens and components this feature deliberately does not touch.
 
 ## Working with a design agent
 
-The intended flow, in order:
+Use this bounded procedure for UI-bearing work:
 
-1. Write `uiux.md` from the spec and its user stories.
-2. Hand `spec.md` + `uiux.md` to the design agent; ask for every component and every listed state.
-3. Review what came back **against `uiux.md`**, not against taste. Anything that does not match goes
-   into `uiux-review.md` as a list of concrete corrections and goes back.
-4. Repeat until the review file is empty, then design internals.
+1. State constraints first: user goal, required states and actions, hierarchy, accessibility,
+   responsive behavior, runtime/data limits, brand principles, and existing components.
+2. Read only the selected product/design references and inspect affected existing components read-only.
+   Use the existing pattern for a bounded composition or exact correction.
+3. For a genuinely new screen or meaningful redesign, provide three distinct directions. A fourth
+   is allowed only for a named additional tradeoff. Do not make variants a requirement for button,
+   visual-polish, copy, token, or existing-component corrections.
+4. Prototype in an available design tool, isolated HTML, or component playground when useful. Tool
+   absence is not a blocker, and exploratory variants stay out of production routes.
+5. Subtract labels, icons, borders, controls, and decoration that have no purpose, while retaining
+   discoverability, accessibility, required actions, and useful feedback.
+6. Review the selected direction against `uiux.md` for contract conformance and against coherent
+   visual quality. Perform one exploration pass and one refinement by default, then name any
+   remaining design choice instead of repeating indefinitely.
+7. Record the chosen direction, reused components, states, breakpoints, copy, and tradeoffs in the
+   existing feature UI contract. Human local QA is recorded only after human confirmation.
 
-Step 3 is the one that gets skipped and the one that matters. A mockup reviewed against taste produces
-another round of taste; a mockup reviewed against an enumerated state list converges.
+No new showcase, preview deployment, design integration, or split frontend/backend delivery is
+mandatory. Keep the vertical slice and reuse existing catalogues when available.
 
 ## Verifying the built screen
 

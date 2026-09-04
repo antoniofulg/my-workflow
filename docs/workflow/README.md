@@ -38,8 +38,8 @@ per slice    implement → scoped gate → atomic commit
              Verifier fingerprint cap  →  QA walk if user-visible
 resolved     deep-review groups from workflow config, before QA
 
-feature      QA session (no product code)
-then         full gate → pull request
+feature      selected QA session (no product code)
+then         selected full/scoped gate → pull request
 ```
 
 Public hierarchy: `Feature -> Vertical Slice -> Task`. Read

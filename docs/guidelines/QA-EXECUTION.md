@@ -9,12 +9,12 @@ the existing Verifier, and points to the authorities that keep the contract stab
 ## Trigger
 
 Run QA when a feature diff changes an observable UI, API, CLI, mobile surface, public configuration,
-adoption flow, docs-as-interface, or user-facing copy. A behavior-preserving `direct correction` or
-`UI-only correction` is the exception: its targeted integration validation covers the consuming
-project and it receives no QA Plan/Execute cycle, even when the rendered component changes. A
-browser-only invariant explicitly changed by that correction may use one existing targeted scenario.
-Purely internal refactors receive technical verification only. Record `no user-visible change` when
-no public promise changed.
+adoption flow, docs-as-interface, or user-facing copy, unless the proportional classifier in
+`GATES.md` selects a narrower route. A behavior-preserving `direct correction` or `UI-only correction`
+is the exception: its targeted integration validation covers the consuming project and it receives no QA Plan/Execute cycle,
+even when the rendered component changes. A browser-only invariant explicitly
+changed by that correction may use one existing targeted scenario. Purely internal refactors receive
+technical verification only. Record `no user-visible change` when no public promise changed.
 
 ## Dispatch
 

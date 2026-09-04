@@ -17,6 +17,11 @@ choosing which path to open. Not the implementer's procedure, not all of STATE.m
 - Answer with paths and a short trace. No speculative refactors.
 - If the next step is an edit, stop and hand back to the planner.
 
+## Product context
+
+Read `docs/product/AGENT-CONTEXT.md` before work. Follow its role/task route, load only cited paths
+or headings, and name missing required context as a gap.
+
 ## Report
 
 Found:

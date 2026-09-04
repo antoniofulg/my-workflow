@@ -251,10 +251,21 @@ describe("QA workflow artifact policy", () => {
     const qaExecution = readRepositoryFile("docs/guidelines/QA-EXECUTION.md");
     const scenarios = readRepositoryFile("docs/guidelines/QA-SCENARIOS.md");
     const review = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
+    const implement = readRepositoryFile(".agents/skills/wimplement/SKILL.md");
+    const tasks = readRepositoryFile(".agents/skills/wtasks/SKILL.md");
+    const taskTemplate = readRepositoryFile(".agents/skills/wtasks/references/tasks-template.md");
     expect(gates).toContain("not promoted to full e2e");
     expect(qaExecution).toContain("receives no QA Plan/Execute cycle");
     expect(scenarios).toContain("does not create/reset a scenario or start a QA");
     expect(review).toContain("issue` is neutral");
+    expect(implement).toContain("no automatic all-tests expansion");
+    expect(implement).not.toContain("Build + lint + all tests");
+    expect(tasks).toContain("no automatic all-tests expansion");
+    expect(tasks).toContain("owning scoped integration command");
+    expect(tasks).toContain("docs/guidelines/GATES.md");
+    expect(taskTemplate).toContain("owning scoped gate command");
+    expect(taskTemplate).toContain("canonical GATES.md classification");
+    expect(taskTemplate).not.toContain("[full gate command");
   });
 
   it("IT-007 ignores generated Deep Review output but keeps learnings eligible", () => {
@@ -872,6 +883,8 @@ describe("agent configuration", () => {
         const relativePath = `templates/agents/${provider}/${agentName}.${extension}`;
         const source = readRepositoryFile(relativePath);
         const expected = settings.get(`${provider}.${role}`)!;
+        expect(source).toContain("docs/product/AGENT-CONTEXT.md");
+        expect(source).toContain("role/task");
         expect(value(source, format, "name")).toBe(agentName);
         if (provider === "cursor") {
           expect(value(source, format, "model")).toBe(`${expected.model}[effort=${expected.effort}]`);
@@ -1100,23 +1113,29 @@ describe("adoption and public setup", () => {
     const releaseStart = changelog.indexOf(`## [${manifest.version}]`);
     const nextRelease = changelog.indexOf("\n## [", releaseStart + 1);
     const latestRelease = changelog.slice(releaseStart, nextRelease === -1 ? undefined : nextRelease);
+    const historicalRelease = changelog.slice(
+      changelog.indexOf("## [0.9.2]"),
+      changelog.indexOf("## [0.9.1]"),
+    );
 
-    expect(manifest.version).toBe("0.9.2");
+    expect(manifest.version).toBe("0.10.0");
     expect(manifest.private).toBe(true);
     expect(manifest.packageManager).toBe("bun@1.4.0");
     expect(manifest.scripts?.test).toBe("bun test");
     expect(readRepositoryFile("bun.lock")).toContain('"name": "my-workflow"');
     expect(existsSync(join(repositoryRoot, "package-lock.json"))).toBe(false);
-    expect(latestHeading).toBe("0.9.2");
+    expect(latestHeading).toBe("0.10.0");
     expect(latestHeading).toBe(manifest.version);
     expect(currentScenarioVersion).toBe(manifest.version);
     expect(releaseScenario.match(/^expected: .*$/m)?.[0]).toBe(
-      "expected: The newest changelog release matches the package manifest, while Bun 1.4's lockfile identifies the root package and dependency graph; the documented install, knowledge, full-gate, frozen-lockfile, and package commands expose the current source pack without checkout residue.",
+      "expected: The newest changelog release matches the package manifest, while Bun 1.4's lockfile identifies the root package and dependency graph; the documented install, knowledge, scoped-validation, frozen-lockfile, and package commands expose the current source pack without checkout residue.",
     );
-    expect(latestRelease).toContain("deep-review defect");
-    expect(latestRelease).toContain("Minor");
-    expect(latestRelease).toContain("originating feature run");
-    expect(latestRelease).toContain("Cosmetics and advisories");
+    expect(latestRelease).toContain("consumer-owned");
+    expect(latestRelease).toContain("proportional validation");
+    expect(historicalRelease).toContain("deep-review defect");
+    expect(historicalRelease).toContain("Minor");
+    expect(historicalRelease).toContain("originating feature run");
+    expect(historicalRelease).toContain("Cosmetics and advisories");
     expect(changelog).toContain("--skip-agents");
     expect(changelog).toContain("Explicit packet sync still validates its config");
 
