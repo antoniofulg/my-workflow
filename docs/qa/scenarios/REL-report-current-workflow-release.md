@@ -11,7 +11,7 @@ bug_ids: BUG-20260824-release-overstates-lifecycle-qa; BUG-20260825-adoption-omi
 fix_status:
 retest_status:
 fix_commits:
-evidence:
+evidence: .specs/features/shared-agents-product-profile/release.md
 last_report:
 overlaps:
 ---

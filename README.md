@@ -53,6 +53,51 @@ Start here: **[docs/workflow/](docs/workflow/)** — an index of every stage, gu
 The loop, the caps, and the guidelines are the mechanism. The tour explains **why** each exists.
 `AGENTS.md` is what agents run.
 
+## Current workflow
+
+Use plain intent in the request:
+
+- “Visual polish / UI-only correction; I am doing manual QA” keeps adjustments to colors, spacing,
+  typography, alignment, borders, and layout on the narrow inspect → implement → targeted check →
+  commit path when behavior stays unchanged.
+- “Feature” starts the smallest spec and slice route that fits the behavior. “Cross-feature” sets a
+  broader mapping floor. A neutral Linear `issue` is classified from its concrete outcome, not its
+  label.
+- Documentation maintenance, agent-instruction changes, and mixed executable changes automatically
+  use proportional checks from `GATES.md`. Named risk or changed public behavior selects stronger
+  evidence. Confirmed deep-review defects are fixed inside their run; cosmetics become follow-up work.
+
+The feature path is Specify → optional Design/Tasks → Execute. Each task uses its selected checks
+and an atomic commit. Technical verification, deep review, QA, and the full gate are selected by
+the changed behavior and concrete risk; installing their skills does not make every stage mandatory.
+
+For UI work, Designer starts with constraints, reads selected references, and inspects existing
+components read-only. A design tool or isolated prototype supports exploration when useful. Three
+alternatives apply when a new screen or meaningful redesign leaves an actual design choice open;
+existing patterns handle bounded compositions. One exploration and one refinement is the default.
+Human visual acceptance is recorded only after the human confirms it.
+
+The shared workflow stays in `AGENTS.md`. Keep the product index short and point to existing
+documents, for example:
+
+```markdown
+## Critical constraints
+- [Only the project constraints every task must see.]
+
+## Role/task routes
+| Role or task | Read only |
+| --- | --- |
+| Visual polish | docs/design/SYSTEM.md#tokens-and-accessibility |
+| Customer-facing copy | docs/brand/VOICE.md |
+| Feature planning | docs/product/OVERVIEW.md and affected journey references |
+| Implementation | Assigned spec/task and the relevant architecture sections |
+```
+
+These paths are examples: replace them with real files and headings in your project. A visual-polish
+task does not load the voice guide or all product journeys merely because those documents exist.
+Project-specific operational rules, such as Linear routing and environment setup, can live in
+separate references selected by the matching task.
+
 ## Credits and provenance
 
 This workflow is maintained by Antonio Fulgêncio. The process builds on work from the following
@@ -162,29 +207,6 @@ python3 tools/resource_lock.py run \
 The wrapper holds the named lock only for the wrapped command and passes its arguments directly.
 Run `python3 tools/resource_lock.py run --help` for the authoritative flags, defaults, and result
 codes.
-
-## Current workflow
-
-Use plain intent in the request:
-
-- “UI-only correction; I am doing manual QA” keeps an exact existing-component change on its narrow
-  inspect → implement → targeted wiring check → commit path when behavior stays unchanged.
-- “Feature” starts the smallest spec and slice route that fits the behavior. “Cross-feature” sets a
-  broader mapping floor. A neutral Linear `issue` is classified from its concrete outcome, not its
-  label.
-- Documentation maintenance, agent-instruction changes, and mixed executable changes automatically
-  use proportional checks from `GATES.md`. Named risk or changed public behavior selects stronger
-  evidence. Confirmed deep-review defects are fixed inside their run; cosmetics become follow-up work.
-
-The normal feature path is Specify → optional Design/Tasks → Execute each task → scoped gate → atomic
-commit. Technical verification belongs to code-changing slices. Deep-review, QA, and the full gate
-are selected by the diff and its concrete risk, not invoked for every change.
-
-For UI work, Designer starts with constraints, reads selected references, and inspects existing
-components read-only. Tooling or an isolated prototype is optional. Three alternatives apply only
-when choosing a genuinely new screen or meaningful redesign; existing patterns handle bounded
-compositions. One exploration and one refinement is the default. Human confirmation is required for
-local QA; the agent never infers visual acceptance.
 
 The old positional `adopt.py TARGET` command is intentionally removed. `plan` and `apply` require
 `--layers`; `status` reports clean state with exit 0, drift with exit 1, and invalid state or
