@@ -1807,35 +1807,16 @@ def test_ut005_roles_matrix_includes_designer() -> None:
 
 def test_it001_sync_renders_designer_packets() -> None:
     """IT-001: Sync renders designer packets (SID-03 AC3)."""
-    root = make_root()
+    root = make_preload_root()
     try:
-        shutil.copy(ROOT / ".my-workflow.toml.example", root / ".my-workflow.toml.example")
-        write_packets(root, runtime=False)
-        for provider in ("claude", "codex", "cursor"):
-            src = ROOT / "templates" / "agents" / provider
-            if src.is_dir():
-                shutil.copytree(src, root / "templates" / "agents" / provider, dirs_exist_ok=True)
-        claude_designer = root / "templates/agents/claude/designer.md"
-        if not claude_designer.is_file() or "skills: [wdesign, ponytail]" not in claude_designer.read_text(encoding="utf-8"):
-            claude_designer.parent.mkdir(parents=True, exist_ok=True)
-            claude_designer.write_text(
-                "---\nname: designer\nmodel: inherit\neffort: high\nskills: [wdesign, ponytail]\n---\nInstructions for designer.\n",
-                encoding="utf-8",
-            )
-        for role in workflow_config.ROLES:
-            template = root / workflow_config._template_relative("claude", role)
-            if template.is_file():
-                header, _ = workflow_config._header("claude", template.read_text(encoding="utf-8"), template)
-                for name in workflow_config._preload_skills(header):
-                    skill = root / ".agents/skills" / name / "SKILL.md"
-                    skill.parent.mkdir(parents=True, exist_ok=True)
-                    skill.write_text(f"---\nname: {name}\n---\n", encoding="utf-8")
+        shutil.copy(ROOT / ".my-workflow.toml.example", root / ".my-workflow.toml")
         completed = subprocess.run(
             [sys.executable, str(ROOT / ".agents/skills/workflow-config/scripts/workflow_config.py"),
              "--root", str(root), "--sync-agents"],
             capture_output=True, text=True,
         )
         assert completed.returncode == 0, completed.stderr
+        claude_designer = root / "templates/agents/claude/designer.md"
         claude_runtime_path = root / ".claude/agents/designer.md"
         codex_runtime_path = root / ".codex/agents/designer.toml"
         cursor_runtime_path = root / ".cursor/agents/designer.md"

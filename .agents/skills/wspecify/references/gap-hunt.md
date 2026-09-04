@@ -38,6 +38,6 @@ Wait for answers before opening the next round. Recompute the frontier as decisi
 
 Every settled finding MUST be recorded as:
 - An **acceptance criterion** in `spec.md` (EARS notation with SHALL)
-- An explicit decision in `context.md` (or `decisions.md`)
+- An explicit decision in `context.md`
 
 Never leave a settled finding as an informal note.

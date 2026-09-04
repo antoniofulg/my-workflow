@@ -114,15 +114,13 @@ Fix inline. This gate is bounded to THIS feature's stated dimensions and actual 
 
 ### 7. Plan Approval & Gap Hunt
 
-Present the spec for confirmation only after the closure gate passes and `validate_spec.py` exits clean.
-
 At plan approval, offer a gap hunt following [gap-hunt.md](references/gap-hunt.md):
 - **Small:** Skip the gap hunt.
 - **Medium & Large:** Ask the human if they want a gap hunt.
 - **Complex:** Recommend the gap hunt.
 - **Autonomous mode:** Run the gap hunt only for Complex features; for Small, Medium, and Large, record the skip in `decisions.md`.
 
-When accepted, follow [gap-hunt.md](references/gap-hunt.md) to dispatch two explorers and run frontier question rounds. Settled findings become acceptance criteria or `context.md` decisions. If the gap hunt finds nothing, say so in one line and proceed. User approves spec before moving to next phase.
+When accepted (or when required under autonomous mode), dispatch two explorers and run frontier question rounds. Settled findings become acceptance criteria or `context.md` decisions. If the gap hunt finds nothing, say so in one line and proceed.
 
 ---
 **Loading ceiling:** load the smallest set that answers the current step; never two feature specs at once.
