@@ -452,11 +452,9 @@ describe("canonical QA skills", () => {
     expect(qaExecute).toMatch(/and keep reports,\s+scenario\s+status, and bug records durable/);
     expect(qaExecute).toContain("fresh Verifier");
     expect(qaExecute).toContain("hand the defect to an Implementer");
-    expect(qaExecute).toContain("A Blocker");
-    expect(qaExecute).toContain("or Major closes this session before remediation");
-    expect(qaExecute).toContain("a Minor joins the active feature's single");
-    expect(qaExecute).toContain("After a Blocker or Major fix, start a fresh Verifier");
-    expect(qaExecute).toMatch(/resume from the\s+affected journey/);
+    expect(qaExecute).toContain("close this Verifier session before remediation");
+    expect(qaExecute).toContain("After a fix, start a fresh Verifier");
+    expect(qaExecute).toContain("resume from the affected journey");
     expect(qaExecute).toContain("Done when:");
     expect(qaExecute).not.toContain("Create or update one charter");
     expect(qaExecute).not.toContain("Mint a stable, content-addressed scenario");
@@ -771,7 +769,7 @@ describe("configurable review policy", () => {
     expect(tour).toContain("deep-review groups from workflow config");
   });
 
-  it("keeps Minor remediation inside the originating feature run", () => {
+  it("fixes every deep-review defect inside the originating feature run", () => {
     const reviewRounds = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
     const reviews = readRepositoryFile("docs/workflow/reviews.md");
     const autonomous = readRepositoryFile(".agents/skills/autonomous/SKILL.md");
@@ -780,37 +778,16 @@ describe("configurable review policy", () => {
     const reviewOutput = readRepositoryFile(
       ".agents/skills/deep-review/references/output-contracts.md",
     );
-    const qaExecution = readRepositoryFile("docs/guidelines/QA-EXECUTION.md");
-    const qaExecute = readRepositoryFile(".agents/skills/qa-execute/SKILL.md");
-    const qaFixLoop = readRepositoryFile(
-      ".agents/skills/qa-execute/references/fix-loop.md",
-    );
-    const scenario = readRepositoryFile(
-      "docs/qa/scenarios/QAS-enforce-spec-anchored-qa-contracts.md",
-    );
-
-    expect(reviewRounds).toContain("Every `Minor` is fixed before feature delivery");
+    expect(reviewRounds).toContain("Fix every confirmed deep-review defect");
     expect(reviewRounds).toContain("A Minor-only batch starts no fresh Technical Verifier");
-    expect(reviewRounds).toContain("Cosmetics become issues");
+    expect(reviewRounds).toContain("Cosmetics and advisories become follow-ups");
+    expect(reviews).toContain("Every deep-review defect is fixed inside the feature run");
     expect(reviews).toContain("Fix in one current-run batch, scoped gate, one commit");
     expect(reviewOutput).toContain("mandatory current-feature closeout batch");
     expect(autonomous).toContain("`Blocker`, `Major`, and `Minor` are fixed in the feature run");
     expect(pack).toContain("no Blocker, Major, or Minor left");
-    expect(implement).toContain("The Minor-only closeout batch is not a new slice");
+    expect(implement).toContain("A deep-review Minor-only closeout batch is not a new slice");
     expect(implement).toContain("docs/guidelines/REVIEW-ROUNDS.md");
-
-    for (const source of [qaExecution, qaExecute, qaFixLoop]) {
-      expect(source).toContain("Minor");
-      expect(source).toContain("scoped gate");
-      expect(source).toMatch(/same\s+QA Execute session|resume this QA Execute session/);
-    }
-    for (const relativePath of verifierPacketPaths) {
-      const packet = readRepositoryFile(relativePath);
-      expect(packet).toContain("fresh Verifier for Blocker or Major fixes");
-      expect(packet).toContain("active feature's scoped remediation gate");
-    }
-    expect(scenario).toContain("qa_status: untested");
-    expect(scenario).toContain("Minor defects close in the active feature run");
   });
 
   it("bridges workflow resolution and feature-closing QA ordering", () => {

@@ -25,9 +25,8 @@ Use the provider's existing `verifier` with one phase per packet:
 2. Send a distinct fresh `phase: qa-execute` packet to invoke `qa-execute` and walk those journeys.
 
 The QA Plan session ends before the product starts. The QA Execute session does not write product
-code. A Blocker or Major returns to an Implementer and receives the existing fresh-Verifier fix
-loop. A Minor joins the active feature's single remediation batch; after its scoped gate, the same
-QA Execute session re-walks the affected journey and adjacent canary without a fresh proof cycle.
+code. A defect returns to an Implementer; after the fix, a fresh Verifier reruns the technical gate,
+retests the affected journey, and resumes the cycle.
 
 ## Authorities and adapters
 

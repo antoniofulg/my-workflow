@@ -50,9 +50,9 @@ rows only**.
 | `Minor` | No | Fix in one current-run batch, scoped gate, one commit |
 | `Cosmetic` | No | File an issue |
 
-Minor fixes stay inside the feature context and start no new proof round. Filed Cosmetic issues are
-real backlog, not a disposal bin; they do **not** re-enter Verifier + QA + deep-review because that
-ceremony already happened.
+Every deep-review defect is fixed inside the feature run. Minor fixes start no new proof round.
+Filed Cosmetic issues are real backlog, not a disposal bin; they do **not** re-enter Verifier + QA +
+deep-review because that ceremony already happened.
 
 A user-visible fix still flags and walks its scenario. A fix that grows into a design or schema
 change is a feature.
