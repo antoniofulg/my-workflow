@@ -6,13 +6,13 @@ persona: Workflow adopter
 journey: J-adopt-workflow
 expected: The installed Specify procedure writes an Impact section after the dimensions sweep and, when a screen is added or changed, a uiux.md before the closure gate; Design loads that uiux.md and dispatches designer; Verify reruns the named scenario ids or reports no reruns when Impact is none; the spec template carries Impact between Assumptions and User Stories.
 entry_points: .agents/skills/wspecify/SKILL.md; .agents/skills/wspecify/references/spec-template.md; .agents/skills/wdesign/SKILL.md; .agents/skills/wverify/SKILL.md; docs/guidelines/UI-UX.md
-qa_status: untested
+qa_status: pass
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence:
-last_report:
+evidence: docs/qa/evidence/2026-09-03-specify-impact-designer/15-installed-tree.txt; docs/qa/evidence/2026-09-03-specify-impact-designer/16-wspecify-impact.txt; docs/qa/evidence/2026-09-03-specify-impact-designer/17-spec-template.txt; docs/qa/evidence/2026-09-03-specify-impact-designer/18-uiux-guideline.txt; docs/qa/evidence/2026-09-03-specify-impact-designer/19-wdesign.txt; docs/qa/evidence/2026-09-03-specify-impact-designer/20-wverify.txt
+last_report: docs/qa/reports/2026-09-03-specify-impact-designer.md
 overlaps: QAS-resolve-phase-skill-procedures
 ---
 

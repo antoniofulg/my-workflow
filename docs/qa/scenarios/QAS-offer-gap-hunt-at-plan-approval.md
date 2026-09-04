@@ -6,13 +6,13 @@ persona: Workflow adopter
 journey: J-adopt-workflow
 expected: At plan approval the installed Specify procedure skips a gap hunt for Small, asks for Medium and Large, recommends it for Complex, runs it only for Complex under autonomous while recording the skip in decisions.md, and records settled findings as acceptance criteria or context.md decisions.
 entry_points: .agents/skills/wspecify/SKILL.md; .agents/skills/wspecify/references/gap-hunt.md
-qa_status: untested
+qa_status: pass
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence:
-last_report:
+evidence: docs/qa/evidence/2026-09-03-specify-impact-designer/16-wspecify-impact.txt; docs/qa/evidence/2026-09-03-specify-impact-designer/21-gap-hunt.txt
+last_report: docs/qa/reports/2026-09-03-specify-impact-designer.md
 overlaps: QAS-write-specify-impact-and-uiux; QAS-resolve-phase-skill-procedures
 ---
 
