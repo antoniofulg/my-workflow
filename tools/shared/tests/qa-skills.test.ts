@@ -786,7 +786,7 @@ describe("configurable review policy", () => {
     expect(reviewOutput).toContain("mandatory current-feature closeout batch");
     expect(autonomous).toContain("`Blocker`, `Major`, and `Minor` are fixed in the feature run");
     expect(pack).toContain("no Blocker, Major, or Minor left");
-    expect(implement).toContain("A deep-review Minor-only closeout batch is not a new slice");
+    expect(implement).toContain("Except for deep-review Minor-only closeout batches");
     expect(implement).toContain("docs/guidelines/REVIEW-ROUNDS.md");
   });
 
