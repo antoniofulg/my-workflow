@@ -4,9 +4,9 @@ area: CFG
 title: Preload role skills and scope the Skill tool in generated packets
 persona: Workflow adopter
 journey: J-configure-feature-workflow
-expected: Sync renders each Claude packet's `skills:` and `disallowedTools:` lines byte-identical to its template with only model and effort replaced, and refuses a template that preloads a skill with no `SKILL.md`, naming the template and the skill and writing nothing.
+expected: Sync renders each Claude packet's `skills:` and `disallowedTools:` lines byte-identical to its template with only model and effort replaced, including the designer packet's `skills: [wdesign, ponytail]` and absent `disallowedTools`, and refuses a template that preloads a skill with no `SKILL.md`, naming the template and the skill and writing nothing.
 entry_points: templates/agents/claude/; templates/agents/cursor/; templates/agents/codex/; python3 .agents/skills/workflow-config/scripts/workflow_config.py --root . --sync-agents; .claude/agents/
-qa_status: pass
+qa_status: untested
 bug_ids:
 fix_status:
 retest_status:
@@ -33,3 +33,7 @@ named on a Load or Do-not-load line must exist.
 
 `CFG-centralize-agent-model-routing` stays the canonical owner of the model and effort rendering
 promise; this scenario owns only preload declaration and tool scope.
+
+The `specify-impact-designer` feature adds a Claude designer packet with `skills: [wdesign, ponytail]`
+and no `disallowedTools`. The set of Claude packets this promise walks has changed. Reset to
+`untested`. Prior evidence remains historical.
