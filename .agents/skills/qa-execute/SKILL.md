@@ -9,7 +9,7 @@ metadata:
 
 Walk the current QA plan through the consuming project's public surfaces. Select the adapter already
 declared by the project, capture evidence, write durable results, and return product defects to an
-Implementer for a fresh Verifier cycle.
+Implementer through the severity-routed fix path.
 
 ## Provenance
 
@@ -94,18 +94,23 @@ result, evidence path, or named limitation.
 Deduplicate against `docs/qa/bugs/` and linked scenario bug ids. File a new bug only for a new
 symptom; append re-found or regressed observations to the existing record and link affected
 scenarios. When a product defect is confirmed, read
-[`references/fix-loop.md`](references/fix-loop.md) in full, hand the defect to an Implementer, and
-close this Verifier session before remediation.
+[`references/fix-loop.md`](references/fix-loop.md) in full and hand the defect to an Implementer. A Blocker
+or Major closes this session before remediation; a Minor joins the active feature's single
+remediation batch and this same QA Execute session resumes after its scoped gate.
 
 **Done when:** every finding has a deduplicated bug record, affected scenario links, severity and
-evidence, and every product fix is explicitly assigned to an Implementer rather than changed here.
+evidence, every product fix is assigned to an Implementer, and its severity selects the matching
+fresh-proof or current-session retest path.
 
 ### 7. Close or resume the cycle
 
-After a fix, start a fresh Verifier, re-run the technical gate, and resume from the affected journey
-plus its adjacent canary. Keep the original report history and update statuses, retest fields, bug
-links, and evidence. At close, replace every pending row with a terminal result or an allowed
-`untested`/`blocked-verify` explanation, rerun the full gate, and record its exact command and result.
+After a Blocker or Major fix, start a fresh Verifier, re-run the technical gate, and resume from the
+affected journey plus its adjacent canary. After a Minor fix, record the Implementer's scoped gate
+and resume this QA Execute session at the affected journey plus its adjacent canary; do not start a
+fresh Technical Verifier or QA session. Keep the original report history and update statuses,
+retest fields, bug links, and evidence. At close, replace every pending row with a terminal result
+or an allowed `untested`/`blocked-verify` explanation, rerun the full gate, and record its exact
+command and result.
 
 **Done when:** no report row remains pending, every fixed bug has a passing retest or an explicit
 decision, every scenario status matches its evidence, and the final gate result is recorded.

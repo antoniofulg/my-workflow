@@ -133,7 +133,7 @@ The following conditions prove that a remote delivery would be safe to consider:
 | | |
 | --- | --- |
 | The applicable gate exits 0 | The full gate for feature work, or the scoped gate for a direct correction, on the final tree after the last commit. A cached or partial result is not evidence. `make check` when the project has it |
-| No blocking findings remain | `Blocker` and `Major` per `docs/guidelines/REVIEW-ROUNDS.md` |
+| No required findings remain | `Blocker`, `Major`, and `Minor` are fixed in the feature run; `Cosmetic` never blocks |
 | `main` has not moved underneath | If it has: integrate it, re-run the full gate, then re-prove readiness |
 | Every flagged scenario is terminal | See the three cases below. Only when the change is user-visible |
 

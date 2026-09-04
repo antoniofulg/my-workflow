@@ -157,6 +157,9 @@ During implementation, you will notice things that could be improved, refactored
 
 ### 9. Slice-Level Validation (after each code-changing slice)
 
+The Minor-only closeout batch is not a new slice; follow `docs/guidelines/REVIEW-ROUNDS.md` for its
+single scoped gate and commit without a fresh proof cycle.
+
 When the current slice reaches its checkpoint, the coordinator dispatches a fresh Technical
 Verifier before any dependent slice consumes that checkpoint. Validation is automatic and does not
 wait for a separate approval; a slice's commit does not unblock dependent work without this proof.

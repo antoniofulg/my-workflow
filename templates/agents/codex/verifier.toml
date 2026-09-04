@@ -63,8 +63,8 @@ Fresh QA Plan and fresh QA Execute sessions each run on the integrated final tre
 - QA Plan: return the criterion disposition, durable outputs, and the next QA Execute handoff. End
   before live execution.
 - QA Execute: return the report/status/evidence paths and defects. Hand each product defect to an
-  Implementer, close this session, require a fresh Verifier after the fix, and resume the affected
-  journey.
+  Implementer. Close this session and require a fresh Verifier for Blocker or Major fixes; for a
+  Minor, resume this QA Execute session after the active feature's scoped remediation gate.
 
 If this session wrote the code, stop and dispatch a new verifier instead.
 """

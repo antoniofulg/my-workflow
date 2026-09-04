@@ -37,8 +37,8 @@ Planner / implementer / explorer / verifier / designer are five windows. Canonic
 files. `CLAUDE.md` is `@AGENTS.md`. Explorer is read-only and handles product-tree searches and
 flow traces for the parent agent.
 
-`autonomous` readiness still needs: full gate 0 on the final tree, no Blocker/Major left, `main` not
-moved underneath, and flagged scenarios terminal (`untested` blocks; `blocked-verify` does not).
+`autonomous` readiness still needs: full gate 0 on the final tree, no Blocker, Major, or Minor left,
+`main` not moved underneath, and flagged scenarios terminal (`untested` blocks; `blocked-verify` does not).
 Invoking `autonomous` authorizes the feature-branch push, one pull request, and merge after readiness
 is rechecked. Readiness is evidence, not authorization for deploy/release, production mutations,
 force-push, direct push to `main`, or unrelated remote actions; those require explicit instruction.
