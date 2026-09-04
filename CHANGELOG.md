@@ -4,6 +4,42 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-04
+
+### Added
+
+- Phase skills `wspecify`, `wdesign`, `wtasks`, `wimplement`, `wverify`: each phase procedure is one
+  skill an agent preloads alone; `workflow-spec-driven` is now the router (sizing, phase map,
+  `.specs` layout, resume) and keeps the validators. Claude agent packets preload their phase
+  skill through `skills:` and narrow roles carry `disallowedTools: Skill`; `--sync-agents` rejects a
+  packet that preloads a missing or hollow skill.
+- `/w` entry points: `/wspecify`, `/wdesign`, `/wtasks`, `/wimplement`, `/wverify` fork the phase
+  into a fresh agent of its role and return only its summary; `/wreview` wraps `deep-review`;
+  `/wqa [plan] <flow>` runs one QA phase over journeys tagged with the flow (`**Tags:**` line).
+- Specify writes an `## Impact` section from two explorer traces with one no-regression acceptance
+  criterion per affected feature, writes `uiux.md` for screen-bearing features, and offers a gap
+  hunt at plan approval sized by scope; `validate_spec.py` requires `## Impact` for Large and
+  Complex specs; `wverify` reruns the impacted QA scenarios.
+- `designer` matrix role for Claude, Codex, and Cursor (AD-029): preloads `wdesign`, owns mockups
+  under `docs/design/` and `uiux-review.md`; `wdesign` dispatches it before internal design.
+- `Review-Signal` trailer on each delivery's merge commit (AD-025, AD-026) and
+  `tools/review-metrics.py` reporting the reviewed fraction from git history.
+- `tools/gate_cache.py` runs a gate once per tree and caches the passing result by tree hash.
+
+### Changed
+
+- `autonomous` merges by default once readiness is proven; a human go-ahead on ready work carries
+  the same authorization, and the opt-out is stated up front (`stop when the PR is ready`).
+- The QA history gate freezes evidence, reports, charters, and bugs only; scenario files are living
+  status records and reset to `untested` when behaviour changes.
+- `VERIFICATION-EVIDENCE.md` names the gate remediation loop and its cost; the raw knowledge note
+  `2026-09-03-e2e-gate-remediation-cost.md` records the observation behind it.
+- Router and reference prose trimmed after a prompt audit; the retired `context-limits.md` reference
+  is removed.
+- Live Orca transport stays `blocked-verify`; Cursor headless dispatch uses full Cursor model ids
+  (`BUG-20260903-cursor-route-bracket-effort-rejected`).
+- `docs/workflow/roadmap.md` records the modular workflow programme (Linear intake, qualifier,
+  global config, mockup fidelity, telemetry intake, deterministic installer).
 ### Changed
 
 - Workflow resolution derives its slice count from the validated `## Vertical Slice Closure`
@@ -22,6 +58,27 @@ All notable changes to this project are documented here.
   context; adoption never removes external operator state.
 
 ### Migration
+
+- Upgrading an adopted project from 0.8.0, in order:
+  1. `adopt.py apply . --layers <installed layers> --skip-agents` installs the seven `w*` skills, the
+     router, and the `.claude/skills/` links. Apply never removes files: delete nothing by hand.
+  2. Templates are installed only when missing, so an adopted project keeps its 0.8.0
+     `templates/agents/`. Copy the 0.9.0 `templates/agents/` over it (Claude packets gain `skills:`
+     and `disallowedTools:`; every provider gains `designer`), then re-apply any product-specific
+     lines you had added to a template.
+  3. Add `[models.<provider>.designer]` tables for claude, codex, and cursor to the local
+     `.my-workflow.toml`, copying from `.my-workflow.toml.example`. Sync fails naming a missing
+     table.
+  4. Run `workflow_config.py --root . --sync-agents` and confirm the three `designer` packets and
+     the `skills:` lines in `.claude/agents/`.
+  5. `--skip-agents` leaves `AGENTS.md` untouched; merge the 0.9.0 managed-block changes by hand:
+     the remote-delivery bullet (merge by default, opt-out up front) and the designer in the roles
+     line.
+  6. Specs sized Large or Complex now need an `## Impact` section; add one to any in-flight spec
+     before its next `validate_spec.py` run.
+- Phase skills must not set `disable-model-invocation: true`; it blocks `skills:` preload.
+- Cursor headless dispatch takes full model ids (`gpt-5.6-luna-high`); the `[effort=]` form the Orca
+  route builds is rejected (`BUG-20260903-cursor-route-bracket-effort-rejected`).
 
 - Operators who previously enabled ai-memory must follow the exact lifecycle commands in the
   [v0.5.0 tagged guide](https://github.com/antoniofulg/my-workflow/blob/v0.5.0/docs/workflow/ai-memory.md).

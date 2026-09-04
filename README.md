@@ -244,6 +244,12 @@ Use `--skip-agents` when the target has product-specific instructions. Read
 [`CHANGELOG.md`](CHANGELOG.md) between the adopted version and the current package version before
 accepting the update. Apply is additive: it does not remove an installed layer or consumer file.
 
+Each release lists its upgrade steps under `### Migration` in the changelog; follow them in order
+after `apply`. Two things apply never does for you: it installs `templates/agents/` only when the
+directory is missing, so template changes are copied over by hand, and `--skip-agents` leaves
+`AGENTS.md` alone, so managed-block changes are merged by hand. The roadmap's deterministic
+installer (`docs/workflow/roadmap.md`) is the planned replacement for both.
+
 ## Managed paths
 
 Review the managed paths and the plan's per-file actions. Adoption updates only workflow-owned files, preserves unknown

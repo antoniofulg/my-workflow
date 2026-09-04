@@ -163,6 +163,10 @@ Direction: split install into a deterministic part and an agent part.
 3. Prints a verify prompt to paste into an agent: reconcile the existing `AGENTS.md` with the
    suggested one, fill the product paragraph, confirm the declared gates exist, and nothing else.
 
+Observed on the 0.9.0 upgrade path: `apply` installs `templates/agents/` only when missing, so
+every template change since adoption is a manual copy, and `--skip-agents` leaves managed blocks
+in `AGENTS.md` stale. Both are the upgrade case this installer must own.
+
 A pack manifest with file hashes lets `upgrade` tell pack changes from local edits and do a
 three-way merge instead of asking the agent to eyeball diffs.
 
