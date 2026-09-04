@@ -6,15 +6,23 @@ persona: Repository reader
 journey: J-review-workflow-release
 expected: The newest changelog release matches the package manifest, while Bun 1.4's lockfile identifies the root package and dependency graph; the documented install, knowledge, full-gate, frozen-lockfile, and package commands expose the current source pack without checkout residue.
 entry_points: CHANGELOG.md; README.md; package.json; bun.lock; bunfig.toml
-qa_status: untested
+qa_status: pass
 bug_ids: BUG-20260824-release-overstates-lifecycle-qa; BUG-20260825-adoption-omits-parallel-pilot; BUG-20260829-bun-history-gate-rejects-new-qa-charters; BUG-20260903-history-gate-forbids-resetting-baseline-scenarios; BUG-20260904-adopt-apply-requires-designer-before-migration
 fix_status: fixed
 retest_status: pass
 fix_commits: 61f2e74; 816afd6; fb4c61f; 50ca157b; 741672b9
-evidence:
-last_report:
+evidence: docs/qa/evidence/2026-09-04-release-0-9-2/10-identity-readback.txt; docs/qa/evidence/2026-09-04-release-0-9-2/11-contract-readback.txt; docs/qa/evidence/2026-09-04-release-0-9-2/20-targeted-structural-test.log; docs/qa/evidence/2026-09-04-release-0-9-2/31-pack-dry-run.log; docs/qa/evidence/2026-09-04-release-0-9-2/33-pack-summary.txt; docs/qa/evidence/2026-09-04-release-0-9-2/50-adoption-canary-readback.txt; docs/qa/evidence/2026-09-04-release-0-9-2/60-final-reload.txt; docs/qa/evidence/2026-09-04-release-0-9-2/70-terminal-full-gate.log; docs/qa/evidence/2026-09-04-release-0-9-2/72-terminal-full-gate-retry.log; docs/qa/evidence/2026-09-04-release-0-9-2/74-pilot-residue-final.txt
+last_report: docs/qa/reports/2026-09-04-release-0-9-2.md
 overlaps:
 ---
+
+QA Execute on 2026-09-04 passed release `0.9.2` at `de53cb77`. Identity, the packaged DRC-01
+through DRC-04 deep-review defect closeout contract, its canonical structural assertion, private
+662-file dry-run package, zero archive residue, independent reload, and the closing full gate
+matched after the one permitted clean retry recovered a 5-second test timeout. The unchanged
+passing 0.9.1 real 0.8.0 adoption/migration evidence was reused without rerunning adoption. No
+external skill install, registry, publication, remote action, consumer write, or live Orca
+operation occurred.
 
 Version-neutral owner for public release consistency. For release `0.9.2`, the reader compares the
 newest changelog heading with the package manifest, checks Bun's root package and dependency graph
