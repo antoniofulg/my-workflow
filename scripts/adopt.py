@@ -693,7 +693,7 @@ def _build_plan(
             special[action["path"]] = _adopted_bytes(action["path"], source)
     staged = dict(special)
     staged.update(block_outputs)
-    generated = {} if conflicts or not sync else _prepare_sync(source_root, root, staged)
+    generated = {} if conflicts or not sync or skip_agents else _prepare_sync(source_root, root, staged)
     for relative, content in generated.items():
         _safe_path(root, relative, "generated runtime")
         special[relative] = content

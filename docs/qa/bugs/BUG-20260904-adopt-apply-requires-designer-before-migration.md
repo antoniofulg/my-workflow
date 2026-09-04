@@ -1,6 +1,6 @@
 # BUG-20260904-adopt-apply-requires-designer-before-migration
 
-- **Status:** open
+- **Status:** fixed — technical regression covered; release QA retest pending
 - **Severity:** major
 - **Scenario:** `REL-report-current-workflow-release`
 - **Expected:** On a project adopted at 0.8.0, the 0.9.0 changelog Migration step 1
@@ -57,3 +57,14 @@ Regression check: a disposable 0.8.0-adopted target whose generated toml lacks d
 must accept `v0.9.0` `plan` and `apply --layers full --skip-agents` at exit `0` and then
 contain the seven `w*` skills. Route to an Implementer; a fresh Verifier retests this journey
 plus the adjacent adoption canary.
+
+## Fix and verification
+
+`_build_plan` now skips `_prepare_sync` whenever `--skip-agents` is set. Normal apply still runs
+the sync validation path, so an explicit packet sync fails closed without writing the target.
+The canonical regression creates a disposable adopted target with the designer tables and assets
+removed, confirms strict apply exits `2` without mutation, then confirms both `plan` and
+`apply --layers full --skip-agents` exit `0` and restore all seven phase skills.
+
+- `python3 scripts/test_adopt.py`: `ok (86 tests)`
+- `git diff --check`: passed

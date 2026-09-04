@@ -978,7 +978,7 @@ def test_public_publication_publishes_packets_before_manifest_last() -> None:
             published.append("links:claude")
 
         with patch.object(adopt, "_atomic_write", side_effect=record_write), patch.object(adopt, "remove_legacy_managed_tests", side_effect=record_legacy), patch.object(adopt, "_link_claude_skills", side_effect=record_links):
-            assert adopt.main(["adopt.py", "apply", str(target), "--layers", "core", "--skip-agents"]) == 0
+            assert adopt.main(["adopt.py", "apply", str(target), "--layers", "core"]) == 0
         assert published[-1] == "write:.my-workflow/adoption.json"
         runtime = [index for index, event in enumerate(published) if any(event.startswith(f"write:{prefix}") for prefix in (".claude/agents/", ".codex/agents/", ".cursor/agents/"))]
         assert runtime and max(runtime) < len(published) - 1
@@ -1092,6 +1092,62 @@ def test_skip_agents_preserves_absent_claude_file() -> None:
         (target / "AGENTS.md").write_text("product\n")
         assert invoke(target, "apply", "--layers", "core", "--skip-agents").returncode == 0
         assert not (target / "CLAUDE.md").exists()
+    finally:
+        shutil.rmtree(target)
+
+
+def test_legacy_080_skip_agents_migrates_without_designer_sync() -> None:
+    target = temporary_target()
+    try:
+        assert invoke(target, "apply", "--layers", "full").returncode == 0
+        config = target / ".my-workflow.toml"
+        lines = config.read_text(encoding="utf-8").splitlines()
+        filtered: list[str] = []
+        skipping_designer = False
+        for line in lines:
+            if line.startswith("[models.") and line.endswith(".designer]"):
+                skipping_designer = True
+                continue
+            if skipping_designer and line.startswith("["):
+                skipping_designer = False
+            if not skipping_designer:
+                filtered.append(line)
+        config.write_text("\n".join(filtered) + "\n", encoding="utf-8")
+
+        manifest_path = target / ".my-workflow/adoption.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["workflow_version"] = "0.8.0"
+        phase_skills = ("wspecify", "wdesign", "wtasks", "wimplement", "wverify", "wreview", "wqa")
+        for name in phase_skills:
+            shutil.rmtree(target / ".agents/skills" / name)
+            pointer = target / ".claude/skills" / name
+            if pointer.is_symlink():
+                pointer.unlink()
+        for provider, extension in (("claude", "md"), ("codex", "toml"), ("cursor", "md")):
+            (target / "templates/agents" / provider / f"designer.{extension}").unlink()
+            (target / f".{provider}/agents" / f"designer.{extension}").unlink()
+        manifest["files"] = {
+            relative: record
+            for relative, record in manifest["files"].items()
+            if not relative.startswith(".agents/skills/")
+            and not relative.startswith("templates/agents/")
+            and "/agents/designer." not in relative
+        }
+        manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+        before_strict = snapshot(target)
+        strict = invoke(target, "apply", "--layers", "full")
+        assert strict.returncode == 2 and snapshot(target) == before_strict
+
+        before_plan = snapshot(target)
+        plan = invoke(target, "plan", "--layers", "full", "--skip-agents", "--json")
+        assert plan.returncode == 0 and json.loads(plan.stdout)["status"] == "ready"
+        assert snapshot(target) == before_plan
+
+        applied = invoke(target, "apply", "--layers", "full", "--skip-agents")
+        assert applied.returncode == 0, applied.stderr
+        for name in phase_skills:
+            assert (target / ".agents/skills" / name / "SKILL.md").is_file()
     finally:
         shutil.rmtree(target)
 
@@ -1337,7 +1393,6 @@ def test_resolve_uses_trusted_workflow_config_without_importing_target_shadow() 
             "parallel",
             "--replace",
             "tools/resource_lock.py",
-            "--skip-agents",
         )
         assert result.returncode == 0, result.stderr
         assert not sentinel.exists()
@@ -1583,6 +1638,7 @@ TESTS = (
     test_fresh_and_refuse,
     test_skip_agents_preserves_product_files_and_adopts_rest,
     test_skip_agents_preserves_absent_claude_file,
+    test_legacy_080_skip_agents_migrates_without_designer_sync,
     test_adoption_imports_probe_without_orca_effect,
     test_adoption_rejects_symlinked_managed_destination_without_mutation,
     test_existing_config_drives_all_native_values_and_preserves_non_model_bytes,
