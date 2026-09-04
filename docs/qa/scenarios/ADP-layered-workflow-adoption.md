@@ -11,8 +11,8 @@ bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-09-03-phase-skills/11-plan-core.json; docs/qa/evidence/2026-09-03-phase-skills/52-apply-quality.log; docs/qa/evidence/2026-09-03-phase-skills/53-status-quality.log; docs/qa/evidence/2026-09-03-phase-skills/54-qa-layer-check.txt
-last_report: docs/qa/reports/2026-09-03-phase-skills.md
+evidence: docs/qa/evidence/2026-09-04-release-0-9-1/41-full-plan.json; docs/qa/evidence/2026-09-04-release-0-9-1/45-full-readback.txt; docs/qa/evidence/2026-09-04-release-0-9-1/51-layered-plan-core.json; docs/qa/evidence/2026-09-04-release-0-9-1/58-layered-readback.txt; docs/qa/evidence/2026-09-04-release-0-9-1/72-independent-reload.txt
+last_report: docs/qa/reports/2026-09-04-release-0-9-1.md
 overlaps: ADP-adopt-workflow-safely
 ---
 
@@ -26,6 +26,10 @@ The current cycle also covers `full`, legacy-command refusal, JSON stdout isolat
 packet synchronization, and importing the installed assisted probe through a call-counting fake
 `orca`. Exact hash, path-containment, manifest-schema, and publication-order mechanics remain
 technical-verification evidence; QA observes their public no-write and atomic-publication outcomes.
+
+Release 0.9.1 adjacent QA passed fresh full and incremental consumers. Read-only plans stayed
+unchanged; core and final four-layer states were clean; package/lock hashes survived; Bun knowledge
+and zero-effect probe import passed; independent clones returned clean status.
 
 QA Execute on 2026-08-30 passed all three layered-adoption charters at `714716c`. Read-only plans
 kept the target byte-identical; incremental and full applies produced a clean four-layer manifest,

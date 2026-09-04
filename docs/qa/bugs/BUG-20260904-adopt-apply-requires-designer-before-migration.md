@@ -1,6 +1,6 @@
 # BUG-20260904-adopt-apply-requires-designer-before-migration
 
-- **Status:** fixed — technical regression covered; release QA retest pending
+- **Status:** fixed — release 0.9.1 QA retest passed
 - **Severity:** major
 - **Scenario:** `REL-report-current-workflow-release`
 - **Expected:** On a project adopted at 0.8.0, the 0.9.0 changelog Migration step 1
@@ -68,3 +68,11 @@ removed, confirms strict apply exits `2` without mutation, then confirms both `p
 
 - `python3 scripts/test_adopt.py`: `ok (86 tests)`
 - `git diff --check`: passed
+
+QA Execute retest on 2026-09-04 used a real disposable consumer adopted from local tag `v0.8.0`.
+Current strict apply and explicit sync each exited `2` on missing designer tables with empty Git
+status. Current skip-agents plan was read-only and `ready`; apply exited `0`, advanced the manifest
+to 0.9.1, and installed all seven phase skills plus correct Claude links. Independent clone readback
+retained the seven skills. Evidence: `docs/qa/evidence/2026-09-04-release-0-9-1/31-080-baseline.txt`,
+`33-strict-no-mutation.txt`, `37-migration-readback.txt`, `39-strict-sync-no-mutation.txt`, and
+`72-independent-reload.txt`; report `docs/qa/reports/2026-09-04-release-0-9-1.md`.
