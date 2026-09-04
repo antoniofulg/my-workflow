@@ -17,6 +17,8 @@ FILES — you own every listed hunk:
 
 CONTEXT: read `{{context}}` (change intent, knowledge sources, linters, spec contract when present) and `{{taxonomy}}` (defect/advisory grammar and objective suppression rules) in full before judging.
 
+PRODUCT CONTEXT: read `docs/product/AGENT-CONTEXT.md` first. Follow the reviewer/task route and load only cited paths or headings; surface missing required context as a gap.
+
 GRAFT CONTEXT: read `{{graft_context}}` for optional repository map, relevant symbols, and blast-radius orientation. Verify it against the checkout; use plain repository inspection for any fallback paths.
 
 REPO RULES bound to these files — when a result violates one, include its id in `rule_ids` and quote the rule verbatim in `guideline`:

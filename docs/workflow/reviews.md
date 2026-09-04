@@ -24,9 +24,10 @@ Remediation identity, independent counters, and halt behavior follow `REVIEW-ROU
 | **Deep-review** (resolved groups) | Is the code correct, safe, maintainable? | ≤2 rounds, Blocker/Major only |
 | **QA session** (feature closing step) | Does the finished feature feel right? | One `qa-plan` and one `qa-execute` session |
 
-A documentation-only slice still gets a Technical Verifier and joins the next resolved deep-review
-group. Public docs also get both QA phases. The only exception is a diff classified as
-credential-free declarative agent-tool configuration by [GATES.md](../guidelines/GATES.md).
+A documentation-only slice follows the proportional classifier in [GATES.md](../guidelines/GATES.md):
+accuracy and affected-link checks close pure maintenance, while mixed changes run canonical tests for
+changed executable behavior. Deep-review and QA require named concrete risk or changed public promise;
+file count and the word "feature" do not escalate them.
 
 Technical Verifier reads the slice's private writer checkpoint. Deep-review reads the integrated
 commit range, and fresh QA Plan/Execute read the integrated final tree. The coordinator records

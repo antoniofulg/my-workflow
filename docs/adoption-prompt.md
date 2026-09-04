@@ -14,9 +14,12 @@ invent a command or install a QA framework during adoption.
 
 Before writing, set `<selected-layers>` to the requested fixed layers (`core`, `parallel`, `quality`,
 `extras`, or `full`). Run `python3 /path/to/my-workflow/scripts/adopt.py plan /path/to/target-project --layers <selected-layers> --json` and review its actions. Report the managed paths and every target path that could be replaced. Preserve
-product-owned product, architecture, design, and stack documentation. For a new project, replace
-the AGENTS.md product stencil and create product docs only as the product earns them. For an
-existing project, use `--skip-agents` when the product paragraph is filled; it preserves `AGENTS.md`
+product-owned product, architecture, design, and stack documentation. For a new project, adoption
+initializes a neutral, consumer-owned `docs/product/AGENT-CONTEXT.md` index; fill it with product
+identity and routes to existing docs only as the product earns them. For an existing project,
+preserve its filled product paragraph. Before deliberately replacing a legacy `AGENTS.md`, extract
+its product rules into that index and review the complete diff; adoption does not infer or perform
+that migration. Use `--skip-agents` when the product paragraph is filled; it preserves `AGENTS.md`
 and `CLAUDE.md`, so merge workflow instruction changes manually. Preserve an existing local
 `.my-workflow.toml` byte-for-byte. Install missing `.my-workflow.toml.example` and
 `templates/agents/`, then run `--sync-agents` to generate the ignored provider runtime packets

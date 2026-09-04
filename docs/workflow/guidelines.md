@@ -19,7 +19,7 @@ catalog. The longer walk-through stays in this folder.
 | [BRANCHING.md](../guidelines/BRANCHING.md) | `type/slug` names the behaviour, never `main`, delete after merge. Isolated checkouts must not share a runtime. |
 | [ARTIFACT-LIFECYCLE.md](../guidelines/ARTIFACT-LIFECYCLE.md) | Planning artifacts are finished when the code exists. Durable store is code, `AD-NNN`, `docs/qa/`, product/architecture/design. The inverted arrangement gated drift on documents nobody read. |
 | [WORKFLOW-MEMORY.md](../guidelines/WORKFLOW-MEMORY.md) | Small slices are cheap to review and expensive to ramp. Shared memory is how reasoning survives the task boundary without becoming a second spec. |
-| [GATES.md](../guidelines/GATES.md) | Scoped gate per slice; full gate once. It also owns the credential-free declarative agent-tool configuration path. Never skip a test to go green. Cached evidence only for the exact tree. |
+| [GATES.md](../guidelines/GATES.md) | Proportional scoped gates; full gate only when selected. It also owns the credential-free declarative agent-tool configuration path. Never skip a test to go green. Cached evidence only for the exact tree. |
 
 ## Proof
 

@@ -26,7 +26,7 @@ Slash argument: $ARGUMENTS — when this skill was entered with /wverify and the
    - Returns a compact verdict + ranked gap list to the orchestrator in chat
    - Gaps become **fix tasks** routed back to an implementer; re-verification uses the immutable finding fingerprint and third-failure halt in `docs/guidelines/REVIEW-ROUNDS.md`
 
-3. **Final integrated validation (fresh Verifier, after all code-changing slices are integrated):** Once the feature's verified slices are integrated, run the final feature-level checks over the integrated tree. This is separate from the per-slice Technical Verifiers and from the final integrated Deep Review and QA; neither stage replaces the other. User interaction is limited to interactive UAT (for user-facing features) and acting on a FAIL verdict ("fix these gaps now?").
+3. **Final integrated validation (fresh Verifier, when selected):** Once the feature's verified slices are integrated, run final feature-level checks over the integrated tree only when the proportional classifier in `docs/guidelines/GATES.md` selects them. This is separate from per-slice Technical Verifiers and from the final integrated Deep Review and QA when those stages are selected; neither stage replaces the other. Scoped documentation and instruction changes record their narrower evidence and limitation. User interaction is limited to interactive UAT (for user-facing features) and acting on a FAIL verdict ("fix these gaps now?").
 
 4. **Interactive UAT (for user-facing features only):** The feature has complex user-facing behavior where human judgment matters (UI flows, interaction patterns, visual design). For backend-only or infrastructure work, automated checks are sufficient.
 

@@ -872,6 +872,8 @@ describe("agent configuration", () => {
         const relativePath = `templates/agents/${provider}/${agentName}.${extension}`;
         const source = readRepositoryFile(relativePath);
         const expected = settings.get(`${provider}.${role}`)!;
+        expect(source).toContain("docs/product/AGENT-CONTEXT.md");
+        expect(source).toContain("role/task");
         expect(value(source, format, "name")).toBe(agentName);
         if (provider === "cursor") {
           expect(value(source, format, "model")).toBe(`${expected.model}[effort=${expected.effort}]`);

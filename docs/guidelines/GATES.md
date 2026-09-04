@@ -8,6 +8,13 @@ pull request. Never weaken a test to go green.
 The consuming project owns commands. `make check`, when present, is the full gate; a documented
 selector is the scoped gate. Name the actual commands.
 
+Classify the resulting diff before applying generic feature rules. Pure documentation maintenance
+uses accuracy, affected-link, heading, and whitespace checks only. Agent-instruction changes use a
+consistency check and an existing relevant contract check. Mixed documentation and executable changes
+use canonical tests for changed executable behavior. Do not infer a full gate from file count, the word
+"feature", a UI diff, or an empty selector; stronger checks require named concrete risk. Explicit user
+skips are honored with a narrow claim and recorded limitation.
+
 Before choosing a gate, apply the classification contract in
 `.agents/skills/workflow-spec-driven/SKILL.md`. A behavior-preserving `direct correction` or
 `UI-only correction` uses the narrowest check for the changed integration and closes after one

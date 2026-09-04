@@ -216,7 +216,8 @@ def test_manifest_hashes_are_lowercase_sha256() -> None:
         assert invoke(target, "apply", "--layers", "core").returncode == 0
         manifest = json.loads((target / ".my-workflow/adoption.json").read_text(encoding="utf-8"))
         for relative, record in manifest["files"].items():
-            assert record["source_sha256"] == hashlib.sha256((ROOT / relative).read_bytes()).hexdigest()
+            source = ROOT / adopt.CONSUMER_MISSING_SOURCES.get(relative, relative)
+            assert record["source_sha256"] == hashlib.sha256(source.read_bytes()).hexdigest()
             if record["ownership"] == "managed":
                 assert record["installed_sha256"] == hashlib.sha256((target / relative).read_bytes()).hexdigest()
     finally:
@@ -481,6 +482,7 @@ def test_full_profile_preserves_complete_capability_inventory_and_links_skills()
         for layer in ("core", "parallel", "quality", "extras"):
             for relative in (*LAYER_PATHS[layer], *LAYER_MISSING_PATHS[layer]):
                 expected.update(_source_files(ROOT, relative))
+        expected.add(adopt.PRODUCT_CONTEXT_PATH)
         assert set(manifest["files"]) == expected
         assert (target / ".claude/skills/autonomous").is_symlink()
         assert os.readlink(target / ".claude/skills/autonomous") == "../../.agents/skills/autonomous"
@@ -492,7 +494,7 @@ def test_full_profile_matches_frozen_pre_feature_inventory() -> None:
     target = temporary_target()
     try:
         assert invoke(target, "apply", "--layers", "full").returncode == 0
-        expected: set[str] = {"templates/adoption/agents/core.md", "templates/adoption/agents/parallel.md", "templates/adoption/agents/quality.md"}
+        expected: set[str] = {"templates/adoption/agents/core.md", "templates/adoption/agents/parallel.md", "templates/adoption/agents/quality.md", adopt.PRODUCT_CONTEXT_PATH}
         for relative in FROZEN_PRE_FEATURE_PATHS:
             source = ROOT / relative
             if source.is_file():
@@ -707,6 +709,42 @@ def test_adoption_installs_only_new_authority_byte_identically() -> None:
             assert (target / relative).read_bytes() == (ROOT / relative).read_bytes()
     finally:
         shutil.rmtree(target)
+
+
+def test_product_context_is_neutral_missing_only_and_consumer_owned() -> None:
+    target = temporary_target()
+    try:
+        assert invoke(target, "apply", "--layers", "core").returncode == 0
+        profile = target / adopt.PRODUCT_CONTEXT_PATH
+        template = ROOT / adopt.PRODUCT_CONTEXT_TEMPLATE
+        assert profile.read_bytes() == template.read_bytes()
+        assert b"my-workflow source pack" not in profile.read_bytes()
+        manifest = json.loads((target / ".my-workflow/adoption.json").read_text(encoding="utf-8"))
+        record = manifest["files"][adopt.PRODUCT_CONTEXT_PATH]
+        assert record["ownership"] == "consumer"
+        assert record["installed_sha256"] is None
+
+        profile.write_bytes(b"consumer product marker\n")
+        assert invoke(target, "apply", "--layers", "core").returncode == 0
+        assert profile.read_bytes() == b"consumer product marker\n"
+    finally:
+        shutil.rmtree(target)
+
+
+def test_product_context_parent_symlink_is_rejected_before_writes() -> None:
+    target, outside = temporary_target(), temporary_target()
+    try:
+        (outside / "AGENT-CONTEXT.md").write_bytes(b"outside\n")
+        (target / "docs").mkdir()
+        (target / "docs/product").symlink_to(outside, target_is_directory=True)
+        before = snapshot(target)
+        result = invoke(target, "apply", "--layers", "core")
+        assert result.returncode == 2 and "symlink" in result.stderr
+        assert snapshot(target) == before
+        assert (outside / "AGENT-CONTEXT.md").read_bytes() == b"outside\n"
+    finally:
+        shutil.rmtree(target)
+        shutil.rmtree(outside)
 
 
 def test_legacy_cleanup_uses_production_paths_and_hashes() -> None:
@@ -1618,6 +1656,8 @@ TESTS = (
     test_adoption_installs_hybrid_workflow_and_preserves_consumer_config,
     test_parallel_adoption_installs_and_tracks_resource_lock,
     test_adoption_installs_only_new_authority_byte_identically,
+    test_product_context_is_neutral_missing_only_and_consumer_owned,
+    test_product_context_parent_symlink_is_rejected_before_writes,
     test_legacy_cleanup_uses_production_paths_and_hashes,
     test_legacy_cleanup_removes_owned_tests_and_preserves_consumer_files,
     test_legacy_cleanup_preserves_external_symlinked_test_directories,

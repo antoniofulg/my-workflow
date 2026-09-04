@@ -57,9 +57,12 @@ these dependencies.
 
 ## Adopt the workflow
 
-Copy the loop, not the product. For a new project, replace the stencil paragraph under **What this
-project is** in `AGENTS.md` and fill product documentation only as the product earns it. For an
-existing project, preserve its filled product paragraph and product-owned documentation.
+Copy the loop, not the product. New projects use the shared `AGENTS.md` pointer and receive a neutral,
+consumer-owned `docs/product/AGENT-CONTEXT.md` index; fill its identity and routes with existing
+project references instead of copying this source pack's profile. Existing projects preserve their
+filled product paragraph and product-owned documentation. For a legacy `AGENTS.md`, extract product
+rules into that index before deliberately replacing older prose; adoption never infers or performs
+that migration.
 
 Choose a fixed capability layer. `core` contains the operating loop and Bun tooling, `parallel`
 adds assisted slice execution, `quality` adds review and QA skills, and `extras` adds optional

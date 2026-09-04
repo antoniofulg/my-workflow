@@ -21,11 +21,17 @@ The verification must be at least as broad as the claim.
 | "this test passes" | That test, run |
 | "task complete" | The task's own tests and validation commands, plus the scoped gate |
 | "feature complete" / "ready for a pull request" | The full gate |
+| bounded documentation or instruction update | The proportional scoped checks selected by `GATES.md` |
 | "bug fixed" | The original symptom reproduced failing, then passing |
 | "regression test works" | Red before the fix, green after — both observed |
 
 A narrow verification never supports a broad claim. Passing unit tests does not justify "task
 complete"; a clean linter does not justify "ready to commit".
+
+For documentation maintenance, agent-instruction changes, and mixed updates, `GATES.md` selects the
+claim's scope automatically. Do not expand validation because a diff says "feature" or contains a UI
+reference; name concrete risk when stronger evidence is needed. An explicit user skip remains a narrow
+claim with its limitation recorded.
 
 **Intermediate tasks in a multi-task feature are narrow claims by design.** The honest per-task claim
 is *"task implemented, affected lanes green, full gate deferred to feature close"* — run the scoped

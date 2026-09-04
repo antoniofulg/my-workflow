@@ -4,9 +4,9 @@ This file is the delivery workflow. It is not a product description.
 
 ## What this project is
 
-<!-- product-stencil: replace this paragraph with one paragraph describing the consuming product. -->
-This file is the agent operating system. The consuming project replaces this paragraph with one
-paragraph describing *its* product — not this workflow, not a stack, not a template.
+Read `docs/product/AGENT-CONTEXT.md` before product-specific work. It holds identity, critical
+constraints, and role/task routes; load only its cited references. Surface missing required context
+as a named gap; do not recurse through product/history directories.
 
 ## This chat's role
 

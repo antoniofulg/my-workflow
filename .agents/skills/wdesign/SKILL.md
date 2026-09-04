@@ -19,7 +19,14 @@ Slash argument: $ARGUMENTS — when this skill was entered with /wdesign and the
 
 ### 1. Load Context
 
-Read `.specs/features/[feature]/spec.md` before designing. When `.specs/features/[feature]/uiux.md` exists, load it and dispatch the `designer` agent before internal design (the planner keeps the architecture half of `design.md`). If `.specs/features/[feature]/context.md` exists, load it too - it contains implementation decisions that constrain the design (layout choices, behavior preferences, interaction patterns). Decisions marked as "Agent's Discretion" are yours to decide.
+Read `docs/product/AGENT-CONTEXT.md` and follow its task-specific route before designing. Read
+`.specs/features/[feature]/spec.md` before designing. When `.specs/features/[feature]/uiux.md` exists,
+load it and dispatch the `designer` agent before internal design (the planner keeps the architecture half
+of `design.md`). If `.specs/features/[feature]/context.md` exists, load it too - it contains
+implementation decisions that constrain the design (layout choices, behavior preferences,
+interaction patterns). Inspect affected existing components read-only; do not recursively load
+unrelated product, design, source, or history directories. Decisions marked as "Agent's Discretion"
+are yours to decide.
 
 **Read `.specs/STATE.md` `## Decisions` before any architectural choice.** Every `active` `AD-NNN` entry is a project-level constraint this design must conform to. If a decision from a prior feature conflicts with what is best for this feature, you have two options - both require an explicit choice:
 
@@ -48,6 +55,10 @@ Every flagged concern carries a mitigation - how the design (or a follow-up task
 
 ### 2. Define Architecture
 
+For UI-bearing work, follow the bounded constraints, reference selection, alternatives, subtraction,
+refinement, and handoff procedure in `docs/guidelines/UI-UX.md`. Existing patterns cover bounded
+compositions; three distinct alternatives apply only to a genuinely new screen or meaningful redesign.
+
 **Large/Complex only - approach exploration:** Before committing to a single architecture, present 2-3 viable approaches with trade-offs and a recommendation. Lead with the recommendation to avoid analysis paralysis. All approaches must deliver the same scoped thing (no alternative scopes). Confirm the chosen approach with the user before detailing components. Medium features: skip - design inline.
 
 Overview of how components interact. Use mermaid diagrams when helpful.
@@ -69,14 +80,3 @@ If the feature involves data, define models before implementation.
 ## Template
 
 Write `.specs/features/[feature]/design.md` from `references/design-template.md`.
-
-## Tips
-
-- **Load context first** - If context.md exists, decisions there are locked
-- **Research when uncertain** - 5 minutes of research prevents hours of rework
-- **Reuse is king** - Every component should reference existing patterns
-- **Interfaces first** - Define contracts before implementation
-- **Keep it visual** - Diagrams save 1000 words
-- **Small components** - If component does 3+ things, split it
-- **Flag concerns inline** - Risks found during research go in Risks & Concerns with a mitigation
-- **Confirm before Tasks** - User approves design before breaking into tasks

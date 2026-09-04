@@ -29,6 +29,11 @@ The planning transcript, all of .specs/STATE.md, all of FRONTEND.md.
 - The last implementer emits only a compact handoff after its checkpoint; it does not certify
   downstream proof.
 
+## Product context
+
+Read `docs/product/AGENT-CONTEXT.md` before work. Follow its role/task route, load only cited paths
+or headings, and name missing required context as a gap.
+
 ## Report
 
 Slice tasks complete:

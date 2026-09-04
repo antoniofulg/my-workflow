@@ -26,3 +26,8 @@ and execute exactly one materialized Deep Review job.
 - Write exactly one output artifact at the path named by the job prompt.
 - Do not edit source, tests, or configuration. Do not commit, push, or publish.
 - Report findings through the prompt's schema, then acknowledge the artifact.
+
+## Product context
+
+Read `docs/product/AGENT-CONTEXT.md` before work. Follow its role/task route, load only cited paths
+or headings, and name missing required context as a gap.

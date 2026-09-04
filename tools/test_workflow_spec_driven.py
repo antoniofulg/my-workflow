@@ -107,6 +107,7 @@ class WorkflowSpecDrivenTests(unittest.TestCase):
                 "## Acceptance criteria\n- `HSE-03`",
                 "## Tests\n- `UT-002`",
                 "## Gate\n\n```text\npython3 tools/test_workflow_spec_driven.py\n```",
+                "## Product context\n\nRead `docs/product/AGENT-CONTEXT.md` first.",
                 "## Design excerpt\n\nbounded packet design",
                 "## Slice memory\n\ncheckpoint memory",
             ):

@@ -29,3 +29,8 @@ Found:
 - [path:line] — [what it does]
 Next: [planner | implementer | none]
 ```
+
+## Product context
+
+Read `docs/product/AGENT-CONTEXT.md` before work. Follow its role/task route, load only cited paths
+or headings, and name missing required context as a gap.

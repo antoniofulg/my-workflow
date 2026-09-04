@@ -54,3 +54,8 @@ If named repository evidence contradicts the fast path, name it before escalatin
 does not reclassify.
 Examples: CRM banner → existing shadcn toast and existing table → TanStack/shadcn data table stay
 direct corrections when trigger, message, and table semantics are unchanged.
+
+## Product context
+
+Read `docs/product/AGENT-CONTEXT.md` before work. Follow its role/task route, load only cited paths
+or headings, and name missing required context as a gap.
