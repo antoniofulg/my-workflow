@@ -1,0 +1,52 @@
+{
+  "feature": "review-signal-trailer",
+  "fingerprints": {
+    "038a8b98916115fcc9326a4f15ae89961712f10b4ff643daba2b0064feafc04a": {
+      "current_generation": 1,
+      "failed_remediations": 0,
+      "failure_path": "tools/review-metrics.py",
+      "fingerprint": "038a8b98916115fcc9326a4f15ae89961712f10b4ff643daba2b0064feafc04a",
+      "generations": [
+        {
+          "attempt_count": 0,
+          "consecutive_stalls": 0,
+          "failed_remediations": 0,
+          "failing_signature": "",
+          "failing_tests": [],
+          "fixes_tried": [],
+          "generation": 1,
+          "minimum_failing_count": 0,
+          "minimum_failing_tests": [],
+          "status": "closed"
+        }
+      ],
+      "requirement": "rst-02",
+      "root_cause": "f3-corrupted-repo-zeroes",
+      "status": "closed"
+    },
+    "4daf4b43db5d033b4a012ff93784704583720a1ea53b535442ad322c4ec77fd1": {
+      "current_generation": 1,
+      "failed_remediations": 0,
+      "failure_path": "tools/review-metrics.py",
+      "fingerprint": "4daf4b43db5d033b4a012ff93784704583720a1ea53b535442ad322c4ec77fd1",
+      "generations": [
+        {
+          "attempt_count": 0,
+          "consecutive_stalls": 0,
+          "failed_remediations": 0,
+          "failing_signature": "",
+          "failing_tests": [],
+          "fixes_tried": [],
+          "generation": 1,
+          "minimum_failing_count": 0,
+          "minimum_failing_tests": [],
+          "status": "closed"
+        }
+      ],
+      "requirement": "rst-02",
+      "root_cause": "f2-untested-default-range",
+      "status": "closed"
+    }
+  },
+  "version": 2
+}

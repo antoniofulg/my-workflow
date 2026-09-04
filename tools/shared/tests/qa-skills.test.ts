@@ -99,17 +99,13 @@ const historicalAuthorityAllowlist = [
   /^docs\/qa\/scenarios\/(?!REL-report-current-workflow-release\.md$)/,
 ] as const;
 
-const historicalQaArtifactAllowlist = [
-  /^docs\/qa\/(?:evidence|reports|charters|bugs)\//,
-  /^docs\/qa\/scenarios\/(?!REL-report-current-workflow-release\.md$)/,
-] as const;
-
-const historicalQaRoots = [
+// Scenarios are exempt from the command-authority scan but stay editable: QA-SCENARIOS.md
+// requires resetting an affected scenario to `untested`, so they are never frozen history.
+const frozenQaRoots = [
   "docs/qa/evidence",
   "docs/qa/reports",
   "docs/qa/charters",
   "docs/qa/bugs",
-  "docs/qa/scenarios",
 ] as const;
 
 function trackedRepositoryPaths(): string[] {
@@ -130,8 +126,8 @@ function isHistoricalAuthority(relativePath: string): boolean {
   return historicalAuthorityAllowlist.some((pattern) => pattern.test(relativePath));
 }
 
-function isHistoricalQaArtifact(relativePath: string): boolean {
-  return historicalQaArtifactAllowlist.some((pattern) => pattern.test(relativePath));
+function isFrozenQaArtifact(relativePath: string): boolean {
+  return frozenQaRoots.some((root) => isUnderRoot(relativePath, root));
 }
 
 function isTestSource(relativePath: string): boolean {
@@ -193,7 +189,7 @@ function changedHistoricalQaArtifacts(
   const baselinePaths = new Set(
     execFileSync(
       "git",
-      ["ls-tree", "-r", "--name-only", sourceRef, "--", ...historicalQaRoots],
+      ["ls-tree", "-r", "--name-only", sourceRef, "--", ...frozenQaRoots],
       gitOptions,
     )
       .trim()
@@ -202,21 +198,21 @@ function changedHistoricalQaArtifacts(
   );
   const committed = execFileSync(
     "git",
-    ["diff", "--name-only", `${sourceRef}...HEAD`, "--", ...historicalQaRoots],
+    ["diff", "--name-only", `${sourceRef}...HEAD`, "--", ...frozenQaRoots],
     gitOptions,
   );
   const working = execFileSync(
     "git",
-    ["diff", "--name-only", "HEAD", "--", ...historicalQaRoots],
+    ["diff", "--name-only", "HEAD", "--", ...frozenQaRoots],
     gitOptions,
   );
   const staged = execFileSync(
     "git",
-    ["diff", "--cached", "--name-only", "--", ...historicalQaRoots],
+    ["diff", "--cached", "--name-only", "--", ...frozenQaRoots],
     gitOptions,
   );
   return [...new Set(`${committed}${working}${staged}`.split(/\r?\n/).filter(Boolean))]
-    .filter(isHistoricalQaArtifact)
+    .filter(isFrozenQaArtifact)
     .filter((relativePath) => baselinePaths.has(relativePath))
     .sort();
 }
@@ -250,6 +246,17 @@ const verifierPacketPaths = [
 ] as const;
 
 describe("QA workflow artifact policy", () => {
+  it("IT-025 routes behavior-preserving UI corrections by intent and evidence", () => {
+    const gates = readRepositoryFile("docs/guidelines/GATES.md");
+    const qaExecution = readRepositoryFile("docs/guidelines/QA-EXECUTION.md");
+    const scenarios = readRepositoryFile("docs/guidelines/QA-SCENARIOS.md");
+    const review = readRepositoryFile("docs/guidelines/REVIEW-ROUNDS.md");
+    expect(gates).toContain("not promoted to full e2e");
+    expect(qaExecution).toContain("receives no QA Plan/Execute cycle");
+    expect(scenarios).toContain("does not create/reset a scenario or start a QA");
+    expect(review).toContain("issue` is neutral");
+  });
+
   it("IT-007 ignores generated Deep Review output but keeps learnings eligible", () => {
     const gitignore = readRepositoryFile(".gitignore");
 
@@ -282,8 +289,8 @@ describe("QA workflow artifact policy", () => {
     const agents = readRepositoryFile("AGENTS.md");
     const loop = readRepositoryFile("docs/workflow/loop.md");
     const specDriven = readRepositoryFile(".agents/skills/workflow-spec-driven/SKILL.md");
-    const implementer = readRepositoryFile(".agents/skills/workflow-spec-driven/references/implement.md");
-    const validator = readRepositoryFile(".agents/skills/workflow-spec-driven/references/validate.md");
+    const implementer = readRepositoryFile(".agents/skills/wimplement/SKILL.md");
+    const validator = readRepositoryFile(".agents/skills/wverify/SKILL.md");
     const memory = readRepositoryFile(".agents/skills/workflow-spec-driven/references/memory.md");
     const providerPackets = [
       readRepositoryFile("templates/agents/cursor/implementer.md"),
@@ -359,14 +366,17 @@ describe("canonical QA skills", () => {
   it("UT-001 installs one attributed slice-native workflow authority", () => {
     const skill = readRepositoryFile(".agents/skills/workflow-spec-driven/SKILL.md");
     const notice = readRepositoryFile(".agents/skills/workflow-spec-driven/NOTICE.md");
-    const validator = readRepositoryFile(".agents/skills/workflow-spec-driven/references/validate.md");
-    const tasksReference = readRepositoryFile(".agents/skills/workflow-spec-driven/references/tasks.md");
+    const validator = readRepositoryFile(".agents/skills/wverify/SKILL.md");
+    const tasksReference = [
+      readRepositoryFile(".agents/skills/wtasks/SKILL.md"),
+      readRepositoryFile(".agents/skills/wtasks/references/tasks-template.md"),
+    ].join("\n");
     const activeContract = [
       skill,
       notice,
       readRepositoryFile(".agents/skills/workflow-spec-driven/references/sub-agents.md"),
       tasksReference,
-      readRepositoryFile(".agents/skills/workflow-spec-driven/references/implement.md"),
+      readRepositoryFile(".agents/skills/wimplement/SKILL.md"),
     ].join("\n");
 
     expect(skillMetadata(".agents/skills/workflow-spec-driven/SKILL.md").name).toBe(
@@ -475,10 +485,9 @@ describe("canonical QA skills", () => {
     expect(reviewRounds).not.toMatch(/one global (?:remediation|blocker) counter/i);
 
     for (const relativePath of [
-      ".agents/skills/workflow-spec-driven/SKILL.md",
-      ".agents/skills/workflow-spec-driven/references/validate.md",
+      ".agents/skills/wverify/SKILL.md",
       ".agents/skills/workflow-spec-driven/references/sub-agents.md",
-      ".agents/skills/workflow-spec-driven/references/implement.md",
+      ".agents/skills/wimplement/SKILL.md",
       ".agents/skills/autonomous/SKILL.md",
       "docs/workflow/reviews.md",
       "docs/workflow/README.md",
@@ -488,7 +497,11 @@ describe("canonical QA skills", () => {
       expect(source).toContain("REVIEW-ROUNDS.md");
       expect(source).toContain("fingerprint");
     }
-    expect(readRepositoryFile(".agents/skills/workflow-spec-driven/references/validate.md")).toContain(
+    // The router no longer restates the loop; it routes to the phase skills that own it.
+    const router = readRepositoryFile(".agents/skills/workflow-spec-driven/SKILL.md");
+    expect(router).toContain("wimplement");
+    expect(router).toContain("wverify");
+    expect(readRepositoryFile(".agents/skills/wverify/SKILL.md")).toContain(
       "diagnostic cap is per issue and separate from review-remediation fingerprint accounting",
     );
     const convergence = readRepositoryFile(".agents/skills/workflow-spec-driven/scripts/review_convergence.py");
@@ -824,14 +837,14 @@ describe("agent configuration", () => {
 
     const config = readRepositoryFile(".my-workflow.toml.example");
     const settings = new Map<string, { model: string; effort: string }>();
-    const section = /\[models\.(claude|codex|cursor)\.(planner|implementer|verifier|explorer|deep_reviewer)\]\s+model = "([^"]+)"\s+effort = "([^"]+)"/g;
+    const section = /\[models\.(claude|codex|cursor)\.(planner|implementer|verifier|explorer|deep_reviewer|designer)\]\s+model = "([^"]+)"\s+effort = "([^"]+)"/g;
     for (const match of config.matchAll(section)) {
       settings.set(`${match[1]}.${match[2]}`, { model: match[3], effort: match[4] });
     }
-    expect(settings.size).toBe(15);
+    expect(settings.size).toBe(18);
 
     for (const provider of ["claude", "codex", "cursor"] as const) {
-      for (const role of ["planner", "implementer", "verifier", "explorer", "deep_reviewer"] as const) {
+      for (const role of ["planner", "implementer", "verifier", "explorer", "deep_reviewer", "designer"] as const) {
         const agentName = role === "deep_reviewer" ? "deep-reviewer" : role;
         const extension = provider === "codex" ? "toml" : "md";
         const format = provider === "codex" ? "toml" : "frontmatter";
@@ -1067,25 +1080,25 @@ describe("adoption and public setup", () => {
     const nextRelease = changelog.indexOf("\n## [", releaseStart + 1);
     const latestRelease = changelog.slice(releaseStart, nextRelease === -1 ? undefined : nextRelease);
 
-    expect(manifest.version).toBe("0.8.0");
+    expect(manifest.version).toBe("0.9.1");
     expect(manifest.private).toBe(true);
     expect(manifest.packageManager).toBe("bun@1.4.0");
     expect(manifest.scripts?.test).toBe("bun test");
     expect(readRepositoryFile("bun.lock")).toContain('"name": "my-workflow"');
     expect(existsSync(join(repositoryRoot, "package-lock.json"))).toBe(false);
-    expect(latestHeading).toBe("0.8.0");
+    expect(latestHeading).toBe("0.9.1");
     expect(latestHeading).toBe(manifest.version);
     expect(currentScenarioVersion).toBe(manifest.version);
     expect(releaseScenario.match(/^expected: .*$/m)?.[0]).toBe(
       "expected: The newest changelog release matches the package manifest, while Bun 1.4's lockfile identifies the root package and dependency graph; the documented install, knowledge, full-gate, frozen-lockfile, and package commands expose the current source pack without checkout residue.",
     );
-    expect(latestRelease).toContain("Assisted slice execution is the default");
-    expect(latestRelease).toContain("workflow-spec-driven");
-    expect(latestRelease).toContain("Configurable project-scoped and machine-scoped test locks");
-    expect(latestRelease).toContain("adopt.py resolve");
-    expect(latestRelease).toContain("convergence ledger");
-    expect(latestRelease).toContain("trust boundary");
-    expect(latestRelease).toContain("blocked-verify");
+    expect(latestRelease).toContain("direct correction");
+    expect(latestRelease).toContain("UI-only correction");
+    expect(latestRelease).toContain("cross-feature change");
+    expect(latestRelease).toContain("issue` remains neutral");
+    expect(latestRelease).toContain("0.8.0");
+    expect(latestRelease).toContain("--skip-agents");
+    expect(latestRelease).toContain("Explicit packet sync still validates its config");
 
     const pack = spawnSync(process.execPath, ["pm", "pack", "--dry-run", "--ignore-scripts"], {
       cwd: repositoryRoot,
@@ -1130,9 +1143,11 @@ describe("Bun tooling runtime contract", () => {
       "tools/test_parallel_executor.py",
       "tools/test_parallel_plan.py",
       "tools/test_parallel_resource_lock.py",
+      "tools/test_phase_skills.py",
       "tools/test_qa_parallel_pilot.py",
       "tools/test_remediation.py",
       "tools/test_review_convergence.py",
+      "tools/test_review_metrics.py",
       "tools/test_tlc_validators.py",
       "tools/test_workflow_config.py",
       "tools/test_workflow_spec_driven.py",
@@ -1230,9 +1245,20 @@ describe("Bun tooling runtime contract", () => {
     try {
       execFileSync("git", ["init", "--quiet", "--initial-branch=main"], { cwd: root });
       mkdirSync(join(root, "docs/qa/reports"), { recursive: true });
+      mkdirSync(join(root, "docs/qa/scenarios"), { recursive: true });
       writeFileSync(join(root, "docs/qa/reports/historical.md"), "original\n", "utf8");
+      writeFileSync(
+        join(root, "docs/qa/scenarios/ADP-baseline.md"),
+        "qa_status: pass\n",
+        "utf8",
+      );
       const baseline = commitFixture(root, "baseline");
       writeFileSync(join(root, "docs/qa/reports/historical.md"), "changed\n", "utf8");
+      writeFileSync(
+        join(root, "docs/qa/scenarios/ADP-baseline.md"),
+        "qa_status: untested\n",
+        "utf8",
+      );
       mkdirSync(join(root, "docs/qa/charters"), { recursive: true });
       writeFileSync(join(root, "docs/qa/charters/current-cycle.md"), "new charter\n", "utf8");
       commitFixture(root, "historical change");

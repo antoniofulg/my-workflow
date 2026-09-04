@@ -3,6 +3,31 @@
 This reference defines how the workflow dispatches independent vertical slices
 without expanding a worker's context beyond its assigned slice.
 
+## Dispatch
+
+The coordinator dispatches every safe independent slice whose route is ready. It does not wait for
+an extra approval response. The frozen route decides whether execution is `assisted` or explicitly
+`disabled`; a fail-closed runtime condition also falls back to serial execution.
+
+The Planner and coordinator remain on the clean integration checkout. Only concurrent Implementers
+receive persistent worktrees. A single ready slice runs serially in the integration checkout. Two
+compatible ready slices start in isolated writer worktrees; each worker receives only its own bounded
+slice packet and executes its tasks sequentially. The coordinator recomputes readiness after each
+verified checkpoint and refills a free lane from dependency-, path-, and resource-compatible work.
+
+Automatic admission starts at two lanes. A healthy settle window admits at most one additional lane,
+up to four. Missing, malformed, stale, or unhealthy evidence never admits a lane above two. The
+explicit integer cap is always respected and does not bypass health proof. Lifecycle, recovery, and role
+boundaries are below.
+
+**Technical Verifier (always-on):** After each code-changing slice reaches its checkpoint, the coordinator dispatches a fresh Verifier automatically. It re-derives spec evidence, runs the discrimination sensor in an isolated scratch, writes the slice validation report, and never fixes the inspected tree. Dependent slices consume only verified checkpoints. Deep Review and QA are separate fresh roles on the integrated tree. Review remediation uses the immutable finding `fingerprint` and `docs/guidelines/REVIEW-ROUNDS.md`.
+
+**Model and effort per role are configuration, not a per-dispatch judgment.** The frozen workflow route from `.agents/skills/workflow-config/SKILL.md` carries each role's model and effort; spawn the named agent and do not override them.
+
+**Standalone fallback:** Without sub-agents, run the `wverify` skill as an independent fresh-eyes pass after the final commit - including the spec-anchored check and discrimination sensor.
+
+Full mechanics (slice packet, lane admission, failure handling, coordinator contract) are in the sections below. The Verifier report format is in the `wverify` skill.
+
 ## Roles
 
 - The Planner owns the feature plan and ready-slice dependency graph.

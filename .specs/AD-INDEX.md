@@ -31,3 +31,8 @@ When recording an `AD-NNN`, run `python3 tools/ad-index.py` in the same commit.
 | `AD-022` | active | The assisted coordinator writes each complete slice packet to a coordinator-owned file outside every slice worktree and sends only a short… |
 | `AD-023` | superseded by AD-015 | `assisted` is the default inter-slice execution mode whenever the frozen task DAG exposes independent safe slices. |
 | `AD-024` | active | Merge the workflow-side assisted-parallelization remediation with the affected live QA scenario truthfully left `untested`; defer live Orca… |
+| `AD-025` | active | One `Review-Signal` trailer per delivered pull request, carried on its merge commit, aggregating the feature through `slices=<n> verified=<… |
+| `AD-026` | active | `check_commit.py` validates the `Review-Signal` trailer only when present; it never requires one. |
+| `AD-027` | active | Round 2's Finding 1 is resolved as documentation, not code. |
+| `AD-028` | active | Each workflow phase (Specify, Design, Tasks, Implement, Verify) is its own skill (`wspecify`, `wdesign`, `wtasks`, `wimplement`, `wverify`)… |
+| `AD-029` | active | `designer` is a delegated matrix role that owns mockups and `uiux-review.md`; Claude runs it on `inherit`. |

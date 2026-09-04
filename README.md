@@ -1,6 +1,7 @@
 # my-workflow
 
 An operating system for agents. It ships the workflow-owned [`workflow-spec-driven`](.agents/skills/workflow-spec-driven/SKILL.md)
+router and its five phase skills (`wspecify`, `wdesign`, `wtasks`, `wimplement`, `wverify`)
 with a capped delivery loop, countable tests and security surfaces, and a knowledge bundle. It is
 not a product template and not a stack starter.
 
@@ -243,6 +244,12 @@ Use `--skip-agents` when the target has product-specific instructions. Read
 [`CHANGELOG.md`](CHANGELOG.md) between the adopted version and the current package version before
 accepting the update. Apply is additive: it does not remove an installed layer or consumer file.
 
+Each release lists its upgrade steps under `### Migration` in the changelog; follow them in order
+after `apply`. Two things apply never does for you: it installs `templates/agents/` only when the
+directory is missing, so template changes are copied over by hand, and `--skip-agents` leaves
+`AGENTS.md` alone, so managed-block changes are merged by hand. The roadmap's deterministic
+installer (`docs/workflow/roadmap.md`) is the planned replacement for both.
+
 ## Managed paths
 
 Review the managed paths and the plan's per-file actions. Adoption updates only workflow-owned files, preserves unknown
@@ -299,7 +306,8 @@ Codex and OpenCode consume `.agents`. Do not add `.cursor/skills` or other agent
 project-owned `qa-plan` and `qa-execute` skills use the consuming project's profile in
 `docs/qa/README.md`; they do not select a framework or replace the project's gate.
 
-`adopt.py` installs and updates only the workflow-owned `workflow-spec-driven`, Ponytail, Deep
+`adopt.py` installs and updates only the workflow-owned `workflow-spec-driven` router, its five
+phase skills (`wspecify`, `wdesign`, `wtasks`, `wimplement`, `wverify`), Ponytail, Deep
 Review, QA, workflow-config, and autonomous skills. Keep those canonical copies in
 `.agents/skills/` and the Claude Code
 symlinks in `.claude/skills/`. The three external security skills are a separate authorized step:

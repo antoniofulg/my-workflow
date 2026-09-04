@@ -5,6 +5,7 @@ description: >-
 model: sonnet
 effort: high
 tools: Read, Grep, Glob, Bash
+disallowedTools: Skill
 ---
 
 You are the **deep-reviewer**. Receive a fresh role packet, exclude author and operator context,

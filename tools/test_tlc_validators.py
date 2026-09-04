@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import shutil
 import subprocess
@@ -13,6 +15,7 @@ from pathlib import Path
 SCRIPTS = Path(__file__).resolve().parents[1] / ".agents/skills/workflow-spec-driven/scripts"
 sys.path.insert(0, str(SCRIPTS))
 
+import check_commit  # noqa: E402
 import validate_spec  # noqa: E402
 import validate_tasks  # noqa: E402
 import validate_state  # noqa: E402
@@ -104,6 +107,57 @@ class WorkflowValidatorTests(unittest.TestCase):
             str(FIXTURES / "acceptance-criteria-no-shall.md")
         )
         self.assertTrue(any("acceptance criterion has no SHALL" in error for error in errors))
+
+    # SID-01 AC6 / EC1 clause -> assertion (UT-001).
+    # Size: Large + missing ## Impact -> "Impact" in error L121; names "## Impact" L122; exit 1 L124
+    # Size: Complex + missing ## Impact -> "Impact" in error L130; names "## Impact" L131; exit 1 L133
+    # Size: Medium + missing ## Impact -> errors [] L139; exit 0 L142
+    # Size: Small + missing ## Impact -> errors [] L147; exit 0 L150
+    # Size: Large + ## Impact body none (EC1) -> errors [] L157; exit 0 L160
+    def test_large_spec_without_impact_is_rejected(self) -> None:
+        errors, _warnings = validate_spec.check(
+            str(FIXTURES / "spec-size-large-no-impact.md")
+        )
+        self.assertTrue(any("Impact" in error for error in errors))
+        self.assertTrue(any("missing required section: ## Impact" in error for error in errors))
+        ret = validate_spec.main([str(FIXTURES / "spec-size-large-no-impact.md")])
+        self.assertEqual(ret, 1)
+
+    def test_complex_spec_without_impact_is_rejected(self) -> None:
+        errors, _warnings = validate_spec.check(
+            str(FIXTURES / "spec-size-complex-no-impact.md")
+        )
+        self.assertTrue(any("Impact" in error for error in errors))
+        self.assertTrue(any("missing required section: ## Impact" in error for error in errors))
+        ret = validate_spec.main([str(FIXTURES / "spec-size-complex-no-impact.md")])
+        self.assertEqual(ret, 1)
+
+    def test_medium_spec_without_impact_is_accepted(self) -> None:
+        errors, warnings = validate_spec.check(
+            str(FIXTURES / "spec-size-medium-no-impact.md")
+        )
+        self.assertEqual(errors, [])
+        self.assertEqual(warnings, [])
+        ret = validate_spec.main([str(FIXTURES / "spec-size-medium-no-impact.md")])
+        self.assertEqual(ret, 0)
+
+    def test_small_spec_without_impact_is_accepted(self) -> None:
+        errors, warnings = validate_spec.check(
+            str(FIXTURES / "spec-size-small-no-impact.md")
+        )
+        self.assertEqual(errors, [])
+        self.assertEqual(warnings, [])
+        ret = validate_spec.main([str(FIXTURES / "spec-size-small-no-impact.md")])
+        self.assertEqual(ret, 0)
+
+    def test_large_spec_with_impact_none_is_accepted(self) -> None:
+        errors, warnings = validate_spec.check(
+            str(FIXTURES / "spec-size-large-impact-none.md")
+        )
+        self.assertEqual(errors, [])
+        self.assertEqual(warnings, [])
+        ret = validate_spec.main([str(FIXTURES / "spec-size-large-impact-none.md")])
+        self.assertEqual(ret, 0)
 
     # MAS-UT-001: the Praxis migration is one slice across three technical cohorts.
     def test_praxis_migration_is_one_slice(self) -> None:
@@ -236,6 +290,96 @@ class WorkflowValidatorTests(unittest.TestCase):
         payload = json.loads(first.stdout)
         self.assertEqual(list(payload["task_slices"]), ["T1", "T2", "T3", "T4"])
         self.assertEqual(payload["slice_ids"], ["A", "B"])
+
+
+class ReviewSignalTrailerTests(unittest.TestCase):
+    """RST-01: check_commit validates a Review-Signal trailer when present, never requires one."""
+
+    GOOD = (
+        "Review-Signal: tier=medium slices=3 verified=3 sensor=2/2 "
+        "rounds=1 findings=4 fixed=3 dismissed=1"
+    )
+
+    def _exit_code(self, message: str) -> int:
+        with contextlib.redirect_stdout(io.StringIO()):
+            return check_commit.main(["--message", message])
+
+    def _commit(self, *trailers: str) -> str:
+        body = "\n".join(trailers)
+        return f"feat(review): record the review outcome\n\nA body paragraph.\n\n{body}\n"
+
+    def test_a_message_without_the_trailer_is_accepted(self) -> None:
+        self.assertEqual(self._exit_code("feat(review): record the review outcome"), 0)
+
+    def test_a_well_formed_trailer_is_accepted(self) -> None:
+        self.assertEqual(self._exit_code(self._commit(self.GOOD)), 0)
+
+    def test_the_optional_remediation_failed_key_is_accepted(self) -> None:
+        self.assertEqual(self._exit_code(self._commit(self.GOOD + " remediation-failed=2")), 0)
+
+    def test_a_direct_tier_needs_no_other_key(self) -> None:
+        self.assertEqual(self._exit_code(self._commit("Review-Signal: tier=direct")), 0)
+
+    def test_a_batch_tier_needs_no_other_key(self) -> None:
+        self.assertEqual(self._exit_code(self._commit("Review-Signal: tier=batch")), 0)
+
+    def test_any_other_tier_requires_the_full_key_set(self) -> None:
+        self.assertEqual(
+            self._exit_code(self._commit("Review-Signal: tier=large slices=2 verified=2")),
+            1,
+        )
+
+    def test_findings_must_equal_fixed_plus_dismissed(self) -> None:
+        broken = self.GOOD.replace("findings=4", "findings=5")
+        self.assertEqual(self._exit_code(self._commit(broken)), 1)
+
+    def test_verified_may_not_exceed_slices(self) -> None:
+        broken = self.GOOD.replace("verified=3", "verified=4")
+        self.assertEqual(self._exit_code(self._commit(broken)), 1)
+
+    def test_sensor_killed_may_not_exceed_injected(self) -> None:
+        broken = self.GOOD.replace("sensor=2/2", "sensor=3/2")
+        self.assertEqual(self._exit_code(self._commit(broken)), 1)
+
+    def test_slices_below_one_is_rejected(self) -> None:
+        broken = self.GOOD.replace("slices=3 verified=3", "slices=0 verified=0")
+        self.assertEqual(self._exit_code(self._commit(broken)), 1)
+
+    def test_an_unknown_key_is_rejected_and_named(self) -> None:
+        # A valid integer value so only the unknown-key rule can reject it.
+        broken = self.GOOD + " reviewer=3"
+        self.assertEqual(self._exit_code(self._commit(broken)), 1)
+        errors, _ = check_commit.check(self._commit(broken))
+        self.assertTrue(any("reviewer" in e for e in errors), errors)
+
+    def test_a_duplicate_key_is_rejected(self) -> None:
+        self.assertEqual(self._exit_code(self._commit(self.GOOD + " rounds=2")), 1)
+
+    def test_two_trailer_lines_are_rejected(self) -> None:
+        self.assertEqual(self._exit_code(self._commit(self.GOOD, self.GOOD)), 1)
+
+    def test_an_unknown_tier_is_rejected(self) -> None:
+        broken = self.GOOD.replace("tier=medium", "tier=thorough")
+        self.assertEqual(self._exit_code(self._commit(broken)), 1)
+
+    def test_a_missing_tier_is_rejected(self) -> None:
+        broken = self.GOOD.replace("tier=medium ", "")
+        self.assertEqual(self._exit_code(self._commit(broken)), 1)
+
+    def test_a_malformed_integer_is_rejected(self) -> None:
+        for bad in ("+3", "-3", "3.0", ""):
+            with self.subTest(value=bad):
+                broken = self.GOOD.replace("rounds=1", f"rounds={bad}")
+                self.assertEqual(self._exit_code(self._commit(broken)), 1)
+
+    def test_a_sensor_without_two_integers_is_rejected(self) -> None:
+        for bad in ("2", "2/", "two/three"):
+            with self.subTest(value=bad):
+                broken = self.GOOD.replace("sensor=2/2", f"sensor={bad}")
+                self.assertEqual(self._exit_code(self._commit(broken)), 1)
+
+    def test_a_field_without_an_equals_sign_is_rejected(self) -> None:
+        self.assertEqual(self._exit_code(self._commit(self.GOOD + " verified")), 1)
 
 
 if __name__ == "__main__":

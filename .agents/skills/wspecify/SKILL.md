@@ -1,12 +1,23 @@
+---
+name: wspecify
+description: "Specify phase - capture WHAT to build with testable, traceable EARS requirements, run the closure gate, and trigger discuss for gray areas. Argument: the feature slug. Preloaded by the planner agent; enter with /wspecify."
+argument-hint: "<feature-or-slice>"
+context: fork
+agent: planner
+background: false
+---
+
 # Specify
+
+Slash argument: $ARGUMENTS — when this skill was entered with /wspecify and the argument is empty, stop and ask for the feature or slice; when preloaded into an agent, the packet names the slice and this line is informational.
 
 **Goal**: Capture WHAT to build with testable, traceable requirements.
 
-If the feature has ambiguous gray areas (multiple valid approaches for user-facing behavior), the agent will automatically trigger the [discuss gray areas](discuss.md) process within this phase. For clear, well-defined features, it goes straight to the next phase.
+If the feature has ambiguous gray areas (multiple valid approaches for user-facing behavior), the agent will automatically trigger the [discuss gray areas](references/discuss.md) process within this phase. For clear, well-defined features, it goes straight to the next phase.
 
 ## Implicit-Requirement Dimensions
 
-The canonical rubric for requirements that are easy to miss. Referenced by [discuss.md](discuss.md) - defined here, not duplicated.
+The canonical rubric for requirements that are easy to miss. Referenced by [discuss.md](references/discuss.md) - defined here, not duplicated.
 
 | Dimension | What to cover |
 | --------- | ------------- |
@@ -20,13 +31,11 @@ The canonical rubric for requirements that are easy to miss. Referenced by [disc
 | External-dependency failure | Circuit breakers, fallbacks |
 | State-transition integrity | Valid transitions, guards |
 
----
-
 ## Process
 
 ### 1. Clarify Requirements
 
-**Load confirmed lessons first:** Before clarifying, load the project's confirmed lessons so past verification failures shape this spec instead of repeating. Run `python3 <skill-dir>/scripts/lessons.py list --status confirmed` (optionally `--scope [area]` or `--query [term]` for the area this feature touches) and apply what comes back as guidance. Load only `confirmed` - never `candidate` or `quarantined`. If no store exists yet or no code tool is available, skip silently. See [lessons.md](lessons.md).
+**Load confirmed lessons first:** Before clarifying, load the project's confirmed lessons so past verification failures shape this spec instead of repeating. Run `python3 .agents/skills/workflow-spec-driven/scripts/lessons.py list --status confirmed` (optionally `--scope [area]` or `--query [term]` for the area this feature touches) and apply what comes back as guidance. Load only `confirmed` - never `candidate` or `quarantined`. If no store exists yet or no code tool is available, skip silently. See [lessons.md](.agents/skills/workflow-spec-driven/references/lessons.md).
 
 **Lightweight context scan first (Knowledge Verification Chain Step 1):** Before asking questions, briefly scan existing code, patterns, and neighboring features relevant to this feature. Use what you find to ground your clarifying questions in reality - not to constrain the spec to current implementation. Keep it lightweight (reuse the chain, no new machinery). The spec captures WHAT is needed, not only what exists.
 
@@ -37,11 +46,8 @@ Ask conversationally (not as a checklist):
 - "What problem are you solving?"
 - "Who is the user and what's their pain?"
 - "What does success look like?"
-
-If needed:
-
-- "What are the constraints (time, tech, resources)?"
-- "What is explicitly out of scope?"
+- "What are the constraints (time, tech, resources)?" (if needed)
+- "What is explicitly out of scope?" (if needed)
 
 **Facts you look up; decisions you ask.** Anything discoverable by reading the environment (the codebase, config, docs, existing conventions) you resolve yourself through the Knowledge Verification Chain - do not spend the user's attention asking for it. Reserve questions for genuine decisions that are the user's to make: scope, priorities, product behavior, trade-offs. A question you could have answered by reading the code erodes trust and wastes a turn.
 
@@ -55,13 +61,21 @@ If needed:
 
 The `N/A because...` escape is mandatory - it prevents inventing requirements to fill the checklist. Bound the sweep to THIS feature's scope; never add requirements outside the feature boundary.
 
-### 2. Capture User Stories with Priorities
+### 2. Map Impact
+
+Dispatch two explorer subagents to map blast radius before writing user stories:
+1. **Data and model dependencies:** shared entities, schema changes, background jobs, events.
+2. **Pages, journeys, and QA scenarios:** affected pages, routes, user journeys, and QA scenarios that read them.
+
+Write the `## Impact` section in `spec.md` listing affected features, pages/routes, and scenario ids (or `none`). For each affected feature listed, include one ubiquitous acceptance criterion stating that feature's behaviour is unchanged.
+
+### 3. Capture User Stories with Priorities
 
 **P1 = MVP** (must ship), **P2** (should have), **P3** (nice to have)
 
 Each story MUST be **independently testable** - you can implement and demo just that story.
 
-### 3. Write Acceptance Criteria (EARS notation)
+### 4. Write Acceptance Criteria (EARS notation)
 
 Write every acceptance criterion in **EARS** (Easy Approach to Requirements Syntax). Each criterion resolves to exactly one pattern, which keeps it unambiguous and directly testable. Choose the pattern that fits the requirement instead of forcing everything into a single shape:
 
@@ -76,9 +90,13 @@ Write every acceptance criterion in **EARS** (Easy Approach to Requirements Synt
 
 **Why patterns beat one shape:** failure states, state transitions, and optional behavior become first-class criteria instead of footnotes squeezed into WHEN/THEN. The patterns map onto the implicit-requirement dimensions above: state-transition integrity to State-driven; failure and external-dependency failure to Unwanted-behavior; feature flags to Optional-feature.
 
-**Rules:** one requirement per criterion (never bundle two behaviors); use concrete values (a specific status code, a specific message, a bound) rather than "quickly" or "gracefully"; every criterion contains a SHALL and is measurable. `python3 <skill-dir>/scripts/validate_spec.py` flags any criterion without a SHALL and any that matches no recognized pattern.
+**Rules:** one requirement per criterion (never bundle two behaviors); use concrete values (a specific status code, a specific message, a bound) rather than "quickly" or "gracefully"; every criterion contains a SHALL and is measurable. `python3 .agents/skills/workflow-spec-driven/scripts/validate_spec.py` flags any criterion without a SHALL and any that matches no recognized pattern.
 
-### 4. Requirement Closure Gate (before confirm)
+### 5. UI/UX Surface Map (uiux.md)
+
+Only when a screen is added or changed: write `.specs/features/[feature]/uiux.md` after acceptance criteria and before the closure gate, following `docs/guidelines/UI-UX.md`. Enumerate screens, entry points, states, breakpoints, components, copy, and out-of-scope surfaces. Features with no new or changed screen skip this step.
+
+### 6. Requirement Closure Gate (before confirm)
 
 Before presenting the spec for confirmation, run the three checks below. The spec is not presentable for confirmation until every item is resolved or assumption-logged - this is the guarantee that no requirement leaves the spec silently unclear.
 
@@ -88,134 +106,28 @@ Before presenting the spec for confirmation, run the three checks below. The spe
 
 2. **Open-questions / assumptions closure.** Enumerate every unresolved decision that surfaced during clarification. Each must be either (a) resolved with the user OR (b) recorded as an **assumption** (chosen default + rationale) in the spec's Assumptions & Open Questions section. Nothing proceeds unmarked.
 
-3. **Declined gray areas become assumptions.** Any gray area the user declined to discuss or that went undiscussed is written to the spec's Assumptions & Open Questions section (agent's chosen default + rationale) - never silently dropped. See [discuss.md](discuss.md).
+3. **Declined gray areas become assumptions.** Any gray area the user declined to discuss or that went undiscussed is written to the spec's Assumptions & Open Questions section (agent's chosen default + rationale) - never silently dropped. See [discuss.md](references/discuss.md).
 
 Fix inline. This gate is bounded to THIS feature's stated dimensions and actual behavior - never to "anything imaginable." The Out of Scope table and anti-scope-creep rules remain the counterweights: the gate clarifies existing requirements, it never invents new ones.
 
-**Deterministic backing (run before you present the spec).** The structural half of this gate is enforced by a script so it cannot drift when a step is forgotten: `python3 <skill-dir>/scripts/validate_spec.py <spec-path-or-feature>` checks that required sections exist, every AC is EARS-shaped (has a SHALL), no Assumptions row has an empty default or rationale, and requirement IDs are well-formed. A non-zero exit means fix before confirming. The script checks structure; you still own the judgment calls (is the interpretation right, is the outcome precise). If no code-execution tool is available, run the same checks by reading the spec.
+**Deterministic backing (run before you present the spec).** The structural half of this gate is enforced by a script so it cannot drift when a step is forgotten: `python3 .agents/skills/workflow-spec-driven/scripts/validate_spec.py <spec-path-or-feature>` checks that required sections exist, every AC is EARS-shaped (has a SHALL), no Assumptions row has an empty default or rationale, and requirement IDs are well-formed. A non-zero exit means fix before confirming. The script checks structure; you still own the judgment calls (is the interpretation right, is the outcome precise). If no code-execution tool is available, run the same checks by reading the spec.
+
+### 7. Plan Approval & Gap Hunt
+
+At plan approval, offer a gap hunt following [gap-hunt.md](references/gap-hunt.md):
+- **Small:** Skip the gap hunt.
+- **Medium & Large:** Ask the human if they want a gap hunt.
+- **Complex:** Recommend the gap hunt.
+- **Autonomous mode:** Run the gap hunt only for Complex features; for Small, Medium, and Large, record the skip in `decisions.md`.
+
+When accepted (or when required under autonomous mode), dispatch two explorers and run frontier question rounds. Settled findings become acceptance criteria or `context.md` decisions. If the gap hunt finds nothing, say so in one line and proceed.
 
 ---
+**Loading ceiling:** load the smallest set that answers the current step; never two feature specs at once.
 
-## Template: `.specs/features/[feature]/spec.md`
+## Template
 
-```markdown
-# [Feature Name] Specification
-
-## Problem Statement
-
-[Describe the problem in 2-3 sentences. What pain point are we solving? Why now?]
-
-## Goals
-
-- [ ] [Primary goal with measurable outcome]
-- [ ] [Secondary goal with measurable outcome]
-
-## Out of Scope
-
-Explicitly excluded. Documented to prevent scope creep.
-
-| Feature     | Reason         |
-| ----------- | -------------- |
-| [Feature X] | [Why excluded] |
-| [Feature Y] | [Why excluded] |
-
----
-
-## Assumptions & Open Questions
-
-Every ambiguity is resolved or recorded here - nothing is left silently unclear.
-
-| Assumption / decision | Chosen default  | Rationale | Confirmed? |
-| --------------------- | --------------- | --------- | ---------- |
-| [ambiguity]           | [what we'll do] | [why]     | [y/n]      |
-
-**Open questions:** none - all resolved or logged above (required before the spec is confirmed).
-
----
-
-## User Stories
-
-### P1: [Story Title] ⭐ MVP
-
-**User Story**: As a [role], I want [capability] so that [benefit].
-
-**Why P1**: [Why this is critical for MVP]
-
-**Acceptance Criteria** (each line is one EARS pattern):
-
-1. WHEN [user action/event] THEN system SHALL [expected behavior]  <!-- event-driven -->
-2. IF [invalid input / failure] THEN system SHALL [graceful handling]  <!-- unwanted-behavior -->
-3. WHILE [state holds] system SHALL [behavior during that state]  <!-- state-driven -->
-4. The system SHALL [always-on invariant]  <!-- ubiquitous -->
-
-**Independent Test**: [How to verify this story works alone - e.g., "Can demo by doing X and seeing Y"]
-
----
-
-### P2: [Story Title]
-
-**User Story**: As a [role], I want [capability] so that [benefit].
-
-**Why P2**: [Why this isn't MVP but important]
-
-**Acceptance Criteria**:
-
-1. WHEN [event] THEN system SHALL [behavior]
-2. WHEN [event] THEN system SHALL [behavior]
-
-**Independent Test**: [How to verify]
-
----
-
-### P3: [Story Title]
-
-**User Story**: As a [role], I want [capability] so that [benefit].
-
-**Why P3**: [Why this is nice-to-have]
-
-**Acceptance Criteria**:
-
-1. WHEN [event] THEN system SHALL [behavior]
-
----
-
-## Edge Cases
-
-Edge cases are usually unwanted-behavior (IF/THEN) or boundary (WHEN) criteria:
-
-- IF [error scenario] THEN system SHALL [graceful handling]
-- IF [unexpected input] THEN system SHALL [validation response]
-- WHEN [boundary condition] THEN system SHALL [behavior]
-
----
-
-## Requirement Traceability
-
-Each requirement gets a unique ID for tracking across design, tasks, and validation.
-
-| Requirement ID | Story       | Phase  | Status  |
-| -------------- | ----------- | ------ | ------- |
-| [FEAT]-01      | P1: [Story] | Design | Pending |
-| [FEAT]-02      | P1: [Story] | Design | Pending |
-| [FEAT]-03      | P2: [Story] | -      | Pending |
-
-**ID format:** `[CATEGORY]-[NUMBER]` (e.g., `AUTH-01`, `CART-03`, `NOTIF-02`)
-
-**Status values:** Pending → In Design → In Tasks → Implementing → Verified
-
-**Coverage:** X total, Y mapped to tasks, Z unmapped ⚠️
-
----
-
-## Success Criteria
-
-How we know the feature is successful:
-
-- [ ] [Measurable outcome - e.g., "User can complete X in < 2 minutes"]
-- [ ] [Measurable outcome - e.g., "Zero errors in Y scenario"]
-```
-
----
+Write `.specs/features/[feature]/spec.md` from `references/spec-template.md`.
 
 ## Tips
 
@@ -225,4 +137,4 @@ How we know the feature is successful:
 - **Edge cases matter** - What breaks? What's empty? What's huge?
 - **Out of Scope prevents creep** - If it's not here, it doesn't get built
 - **Closure gate before confirm** - Three checks: unambiguity + precision, open-questions/assumptions closure, declined gray areas logged; scope-tiered; bounded to stated dimensions; never invents requirements
-- **Confirm after the gate passes** - Present the spec for user confirmation only after the closure gate passes (no unresolved-and-unmarked items remain) and `validate_spec.py` exits clean; user approves spec before moving to discuss phase
+- **Confirm after the gate passes** - Present the spec for user confirmation only after the closure gate passes (no unresolved-and-unmarked items remain) and `validate_spec.py` exits clean; user approves spec before moving to next phase

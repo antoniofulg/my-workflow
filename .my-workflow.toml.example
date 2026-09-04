@@ -40,6 +40,10 @@ effort = "medium"
 model = "sonnet"
 effort = "high"
 
+[models.claude.designer]
+model = "inherit"
+effort = "high"
+
 [models.codex.planner]
 model = "gpt-5.6-sol"
 effort = "high"
@@ -60,6 +64,10 @@ effort = "medium"
 model = "gpt-5.6-luna"
 effort = "high"
 
+[models.codex.designer]
+model = "gpt-5.6-sol"
+effort = "high"
+
 [models.cursor.planner]
 model = "cursor-grok-4.6"
 effort = "high"
@@ -78,4 +86,8 @@ effort = "medium"
 
 [models.cursor.deep_reviewer]
 model = "gpt-5.6-luna"
+effort = "high"
+
+[models.cursor.designer]
+model = "claude-fable-5-1-thinking-high"
 effort = "high"

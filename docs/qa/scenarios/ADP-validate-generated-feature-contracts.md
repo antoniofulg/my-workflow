@@ -13,7 +13,7 @@ retest_status:
 fix_commits:
 evidence: docs/qa/evidence/2026-08-22-validate-generated-feature-contracts/session.md
 last_report: docs/qa/reports/2026-08-22-validate-generated-feature-contracts.md
-overlaps:
+overlaps: ADP-require-impact-on-large-specs
 ---
 
 Covers the public developer CLI behaviour reported in issue #39. Valid feature files produced from

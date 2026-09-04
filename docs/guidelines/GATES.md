@@ -8,6 +8,15 @@ pull request. Never weaken a test to go green.
 The consuming project owns commands. `make check`, when present, is the full gate; a documented
 selector is the scoped gate. Name the actual commands.
 
+Before choosing a gate, apply the classification contract in
+`.agents/skills/workflow-spec-driven/SKILL.md`. A behavior-preserving `direct correction` or
+`UI-only correction` uses the narrowest check for the changed integration and closes after one
+passing scoped validation. It does not dispatch a Verifier, deep review, QA cycle, or full gate.
+UI presence and an absent feature selector are not escalation evidence; choose a component, render,
+unit, type, lint, build, or existing single-scenario check instead. Escalate only for named evidence
+of changed behavior, journey, state, data/API, auth, persistence, dependency/build, shared token,
+architecture, or unresolved product choice.
+
 ## Which gate, when
 
 | Moment | Gate | Why |
@@ -50,10 +59,11 @@ or scopes, permissions, authentication behaviour, and sensitive product data req
 full gate deferred to feature close"*. Run the full gate once after the last mutation, before the
 pull request.
 
-Escalate a task to the full gate when its diff touches something the selector cannot scope:
+Escalate a feature task to the full gate when its diff touches something the selector cannot scope:
 migrations and schema, runtime orchestration, dependency or build tooling, architecture boundary
 configuration, or shared design tokens. Unknown or empty selection also escalates — that is the
-selector working, not failing.
+selector working, not failing. This rule does not apply to a direct UI correction: missing selector
+coverage is reported as a limitation after the narrowest available check, not promoted to full e2e.
 
 ## Cached evidence
 

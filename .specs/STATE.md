@@ -2,24 +2,12 @@
 
 ## Handoff
 
-- **Feature**: local `main` reconciliation onto `origin/main` (branch `build/reconcile-local-main`)
-- **Phase / Task**: merge resolved; full gate and pull request pending
-- **Completed**: origin `hybrid-slice-execution`, `bun-tooling-runtime`, `layered-workflow-adoption`,
-  `gate-result-cache`, and release 0.8.0 are the base. Local `host-owned-session-continuation`
-  (ai-memory removal, AD-019) and the credential-free configuration path in `GATES.md` are carried.
-  Local `host-agnostic-slice-parallelization` and `bun-test-runner` implementations are superseded by
-  the origin base; their specs, QA reports, bugs, and charters remain as history. Local decisions
-  AD-015–AD-020 are renumbered AD-019–AD-024 because origin already used those ids.
+- **Feature**: `specify-impact-designer` (branch `feat/specify-impact-designer`, roadmap slice 3)
+- **Phase / Task**: complete; delivery (push, pull request, merge) in progress under `autonomous`
+- **Completed**: S1 and S2 on Cursor; verifications converged after test-strength batches (S1 round 7, S2 round 7); deep review round 1 FIX_BEFORE_SHIP remediated, round 2 SHIP; QA plan and execute pass; feature `validation.md` PASS (sensor 7/7); `validate_state.py` exit 0
 - **In-progress** (file:line): none
-- **Next step**: Re-port `merge-alone-slices` (`.specs/features/merge-alone-slices/spec.md`, AD-020)
-  onto `workflow-spec-driven` `validate_tasks.py` and `workflow_config.py`. Its local implementation,
-  fixtures, and tests targeted the removed `tlc-spec-driven` skill and were not carried.
-- **Blockers**: Live Orca transport stays `blocked-verify`
-  (`BUG-20260827-orca-terminal-send-truncates-claude-worker-packet`).
-  `.specs/features/host-agnostic-slice-parallelization/tasks.md` keeps 17 unchecked Maestri/preflight
-  tasks the superseded executor never shipped; no port is planned.
-- **Uncommitted files**: none after the merge commit.
-- **Branch**: `build/reconcile-local-main`
+- **Next step**: roadmap slice 4 (mockup fidelity, reuse inventory, lint on raw elements, visual diff gate)
+- **Blockers**: none. Live Orca transport stays `blocked-verify`.
 
 ## Decisions
 
@@ -407,4 +395,87 @@
 - **Scope**: This feature merge only: assisted default dispatch, adopted probe, pointer delivery,
   direct capability/resource proof, same-handle reconciliation, and cleanup.
 - **Date**: 2026-08-28
+- **Status**: active
+
+### AD-025
+
+- **Decision**: One `Review-Signal` trailer per delivered pull request, carried on its merge commit,
+  aggregating the feature through `slices=<n> verified=<m>` counts. Not one trailer per slice.
+- **Reason**: No per-slice commit can carry the verdict. The per-slice lifecycle commits each task
+  before the fresh Verifier runs (`references/sub-agents.md:50-57`), and integration may be a
+  fast-forward with no commit of its own, so a slice has no commit that exists after its verdict is
+  known. A merge commit always exists and is the unit principle 9 names. `slices`/`verified` sum
+  across deliveries to the same slice-level fraction a per-slice trailer would give.
+- **Trade-off**: A pull request squashed or merged outside the documented command loses its signal.
+  The reader counts a missing signal as unproven rather than as reviewed, which is the honest
+  reading, but it makes the metric sensitive to how a human merges.
+- **Scope**: The trailer grammar, `check_commit.py` validation, and `tools/review-metrics.py`.
+- **Date**: 2026-09-03
+- **Status**: active
+
+### AD-026
+
+- **Decision**: `check_commit.py` validates the `Review-Signal` trailer only when present; it never
+  requires one. A malformed trailer is exit 1, an absent trailer is exit 0.
+- **Reason**: Every task commit inside a feature runs through the same validator, and only the
+  delivery commit carries a verdict. Requiring the trailer would reject every ordinary commit; not
+  validating it at all would let a mistyped signal poison the metric silently.
+- **Trade-off**: Nothing forces a delivery to carry the trailer, so the emitting step stays an
+  instruction rather than a gate. `review-metrics.py` reporting unsigned deliveries is what catches
+  omission, after the fact.
+- **Scope**: `check_commit.py` only.
+- **Date**: 2026-09-03
+- **Status**: active
+
+### AD-027
+
+- **Decision**: Round 2's Finding 1 is resolved as documentation, not code. `review-metrics.py` keeps
+  counting every first-parent commit as a delivery, including commits that reached `main` before the
+  pull-request process existed. The operator narrows the range; the tool adds no heuristic for
+  whether a commit "went through a pull request".
+- **Reason**: Those commits did reach `main` and were not reviewed, so reporting them as unsigned is
+  the true reading, and the bias runs pessimistic - it understates review coverage rather than
+  flattering it, which is the opposite of the failure this feature exists to prevent. Any rule that
+  guessed which historical commits count would be exactly the cleverness the reviewer would flag
+  next, and it would decide from the tool what is properly the operator's question.
+- **Trade-off**: Run over this repository's whole history today, 6 of 60 first-parent commits predate
+  the process and dilute the fraction by roughly a tenth. That noise decays as history grows, and a
+  reader who wants the post-adoption number passes a range. A reader who does not pass one, and does
+  not read the help text, will read a number lower than the truth.
+- **Scope**: `tools/review-metrics.py` delivery enumeration only. Findings 2 and 3 of the same round
+  are accepted as defects and remediated in code.
+- **Date**: 2026-09-03
+- **Status**: active
+
+### AD-028
+
+- **Decision**: Each workflow phase (Specify, Design, Tasks, Implement, Verify) is its own skill
+  (`wspecify`, `wdesign`, `wtasks`, `wimplement`, `wverify`) whose `SKILL.md` carries the phase
+  procedure under 200 lines, with templates under `references/`. `workflow-spec-driven` remains
+  the router (sizing, phase-to-skill map, `.specs` layout, resume) and keeps `scripts/`. Claude agent
+  templates preload their phase skill through frontmatter `skills:`; implementer, explorer, and
+  deep-reviewer carry `disallowedTools: Skill`.
+- **Reason**: Preload injects only `SKILL.md`, so a phase skill that merely pointed at a reference
+  would scope nothing. A role that preloads one phase and cannot invoke others reads exactly its
+  own procedure, which is what makes a cheap qualifier, a forked `/w<phase>` entry point, and
+  per-role model choice possible.
+- **Trade-off**: Six skills instead of one directory; the router name stays because about ninety
+  references and the adopted gate path cite it. Cursor and Codex keep prose load lines until their
+  preload support is verified.
+- **Scope**: `.agents/skills/w*`, `workflow-spec-driven/SKILL.md`, `templates/agents/claude/*`,
+  `scripts/adopt.py` core catalog.
+- **Date**: 2026-09-03
+- **Status**: active
+
+### AD-029
+
+- **Decision**: `designer` is a delegated matrix role that owns mockups and `uiux-review.md`;
+  Claude runs it on `inherit`.
+- **Reason**: Isolates mockup and UX review responsibilities from planner, implementer, and
+  verifier. Keeps product code out of the designer's scope. Running Claude on `inherit` lets the
+  session model drive design output without forcing a separate expensive tier by default.
+- **Trade-off**: Introduces a sixth role to the configuration matrix and adoption sync across
+  Claude, Codex, and Cursor.
+- **Scope**: `templates/agents/*`, `.my-workflow.toml.example`, `scripts/adopt.py`, `workflow_config.py`.
+- **Date**: 2026-09-03
 - **Status**: active

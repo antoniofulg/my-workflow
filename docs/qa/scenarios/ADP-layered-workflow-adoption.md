@@ -11,8 +11,8 @@ bug_ids:
 fix_status:
 retest_status:
 fix_commits:
-evidence: docs/qa/evidence/2026-08-31-legacy-adoption-resolution/summary.json; docs/qa/evidence/2026-08-31-legacy-adoption-resolution/commands.jsonl
-last_report: docs/qa/reports/2026-08-31-legacy-adoption-resolution.md
+evidence: docs/qa/evidence/2026-09-04-release-0-9-1/41-full-plan.json; docs/qa/evidence/2026-09-04-release-0-9-1/45-full-readback.txt; docs/qa/evidence/2026-09-04-release-0-9-1/51-layered-plan-core.json; docs/qa/evidence/2026-09-04-release-0-9-1/58-layered-readback.txt; docs/qa/evidence/2026-09-04-release-0-9-1/72-independent-reload.txt
+last_report: docs/qa/reports/2026-09-04-release-0-9-1.md
 overlaps: ADP-adopt-workflow-safely
 ---
 
@@ -26,6 +26,10 @@ The current cycle also covers `full`, legacy-command refusal, JSON stdout isolat
 packet synchronization, and importing the installed assisted probe through a call-counting fake
 `orca`. Exact hash, path-containment, manifest-schema, and publication-order mechanics remain
 technical-verification evidence; QA observes their public no-write and atomic-publication outcomes.
+
+Release 0.9.1 adjacent QA passed fresh full and incremental consumers. Read-only plans stayed
+unchanged; core and final four-layer states were clean; package/lock hashes survived; Bun knowledge
+and zero-effect probe import passed; independent clones returned clean status.
 
 QA Execute on 2026-08-30 passed all three layered-adoption charters at `714716c`. Read-only plans
 kept the target byte-identical; incremental and full applies produced a clean four-layer manifest,
@@ -43,3 +47,5 @@ The 2026-08-31 adjacent canary passed at `827d629`: a fresh target's read-only p
 byte-identical, normal parallel apply and status reached clean state, reversible managed drift
 returned status exit 1 without writes, restoration returned exit 0, and all disposable state was
 removed.
+
+The `phase-skills` feature changes the fixed core layer's managed path list, so what `plan`, `apply`, and `status` report for `--layers core` has changed; reset to `untested` pending the 2026-09-03 cycle. Prior evidence remains historical.

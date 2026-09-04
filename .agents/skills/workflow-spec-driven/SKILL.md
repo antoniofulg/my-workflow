@@ -40,24 +40,33 @@ Rules 1–4 below govern feature work; direct corrections use the exception in A
 
 - Before confirming a spec: `python3 <skill-dir>/scripts/validate_spec.py <spec-path-or-feature>` (closure gate: EARS-shaped ACs, filled assumptions, well-formed requirement IDs, required sections).
 - Before presenting tasks for approval: `python3 <skill-dir>/scripts/validate_tasks.py <tasks-path-or-feature>` (granularity smell, diagram-vs-`Depends on` parity within a phase, no forward-phase dependency, every task carries `Tests` + `Gate`).
-- On each commit: `python3 <skill-dir>/scripts/check_commit.py --message "<msg>"` (Conventional Commits). Optionally wire it as a git `commit-msg` guard (git only, no agent dependency) - see [implement.md](references/implement.md).
+- On each commit: `python3 <skill-dir>/scripts/check_commit.py --message "<msg>"` (Conventional Commits). Optionally wire it as a git `commit-msg` guard (git only, no agent dependency) - see the `wimplement` skill.
 - Before declaring a feature done: `python3 <skill-dir>/scripts/validate_state.py <feature>` (completion gate: the Verifier's `validation.md` exists, its verdict is filled to PASS, and it cites `file:line` evidence - a missing, FAIL, placeholder, or evidence-free report fails). The closing step of Execute runs this automatically, the same way the lessons layer runs at distillation; it is not a manual step.
 
 A non-zero exit means stop and fix before proceeding. Skip a script only when no code-execution tool is available; then perform the same checks by reading the artifact.
 
-**Before Execute (feature work):** read [implement.md](references/implement.md) completely. When a formal `tasks.md` exists, run `<skill-dir>/scripts/validate_tasks.py` against it and resolve the frozen workflow route. The coordinator dispatches safe independent slices by default and uses serial execution only for an explicit `disabled` route or a fail-closed condition. When Tasks was skipped, verify the inline execution plan instead: every step must name one deliverable, a gate command, and one atomic commit.
+**Before Execute (feature work):** read the `wimplement` skill completely. When a formal `tasks.md` exists, run `<skill-dir>/scripts/validate_tasks.py` against it and resolve the frozen workflow route. The coordinator dispatches safe independent slices by default and uses serial execution only for an explicit `disabled` route or a fail-closed condition. When Tasks was skipped, verify the inline execution plan instead: every step must name one deliverable, a gate command, and one atomic commit.
 
 ## Auto-Sizing: The Core Principle
 
 **The complexity determines the depth, not a fixed pipeline.** Before starting any feature, assess its scope and apply only what's needed:
 
-| Scope       | What                     | Specify                                                 | Design                                          | Tasks                         | Execute                                               |
+### Request vocabulary and classification
+Use developer words as intent signals, then confirm them against repository evidence. State the selected tier, decisive facts, and validation layer before dispatching any phase or gate.
+Evidence wins when it contradicts a requested fast path; name the concrete surface before reclassifying.
+- `cross-feature change` sets a **Medium feature** floor and requires mapping every affected product promise.
+- `feature` sets a **Small feature** floor; size upward for ambiguity, behavior, or blast radius.
+- `direct correction` and `UI-only correction` request the fast path, subject to the direct-correction predicate below.
+- `issue`, `bug`, `refactor`, `small change`, and `UI change` are neutral; classify from the outcome and evidence.
+The strongest explicit feature floor wins: `feature` or `cross-feature change` cannot be silently reduced to a direct correction. Escalate a direct/UI-only request only when newly discovered, named evidence fails its predicate; do not reclassify for file count alone.
+
+| Scope | What | Specify (`wspecify`) | Design (`wdesign`) | Tasks (`wtasks`) | Execute (`wimplement`) |
 | ----------- | ------------------------ | ------------------------------------------------------- | ----------------------------------------------- | ----------------------------- | ----------------------------------------------------- |
 | **Direct correction** | Exact human-defined single invariant; no product ambiguity or implicit-requirement surface | Skip | Skip | Skip | Inspect → implement → scoped validation → commit |
 | **Small**   | ≤3 files, one sentence   | One-liner spec (inline)                                 | Skip                                            | Skip                          | Implement + verify inline                             |
 | **Medium**  | Clear feature, <10 tasks | Spec (brief)                                            | Skip - design inline                            | Skip - tasks implicit         | Implement + verify                                    |
 | **Large**   | Multi-component feature  | Full spec + requirement IDs                             | Architecture + components                       | Full breakdown + dependencies | Implement + verify per task                           |
-| **Complex** | Ambiguity, new domain    | Full spec + [discuss gray areas](references/discuss.md) | [Research](references/design.md) + architecture | Breakdown + phase plan        | Implement + [interactive UAT](references/validate.md) |
+| **Complex** | Ambiguity, new domain    | Full spec + discuss gray areas (`wspecify`) | Research (`wdesign`) + architecture | Breakdown + phase plan | Implement + interactive UAT (`wverify`) |
 
 **Rules:**
 
@@ -73,7 +82,10 @@ validation → commit`. It creates no spec, AD, or workflow snapshot and skips a
 deep-review, and QA. `ponytail` governs this process choice; if any predicate fails, use the
 smallest feature tier.
 
-**Safety valve:** For feature work with Tasks skipped, Execute starts by listing atomic steps inline (see [implement.md](references/implement.md)). If that listing reveals >5 steps or complex dependencies, stop and create a formal `tasks.md` - the Tasks phase was wrongly skipped.
+For a UI-only correction, require one bounded surface, an existing component/library or named reference implementation, and unchanged journey, navigation, product-state, data/API, auth, persistence, copy meaning, shared token, dependency, build, and architecture semantics. Validate consuming-project composition and wiring at the cheapest discriminating layer; do not retest upstream shadcn/TanStack internals. UI presence or a missing feature browser selector alone never selects integration, end-to-end, or the full gate. If a browser-only invariant is explicitly changed, run its existing targeted scenario without creating a QA cycle. Once scoped validation passes, close without a Verifier, QA Plan/Execute, deep review, or another validation round.
+Examples: CRM banner → existing shadcn toast and existing table → TanStack/shadcn data table are direct corrections when their trigger, message, and table semantics stay unchanged.
+
+**Safety valve:** For feature work with Tasks skipped, Execute starts by listing atomic steps inline (see the `wimplement` skill). If that listing reveals >5 steps or complex dependencies, stop and create a formal `tasks.md` - the Tasks phase was wrongly skipped.
 
 ## .specs Structure
 
@@ -110,70 +122,6 @@ frozen route.
 1. Read `.specs/STATE.md` (Handoff + Decisions).
 2. Reconcile Handoff against git (`branch`, `status --porcelain`, recent commits) and, when present, `tasks.md`; when Tasks was skipped, reconcile the inline execution plan instead. Evidence wins over a stale snapshot. Full procedure: [memory.md](references/memory.md).
 3. Propose the reconciled next step before writing code.
-
-## Context Loading Strategy
-
-**On-demand load (only what the current task needs):**
-
-- `.specs/STATE.md` - Decisions section (read at Design, re-read on resume); Handoff section (read on resume only)
-- confirmed lessons - load at Specify and Design via `python3 <skill-dir>/scripts/lessons.py list --status confirmed` ([lessons.md](references/lessons.md)); confirmed only, never candidates
-- spec.md (when working on a specific feature)
-- context.md (when designing or implementing from user decisions)
-- design.md (when implementing from design)
-- tasks.md (when executing tasks)
-
-**Never load simultaneously:**
-
-- Multiple feature specs
-- Multiple architecture docs
-
-Load the smallest set that answers the current step; the on-demand list above is a ceiling, not a checklist.
-
-## Coordinator-assisted slice dispatch
-
-The coordinator dispatches every safe independent slice whose route is ready. It does not wait for
-an extra approval response. The frozen route decides whether execution is `assisted` or explicitly
-`disabled`; a fail-closed runtime condition also falls back to serial execution.
-
-The Planner and coordinator remain on the clean integration checkout. Only concurrent Implementers
-receive persistent worktrees. A single ready slice runs serially in the integration checkout. Two
-compatible ready slices start in isolated writer worktrees; each worker receives only its own bounded
-slice packet and executes its tasks sequentially. The coordinator recomputes readiness after each
-verified checkpoint and refills a free lane from dependency-, path-, and resource-compatible work.
-
-Automatic admission starts at two lanes. A healthy settle window admits at most one additional lane,
-up to four. Missing, malformed, stale, or unhealthy evidence never admits a lane above two. The
-explicit integer cap is always respected and does not bypass health proof. See
-[sub-agents.md](references/sub-agents.md) for lifecycle, recovery, and role boundaries.
-
-**Technical Verifier (always-on):** After each code-changing slice reaches its checkpoint, the coordinator dispatches a fresh Verifier automatically. It re-derives spec evidence, runs the discrimination sensor in an isolated scratch, writes the slice validation report, and never fixes the inspected tree. Dependent slices consume only verified checkpoints. Deep Review and QA are separate fresh roles on the integrated tree. Review remediation uses the immutable finding `fingerprint` and `docs/guidelines/REVIEW-ROUNDS.md`.
-
-**Model and effort per role are configuration, not a per-dispatch judgment.** The frozen workflow route from `.agents/skills/workflow-config/SKILL.md` carries each role's model and effort; spawn the named agent and do not override them.
-
-**Standalone fallback:** Without sub-agents, run `validate.md` as an independent fresh-eyes pass after the final commit - including the spec-anchored check and discrimination sensor.
-
-Full mechanics (slice packet, lane admission, failure handling, coordinator contract): [sub-agents.md](references/sub-agents.md). The Verifier report format is in [validate.md](references/validate.md).
-
-## Commands
-
-**Feature-level (auto-sized):**
-| Trigger Pattern | Reference |
-|----------------|-----------|
-| Specify feature, define requirements | [specify.md](references/specify.md) |
-| Discuss feature, capture context, how should this work | [discuss.md](references/discuss.md) |
-| Design feature, architecture | [design.md](references/design.md) |
-| Break into tasks, create tasks | [tasks.md](references/tasks.md) |
-| Implement task, build, execute | [implement.md](references/implement.md) |
-| Validate, verify, test, UAT, walk me through it | [validate.md](references/validate.md) |
-
-**Memory:**
-| Trigger Pattern | Reference |
-|----------------|-----------|
-| Record decision, this is a project-level decision | [memory.md](references/memory.md) |
-| Pause work, end session, I need to stop | [memory.md](references/memory.md) |
-| Resume work, continue, pick up where we left off | [memory.md](references/memory.md) |
-| Load lessons, what have we learned, apply past lessons | [lessons.md](references/lessons.md) |
-| Record lesson, distill lessons (auto-runs after validation) | [lessons.md](references/lessons.md) |
 
 ## Knowledge Verification Chain
 

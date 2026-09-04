@@ -18,7 +18,7 @@ from typing import Any
 
 STENCIL = "<!-- product-stencil:"
 MANIFEST_SCHEMA = 1
-WORKFLOW_VERSION = "0.8.0"
+WORKFLOW_VERSION = "0.9.1"
 SEMVER_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 MAX_SEMVER_COMPONENT_DIGITS = 9
 LAYERS = ("core", "parallel", "quality", "extras")
@@ -38,6 +38,9 @@ CORE_PATHS = (
     "docs/guidelines", *WORKFLOW_DOCS, "knowledge/AGENTS.md", "knowledge/raw/README.md",
     "knowledge/wiki", "tools/knowledge/src", "tools/shared/src/frontmatter.ts",
     ".agents/skills/workflow-spec-driven", ".agents/skills/ponytail", ".agents/skills/workflow-config",
+    ".agents/skills/wspecify", ".agents/skills/wdesign", ".agents/skills/wtasks",
+    ".agents/skills/wimplement", ".agents/skills/wverify",
+    ".agents/skills/wreview", ".agents/skills/wqa",
     "templates/adoption/agents",
 )
 CORE_MISSING_PATHS = ("tools/ad-index.py", ".my-workflow.toml.example", "templates/agents")
@@ -57,7 +60,7 @@ BLOCK_LAYERS = ("core", "parallel", "quality")
 RUNTIME_PATHS = tuple(
     f".{provider}/agents/{role}.{('toml' if provider == 'codex' else 'md')}"
     for provider in ("claude", "codex", "cursor")
-    for role in ("planner", "implementer", "verifier", "explorer", "deep-reviewer")
+    for role in ("planner", "implementer", "verifier", "explorer", "deep-reviewer", "designer")
 )
 GLOBAL_CLAUDE_ROOT = re.compile(r"(?:\$\(HOME\)|\$\{HOME\}|\$HOME|~)/\.claude(?:/|$)")
 
@@ -445,7 +448,7 @@ def _prepare_sync(source_root: Path, root: Path, staged: dict[str, bytes]) -> di
         return {}
     with tempfile.TemporaryDirectory(prefix="my-workflow-sync-") as name:
         scratch = Path(name)
-        for relative in ("templates/agents",):
+        for relative in ("templates/agents", ".agents/skills"):
             source = root / relative
             if source.exists() or source.is_symlink():
                 _preflight_tree(root, relative, "sync input")
@@ -690,7 +693,7 @@ def _build_plan(
             special[action["path"]] = _adopted_bytes(action["path"], source)
     staged = dict(special)
     staged.update(block_outputs)
-    generated = {} if conflicts or not sync else _prepare_sync(source_root, root, staged)
+    generated = {} if conflicts or not sync or skip_agents else _prepare_sync(source_root, root, staged)
     for relative, content in generated.items():
         _safe_path(root, relative, "generated runtime")
         special[relative] = content

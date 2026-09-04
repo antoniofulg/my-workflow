@@ -5,14 +5,6 @@
 **Why this exists:** Remediating every nitpick in one iteration is unbounded: each fix changes the
 diff and the next round finds new nits. Caps, monotonic findings, and filed issues make review end.
 
-## Why loops run away
-
-The failure has one cause, and it is a rule that sounds responsible:
-
-> *remediate every confirmed finding **and every nitpick** in this same iteration*
-
-Every nitpick changes the diff, so the next round finds new nitpicks. The loop is unbounded by construction, not by bad luck.
-
 ## The review stages, and what each is for
 
 | Stage | Asks | Cap |
@@ -27,6 +19,8 @@ The provider `verifier` executes exactly one phase per packet: `technical`, `qa-
 packets for a public slice. Deep-review is a separate orchestrator stage, not a Verifier phase;
 internal-only changes skip the QA packets. All QA stages read `docs/guidelines/QA-SCENARIOS.md`; it owns
 fields and statuses. Each stage answers a question the others cannot, so none is redundant. Direct corrections follow `.agents/skills/workflow-spec-driven/SKILL.md`: scoped validation closes them, with no fresh Verifier, deep-review, or QA.
+
+Intent vocabulary is routing input, not a keyword bypass: `feature` starts at Small, `cross-feature change` at Medium, `direct correction`/`UI-only correction` use the fast path only when the repository predicate passes, and `issue` is neutral. State tier, facts, and validation before dispatch; escalation requires newly discovered named evidence, not file count or UI presence.
 
 ## Why resolved groups, not a rigid interval
 
@@ -88,6 +82,13 @@ identity and buys the same independence.
 ## Fingerprinted remediation accounting
 `fingerprint = requirement + root cause + failure path` is each finding's immutable identity. Maintain an independent cumulative failed-remediation counter and append-only generation history for each fingerprint; count every failed post-fix Verifier result, whether or not the build gate is green. The current generation's consecutive-stall state is separate and halts only at the live `[remediation].stall_attempts` threshold. The executable state lives in `review-fingerprints.json` through the stdlib convergence script, which delegates the pure transition to `remediation.py`.
 Rewording or reopening a finding preserves its fingerprint and counter. A distinct blocker starts at count zero and does not consume another fingerprint's counter; the diagnostic cap is separate.
+## The Review-Signal trailer
+
+The delivery commit for a pull request carries one `Review-Signal:` line recording its review
+outcome, so the record survives the pruning of `.specs/features/` (AD-025). `check_commit.py`
+validates the line when present and never requires one (AD-026); that validator's docstring owns
+the field-by-field grammar.
+
 ## Finding shape
 Every finding states, in this order:
 

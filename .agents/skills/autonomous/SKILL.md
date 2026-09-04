@@ -148,11 +148,20 @@ What each verdict does to readiness:
 
 Invoking `$autonomous` authorizes this run to push its feature branch, create at most one pull
 request, and merge that pull request after readiness is rechecked immediately before the merge.
-Re-check readiness and repository state after each delivery step before starting the next one.
+A human "go ahead", "proceed", or "ship it" on proven-ready work carries the same authorization.
+**Do not ask for confirmation between push, pull request, and merge**: readiness is the check, and
+asking is the stall this skill exists to remove. The only stop short of merge is the human saying
+so up front, for example `$autonomous, stop when the PR is ready`; then halt after the pull request
+with readiness restated. Re-check readiness and repository state after each delivery step before
+starting the next one.
 
 This authority excludes deploy or release, production mutations, force-push, direct push to `main`,
 and unrelated remote actions; those require explicit instruction. Readiness is evidence, not
 authorization for those actions.
+
+The merge commit carries one `Review-Signal` trailer for the pull request, aggregating its
+slices through `slices` and `verified`, so the review record survives the pruning of
+`.specs/features/`. Grammar and keys: the `check_commit.py` docstring.
 
 One pull request per run — a batch of issues ships together, the same way a feature's slices do.
 

@@ -2,11 +2,18 @@
 
 ## Skills
 
-The workflow ships six local capabilities:
+The workflow ships thirteen local capabilities:
 
 | Skill | Role |
 | --- | --- |
-| `workflow-spec-driven` | Planner. Specify, Design, Tasks, Execute. Auto-sizes. |
+| `workflow-spec-driven` | Router. Sizing, phase chain, `.specs` layout, resume. |
+| `wspecify` | Specify phase: EARS requirements, discuss, closure gate. |
+| `wdesign` | Design phase: architecture, components, reuse, risks. |
+| `wtasks` | Tasks phase: atomic tasks, coverage matrix, gate commands. |
+| `wimplement` | Execute phase: per-task cycle, gate, atomic commit. |
+| `wverify` | Verify phase: spec-anchored evidence, sensor, UAT, fix plans. |
+| `wreview` | Review phase: deep review of branch diffs, working trees, or PRs. |
+| `wqa` | QA phase: run user-visible QA plans or walks over tagged journeys. |
 | `qa-plan` | Maps changed user-visible promises to durable QA journeys and charters. |
 | `qa-execute` | Walks those journeys through the consuming project's existing adapter. |
 | `ponytail` (`full`) | Shortest code that works. Stdlib before a dependency. |
@@ -24,7 +31,7 @@ commit refs and hashes; it does not install
 `latest` or update dependencies automatically. Until it succeeds, the security gate remains
 uncovered.
 
-Planner / implementer / explorer / verifier are four windows. Canonical packet bodies live in
+Planner / implementer / explorer / verifier / designer are five windows. Canonical packet bodies live in
 `templates/agents/{cursor,claude,codex}/`; sync generates ignored runtime files in
 `.cursor/agents/`, `.claude/agents/`, and `.codex/agents/`. Spawn models live on those generated
 files. `CLAUDE.md` is `@AGENTS.md`. Explorer is read-only and handles product-tree searches and

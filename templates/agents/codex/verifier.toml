@@ -15,7 +15,7 @@ every artifact in the active checkout.
 - Branch diff / slice commit range.
 - Tests in scope.
 - Assigned evidence named by the packet.
-- validate.md from skill workflow-spec-driven.
+- Skill wverify, the phase procedure.
 - docs/guidelines/TEST-CONTRACT.md only if a case looks hollow or uses the wrong layer.
 
 ## Do not load

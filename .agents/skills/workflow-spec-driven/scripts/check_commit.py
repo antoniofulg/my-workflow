@@ -18,7 +18,20 @@ What it checks:
   ERROR  - type is not one of the allowed Conventional Commits types
   ERROR  - description is empty, starts uppercase, or ends with a period
   ERROR  - `!` breaking marker present but no `BREAKING CHANGE:` footer
+  ERROR  - a `Review-Signal:` trailer is present but malformed
   WARN   - header longer than 72 characters
+
+The `Review-Signal` trailer is optional and never required; when present it is
+one line recording the delivery's review outcome (AD-025, AD-026):
+
+  Review-Signal: tier=<direct|batch|small|medium|large|complex> slices=<int> \
+    verified=<int> sensor=<killed>/<injected> rounds=<int> findings=<int> \
+    fixed=<int> dismissed=<int> [remediation-failed=<int>]
+
+`tier` is always required; `tier=direct` and `tier=batch` require nothing else.
+Every other tier requires the full key set. Integers are non-negative decimal
+digits. `fixed + dismissed == findings`, `verified <= slices`, `slices >= 1`,
+and sensor `killed <= injected`.
 
 Usage:
   python3 <skill-dir>/scripts/check_commit.py [msgfile]
@@ -34,6 +47,11 @@ import sys
 
 TYPES = ["feat", "fix", "refactor", "docs", "test", "style", "perf", "build", "ci", "chore"]
 HEADER_RE = re.compile(r"^(?P<type>\w+)(?:\((?P<scope>[^)]+)\))?(?P<bang>!)?: (?P<desc>.+)$")
+SIGNAL_RE = re.compile(r"^Review-Signal:(.*)$", re.MULTILINE)
+SIGNAL_INT_RE = re.compile(r"^[0-9]+$")
+SIGNAL_TIERS = ["direct", "batch", "small", "medium", "large", "complex"]
+SIGNAL_KEYS = ["tier", "slices", "verified", "sensor", "rounds", "findings", "fixed", "dismissed", "remediation-failed"]
+SIGNAL_TIER_KEYS = ["slices", "verified", "sensor", "rounds", "findings", "fixed", "dismissed"]
 
 
 def read_message(args):
@@ -45,6 +63,64 @@ def read_message(args):
     if not sys.stdin.isatty():
         return sys.stdin.read()
     return ""
+
+
+def check_review_signal(body):
+    """Validate the optional Review-Signal trailer. Absent means valid."""
+    found = SIGNAL_RE.findall(body)
+    if not found:
+        return []
+    if len(found) > 1:
+        return [f"{len(found)} 'Review-Signal:' lines present; exactly one is allowed"]
+
+    errors, values = [], {}
+    for field in found[0].split():
+        key, sep, value = field.partition("=")
+        if not sep:
+            errors.append(f"Review-Signal field '{field}' is not 'key=value'")
+        elif key not in SIGNAL_KEYS:
+            errors.append(f"Review-Signal key '{key}' is unknown; allowed: {', '.join(SIGNAL_KEYS)}")
+        elif key in values:
+            errors.append(f"Review-Signal key '{key}' appears more than once")
+        else:
+            values[key] = value
+
+    tier = values.get("tier")
+    if tier is None:
+        errors.append("Review-Signal is missing required key 'tier'")
+    elif tier not in SIGNAL_TIERS:
+        errors.append(f"Review-Signal tier '{tier}' is not one of: {', '.join(SIGNAL_TIERS)}")
+    elif tier not in ("direct", "batch"):
+        for key in SIGNAL_TIER_KEYS:
+            if key not in values:
+                errors.append(f"Review-Signal tier '{tier}' requires key '{key}'")
+
+    numbers = {}
+    for key, value in values.items():
+        if key == "tier":
+            continue
+        if key == "sensor":
+            killed, sep, injected = value.partition("/")
+            if sep and SIGNAL_INT_RE.match(killed) and SIGNAL_INT_RE.match(injected):
+                numbers["killed"], numbers["injected"] = int(killed), int(injected)
+            else:
+                errors.append(f"Review-Signal sensor '{value}' is not '<killed>/<injected>' non-negative integers")
+        elif SIGNAL_INT_RE.match(value):
+            numbers[key] = int(value)
+        else:
+            errors.append(f"Review-Signal {key}='{value}' is not a non-negative integer")
+
+    if {"findings", "fixed", "dismissed"} <= numbers.keys():
+        total = numbers["fixed"] + numbers["dismissed"]
+        if total != numbers["findings"]:
+            errors.append(f"Review-Signal findings={numbers['findings']} but fixed+dismissed={total}")
+    if {"verified", "slices"} <= numbers.keys() and numbers["verified"] > numbers["slices"]:
+        errors.append(f"Review-Signal verified={numbers['verified']} exceeds slices={numbers['slices']}")
+    if numbers.get("slices") == 0:
+        errors.append("Review-Signal slices=0; a delivery carries at least one slice")
+    if "killed" in numbers and numbers["killed"] > numbers["injected"]:
+        errors.append(f"Review-Signal sensor killed={numbers['killed']} exceeds injected={numbers['injected']}")
+    return errors
 
 
 def check(message):
@@ -84,6 +160,7 @@ def check(message):
     breaking_footer = bool(re.search(r"^BREAKING CHANGE:", body, re.MULTILINE))
     if bang and not breaking_footer:
         errors.append("'!' breaking marker present but no 'BREAKING CHANGE:' footer")
+    errors.extend(check_review_signal(body))
 
     return (errors, warnings)
 

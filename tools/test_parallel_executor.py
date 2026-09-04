@@ -73,7 +73,7 @@ def make_repo(*, mode: str = "assisted", feature: str = "fixture") -> Path:
     (root / "seed").write_text("seed\n", encoding="utf-8")
     agents = root / ".codex" / "agents"
     agents.mkdir(parents=True)
-    for name in ("implementer", "verifier", "explorer", "deep-reviewer"):
+    for name in ("implementer", "verifier", "explorer", "deep-reviewer", "designer"):
         (agents / f"{name}.toml").write_text(
             'model = "gpt-test"\nmodel_reasoning_effort = "medium"\ndeveloper_instructions = ""\n',
             encoding="utf-8",
@@ -103,7 +103,7 @@ def make_repo(*, mode: str = "assisted", feature: str = "fixture") -> Path:
                         "model": "gpt-test",
                         "effort": "medium",
                     }
-                    for role in ("implementer", "verifier", "explorer", "deep_reviewer")
+                    for role in ("implementer", "verifier", "explorer", "deep_reviewer", "designer")
                 },
                 "version": 3,
             },

@@ -8,7 +8,7 @@ with no new or changed screen skip this.
 
 ## The artifact
 
-`.specs/features/<feature>/uiux.md`, written in Design, **before** internal design begins.
+`.specs/features/<feature>/uiux.md`, written in Specify, **before** internal design begins.
 
 ## Optional design tooling
 

@@ -30,6 +30,9 @@ FROZEN_PRE_FEATURE_PATHS = (
     ".agents/skills/ponytail-audit", ".agents/skills/ponytail-debt", ".agents/skills/ponytail-gain",
     ".agents/skills/ponytail-help", ".agents/skills/ponytail-review", ".agents/skills/qa-plan",
     ".agents/skills/qa-execute", ".agents/skills/autonomous", ".agents/skills/workflow-config",
+    ".agents/skills/wspecify", ".agents/skills/wdesign", ".agents/skills/wtasks",
+    ".agents/skills/wimplement", ".agents/skills/wverify",
+    ".agents/skills/wreview", ".agents/skills/wqa",
     "docs/qa/README.md", "tools/ad-index.py", ".my-workflow.toml.example", "templates/agents",
 )
 
@@ -112,6 +115,19 @@ def test_resolves_fixed_layers_and_plan_is_read_only() -> None:
         shutil.rmtree(target)
 
 
+def test_core_layer_installs_the_phase_skills() -> None:
+    target = temporary_target()
+    try:
+        result = invoke(target, "plan", "--layers", "core", "--json")
+        assert result.returncode == 0, result.stderr
+        managed = {item["path"] for item in json.loads(result.stdout)["actions"]}
+        for name in ("wspecify", "wdesign", "wtasks", "wimplement", "wverify", "wreview", "wqa"):
+            assert f".agents/skills/{name}/SKILL.md" in managed, f"core plan omits .agents/skills/{name}"
+            assert f".claude/skills/{name}" in managed, f"core plan omits .claude/skills/{name}"
+    finally:
+        shutil.rmtree(target)
+
+
 def test_full_profile_is_exactly_four_layers_and_legacy_cli_is_rejected() -> None:
     target = temporary_target()
     try:
@@ -178,7 +194,7 @@ def test_core_apply_records_schema_and_status_detects_drift_without_writes() -> 
         assert applied.returncode == 0, applied.stderr
         manifest = json.loads((target / ".my-workflow/adoption.json").read_text(encoding="utf-8"))
         assert manifest["schema"] == 1
-        assert manifest["workflow_version"] == "0.8.0"
+        assert manifest["workflow_version"] == "0.9.1"
         assert manifest["layers"] == ["core"]
         assert all(len(record["source_sha256"]) == 64 for record in manifest["files"].values())
         clean = invoke(target, "status", "--json")
@@ -609,13 +625,30 @@ def test_runtime_edits_are_overwritten_from_templates_on_readopt() -> None:
         shutil.rmtree(target)
 
 
-def test_adoption_installs_v3_config_and_syncs_fifteen_packets() -> None:
+def test_adoption_installs_v3_config_and_syncs_eighteen_packets() -> None:
     target = temporary_target()
     try:
         assert invoke(target, "apply", "--layers", "core").returncode == 0
         assert (target / ".my-workflow.toml").is_file()
         packets = list((target / ".claude/agents").glob("*.md")) + list((target / ".codex/agents").glob("*.toml")) + list((target / ".cursor/agents").glob("*.md"))
-        assert len(packets) == 15
+        assert len(packets) == 18
+    finally:
+        shutil.rmtree(target)
+
+
+def test_it003_adopt_runtime_paths_and_managed_templates_include_designer() -> None:
+    for provider, ext in (("claude", "md"), ("codex", "toml"), ("cursor", "md")):
+        expected_runtime = f".{provider}/agents/designer.{ext}"
+        assert expected_runtime in adopt.RUNTIME_PATHS
+    target = temporary_target()
+    try:
+        result = invoke(target, "plan", "--layers", "core", "--json")
+        assert result.returncode == 0, result.stderr
+        document = json.loads(result.stdout)
+        managed = {item["path"] for item in document["actions"]}
+        for provider, ext in (("claude", "md"), ("codex", "toml"), ("cursor", "md")):
+            template_path = f"templates/agents/{provider}/designer.{ext}"
+            assert template_path in managed, f"plan omits {template_path}"
     finally:
         shutil.rmtree(target)
 
@@ -945,7 +978,7 @@ def test_public_publication_publishes_packets_before_manifest_last() -> None:
             published.append("links:claude")
 
         with patch.object(adopt, "_atomic_write", side_effect=record_write), patch.object(adopt, "remove_legacy_managed_tests", side_effect=record_legacy), patch.object(adopt, "_link_claude_skills", side_effect=record_links):
-            assert adopt.main(["adopt.py", "apply", str(target), "--layers", "core", "--skip-agents"]) == 0
+            assert adopt.main(["adopt.py", "apply", str(target), "--layers", "core"]) == 0
         assert published[-1] == "write:.my-workflow/adoption.json"
         runtime = [index for index, event in enumerate(published) if any(event.startswith(f"write:{prefix}") for prefix in (".claude/agents/", ".codex/agents/", ".cursor/agents/"))]
         assert runtime and max(runtime) < len(published) - 1
@@ -1059,6 +1092,62 @@ def test_skip_agents_preserves_absent_claude_file() -> None:
         (target / "AGENTS.md").write_text("product\n")
         assert invoke(target, "apply", "--layers", "core", "--skip-agents").returncode == 0
         assert not (target / "CLAUDE.md").exists()
+    finally:
+        shutil.rmtree(target)
+
+
+def test_legacy_080_skip_agents_migrates_without_designer_sync() -> None:
+    target = temporary_target()
+    try:
+        assert invoke(target, "apply", "--layers", "full").returncode == 0
+        config = target / ".my-workflow.toml"
+        lines = config.read_text(encoding="utf-8").splitlines()
+        filtered: list[str] = []
+        skipping_designer = False
+        for line in lines:
+            if line.startswith("[models.") and line.endswith(".designer]"):
+                skipping_designer = True
+                continue
+            if skipping_designer and line.startswith("["):
+                skipping_designer = False
+            if not skipping_designer:
+                filtered.append(line)
+        config.write_text("\n".join(filtered) + "\n", encoding="utf-8")
+
+        manifest_path = target / ".my-workflow/adoption.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["workflow_version"] = "0.8.0"
+        phase_skills = ("wspecify", "wdesign", "wtasks", "wimplement", "wverify", "wreview", "wqa")
+        for name in phase_skills:
+            shutil.rmtree(target / ".agents/skills" / name)
+            pointer = target / ".claude/skills" / name
+            if pointer.is_symlink():
+                pointer.unlink()
+        for provider, extension in (("claude", "md"), ("codex", "toml"), ("cursor", "md")):
+            (target / "templates/agents" / provider / f"designer.{extension}").unlink()
+            (target / f".{provider}/agents" / f"designer.{extension}").unlink()
+        manifest["files"] = {
+            relative: record
+            for relative, record in manifest["files"].items()
+            if not relative.startswith(".agents/skills/")
+            and not relative.startswith("templates/agents/")
+            and "/agents/designer." not in relative
+        }
+        manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+        before_strict = snapshot(target)
+        strict = invoke(target, "apply", "--layers", "full")
+        assert strict.returncode == 2 and snapshot(target) == before_strict
+
+        before_plan = snapshot(target)
+        plan = invoke(target, "plan", "--layers", "full", "--skip-agents", "--json")
+        assert plan.returncode == 0 and json.loads(plan.stdout)["status"] == "ready"
+        assert snapshot(target) == before_plan
+
+        applied = invoke(target, "apply", "--layers", "full", "--skip-agents")
+        assert applied.returncode == 0, applied.stderr
+        for name in phase_skills:
+            assert (target / ".agents/skills" / name / "SKILL.md").is_file()
     finally:
         shutil.rmtree(target)
 
@@ -1304,7 +1393,6 @@ def test_resolve_uses_trusted_workflow_config_without_importing_target_shadow() 
             "parallel",
             "--replace",
             "tools/resource_lock.py",
-            "--skip-agents",
         )
         assert result.returncode == 0, result.stderr
         assert not sentinel.exists()
@@ -1493,6 +1581,7 @@ def test_resolve_rejects_shell_metacharacters_in_replacement_as_literal() -> Non
 
 TESTS = (
     test_resolves_fixed_layers_and_plan_is_read_only,
+    test_core_layer_installs_the_phase_skills,
     test_full_profile_is_exactly_four_layers_and_legacy_cli_is_rejected,
     test_unknown_layer_and_invalid_manifest_fail_before_target_mutation,
     test_fresh_apply_is_valid_but_missing_manifest_status_is_invalid,
@@ -1524,7 +1613,8 @@ TESTS = (
     test_project_local_tlc_path_is_accepted,
     test_consumer_ad_index_is_preserved_on_readopt,
     test_runtime_edits_are_overwritten_from_templates_on_readopt,
-    test_adoption_installs_v3_config_and_syncs_fifteen_packets,
+    test_adoption_installs_v3_config_and_syncs_eighteen_packets,
+    test_it003_adopt_runtime_paths_and_managed_templates_include_designer,
     test_adoption_installs_hybrid_workflow_and_preserves_consumer_config,
     test_parallel_adoption_installs_and_tracks_resource_lock,
     test_adoption_installs_only_new_authority_byte_identically,
@@ -1548,6 +1638,7 @@ TESTS = (
     test_fresh_and_refuse,
     test_skip_agents_preserves_product_files_and_adopts_rest,
     test_skip_agents_preserves_absent_claude_file,
+    test_legacy_080_skip_agents_migrates_without_designer_sync,
     test_adoption_imports_probe_without_orca_effect,
     test_adoption_rejects_symlinked_managed_destination_without_mutation,
     test_existing_config_drives_all_native_values_and_preserves_non_model_bytes,
