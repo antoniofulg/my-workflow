@@ -1113,23 +1113,29 @@ describe("adoption and public setup", () => {
     const releaseStart = changelog.indexOf(`## [${manifest.version}]`);
     const nextRelease = changelog.indexOf("\n## [", releaseStart + 1);
     const latestRelease = changelog.slice(releaseStart, nextRelease === -1 ? undefined : nextRelease);
+    const historicalRelease = changelog.slice(
+      changelog.indexOf("## [0.9.2]"),
+      changelog.indexOf("## [0.9.1]"),
+    );
 
-    expect(manifest.version).toBe("0.9.2");
+    expect(manifest.version).toBe("0.10.0");
     expect(manifest.private).toBe(true);
     expect(manifest.packageManager).toBe("bun@1.4.0");
     expect(manifest.scripts?.test).toBe("bun test");
     expect(readRepositoryFile("bun.lock")).toContain('"name": "my-workflow"');
     expect(existsSync(join(repositoryRoot, "package-lock.json"))).toBe(false);
-    expect(latestHeading).toBe("0.9.2");
+    expect(latestHeading).toBe("0.10.0");
     expect(latestHeading).toBe(manifest.version);
     expect(currentScenarioVersion).toBe(manifest.version);
     expect(releaseScenario.match(/^expected: .*$/m)?.[0]).toBe(
-      "expected: The newest changelog release matches the package manifest, while Bun 1.4's lockfile identifies the root package and dependency graph; the documented install, knowledge, full-gate, frozen-lockfile, and package commands expose the current source pack without checkout residue.",
+      "expected: The newest changelog release matches the package manifest, while Bun 1.4's lockfile identifies the root package and dependency graph; the documented install, knowledge, scoped-validation, frozen-lockfile, and package commands expose the current source pack without checkout residue.",
     );
-    expect(latestRelease).toContain("deep-review defect");
-    expect(latestRelease).toContain("Minor");
-    expect(latestRelease).toContain("originating feature run");
-    expect(latestRelease).toContain("Cosmetics and advisories");
+    expect(latestRelease).toContain("consumer-owned");
+    expect(latestRelease).toContain("proportional validation");
+    expect(historicalRelease).toContain("deep-review defect");
+    expect(historicalRelease).toContain("Minor");
+    expect(historicalRelease).toContain("originating feature run");
+    expect(historicalRelease).toContain("Cosmetics and advisories");
     expect(changelog).toContain("--skip-agents");
     expect(changelog).toContain("Explicit packet sync still validates its config");
 

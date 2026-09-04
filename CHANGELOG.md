@@ -4,6 +4,36 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-09-04
+
+### Added
+
+- Shared workflow instructions now route through a small consumer-owned
+  `docs/product/AGENT-CONTEXT.md` index. Fresh adoption initializes a neutral profile and
+  re-adoption preserves existing product context, legacy prose, and `--skip-agents` behavior.
+- Designer guidance now starts with constraints, reuses existing components read-only, scales
+  alternatives to genuinely new screens or redesigns, and bounds exploration to one refinement.
+
+### Changed
+
+- Provider packets and slice packets expose the selected product-context entry point without
+  changing packet schema or budgets.
+- Documentation, instruction, and mixed executable changes now use proportional validation and
+  owning scoped checks. Deep-review, QA, and full-gate steps are selected by concrete risk or
+  changed public promise rather than file count or feature wording.
+
+### Migration
+
+- Before updating, record installed layers with `adopt.py status` on a clean dedicated branch.
+- Apply the same layer selection. A missing product index is initialized; an existing index is
+  consumer-owned and preserved. Move legacy product rules out of `AGENTS.md` deliberately before
+  replacing that file; adoption never wipes product data or infers the move.
+- Templates install only when missing. Carefully merge changed templates into existing customized
+  templates, retaining local rules, before an explicit packet sync.
+- `--skip-agents` preserves `AGENTS.md` and `CLAUDE.md` and skips local-config initialization and
+  packet sync. Without it, apply performs normal sync; run `workflow_config.py --sync-agents`
+  explicitly after any manual merge. Config schema is v3.
+
 ## [0.9.2] - 2026-09-04
 
 ### Changed

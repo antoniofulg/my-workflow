@@ -73,7 +73,7 @@ Use this bounded procedure for UI-bearing work:
    Use the existing pattern for a bounded composition or exact correction.
 3. For a genuinely new screen or meaningful redesign, provide three distinct directions. A fourth
    is allowed only for a named additional tradeoff. Do not make variants a requirement for button,
-   copy, token, or existing-component corrections.
+   visual-polish, copy, token, or existing-component corrections.
 4. Prototype in an available design tool, isolated HTML, or component playground when useful. Tool
    absence is not a blocker, and exploratory variants stay out of production routes.
 5. Subtract labels, icons, borders, controls, and decoration that have no purpose, while retaining

@@ -5,7 +5,7 @@
 ## Problem Statement
 
 CRM and Creatista need the same workflow instructions while retaining different product rules.
-Loading a whole product description, history, or flow catalogue for a button-color correction wastes
+Loading a whole product description, history, or flow catalogue for a visual adjustment wastes
 context. Fresh implementers need the approved slice and applicable constraints, while planners need
 enough product context to specify the affected capability and its dependencies.
 
@@ -30,7 +30,7 @@ enough product context to specify the affected capability and its dependencies.
 | --- | --- | --- | --- |
 | Product entry point | docs/product/AGENT-CONTEXT.md | Stable path shared across products; holds a brief identity, essential constraints, and a routing table. | y |
 | Detailed references | Existing product-owned files, with optional headings | Each project can route to its existing brand, design, architecture, or operational docs without duplicating them. | y |
-| Scope selection | Small index is read before work; referenced documents load only for the assigned role and task | Even a planner expands by affected capability; a button-color task does not need product history. | y |
+| Scope selection | Small index is read before work; referenced documents load only for the assigned role and task | Even a planner expands by affected capability; a visual-adjustment task does not need product history. | y |
 | Installation | Initialize a missing index from a neutral template and preserve an existing index byte-for-byte | Source-pack product identity must never become consumer identity. | y |
 | Legacy instructions | Preserve existing AGENTS prose and explain deliberate extraction into the index before replacement | Automatic deletion or guessing at the user's product rules is outside this feature. | y |
 
@@ -82,7 +82,7 @@ As a developer, I want an agent's context to reflect its role and task so a visu
 11. WHEN validation is selected THEN the workflow SHALL classify the resulting diff as documentation maintenance, instruction change, or mixed executable change, run only the canonical owning checks for that class, escalate only for named concrete risk or changed public promise, and honor explicit user skips with a recorded narrow limitation.
 
 **Independent test:** Exercise the existing packet renderer and provider generation, then walk the
-installed reference routes for a color correction, customer copy, feature specification, and a
+installed reference routes for visual polish, customer copy, feature specification, and a
 bounded implementation. Source/consumer sentinels must not leak into unrelated context payloads.
 
 ## Edge Cases

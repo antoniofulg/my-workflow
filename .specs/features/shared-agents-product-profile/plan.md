@@ -30,7 +30,7 @@ Paths beyond the context index are examples, not a required new directory tree. 
 existing documents; create a file only when it has real content. Keep critical constraints visible
 in the index. A product constraint cannot grant authority beyond the user's authorization.
 
-Task-specific routes take precedence over role defaults. A planner doing a button-color correction
+Task-specific routes take precedence over role defaults. A planner doing visual polish
 does not inherit the context load of a planner defining a new feature. Existing higher-priority
 instructions remain binding. Missing necessary references become named gaps, not recursive reads.
 
@@ -38,7 +38,7 @@ instructions remain binding. Missing necessary references become named gaps, not
 
 | Work | Relevant context | Deliberately unnecessary context |
 | --- | --- | --- |
-| Local button color correction | Request, affected component, design tokens, accessibility constraints | Whole product flows, brand voice, historical lessons |
+| Local visual adjustment | Request, affected component, design tokens, accessibility constraints | Whole product flows, brand voice, historical lessons |
 | Customer-facing copy | Intended message, audience, voice guide, applicable legal constraints | Unrelated architecture or product history |
 | New feature specification | Product overview, affected capabilities/journeys and dependencies | Every past feature and every lesson |
 | Approved implementation | Assigned task, cited acceptance criteria, selected architecture/design constraints, gate | Planning transcript or unrelated feature specs |
@@ -126,7 +126,7 @@ developer. Context selection and verification scope are separate decisions.
    add constraints, selective references, scaled alternatives, subtraction, bounded refinement, and
    approved handoff. Put detailed procedure in one canonical reference and point role templates to it.
 3. **Prove representative paths with scoped checks.** Extend existing adoption/packet tests for preservation and routing.
-   Walk color correction, copy edit, feature planning, approved implementation, and redesign handoff.
+   Walk visual polish, copy edit, feature planning, approved implementation, and redesign handoff.
    Verify applicable safety constraints remain intact and the exact UI correction stays small. Apply
    the proportional verification policy above instead of the generic full feature pipeline. Do not
    claim measured token savings or live model reliability from prose assertions.

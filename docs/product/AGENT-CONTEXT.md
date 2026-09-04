@@ -13,7 +13,7 @@ belongs in consuming projects; this index routes source-pack work without loadin
 
 | Role or task | Read only |
 | --- | --- |
-| Button color correction | `docs/guidelines/UI-UX.md`; `docs/guidelines/FRONTEND.md` |
+| Visual polish or visual adjustment | `docs/guidelines/UI-UX.md`; `docs/guidelines/FRONTEND.md` |
 | Customer-facing copy | [unset — source pack has no customer voice reference; consuming projects fill this route] |
 | Boundary change | `docs/guidelines/MODELING.md`; `docs/guidelines/DX.md` |
 | Planner, other feature | `README.md#purpose`; `docs/workflow/README.md`; affected capability/journey docs |

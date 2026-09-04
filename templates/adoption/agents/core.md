@@ -10,7 +10,7 @@ surface missing required context as a named gap.
 
 | Role/task | Select |
 | --- | --- |
-| Button color | Design/accessibility only |
+| Visual polish / adjustment | Design/accessibility only; stronger evidence if semantics change |
 | Customer copy | Voice reference |
 | Boundary change | Boundary architecture reference |
 | Planner, other feature | Overview + affected capabilities/journeys |

@@ -4,15 +4,15 @@ area: REL
 title: Report the current workflow release consistently
 persona: Repository reader
 journey: J-review-workflow-release
-expected: The newest changelog release matches the package manifest, while Bun 1.4's lockfile identifies the root package and dependency graph; the documented install, knowledge, full-gate, frozen-lockfile, and package commands expose the current source pack without checkout residue.
+expected: The newest changelog release matches the package manifest, while Bun 1.4's lockfile identifies the root package and dependency graph; the documented install, knowledge, scoped-validation, frozen-lockfile, and package commands expose the current source pack without checkout residue.
 entry_points: CHANGELOG.md; README.md; package.json; bun.lock; bunfig.toml
-qa_status: pass
+qa_status: skipped
 bug_ids: BUG-20260824-release-overstates-lifecycle-qa; BUG-20260825-adoption-omits-parallel-pilot; BUG-20260829-bun-history-gate-rejects-new-qa-charters; BUG-20260903-history-gate-forbids-resetting-baseline-scenarios; BUG-20260904-adopt-apply-requires-designer-before-migration
-fix_status: fixed
-retest_status: pass
-fix_commits: 61f2e74; 816afd6; fb4c61f; 50ca157b; 741672b9
-evidence: docs/qa/evidence/2026-09-04-release-0-9-2/10-identity-readback.txt; docs/qa/evidence/2026-09-04-release-0-9-2/11-contract-readback.txt; docs/qa/evidence/2026-09-04-release-0-9-2/20-targeted-structural-test.log; docs/qa/evidence/2026-09-04-release-0-9-2/31-pack-dry-run.log; docs/qa/evidence/2026-09-04-release-0-9-2/33-pack-summary.txt; docs/qa/evidence/2026-09-04-release-0-9-2/50-adoption-canary-readback.txt; docs/qa/evidence/2026-09-04-release-0-9-2/60-final-reload.txt; docs/qa/evidence/2026-09-04-release-0-9-2/70-terminal-full-gate.log; docs/qa/evidence/2026-09-04-release-0-9-2/72-terminal-full-gate-retry.log; docs/qa/evidence/2026-09-04-release-0-9-2/74-pilot-residue-final.txt
-last_report: docs/qa/reports/2026-09-04-release-0-9-2.md
+fix_status:
+retest_status:
+fix_commits:
+evidence:
+last_report:
 overlaps:
 ---
 
@@ -24,15 +24,20 @@ passing 0.9.1 real 0.8.0 adoption/migration evidence was reused without rerunnin
 external skill install, registry, publication, remote action, consumer write, or live Orca
 operation occurred.
 
-Version-neutral owner for public release consistency. For release `0.9.2`, the reader compares the
+Release `0.10.0` preparation intentionally skips a QA Plan/Execute cycle under explicit user
+direction. Scoped package and contract evidence is recorded separately by the release owner; this
+scenario makes no `0.10.0` QA PASS claim. The historical `0.9.2` report and evidence remain intact.
+
+Version-neutral owner for public release consistency. For release `0.10.0`, the reader compares the
 newest changelog heading with the package manifest, checks Bun's root package and dependency graph
 metadata, and checks release claims against
 the shipped public contracts. The release walk reuses the current adoption verdict as a
 canaries instead of repeating their feature-level runtime probes.
 
-Release `0.9.2` changes this promise and resets it to `untested`. Fresh QA Execute verifies release
-identity, package membership and residue, the closing full gate, and the deep-review defect closeout
-claim. The unchanged 0.9.1 adoption and migration verdict remains the adjacent canary.
+Release `0.10.0` changes this promise and is skipped for QA under explicit user direction. The release
+owner records scoped identity, package membership, and residue evidence; no closing full gate or
+deep-review claim is inferred. The historical 0.9.2 adoption and migration verdict remains the
+adjacent canary.
 
 QA Execute on 2026-09-04 passed release `0.9.1` at `7875bd9f`. Identity, 659-file private package,
 real 0.8.0 skip-agents migration, seven phase skills and Claude links, strict no-write sync failure,

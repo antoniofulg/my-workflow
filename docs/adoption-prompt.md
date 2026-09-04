@@ -22,8 +22,9 @@ its product rules into that index and review the complete diff; adoption does no
 that migration. Use `--skip-agents` when the product paragraph is filled; it preserves `AGENTS.md`
 and `CLAUDE.md`, so merge workflow instruction changes manually. Preserve an existing local
 `.my-workflow.toml` byte-for-byte. Install missing `.my-workflow.toml.example` and
-`templates/agents/`, then run `--sync-agents` to generate the ignored provider runtime packets
-from the tracked templates and local config; sync may overwrite those generated packets.
+`templates/agents/`. Without `--skip-agents`, apply then runs `--sync-agents` to generate ignored
+provider packets from tracked templates and local config; sync may overwrite generated packets.
+With `--skip-agents`, local config initialization and packet sync are skipped; run explicit sync later.
 
 If the plan reports conflicts and the target has no `.my-workflow/adoption.json`, review every
 conflict and move product customizations into product-owned files. Commit that clean Git baseline,
@@ -36,8 +37,8 @@ plus manual resolution for managed-file drift.
 Read the pack's `CHANGELOG.md` from the target's adopted version to the current package version
 before an update. Run `python3 /path/to/my-workflow/scripts/adopt.py apply /path/to/target-project --layers <selected-layers>` only
 after the review. Use the same `<selected-layers>` value in plan and apply; `full` selects all four.
-For a filled product paragraph, pass `--skip-agents`. Adoption also runs the
-target's explicit `--sync-agents` command after installing missing example/templates.
+For a filled product paragraph, pass `--skip-agents`; merge managed instructions and run the target's
+explicit `--sync-agents` command later after installing or merging example/templates.
 
 If `docs/qa/README.md` is absent, create it when `quality` is selected. If it exists, merge only newly discovered facts into
 the existing profile; never overwrite existing content. Record the discovered interfaces, existing
