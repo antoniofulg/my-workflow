@@ -20,6 +20,8 @@ packets for a public slice. Deep-review is a separate orchestrator stage, not a 
 internal-only changes skip the QA packets. All QA stages read `docs/guidelines/QA-SCENARIOS.md`; it owns
 fields and statuses. Each stage answers a question the others cannot, so none is redundant. Direct corrections follow `.agents/skills/workflow-spec-driven/SKILL.md`: scoped validation closes them, with no fresh Verifier, deep-review, or QA.
 
+Intent vocabulary is routing input, not a keyword bypass: `feature` starts at Small, `cross-feature change` at Medium, `direct correction`/`UI-only correction` use the fast path only when the repository predicate passes, and `issue` is neutral. State tier, facts, and validation before dispatch; escalation requires newly discovered named evidence, not file count or UI presence.
+
 ## Why resolved groups, not a rigid interval
 
 Rounds do not grow with the size of a diff, they explode with it. Every round re-reads the whole

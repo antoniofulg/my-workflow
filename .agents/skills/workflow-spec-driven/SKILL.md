@@ -51,6 +51,15 @@ A non-zero exit means stop and fix before proceeding. Skip a script only when no
 
 **The complexity determines the depth, not a fixed pipeline.** Before starting any feature, assess its scope and apply only what's needed:
 
+### Request vocabulary and classification
+Use developer words as intent signals, then confirm them against repository evidence. State the selected tier, decisive facts, and validation layer before dispatching any phase or gate.
+Evidence wins when it contradicts a requested fast path; name the concrete surface before reclassifying.
+- `cross-feature change` sets a **Medium feature** floor and requires mapping every affected product promise.
+- `feature` sets a **Small feature** floor; size upward for ambiguity, behavior, or blast radius.
+- `direct correction` and `UI-only correction` request the fast path, subject to the direct-correction predicate below.
+- `issue`, `bug`, `refactor`, `small change`, and `UI change` are neutral; classify from the outcome and evidence.
+The strongest explicit feature floor wins: `feature` or `cross-feature change` cannot be silently reduced to a direct correction. Escalate a direct/UI-only request only when newly discovered, named evidence fails its predicate; do not reclassify for file count alone.
+
 | Scope | What | Specify (`wspecify`) | Design (`wdesign`) | Tasks (`wtasks`) | Execute (`wimplement`) |
 | ----------- | ------------------------ | ------------------------------------------------------- | ----------------------------------------------- | ----------------------------- | ----------------------------------------------------- |
 | **Direct correction** | Exact human-defined single invariant; no product ambiguity or implicit-requirement surface | Skip | Skip | Skip | Inspect → implement → scoped validation → commit |
@@ -72,6 +81,9 @@ persistence, security, concurrency, or external integration runs `inspect → im
 validation → commit`. It creates no spec, AD, or workflow snapshot and skips a fresh Verifier,
 deep-review, and QA. `ponytail` governs this process choice; if any predicate fails, use the
 smallest feature tier.
+
+For a UI-only correction, require one bounded surface, an existing component/library or named reference implementation, and unchanged journey, navigation, product-state, data/API, auth, persistence, copy meaning, shared token, dependency, build, and architecture semantics. Validate consuming-project composition and wiring at the cheapest discriminating layer; do not retest upstream shadcn/TanStack internals. UI presence or a missing feature browser selector alone never selects integration, end-to-end, or the full gate. If a browser-only invariant is explicitly changed, run its existing targeted scenario without creating a QA cycle. Once scoped validation passes, close without a Verifier, QA Plan/Execute, deep review, or another validation round.
+Examples: CRM banner → existing shadcn toast and existing table → TanStack/shadcn data table are direct corrections when their trigger, message, and table semantics stay unchanged.
 
 **Safety valve:** For feature work with Tasks skipped, Execute starts by listing atomic steps inline (see the `wimplement` skill). If that listing reveals >5 steps or complex dependencies, stop and create a formal `tasks.md` - the Tasks phase was wrongly skipped.
 
