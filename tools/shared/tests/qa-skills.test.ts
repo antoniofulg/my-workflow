@@ -1080,26 +1080,25 @@ describe("adoption and public setup", () => {
     const nextRelease = changelog.indexOf("\n## [", releaseStart + 1);
     const latestRelease = changelog.slice(releaseStart, nextRelease === -1 ? undefined : nextRelease);
 
-    expect(manifest.version).toBe("0.9.0");
+    expect(manifest.version).toBe("0.9.1");
     expect(manifest.private).toBe(true);
     expect(manifest.packageManager).toBe("bun@1.4.0");
     expect(manifest.scripts?.test).toBe("bun test");
     expect(readRepositoryFile("bun.lock")).toContain('"name": "my-workflow"');
     expect(existsSync(join(repositoryRoot, "package-lock.json"))).toBe(false);
-    expect(latestHeading).toBe("0.9.0");
+    expect(latestHeading).toBe("0.9.1");
     expect(latestHeading).toBe(manifest.version);
     expect(currentScenarioVersion).toBe(manifest.version);
     expect(releaseScenario.match(/^expected: .*$/m)?.[0]).toBe(
       "expected: The newest changelog release matches the package manifest, while Bun 1.4's lockfile identifies the root package and dependency graph; the documented install, knowledge, full-gate, frozen-lockfile, and package commands expose the current source pack without checkout residue.",
     );
-    expect(latestRelease).toContain("Phase skills `wspecify`, `wdesign`, `wtasks`, `wimplement`, `wverify`");
-    expect(latestRelease).toContain("workflow-spec-driven");
-    expect(latestRelease).toContain("/wqa [plan] <flow>");
-    expect(latestRelease).toContain("## Impact");
-    expect(latestRelease).toContain("`designer` matrix role");
-    expect(latestRelease).toContain("Review-Signal");
-    expect(latestRelease).toContain("merges by default");
-    expect(latestRelease).toContain("blocked-verify");
+    expect(latestRelease).toContain("direct correction");
+    expect(latestRelease).toContain("UI-only correction");
+    expect(latestRelease).toContain("cross-feature change");
+    expect(latestRelease).toContain("issue` remains neutral");
+    expect(latestRelease).toContain("0.8.0");
+    expect(latestRelease).toContain("--skip-agents");
+    expect(latestRelease).toContain("Explicit packet sync still validates its config");
 
     const pack = spawnSync(process.execPath, ["pm", "pack", "--dry-run", "--ignore-scripts"], {
       cwd: repositoryRoot,

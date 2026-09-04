@@ -4,6 +4,22 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-09-04
+
+### Changed
+
+- Planner routing now recognizes `direct correction`, `UI-only correction`, `feature`, and
+  `cross-feature change` as intent signals. Behavior-preserving, bounded UI substitutions and
+  reference-driven refactors use one targeted integration validation; named behavior, data,
+  security, dependency, shared-token, build, architecture, and unresolved-choice evidence keeps
+  the applicable feature workflow. `issue` remains neutral.
+
+### Fixed
+
+- `adopt.py apply --layers full --skip-agents` no longer runs packet synchronization, so a 0.8.0
+  adopted consumer without designer tables can install the seven phase skills before completing
+  the documented configuration and sync steps. Explicit packet sync still validates its config.
+
 ## [0.9.0] - 2026-09-04
 
 ### Added
