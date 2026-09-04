@@ -43,16 +43,16 @@ rows only**.
 
 ## What blocks, what files
 
-| Severity | Blocks another round? | Otherwise |
+| Severity | Another round? | Feature delivery |
 | --- | --- | --- |
 | `Blocker` | Yes | Fix now |
 | `Major` | Yes | Fix now |
-| `Minor` | Only if it blocks a journey | Else file an issue |
-| `Cosmetic` | Never | File an issue |
+| `Minor` | No | Fix in one current-run batch, scoped gate, one commit |
+| `Cosmetic` | No | File an issue |
 
-Filed issues are real backlog, not a disposal bin. They do **not** re-enter Verifier + QA +
-deep-review. That ceremony already happened; filing them was how they left the feature’s critical
-path.
+Every deep-review defect is fixed inside the feature run. Minor fixes start no new proof round.
+Filed Cosmetic issues are real backlog, not a disposal bin; they do **not** re-enter Verifier + QA +
+deep-review because that ceremony already happened.
 
 A user-visible fix still flags and walks its scenario. A fix that grows into a design or schema
 change is a feature.

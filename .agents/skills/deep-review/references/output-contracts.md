@@ -145,7 +145,7 @@ When the harness exposes the ReportFindings tool, call it once after review.md i
 
 Derive after Step 4's merge from open **defects only**; advisories never change the verdict:
 
-- **SHIP** — no Critical or Major defect is open; Minor defects and every advisory ship as follow-ups. With `--spec`, the Spec conformance section must also be complete with zero open parity violations.
+- **SHIP** — no Critical or Major defect is open; Minor defects enter the mandatory current-feature closeout batch without another review round, while advisories ship as follow-ups. With `--spec`, the Spec conformance section must also be complete with zero open parity violations.
 - **FIX_BEFORE_SHIP** — at least one Critical/Major defect is open, and remediation is local: the change's shape is right and each defect names a bounded fix.
 - **REWORK** — defects show structural failure needing redesign: a parity violation the implementation approach cannot express, one root cause across ≥3 cohorts, or a Critical whose fix rewrites the change's core. REWORK always carries a named rationale; otherwise FIX_BEFORE_SHIP is the ceiling.
 

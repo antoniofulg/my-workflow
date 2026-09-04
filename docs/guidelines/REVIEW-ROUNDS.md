@@ -3,7 +3,8 @@
 **Read when:** reviewing code, or acting on review findings.
 
 **Why this exists:** Remediating every nitpick in one iteration is unbounded: each fix changes the
-diff and the next round finds new nits. Caps, monotonic findings, and filed issues make review end.
+diff and the next round finds new nits. Caps, monotonic findings, in-run defect batches, and filed
+Cosmetics make review end.
 
 ## The review stages, and what each is for
 
@@ -56,7 +57,7 @@ final session answers *"does the finished thing feel right?"* after all implemen
 
    `workflow-spec-driven` points here for remediation identity and counting; this rule prevents a renamed
    finding from resetting its history while allowing a distinct blocker to proceed.
-2. **Nitpicks never trigger a round.** They go to a follow-up list in the pull request. Only `FIX_BEFORE_SHIP` and `REWORK` findings justify another pass. **In an active, already-approved review loop, fix blocking findings without new human approval through the applicable review cap and run the scoped gate after each correction. Findings produced by the final deep-review round (round 2) are corrected automatically in the same loop; do not start round 3; escalate only if the post-fix gate fails or the configured stall threshold is reached for the same fingerprint.** Local fixes only; remote actions retain separate approval requirements.
+2. **Nitpicks never trigger a round.** Fix every confirmed deep-review defect in the active feature run. Blocker and Major findings trigger the next capped round; Minor findings join that remediation batch, or close together in one Minor-only batch with one scoped gate and one commit. A Minor-only batch starts no fresh Technical Verifier, QA phase, or deep-review round. Cosmetics and advisories go to the pull request follow-up list. **In an active, already-approved review loop, fix blocking findings without new human approval through the applicable review cap and run the scoped gate after each correction. Findings produced by the final deep-review round (round 2) are corrected automatically in the same loop; do not start round 3; escalate only if the post-fix gate fails or the configured stall threshold is reached for the same fingerprint.** Local fixes only; remote actions retain separate approval requirements.
 3. **Deduplicate by root cause, not by occurrence.** One missing null check repeated in six files is
    one finding that lists six files — not six findings.
 4. **Verify before flagging.** Check for an adjacent comment explaining the choice, a decision in
@@ -101,25 +102,25 @@ A finding without a failure path is an advisory, not a defect. Advisories state
 Severity uses the scheme tlc's validation report already ships, so the Verifier and deep-review speak
 one vocabulary:
 
-| Severity | Meaning | Action | Blocks |
-| --- | --- | --- | --- |
-| `Blocker` | Data loss, security hole, or the feature does not work | Fix now | yes |
-| `Major` | Behaviour deviates from the spec, or a likely crash under real input | Fix now | yes |
-| `Minor` | A spec edge case is unhandled, or a real maintenance hazard | Fix if it blocks a journey, else file an issue | only if blocking |
-| `Cosmetic` | Style, naming, structure — a nitpick by definition | File an issue | never |
+| Severity | Meaning | Action | Another round | Blocks delivery |
+| --- | --- | --- | --- | --- |
+| `Blocker` | Data loss, security hole, or the feature does not work | Fix now | yes | yes |
+| `Major` | Behaviour deviates from the spec, or a likely crash under real input | Fix now | yes | yes |
+| `Minor` | A spec edge case is unhandled, or a real maintenance hazard | Fix in the active feature batch | no | until fixed |
+| `Cosmetic` | Style, naming, structure — a nitpick by definition | File an issue | no | no |
 
-**Any unfixed `Blocker` or `Major` means the verdict is `FIX_BEFORE_SHIP`.** Nothing else triggers a
-round. `Minor` that does not block, and every `Cosmetic`, become issues filed for later work — they
-never hold a pull request.
+Every confirmed deep-review defect is fixed before feature delivery. An unfixed `Blocker` or `Major`
+means the verdict is `FIX_BEFORE_SHIP`, and only those severities trigger another round. Every
+`Minor` closes in the current remediation batch; the scoped gate and one commit close it without
+another proof cycle. Cosmetics and advisories become follow-ups and never hold a pull request.
 
-Filed issues are real work, not a disposal bin. They enter the backlog like any other item.
+Filed Cosmetic issues are real work, not a disposal bin. They enter the backlog like any other item.
 
 ## Fixing a filed issue
 
-**A filed issue does not re-enter the loop above.** It was already reviewed — that is how it came to be
-filed — so a verifier, a QA pass and two review rounds would re-do work that is already done. The
-whole point of filing it was to get it out of the feature's critical path, not to move the ceremony
-to a later date.
+**A filed Cosmetic issue does not re-enter the loop above.** It was already reviewed — that is how it
+came to be filed — so a verifier, a QA pass and two review rounds would re-do work that is already
+done. Minor findings never enter this path; they close inside their originating feature run.
 
 Fix one, or a batch of them, as a small change:
 

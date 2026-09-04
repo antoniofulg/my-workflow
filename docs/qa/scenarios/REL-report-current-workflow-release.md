@@ -11,16 +11,28 @@ bug_ids: BUG-20260824-release-overstates-lifecycle-qa; BUG-20260825-adoption-omi
 fix_status: fixed
 retest_status: pass
 fix_commits: 61f2e74; 816afd6; fb4c61f; 50ca157b; 741672b9
-evidence: docs/qa/evidence/2026-09-04-release-0-9-1/10-identity-reads.txt; docs/qa/evidence/2026-09-04-release-0-9-1/22-pack-summary.txt; docs/qa/evidence/2026-09-04-release-0-9-1/33-strict-no-mutation.txt; docs/qa/evidence/2026-09-04-release-0-9-1/37-migration-readback.txt; docs/qa/evidence/2026-09-04-release-0-9-1/39-strict-sync-no-mutation.txt; docs/qa/evidence/2026-09-04-release-0-9-1/72-independent-reload.txt; docs/qa/evidence/2026-09-04-release-0-9-1/73-release-claims-readback.txt; docs/qa/evidence/2026-09-04-release-0-9-1/90-closing-gate.log
-last_report: docs/qa/reports/2026-09-04-release-0-9-1.md
+evidence: docs/qa/evidence/2026-09-04-release-0-9-2/10-identity-readback.txt; docs/qa/evidence/2026-09-04-release-0-9-2/11-contract-readback.txt; docs/qa/evidence/2026-09-04-release-0-9-2/20-targeted-structural-test.log; docs/qa/evidence/2026-09-04-release-0-9-2/31-pack-dry-run.log; docs/qa/evidence/2026-09-04-release-0-9-2/33-pack-summary.txt; docs/qa/evidence/2026-09-04-release-0-9-2/50-adoption-canary-readback.txt; docs/qa/evidence/2026-09-04-release-0-9-2/60-final-reload.txt; docs/qa/evidence/2026-09-04-release-0-9-2/70-terminal-full-gate.log; docs/qa/evidence/2026-09-04-release-0-9-2/72-terminal-full-gate-retry.log; docs/qa/evidence/2026-09-04-release-0-9-2/74-pilot-residue-final.txt
+last_report: docs/qa/reports/2026-09-04-release-0-9-2.md
 overlaps:
 ---
 
-Version-neutral owner for public release consistency. For release `0.9.1`, the reader compares the
+QA Execute on 2026-09-04 passed release `0.9.2` at `de53cb77`. Identity, the packaged DRC-01
+through DRC-04 deep-review defect closeout contract, its canonical structural assertion, private
+662-file dry-run package, zero archive residue, independent reload, and the closing full gate
+matched after the one permitted clean retry recovered a 5-second test timeout. The unchanged
+passing 0.9.1 real 0.8.0 adoption/migration evidence was reused without rerunning adoption. No
+external skill install, registry, publication, remote action, consumer write, or live Orca
+operation occurred.
+
+Version-neutral owner for public release consistency. For release `0.9.2`, the reader compares the
 newest changelog heading with the package manifest, checks Bun's root package and dependency graph
 metadata, and checks release claims against
 the shipped public contracts. The release walk reuses the current adoption verdict as a
 canaries instead of repeating their feature-level runtime probes.
+
+Release `0.9.2` changes this promise and resets it to `untested`. Fresh QA Execute verifies release
+identity, package membership and residue, the closing full gate, and the deep-review defect closeout
+claim. The unchanged 0.9.1 adoption and migration verdict remains the adjacent canary.
 
 QA Execute on 2026-09-04 passed release `0.9.1` at `7875bd9f`. Identity, 659-file private package,
 real 0.8.0 skip-agents migration, seven phase skills and Claude links, strict no-write sync failure,

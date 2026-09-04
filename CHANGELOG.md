@@ -4,6 +4,14 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-09-04
+
+### Changed
+
+- Every confirmed deep-review defect now closes inside its originating feature run. Blocker and
+  Major findings retain capped review rounds; Minor findings close in one remediation batch with a
+  scoped gate and commit but no fresh proof cycle. Cosmetics and advisories remain follow-ups.
+
 ## [0.9.1] - 2026-09-04
 
 ### Changed

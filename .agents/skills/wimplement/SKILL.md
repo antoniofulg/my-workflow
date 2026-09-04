@@ -157,9 +157,9 @@ During implementation, you will notice things that could be improved, refactored
 
 ### 9. Slice-Level Validation (after each code-changing slice)
 
-When the current slice reaches its checkpoint, the coordinator dispatches a fresh Technical
-Verifier before any dependent slice consumes that checkpoint. Validation is automatic and does not
-wait for a separate approval; a slice's commit does not unblock dependent work without this proof.
+Except for deep-review Minor-only closeout batches closed by `docs/guidelines/REVIEW-ROUNDS.md`, the
+coordinator dispatches a fresh Technical Verifier when each code-changing slice reaches its checkpoint.
+Validation is automatic; dependent work waits for this proof.
 
 **Author ≠ verifier.** An author checking their own work reapplies the mental model that may have produced the gaps. The Verifier is a fresh sub-agent that re-derives coverage from the spec independently - this separation is the quality gate, not a style preference.
 
