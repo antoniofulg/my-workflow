@@ -21,7 +21,9 @@
    `wimplement`, `wverify`), and the two entry skills (`wreview`, `wqa`) reachable through both
    `.agents/skills/` and the `.claude/skills/` links — seven `/w` names, each carrying fork keys —
    pointer-only assisted probe, and Bun-native knowledge sources; open each phase skill and
-   confirm the templates, references, and validator paths it names exist; the
+   confirm the templates, references, and validator paths it names exist, including Specify
+   Impact, uiux.md, and gap-hunt plus `references/gap-hunt.md`; confirm designer templates
+   install and the adopted `validate_spec.py` applies the size-aware Impact rule; the
    installed instructions activate Ponytail at workflow start and keep it active through the full
    cycle, the copied workflow tour omits the source-only pack guide and its links, repository-only
    TypeScript tests remain absent, all three external security skills remain absent, and adoption
@@ -47,12 +49,15 @@ the complete apply before any write; this workflow has no layer-removal command.
 - [`ADP-install-phase-skills`](../scenarios/ADP-install-phase-skills.md)
 - [`ADP-install-review-and-qa-entries`](../scenarios/ADP-install-review-and-qa-entries.md)
 - [`QAS-resolve-phase-skill-procedures`](../scenarios/QAS-resolve-phase-skill-procedures.md)
+- [`QAS-write-specify-impact-and-uiux`](../scenarios/QAS-write-specify-impact-and-uiux.md)
+- [`QAS-offer-gap-hunt-at-plan-approval`](../scenarios/QAS-offer-gap-hunt-at-plan-approval.md)
 - [`QAS-fork-w-skills`](../scenarios/QAS-fork-w-skills.md)
 - [`QAS-list-seven-w-entries`](../scenarios/QAS-list-seven-w-entries.md)
 - [`ADP-layered-workflow-adoption`](../scenarios/ADP-layered-workflow-adoption.md)
 - [`ADP-resolve-legacy-adoption-conflicts`](../scenarios/ADP-resolve-legacy-adoption-conflicts.md)
 - [`ADP-separate-external-security-skills`](../scenarios/ADP-separate-external-security-skills.md)
 - [`ADP-validate-generated-feature-contracts`](../scenarios/ADP-validate-generated-feature-contracts.md)
+- [`ADP-require-impact-on-large-specs`](../scenarios/ADP-require-impact-on-large-specs.md)
 - [`ADP-validate-feature-completion-state`](../scenarios/ADP-validate-feature-completion-state.md)
 - [`QAS-discover-independent-qa-skills`](../scenarios/QAS-discover-independent-qa-skills.md)
 - [`QAS-enforce-spec-anchored-qa-contracts`](../scenarios/QAS-enforce-spec-anchored-qa-contracts.md)
@@ -81,3 +86,8 @@ The 2026-09-03 `w-entry-points` cycle resets `ADP-install-phase-skills` and
 `QAS-resolve-phase-skill-procedures` and adds `ADP-install-review-and-qa-entries`,
 `QAS-fork-w-skills`, and `QAS-list-seven-w-entries`; see
 [`CH-w-entry-points-2026-09-03`](../charters/CH-w-entry-points-2026-09-03.md).
+
+The 2026-09-03 `specify-impact-designer` cycle resets `ADP-adopt-workflow-safely` and
+`QAS-resolve-phase-skill-procedures` and adds `QAS-write-specify-impact-and-uiux`,
+`QAS-offer-gap-hunt-at-plan-approval`, and `ADP-require-impact-on-large-specs`; see
+[`CH-specify-impact-designer-2026-09-03`](../charters/CH-specify-impact-designer-2026-09-03.md).

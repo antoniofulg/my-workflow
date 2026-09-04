@@ -19,8 +19,8 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.11 is the supported r
     tomllib = None
 
 
-ROLES = ("planner", "implementer", "verifier", "explorer", "deep_reviewer")
-DELEGATED_ROLES = ("implementer", "verifier", "explorer", "deep_reviewer")
+ROLES = ("planner", "implementer", "verifier", "explorer", "deep_reviewer", "designer")
+DELEGATED_ROLES = ("implementer", "verifier", "explorer", "deep_reviewer", "designer")
 PROVIDERS = ("claude", "codex", "cursor")
 AGENT_NAMES = {"deep_reviewer": "deep-reviewer"}
 EFFORTS = ("low", "medium", "high", "xhigh", "max", "ultra")

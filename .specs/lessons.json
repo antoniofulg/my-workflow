@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 57,
+  "next_id": 77,
   "lessons": [
     {
       "id": "L-001",
@@ -1014,6 +1014,375 @@
       ],
       "created": "2026-09-03T19:53:56Z",
       "last_seen": "2026-09-03T19:53:56Z"
+    },
+    {
+      "id": "L-057",
+      "key": "surviving_mutant::assert the contracted procedure clause not a section heading or a shared substring",
+      "text": "Assert the contracted procedure clause, not a section heading or a shared substring",
+      "signal": "surviving_mutant",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "M6 wspecify/SKILL.md:70 (skill-text-tests)",
+        "validation-s2.md:61 (M17) (skill-text-tests)",
+        "validation-s1-r2.md M6 M9 N3 (skill-text-tests)"
+      ],
+      "created": "2026-09-03T21:32:05Z",
+      "last_seen": "2026-09-03T22:47:08Z"
+    },
+    {
+      "id": "L-058",
+      "key": "surviving_mutant::when a size is exempted from a required section add a fixture for that size a sibling size does not prove it",
+      "text": "When a size is exempted from a required section, add a fixture for that size; a sibling size does not prove it",
+      "signal": "surviving_mutant",
+      "scope": "validators",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "M7 validate_spec.py:167 (validators)",
+        "validation-s1-r2.md M7 (validators)"
+      ],
+      "created": "2026-09-03T21:32:05Z",
+      "last_seen": "2026-09-03T22:47:08Z"
+    },
+    {
+      "id": "L-059",
+      "key": "surviving_mutant::assert the required report statuses and the none means no reruns rule not the words impact scenario rerun",
+      "text": "Assert the required report statuses and the none-means-no-reruns rule, not the words Impact scenario rerun",
+      "signal": "surviving_mutant",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "M12 wverify/SKILL.md:69 (skill-text-tests)",
+        "validation-s1-r2.md M12 N4 (skill-text-tests)"
+      ],
+      "created": "2026-09-03T21:32:05Z",
+      "last_seen": "2026-09-03T22:47:08Z"
+    },
+    {
+      "id": "L-060",
+      "key": "ac_gap::when a reference file carries explorer settlement or autonomous rules assert those clauses in the file not only that the path exists",
+      "text": "When a reference file carries explorer, settlement, or autonomous rules, assert those clauses in the file, not only that the path exists",
+      "signal": "ac_gap",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "SID-02 AC2 AC3 AC4 (skill-text-tests)",
+        "validation-s1-r2.md SID-02 AC2 AC3 AC4 (skill-text-tests)"
+      ],
+      "created": "2026-09-03T21:32:05Z",
+      "last_seen": "2026-09-03T22:47:08Z"
+    },
+    {
+      "id": "L-061",
+      "key": "surviving_mutant::assert every document a role template is required to load not a subset of nearby tokens",
+      "text": "Assert every document a role template is required to load, not a subset of nearby tokens",
+      "signal": "surviving_mutant",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s2.md:50 (M6) (skill-text-tests)",
+        "validation-s2.md:51 (M7) (skill-text-tests)",
+        "validation-s2.md:52 (M8) (skill-text-tests)"
+      ],
+      "created": "2026-09-03T22:32:17Z",
+      "last_seen": "2026-09-03T22:32:17Z"
+    },
+    {
+      "id": "L-062",
+      "key": "surviving_mutant::assert a no product code rule on every provider template not only one packet",
+      "text": "Assert a no-product-code rule on every provider template, not only one packet",
+      "signal": "surviving_mutant",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s2.md:56 (M12) (skill-text-tests)"
+      ],
+      "created": "2026-09-03T22:32:17Z",
+      "last_seen": "2026-09-03T22:32:17Z"
+    },
+    {
+      "id": "L-063",
+      "key": "surviving_mutant::when an ac quantifies over providers assert the missing table path for more than one provider",
+      "text": "When an AC quantifies over providers, assert the missing-table path for more than one provider",
+      "signal": "surviving_mutant",
+      "scope": "workflow-config",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s2.md:67 (M23) (workflow-config)"
+      ],
+      "created": "2026-09-03T22:32:17Z",
+      "last_seen": "2026-09-03T22:32:17Z"
+    },
+    {
+      "id": "L-064",
+      "key": "ac_gap::assert every named load and deliverable path from the spec in the template contract",
+      "text": "Assert every named load and deliverable path from the spec in the template contract",
+      "signal": "ac_gap",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s2.md:27 (SID-03 AC2) (skill-text-tests)"
+      ],
+      "created": "2026-09-03T22:32:17Z",
+      "last_seen": "2026-09-03T22:32:17Z"
+    },
+    {
+      "id": "L-065",
+      "key": "ac_gap::when an ac quantifies over providers assert the missing table path for more than one provider",
+      "text": "When an AC quantifies over providers, assert the missing-table path for more than one provider",
+      "signal": "ac_gap",
+      "scope": "workflow-config",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s2.md:29 (SID-03 AC4) (workflow-config)"
+      ],
+      "created": "2026-09-03T22:32:17Z",
+      "last_seen": "2026-09-03T22:32:17Z"
+    },
+    {
+      "id": "L-066",
+      "key": "ac_gap::assert designer dispatch before internal design and planner ownership of the architecture half not only the words uiux md and designer",
+      "text": "Assert designer dispatch before internal design and planner ownership of the architecture half, not only the words uiux.md and designer",
+      "signal": "ac_gap",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s2.md:30 (SID-03 AC5) (skill-text-tests)"
+      ],
+      "created": "2026-09-03T22:32:17Z",
+      "last_seen": "2026-09-03T22:32:17Z"
+    },
+    {
+      "id": "L-067",
+      "key": "surviving_mutant::assert the screen only uiux md gate not only that the step sits between acceptance criteria and the closure gate",
+      "text": "Assert the screen-only uiux.md gate, not only that the step sits between Acceptance Criteria and the closure gate",
+      "signal": "surviving_mutant",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s1-r2.md N2 wspecify/SKILL.md:97 (skill-text-tests)"
+      ],
+      "created": "2026-09-03T22:47:08Z",
+      "last_seen": "2026-09-03T22:47:08Z"
+    },
+    {
+      "id": "L-068",
+      "key": "ac_gap::assert the contracted procedure clause not a section heading or a shared substring",
+      "text": "Assert the contracted procedure clause, not a section heading or a shared substring",
+      "signal": "ac_gap",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s1-r2.md SID-01 AC1 AC2 AC3 AC5 AC6 (skill-text-tests)"
+      ],
+      "created": "2026-09-03T22:47:08Z",
+      "last_seen": "2026-09-03T22:47:08Z"
+    },
+    {
+      "id": "L-069",
+      "key": "surviving_mutant::when an ac names size tiered offer rules assert each tier not only the autonomous exception",
+      "text": "When an AC names size-tiered offer rules, assert each tier, not only the autonomous exception",
+      "signal": "surviving_mutant",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s1-r3.md N5 N6 SID-02 AC1 (skill-text-tests)"
+      ],
+      "created": "2026-09-03T23:14:28Z",
+      "last_seen": "2026-09-03T23:14:28Z"
+    },
+    {
+      "id": "L-070",
+      "key": "surviving_mutant::when an ac requires a list of nouns assert every listed noun not a subset",
+      "text": "When an AC requires a list of nouns, assert every listed noun, not a subset",
+      "signal": "surviving_mutant",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s1-r3.md N8 SID-01 AC1 (skill-text-tests)"
+      ],
+      "created": "2026-09-03T23:14:28Z",
+      "last_seen": "2026-09-03T23:14:28Z"
+    },
+    {
+      "id": "L-071",
+      "key": "surviving_mutant::when an ac requires following a named guideline assert that path in the procedure body",
+      "text": "When an AC requires following a named guideline, assert that path in the procedure body",
+      "signal": "surviving_mutant",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s1-r3.md N7 SID-01 AC3 (skill-text-tests)"
+      ],
+      "created": "2026-09-03T23:14:28Z",
+      "last_seen": "2026-09-03T23:14:28Z"
+    },
+    {
+      "id": "L-072",
+      "key": "ac_gap::re derive every ac clause to an assertion a sibling clause in the same sentence does not cover the rest",
+      "text": "Re-derive every AC clause to an assertion; a sibling clause in the same sentence does not cover the rest",
+      "signal": "ac_gap",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s1-r3.md SID-01 AC1 AC3 SID-02 AC1 (skill-text-tests)"
+      ],
+      "created": "2026-09-03T23:14:28Z",
+      "last_seen": "2026-09-03T23:14:28Z"
+    },
+    {
+      "id": "L-073",
+      "key": "surviving_mutant::when an ac names a procedure clause assert it in the step body not a phrase that can live only in an example",
+      "text": "When an AC names a procedure clause, assert it in the step body, not a phrase that can live only in an example",
+      "signal": "surviving_mutant",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s1-r4.md N14 SID-02 AC2 (skill-text-tests)",
+        "validation-s1-r5.md N19 SID-02 AC2 (skill-text-tests)"
+      ],
+      "created": "2026-09-03T23:34:56Z",
+      "last_seen": "2026-09-03T23:44:01Z"
+    },
+    {
+      "id": "L-074",
+      "key": "ac_gap::a whole file substring is not evidence when the same words appear in an example block",
+      "text": "A whole-file substring is not evidence when the same words appear in an example block",
+      "signal": "ac_gap",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s1-r4.md SID-02 AC2 (skill-text-tests)",
+        "validation-s1-r5.md SID-02 AC2 (skill-text-tests)"
+      ],
+      "created": "2026-09-03T23:34:56Z",
+      "last_seen": "2026-09-03T23:44:02Z"
+    },
+    {
+      "id": "L-075",
+      "key": "surviving_mutant::pin a when present load instruction to the line that names that file a sibling sentence with the same words does not prove it",
+      "text": "Pin a when-present load instruction to the line that names that file; a sibling sentence with the same words does not prove it",
+      "signal": "surviving_mutant",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s1-r6.md N20 SID-01 AC4 (skill-text-tests)"
+      ],
+      "created": "2026-09-03T23:50:49Z",
+      "last_seen": "2026-09-03T23:50:49Z"
+    },
+    {
+      "id": "L-076",
+      "key": "ac_gap::a step body substring is not evidence when a later sibling sentence contains the same words",
+      "text": "A step-body substring is not evidence when a later sibling sentence contains the same words",
+      "signal": "ac_gap",
+      "scope": "skill-text-tests",
+      "status": "candidate",
+      "features": [
+        "specify-impact-designer"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation-s1-r6.md SID-01 AC4 (skill-text-tests)"
+      ],
+      "created": "2026-09-03T23:50:49Z",
+      "last_seen": "2026-09-03T23:50:49Z"
     }
   ]
 }

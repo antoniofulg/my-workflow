@@ -1,0 +1,54 @@
+{
+  "deep_review": {
+    "cadence": "grouped.3",
+    "groups": [
+      [
+        1,
+        2
+      ]
+    ]
+  },
+  "feature": "specify-impact-designer",
+  "git_head": "e1b61981359e400bb3d9112e56d6496f8b613d62",
+  "overrides": {
+    "deep_reviewer": "cursor",
+    "explorer": "cursor",
+    "implementer": "cursor",
+    "verifier": "cursor"
+  },
+  "parallelization": {
+    "automatic_baseline": 2,
+    "automatic_ceiling": 4,
+    "max_workers": "auto",
+    "mode": "assisted",
+    "resource_provider": null
+  },
+  "profile": null,
+  "roles": {
+    "deep_reviewer": {
+      "agent_file": ".cursor/agents/deep-reviewer.md",
+      "effort": "high",
+      "model": "cursor-grok-4.6-xhigh-fast",
+      "provider": "cursor"
+    },
+    "explorer": {
+      "agent_file": ".cursor/agents/explorer.md",
+      "effort": "medium",
+      "model": "gpt-5.6-luna",
+      "provider": "cursor"
+    },
+    "implementer": {
+      "agent_file": ".cursor/agents/implementer.md",
+      "effort": "high",
+      "model": "gemini-3.8-flash-high",
+      "provider": "cursor"
+    },
+    "verifier": {
+      "agent_file": ".cursor/agents/verifier.md",
+      "effort": "high",
+      "model": "cursor-grok-4.6-xhigh-fast",
+      "provider": "cursor"
+    }
+  },
+  "version": 3
+}

@@ -71,6 +71,7 @@ def setup() -> dict[str, str]:
             ("verifier", "gpt-5.6-sol", "medium"),
             ("explorer", "gpt-5.6-luna", "medium"),
             ("deep-reviewer", "gpt-5.6-luna", "high"),
+            ("designer", "gpt-5.6-sol", "high"),
         ):
             (agents / f"{name}.toml").write_text(
                 f'name = "{name}"\nmodel = "{model}"\nmodel_reasoning_effort = "{effort}"\n'
@@ -112,6 +113,10 @@ def setup() -> dict[str, str]:
                         "deep_reviewer": {
                             "provider": "codex", "agent_file": ".codex/agents/deep-reviewer.toml",
                             "model": "gpt-5.6-luna", "effort": "high",
+                        },
+                        "designer": {
+                            "provider": "codex", "agent_file": ".codex/agents/designer.toml",
+                            "model": "gpt-5.6-sol", "effort": "high",
                         },
                     },
                 },

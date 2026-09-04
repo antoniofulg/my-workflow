@@ -60,7 +60,7 @@ BLOCK_LAYERS = ("core", "parallel", "quality")
 RUNTIME_PATHS = tuple(
     f".{provider}/agents/{role}.{('toml' if provider == 'codex' else 'md')}"
     for provider in ("claude", "codex", "cursor")
-    for role in ("planner", "implementer", "verifier", "explorer", "deep-reviewer")
+    for role in ("planner", "implementer", "verifier", "explorer", "deep-reviewer", "designer")
 )
 GLOBAL_CLAUDE_ROOT = re.compile(r"(?:\$\(HOME\)|\$\{HOME\}|\$HOME|~)/\.claude(?:/|$)")
 

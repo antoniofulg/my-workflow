@@ -157,6 +157,18 @@ def check(spec_path):
         if section_bounds(lines, name) is None:
             errors.append(f"missing required section: ## {name}")
 
+    # 1b. Size-aware required sections: Impact for Large and Complex.
+    size = None
+    for ln in lines[:10]:
+        m = re.search(r"^Size:\s*(Small|Medium|Large|Complex)\b", ln.strip(), re.IGNORECASE)
+        if m:
+            size = m.group(1).capitalize()
+            break
+    if size in ("Large", "Complex"):
+        b = section_bounds(lines, "Impact")
+        if b is None or not any(lines[j].strip() for j in range(*b)):
+            errors.append("missing required section: ## Impact")
+
     # 2. Acceptance criteria are EARS-shaped (have a SHALL).
     in_ac = False
     for i, ln in enumerate(lines, start=1):

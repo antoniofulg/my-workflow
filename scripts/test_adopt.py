@@ -625,13 +625,30 @@ def test_runtime_edits_are_overwritten_from_templates_on_readopt() -> None:
         shutil.rmtree(target)
 
 
-def test_adoption_installs_v3_config_and_syncs_fifteen_packets() -> None:
+def test_adoption_installs_v3_config_and_syncs_eighteen_packets() -> None:
     target = temporary_target()
     try:
         assert invoke(target, "apply", "--layers", "core").returncode == 0
         assert (target / ".my-workflow.toml").is_file()
         packets = list((target / ".claude/agents").glob("*.md")) + list((target / ".codex/agents").glob("*.toml")) + list((target / ".cursor/agents").glob("*.md"))
-        assert len(packets) == 15
+        assert len(packets) == 18
+    finally:
+        shutil.rmtree(target)
+
+
+def test_it003_adopt_runtime_paths_and_managed_templates_include_designer() -> None:
+    for provider, ext in (("claude", "md"), ("codex", "toml"), ("cursor", "md")):
+        expected_runtime = f".{provider}/agents/designer.{ext}"
+        assert expected_runtime in adopt.RUNTIME_PATHS
+    target = temporary_target()
+    try:
+        result = invoke(target, "plan", "--layers", "core", "--json")
+        assert result.returncode == 0, result.stderr
+        document = json.loads(result.stdout)
+        managed = {item["path"] for item in document["actions"]}
+        for provider, ext in (("claude", "md"), ("codex", "toml"), ("cursor", "md")):
+            template_path = f"templates/agents/{provider}/designer.{ext}"
+            assert template_path in managed, f"plan omits {template_path}"
     finally:
         shutil.rmtree(target)
 
@@ -1541,7 +1558,8 @@ TESTS = (
     test_project_local_tlc_path_is_accepted,
     test_consumer_ad_index_is_preserved_on_readopt,
     test_runtime_edits_are_overwritten_from_templates_on_readopt,
-    test_adoption_installs_v3_config_and_syncs_fifteen_packets,
+    test_adoption_installs_v3_config_and_syncs_eighteen_packets,
+    test_it003_adopt_runtime_paths_and_managed_templates_include_designer,
     test_adoption_installs_hybrid_workflow_and_preserves_consumer_config,
     test_parallel_adoption_installs_and_tracks_resource_lock,
     test_adoption_installs_only_new_authority_byte_identically,

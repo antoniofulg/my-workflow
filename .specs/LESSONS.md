@@ -350,6 +350,126 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: WEP-02 AC3 (w-skills)
 - last seen: 2026-09-03T19:53:56Z
 
+### L-057 - Assert the contracted procedure clause, not a section heading or a shared substring
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: M6 wspecify/SKILL.md:70 (skill-text-tests) (+2 more)
+- last seen: 2026-09-03T22:47:08Z
+
+### L-058 - When a size is exempted from a required section, add a fixture for that size; a sibling size does not prove it
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `validators` · harmful: 0
+- features: specify-impact-designer
+- evidence: M7 validate_spec.py:167 (validators) (+1 more)
+- last seen: 2026-09-03T22:47:08Z
+
+### L-059 - Assert the required report statuses and the none-means-no-reruns rule, not the words Impact scenario rerun
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: M12 wverify/SKILL.md:69 (skill-text-tests) (+1 more)
+- last seen: 2026-09-03T22:47:08Z
+
+### L-060 - When a reference file carries explorer, settlement, or autonomous rules, assert those clauses in the file, not only that the path exists
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: SID-02 AC2 AC3 AC4 (skill-text-tests) (+1 more)
+- last seen: 2026-09-03T22:47:08Z
+
+### L-061 - Assert every document a role template is required to load, not a subset of nearby tokens
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s2.md:50 (M6) (skill-text-tests) (+2 more)
+- last seen: 2026-09-03T22:32:17Z
+
+### L-062 - Assert a no-product-code rule on every provider template, not only one packet
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s2.md:56 (M12) (skill-text-tests)
+- last seen: 2026-09-03T22:32:17Z
+
+### L-063 - When an AC quantifies over providers, assert the missing-table path for more than one provider
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `workflow-config` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s2.md:67 (M23) (workflow-config)
+- last seen: 2026-09-03T22:32:17Z
+
+### L-064 - Assert every named load and deliverable path from the spec in the template contract
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s2.md:27 (SID-03 AC2) (skill-text-tests)
+- last seen: 2026-09-03T22:32:17Z
+
+### L-065 - When an AC quantifies over providers, assert the missing-table path for more than one provider
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `workflow-config` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s2.md:29 (SID-03 AC4) (workflow-config)
+- last seen: 2026-09-03T22:32:17Z
+
+### L-066 - Assert designer dispatch before internal design and planner ownership of the architecture half, not only the words uiux.md and designer
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s2.md:30 (SID-03 AC5) (skill-text-tests)
+- last seen: 2026-09-03T22:32:17Z
+
+### L-067 - Assert the screen-only uiux.md gate, not only that the step sits between Acceptance Criteria and the closure gate
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s1-r2.md N2 wspecify/SKILL.md:97 (skill-text-tests)
+- last seen: 2026-09-03T22:47:08Z
+
+### L-068 - Assert the contracted procedure clause, not a section heading or a shared substring
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s1-r2.md SID-01 AC1 AC2 AC3 AC5 AC6 (skill-text-tests)
+- last seen: 2026-09-03T22:47:08Z
+
+### L-069 - When an AC names size-tiered offer rules, assert each tier, not only the autonomous exception
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s1-r3.md N5 N6 SID-02 AC1 (skill-text-tests)
+- last seen: 2026-09-03T23:14:28Z
+
+### L-070 - When an AC requires a list of nouns, assert every listed noun, not a subset
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s1-r3.md N8 SID-01 AC1 (skill-text-tests)
+- last seen: 2026-09-03T23:14:28Z
+
+### L-071 - When an AC requires following a named guideline, assert that path in the procedure body
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s1-r3.md N7 SID-01 AC3 (skill-text-tests)
+- last seen: 2026-09-03T23:14:28Z
+
+### L-072 - Re-derive every AC clause to an assertion; a sibling clause in the same sentence does not cover the rest
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s1-r3.md SID-01 AC1 AC3 SID-02 AC1 (skill-text-tests)
+- last seen: 2026-09-03T23:14:28Z
+
+### L-073 - When an AC names a procedure clause, assert it in the step body, not a phrase that can live only in an example
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s1-r4.md N14 SID-02 AC2 (skill-text-tests) (+1 more)
+- last seen: 2026-09-03T23:44:01Z
+
+### L-074 - A whole-file substring is not evidence when the same words appear in an example block
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s1-r4.md SID-02 AC2 (skill-text-tests) (+1 more)
+- last seen: 2026-09-03T23:44:02Z
+
+### L-075 - Pin a when-present load instruction to the line that names that file; a sibling sentence with the same words does not prove it
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s1-r6.md N20 SID-01 AC4 (skill-text-tests)
+- last seen: 2026-09-03T23:50:49Z
+
+### L-076 - A step-body substring is not evidence when a later sibling sentence contains the same words
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `skill-text-tests` · harmful: 0
+- features: specify-impact-designer
+- evidence: validation-s1-r6.md SID-01 AC4 (skill-text-tests)
+- last seen: 2026-09-03T23:50:49Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

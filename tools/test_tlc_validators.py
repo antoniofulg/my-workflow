@@ -108,6 +108,57 @@ class WorkflowValidatorTests(unittest.TestCase):
         )
         self.assertTrue(any("acceptance criterion has no SHALL" in error for error in errors))
 
+    # SID-01 AC6 / EC1 clause -> assertion (UT-001).
+    # Size: Large + missing ## Impact -> "Impact" in error L121; names "## Impact" L122; exit 1 L124
+    # Size: Complex + missing ## Impact -> "Impact" in error L130; names "## Impact" L131; exit 1 L133
+    # Size: Medium + missing ## Impact -> errors [] L139; exit 0 L142
+    # Size: Small + missing ## Impact -> errors [] L147; exit 0 L150
+    # Size: Large + ## Impact body none (EC1) -> errors [] L157; exit 0 L160
+    def test_large_spec_without_impact_is_rejected(self) -> None:
+        errors, _warnings = validate_spec.check(
+            str(FIXTURES / "spec-size-large-no-impact.md")
+        )
+        self.assertTrue(any("Impact" in error for error in errors))
+        self.assertTrue(any("missing required section: ## Impact" in error for error in errors))
+        ret = validate_spec.main([str(FIXTURES / "spec-size-large-no-impact.md")])
+        self.assertEqual(ret, 1)
+
+    def test_complex_spec_without_impact_is_rejected(self) -> None:
+        errors, _warnings = validate_spec.check(
+            str(FIXTURES / "spec-size-complex-no-impact.md")
+        )
+        self.assertTrue(any("Impact" in error for error in errors))
+        self.assertTrue(any("missing required section: ## Impact" in error for error in errors))
+        ret = validate_spec.main([str(FIXTURES / "spec-size-complex-no-impact.md")])
+        self.assertEqual(ret, 1)
+
+    def test_medium_spec_without_impact_is_accepted(self) -> None:
+        errors, warnings = validate_spec.check(
+            str(FIXTURES / "spec-size-medium-no-impact.md")
+        )
+        self.assertEqual(errors, [])
+        self.assertEqual(warnings, [])
+        ret = validate_spec.main([str(FIXTURES / "spec-size-medium-no-impact.md")])
+        self.assertEqual(ret, 0)
+
+    def test_small_spec_without_impact_is_accepted(self) -> None:
+        errors, warnings = validate_spec.check(
+            str(FIXTURES / "spec-size-small-no-impact.md")
+        )
+        self.assertEqual(errors, [])
+        self.assertEqual(warnings, [])
+        ret = validate_spec.main([str(FIXTURES / "spec-size-small-no-impact.md")])
+        self.assertEqual(ret, 0)
+
+    def test_large_spec_with_impact_none_is_accepted(self) -> None:
+        errors, warnings = validate_spec.check(
+            str(FIXTURES / "spec-size-large-impact-none.md")
+        )
+        self.assertEqual(errors, [])
+        self.assertEqual(warnings, [])
+        ret = validate_spec.main([str(FIXTURES / "spec-size-large-impact-none.md")])
+        self.assertEqual(ret, 0)
+
     # MAS-UT-001: the Praxis migration is one slice across three technical cohorts.
     def test_praxis_migration_is_one_slice(self) -> None:
         path = FIXTURES / "merge-alone-one-slice.md"

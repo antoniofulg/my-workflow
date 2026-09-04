@@ -6,8 +6,8 @@ import { describe, expect, it } from "bun:test";
 
 const repositoryRoot = process.cwd();
 const skillPath = ".agents/skills/workflow-config/SKILL.md";
-const roles = ["implementer", "verifier", "explorer", "deep-reviewer"] as const;
-const resolverRoles = ["implementer", "verifier", "explorer", "deep_reviewer"] as const;
+const roles = ["implementer", "verifier", "explorer", "deep-reviewer", "designer"] as const;
+const resolverRoles = ["implementer", "verifier", "explorer", "deep_reviewer", "designer"] as const;
 const providers = ["claude", "cursor", "codex"] as const;
 
 function readRepositoryFile(relativePath: string): string {
@@ -232,6 +232,7 @@ describe("workflow configuration skill", () => {
         verifier: "verifier",
         explorer: "explorer",
         deep_reviewer: "deep-reviewer",
+        designer: "designer",
       };
       for (const provider of providers) {
         const nativeProvider = provider === "codex" ? "claude" : "codex";

@@ -64,6 +64,10 @@ For each acceptance criterion in `spec.md`, the Verifier re-derives the **spec-d
 
 From spec.md edge cases: verify each listed edge case is handled correctly.
 
+### 3.5. Rerun Impacted QA Scenarios
+
+Rerun the QA scenario ids named in `spec.md` `## Impact` and report each as pass, fail, or untested. If `## Impact` is `none`, report no reruns.
+
 ### 4. Run Build-Level Gate Check
 
 Run the Build-level gate check from the **Gate Check Commands** section in `tasks.md` when present.

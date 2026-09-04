@@ -31,7 +31,7 @@ commit refs and hashes; it does not install
 `latest` or update dependencies automatically. Until it succeeds, the security gate remains
 uncovered.
 
-Planner / implementer / explorer / verifier are four windows. Canonical packet bodies live in
+Planner / implementer / explorer / verifier / designer are five windows. Canonical packet bodies live in
 `templates/agents/{cursor,claude,codex}/`; sync generates ignored runtime files in
 `.cursor/agents/`, `.claude/agents/`, and `.codex/agents/`. Spawn models live on those generated
 files. `CLAUDE.md` is `@AGENTS.md`. Explorer is read-only and handles product-tree searches and

@@ -2,12 +2,12 @@
 
 ## Handoff
 
-- **Feature**: `w-entry-points` (branch `feat/w-entry-points`, roadmap slice 2)
+- **Feature**: `specify-impact-designer` (branch `feat/specify-impact-designer`, roadmap slice 3)
 - **Phase / Task**: complete; delivery (push, pull request, merge) in progress under `autonomous`
-- **Completed**: S1 on Cursor (gemini 3.8 flash high), verified PASS on Cursor (grok 4.6 xhigh fast, sensor 5/5); deep review rounds 1 (FIX_BEFORE_SHIP, 5 fixed) and 2 (SHIP) on Cursor; QA plan and execute on Cursor, all pass; feature `validation.md` PASS; `validate_state.py` exit 0
+- **Completed**: S1 and S2 on Cursor; verifications converged after test-strength batches (S1 round 7, S2 round 7); deep review round 1 FIX_BEFORE_SHIP remediated, round 2 SHIP; QA plan and execute pass; feature `validation.md` PASS (sensor 7/7); `validate_state.py` exit 0
 - **In-progress** (file:line): none
-- **Next step**: roadmap slice 3 (`uiux.md` and impact map into Specify, gap-hunt question, designer agent). Human should try `/wspecify <slug>` once to observe the live fork (not observable from a subagent).
-- **Blockers**: none. Live Orca transport stays `blocked-verify`; Cursor route bracket-effort bug filed (`BUG-20260903-cursor-route-bracket-effort-rejected`).
+- **Next step**: roadmap slice 4 (mockup fidelity, reuse inventory, lint on raw elements, visual diff gate)
+- **Blockers**: none. Live Orca transport stays `blocked-verify`.
 
 ## Decisions
 
@@ -464,5 +464,18 @@
   preload support is verified.
 - **Scope**: `.agents/skills/w*`, `workflow-spec-driven/SKILL.md`, `templates/agents/claude/*`,
   `scripts/adopt.py` core catalog.
+- **Date**: 2026-09-03
+- **Status**: active
+
+### AD-029
+
+- **Decision**: `designer` is a delegated matrix role that owns mockups and `uiux-review.md`;
+  Claude runs it on `inherit`.
+- **Reason**: Isolates mockup and UX review responsibilities from planner, implementer, and
+  verifier. Keeps product code out of the designer's scope. Running Claude on `inherit` lets the
+  session model drive design output without forcing a separate expensive tier by default.
+- **Trade-off**: Introduces a sixth role to the configuration matrix and adoption sync across
+  Claude, Codex, and Cursor.
+- **Scope**: `templates/agents/*`, `.my-workflow.toml.example`, `scripts/adopt.py`, `workflow_config.py`.
 - **Date**: 2026-09-03
 - **Status**: active

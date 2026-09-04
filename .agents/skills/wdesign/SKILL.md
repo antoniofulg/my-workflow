@@ -19,7 +19,7 @@ Slash argument: $ARGUMENTS — when this skill was entered with /wdesign and the
 
 ### 1. Load Context
 
-Read `.specs/features/[feature]/spec.md` before designing. If `.specs/features/[feature]/context.md` exists, load it too - it contains implementation decisions that constrain the design (layout choices, behavior preferences, interaction patterns). Decisions marked as "Agent's Discretion" are yours to decide.
+Read `.specs/features/[feature]/spec.md` before designing. When `.specs/features/[feature]/uiux.md` exists, load it and dispatch the `designer` agent before internal design (the planner keeps the architecture half of `design.md`). If `.specs/features/[feature]/context.md` exists, load it too - it contains implementation decisions that constrain the design (layout choices, behavior preferences, interaction patterns). Decisions marked as "Agent's Discretion" are yours to decide.
 
 **Read `.specs/STATE.md` `## Decisions` before any architectural choice.** Every `active` `AD-NNN` entry is a project-level constraint this design must conform to. If a decision from a prior feature conflicts with what is best for this feature, you have two options - both require an explicit choice:
 

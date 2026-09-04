@@ -37,6 +37,16 @@ Every ambiguity is resolved or recorded here - nothing is left silently unclear.
 
 ---
 
+## Impact
+
+Affected features, pages, jobs, events, and QA scenarios this change touches.
+
+- Affected features: [features, or none]
+- Affected pages & routes: [pages/routes, or none]
+- QA scenario ids to rerun: [scenario ids, or none]
+
+---
+
 ## User Stories
 
 ### P1: [Story Title] ⭐ MVP

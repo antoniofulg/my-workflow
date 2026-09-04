@@ -46,3 +46,9 @@ This journey is the adjacent canary for the 2026-09-03 `w-entry-points` cycle: `
 thirteen local capabilities including `wreview` and `wqa`. Provenance is not reset;
 [`QAS-list-seven-w-entries`](../scenarios/QAS-list-seven-w-entries.md) owns the seven-name menu.
 See [`CH-w-entry-points-2026-09-03`](../charters/CH-w-entry-points-2026-09-03.md).
+
+This journey is the adjacent canary for the 2026-09-03 `specify-impact-designer` cycle:
+`pack.md` names five windows and `AGENTS.md` names designer. Provenance is not reset;
+[`CFG-centralize-agent-model-routing`](../scenarios/CFG-centralize-agent-model-routing.md) owns
+the matrix and those two naming lines. See
+[`CH-specify-impact-designer-2026-09-03`](../charters/CH-specify-impact-designer-2026-09-03.md).

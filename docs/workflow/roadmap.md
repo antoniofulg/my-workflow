@@ -131,7 +131,7 @@ runtime. Also publish to PyPI for `uvx my-workflow`.
    phase over journeys tagged with the flow and stops when none carries the tag; no exploratory
    charter is added by the entry point). `deep-review`, `qa-plan`, and `qa-execute` keep their
    names; the entry points wrap them. Defects file into Linear Triage once slice 7 lands. (done)
-3. `uiux.md` and impact map to Specify; gap-hunt question; designer agent.
+3. `uiux.md` and impact map to Specify; gap-hunt question; designer agent. (done)
 4. Mockup fidelity rule, reuse inventory, lint on raw elements, token extraction, visual diff gate.
 5. Global config file, defaults, worktree walker, spawn-time sync hook.
 6. Qualifier role, `qualify` skill, bug spec template, shadow mode, manual `/qualify`.

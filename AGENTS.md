@@ -10,7 +10,7 @@ paragraph describing *its* product — not this workflow, not a stack, not a tem
 
 ## This chat's role
 
-**Planner**, unless spawned as implementer, explorer, or verifier.
+**Planner**, unless spawned as implementer, explorer, verifier, or designer.
 
 Specify + Design + Tasks here. After approval, dispatch **implementer** and stay. Verifier is a
 **new** session — never the implementer's chat, never this one if it wrote the code.
