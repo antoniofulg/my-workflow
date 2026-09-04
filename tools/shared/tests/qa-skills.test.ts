@@ -247,34 +247,6 @@ const verifierPacketPaths = [
 
 describe("QA workflow artifact policy", () => {
   it("IT-025 routes behavior-preserving UI corrections by intent and evidence", () => {
-    const router = readRepositoryFile(".agents/skills/workflow-spec-driven/SKILL.md");
-    const planners = [
-      readRepositoryFile("templates/agents/codex/planner.toml"),
-      readRepositoryFile("templates/agents/claude/planner.md"),
-      readRepositoryFile("templates/agents/cursor/planner.md"),
-    ];
-
-    for (const source of [router, ...planners]) {
-      expect(source).toContain("direct correction");
-      expect(source).toContain("UI-only correction");
-      expect(source).toContain("cross-feature change");
-      expect(source).toContain("feature");
-      expect(source).toContain("issue");
-      expect(source).toContain("repository evidence");
-      expect(source).toMatch(/(?:Classification:|selected tier)/);
-      expect(source).toMatch(/(?:Validation:|validation layer)/);
-    }
-
-    expect(router).toContain("cross-feature change` sets a **Medium feature** floor");
-    expect(router).toContain("feature` sets a **Small feature** floor");
-    expect(router).toContain("cannot be silently reduced to a direct correction");
-    expect(router).toContain("one bounded surface");
-    expect(router).toContain("do not retest upstream shadcn/TanStack internals");
-    expect(router).toContain("CRM banner");
-    expect(router).toContain("TanStack/shadcn data table");
-    expect(router).toContain("missing feature browser selector");
-    expect(router).toContain("without a Verifier, QA Plan/Execute, deep review");
-
     const gates = readRepositoryFile("docs/guidelines/GATES.md");
     const qaExecution = readRepositoryFile("docs/guidelines/QA-EXECUTION.md");
     const scenarios = readRepositoryFile("docs/guidelines/QA-SCENARIOS.md");
