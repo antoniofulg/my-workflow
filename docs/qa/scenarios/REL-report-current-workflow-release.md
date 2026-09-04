@@ -6,13 +6,13 @@ persona: Repository reader
 journey: J-review-workflow-release
 expected: The newest changelog release matches the package manifest, while Bun 1.4's lockfile identifies the root package and dependency graph; the documented install, knowledge, full-gate, frozen-lockfile, and package commands expose the current source pack without checkout residue.
 entry_points: CHANGELOG.md; README.md; package.json; bun.lock; bunfig.toml
-qa_status: untested
-bug_ids: BUG-20260824-release-overstates-lifecycle-qa; BUG-20260825-adoption-omits-parallel-pilot; BUG-20260829-bun-history-gate-rejects-new-qa-charters; BUG-20260903-history-gate-forbids-resetting-baseline-scenarios
-fix_status: fixed
-retest_status: pass
+qa_status: fail
+bug_ids: BUG-20260824-release-overstates-lifecycle-qa; BUG-20260825-adoption-omits-parallel-pilot; BUG-20260829-bun-history-gate-rejects-new-qa-charters; BUG-20260903-history-gate-forbids-resetting-baseline-scenarios; BUG-20260904-adopt-apply-requires-designer-before-migration
+fix_status: pending
+retest_status:
 fix_commits: 61f2e74; 816afd6; fb4c61f; 50ca157b
-evidence: docs/qa/evidence/2026-09-03-phase-skills/71-rel-readback.txt; docs/qa/evidence/2026-09-03-phase-skills/72-pack-dry-run.txt; docs/qa/evidence/2026-09-03-phase-skills/80-history-gate-retest.txt
-last_report: docs/qa/reports/2026-09-03-phase-skills.md
+evidence: docs/qa/evidence/2026-09-04-release-0-9-0/10-identity-reads.txt; docs/qa/evidence/2026-09-04-release-0-9-0/20-frozen-install.log; docs/qa/evidence/2026-09-04-release-0-9-0/30-pack-dry-run.log; docs/qa/evidence/2026-09-04-release-0-9-0/40-test-all.log; docs/qa/evidence/2026-09-04-release-0-9-0/53-090-apply.err; docs/qa/evidence/2026-09-04-release-0-9-0/56-apply-after-tables.out; docs/qa/evidence/2026-09-04-release-0-9-0/70-independent-reload.txt
+last_report: docs/qa/reports/2026-09-04-release-0-9-0.md
 overlaps:
 ---
 
@@ -22,12 +22,12 @@ metadata, and checks release claims against
 the shipped public contracts. The release walk reuses the current adoption verdict as a
 canaries instead of repeating their feature-level runtime probes.
 
-Release `0.9.0` changes this promise and resets it to `untested` (0.8.0 walk kept below as history). This candidate records no
-execution verdict. The next independent QA Execute session must verify identity, package
-membership, `bun install --frozen-lockfile`, adoption, `bun run test:all`, first-use cross-project
-locking, effect-free probe import, and every 0.8.0 release-note claim. The real Orca/Codex two-lane lifecycle and
-completed-pilot cleanup remain `blocked-verify`; release QA may confirm that boundary but cannot
-convert it to a pass or claim a completed pilot.
+QA Execute on 2026-09-04 walked release `0.9.0` at tag `v0.9.0` (`9e391920`). Identity, frozen
+install, dry-run pack, and `bun run test:all` matched. Documented Migration step 1 failed on a
+real 0.8.0 adopted consumer: apply exited `2` requiring designer tables that the note adds only
+in step 3. See `BUG-20260904-adopt-apply-requires-designer-before-migration`. Later migration
+steps worked only after tables were added first. `scripts/install_security_skills.py` was not run.
+The real Orca/Codex two-lane lifecycle and completed-pilot cleanup remain `blocked-verify`.
 
 QA Execute on 2026-08-31 passed release `0.8.0` at `0260c8c`. Fresh reads, offline frozen install,
 the full mixed-language gate, private dry-run package, layered and exact-conflict legacy adoption,
