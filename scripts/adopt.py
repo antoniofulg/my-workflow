@@ -18,7 +18,7 @@ from typing import Any
 
 STENCIL = "<!-- product-stencil:"
 MANIFEST_SCHEMA = 1
-WORKFLOW_VERSION = "0.9.0"
+WORKFLOW_VERSION = "0.9.1"
 SEMVER_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 MAX_SEMVER_COMPONENT_DIGITS = 9
 LAYERS = ("core", "parallel", "quality", "extras")
@@ -693,7 +693,7 @@ def _build_plan(
             special[action["path"]] = _adopted_bytes(action["path"], source)
     staged = dict(special)
     staged.update(block_outputs)
-    generated = {} if conflicts or not sync else _prepare_sync(source_root, root, staged)
+    generated = {} if conflicts or not sync or skip_agents else _prepare_sync(source_root, root, staged)
     for relative, content in generated.items():
         _safe_path(root, relative, "generated runtime")
         special[relative] = content

@@ -118,6 +118,12 @@ the body. The file stays as memory.
 Before completing any task, ask: **does this diff change user-visible behaviour** — a screen, a route,
 a config key, user-facing copy?
 
+The classification contract takes precedence for behavior-preserving direct corrections. A
+`direct correction` or `UI-only correction` that replaces an existing component or applies a named
+reference while preserving the product promise does not create/reset a scenario or start a QA
+cycle; record its targeted integration check instead. If the correction changes a browser-only
+invariant, walk the existing owning scenario only.
+
 - **No** — state "no user-visible change" in the completion notes. Done.
 - **New behaviour** — add scenario files with `qa_status: untested`.
 - **Changed behaviour** — reset the affected files to `untested`. **A stale `pass` is worse than no

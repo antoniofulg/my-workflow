@@ -565,6 +565,60 @@ def test_agents_and_pack_name_designer() -> None:
     assert "five windows" in pack_text, "pack.md does not state five windows"
 
 
+def test_right_size_ui_classification_contract() -> None:
+    """RSG-01..RSG-16: planner vocabulary, evidence floor, and UI correction routing stay aligned."""
+    router = (SKILLS / "workflow-spec-driven" / "SKILL.md").read_text(encoding="utf-8")
+    planner_templates = [
+        template_path(provider, "planner").read_text(encoding="utf-8")
+        for provider in SCANNED_PROVIDERS
+    ]
+
+    for source in [router, *planner_templates]:
+        assert "direct correction" in source
+        assert "UI-only correction" in source
+        assert "feature" in source
+        assert "cross-feature change" in source
+        assert "issue" in source
+        assert "repository evidence" in source
+        assert "Classification:" in source or "selected tier" in source
+        assert "Validation:" in source or "validation layer" in source
+
+    assert "cross-feature change` sets a **Medium feature** floor" in router
+    assert "feature` sets a **Small feature** floor" in router
+    assert "cannot be silently reduced to a direct correction" in router
+    assert "do not reclassify for file count alone" in router
+    assert "one bounded surface" in router
+    assert "existing" in router and "reference implementation" in router
+    for risk in (
+        "journey",
+        "navigation",
+        "product-state",
+        "data/API",
+        "auth",
+        "persistence",
+        "copy meaning",
+        "shared token",
+        "dependency",
+        "build",
+        "architecture",
+    ):
+        assert risk in router, f"UI correction predicate omits {risk}"
+    assert "do not retest upstream shadcn/TanStack internals" in router
+    assert "CRM banner" in router and "TanStack/shadcn data table" in router
+    assert "missing" in router and "feature browser selector" in router
+    assert "without a Verifier, QA Plan/Execute, deep review" in router
+
+    gates = (ROOT / "docs/guidelines/GATES.md").read_text(encoding="utf-8")
+    qa_execution = (ROOT / "docs/guidelines/QA-EXECUTION.md").read_text(encoding="utf-8")
+    scenarios = (ROOT / "docs/guidelines/QA-SCENARIOS.md").read_text(encoding="utf-8")
+    review = (ROOT / "docs/guidelines/REVIEW-ROUNDS.md").read_text(encoding="utf-8")
+    assert "absent feature selector" in gates
+    assert "not promoted to full e2e" in gates
+    assert "receives no QA Plan/Execute cycle" in qa_execution
+    assert "does not create/reset a scenario or start a QA" in scenarios
+    assert "issue` is neutral" in review
+
+
 if __name__ == "__main__":
     tests = [function for name, function in sorted(globals().items()) if name.startswith("test_")]
     for function in tests:

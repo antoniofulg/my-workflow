@@ -11,14 +11,19 @@ bug_ids: BUG-20260822-deep-review-learnings-untrackable; BUG-20260822-feature-sp
 fix_status: fixed
 retest_status: pass
 fix_commits: 0413862; a7397d2; 43e9910; a3fc718; 5b5474e; 816afd6; 9653ed1
-evidence: docs/qa/evidence/2026-09-03-specify-impact-designer/11-plan-core.json; docs/qa/evidence/2026-09-03-specify-impact-designer/12-plan-unchanged.txt; docs/qa/evidence/2026-09-03-specify-impact-designer/13-apply-core.log; docs/qa/evidence/2026-09-03-specify-impact-designer/14-status.log; docs/qa/evidence/2026-09-03-specify-impact-designer/15-installed-tree.txt; docs/qa/evidence/2026-09-03-specify-impact-designer/50-readopt.log; docs/qa/evidence/2026-09-03-specify-impact-designer/51-sentinel.txt
-last_report: docs/qa/reports/2026-09-03-specify-impact-designer.md
+evidence: docs/qa/evidence/2026-09-04-release-0-9-1/37-migration-readback.txt; docs/qa/evidence/2026-09-04-release-0-9-1/45-full-readback.txt; docs/qa/evidence/2026-09-04-release-0-9-1/62-full-runtime-canary.txt; docs/qa/evidence/2026-09-04-release-0-9-1/72-independent-reload.txt
+last_report: docs/qa/reports/2026-09-04-release-0-9-1.md
 overlaps:
 ---
 
 Covers `CWF-ADOPT-1` through `CWF-ADOPT-3`: resolver installation, tracked-source discovery,
 managed-path review, initial profile creation, preservation of `.my-workflow.toml` and templates,
 runtime regeneration, and the installed hierarchy/resolution instructions when adopted again.
+
+Release 0.9.1 adjacent QA passed the real 0.8.0 migration and fresh full adoption. Seven phase
+skills and links installed before designer configuration, strict sync failed without mutation,
+eighteen runtime packets appeared on configured full adoption, package bytes survived, probe import
+made zero Orca calls, and independent reload retained clean state.
 
 For issue #36, fresh adoption must install `tools/ad-index.py`; after the consumer changes that file,
 re-adoption must preserve its bytes.
