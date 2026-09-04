@@ -6,7 +6,7 @@ persona: Repository reader
 journey: J-review-workflow-release
 expected: The newest changelog release matches the package manifest, while Bun 1.4's lockfile identifies the root package and dependency graph; the documented install, knowledge, full-gate, frozen-lockfile, and package commands expose the current source pack without checkout residue.
 entry_points: CHANGELOG.md; README.md; package.json; bun.lock; bunfig.toml
-qa_status: pass
+qa_status: untested
 bug_ids: BUG-20260824-release-overstates-lifecycle-qa; BUG-20260825-adoption-omits-parallel-pilot; BUG-20260829-bun-history-gate-rejects-new-qa-charters; BUG-20260903-history-gate-forbids-resetting-baseline-scenarios
 fix_status: fixed
 retest_status: pass
@@ -16,13 +16,13 @@ last_report: docs/qa/reports/2026-09-03-phase-skills.md
 overlaps:
 ---
 
-Version-neutral owner for public release consistency. For release `0.8.0`, the reader compares the
+Version-neutral owner for public release consistency. For release `0.9.0`, the reader compares the
 newest changelog heading with the package manifest, checks Bun's root package and dependency graph
 metadata, and checks release claims against
 the shipped public contracts. The release walk reuses the current adoption verdict as a
 canaries instead of repeating their feature-level runtime probes.
 
-Release `0.8.0` changes this promise and resets it to `untested`. This candidate records no
+Release `0.9.0` changes this promise and resets it to `untested` (0.8.0 walk kept below as history). This candidate records no
 execution verdict. The next independent QA Execute session must verify identity, package
 membership, `bun install --frozen-lockfile`, adoption, `bun run test:all`, first-use cross-project
 locking, effect-free probe import, and every 0.8.0 release-note claim. The real Orca/Codex two-lane lifecycle and

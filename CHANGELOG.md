@@ -4,6 +4,38 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-04
+
+### Added
+
+- Phase skills `wspecify`, `wdesign`, `wtasks`, `wimplement`, `wverify`: each phase procedure is one
+  skill an agent preloads alone; `workflow-spec-driven` is now the router (sizing, phase map,
+  `.specs` layout, resume) and keeps the validators. Claude agent packets preload their phase
+  skill through `skills:` and narrow roles carry `disallowedTools: Skill`; `--sync-agents` rejects a
+  packet that preloads a missing or hollow skill.
+- `/w` entry points: `/wspecify`, `/wdesign`, `/wtasks`, `/wimplement`, `/wverify` fork the phase
+  into a fresh agent of its role and return only its summary; `/wreview` wraps `deep-review`;
+  `/wqa [plan] <flow>` runs one QA phase over journeys tagged with the flow (`**Tags:**` line).
+- Specify writes an `## Impact` section from two explorer traces with one no-regression acceptance
+  criterion per affected feature, writes `uiux.md` for screen-bearing features, and offers a gap
+  hunt at plan approval sized by scope; `validate_spec.py` requires `## Impact` for Large and
+  Complex specs; `wverify` reruns the impacted QA scenarios.
+- `designer` matrix role for Claude, Codex, and Cursor (AD-029): preloads `wdesign`, owns mockups
+  under `docs/design/` and `uiux-review.md`; `wdesign` dispatches it before internal design.
+- `Review-Signal` trailer on each delivery's merge commit (AD-025, AD-026) and
+  `tools/review-metrics.py` reporting the reviewed fraction from git history.
+- `tools/gate_cache.py` runs a gate once per tree and caches the passing result by tree hash.
+
+### Changed
+
+- `autonomous` merges by default once readiness is proven; a human go-ahead on ready work carries
+  the same authorization, and the opt-out is stated up front (`stop when the PR is ready`).
+- The QA history gate freezes evidence, reports, charters, and bugs only; scenario files are living
+  status records and reset to `untested` when behaviour changes.
+- Live Orca transport stays `blocked-verify`; Cursor headless dispatch uses full Cursor model ids
+  (`BUG-20260903-cursor-route-bracket-effort-rejected`).
+- `docs/workflow/roadmap.md` records the modular workflow programme (Linear intake, qualifier,
+  global config, mockup fidelity, telemetry intake, deterministic installer).
 ### Changed
 
 - Workflow resolution derives its slice count from the validated `## Vertical Slice Closure`
@@ -22,6 +54,10 @@ All notable changes to this project are documented here.
   context; adoption never removes external operator state.
 
 ### Migration
+
+- Existing local `.my-workflow.toml` files need `[models.<provider>.designer]` tables for claude,
+  codex, and cursor; copy them from `.my-workflow.toml.example`. Sync fails naming the missing table.
+- Phase skills must not set `disable-model-invocation: true`; it blocks `skills:` preload.
 
 - Operators who previously enabled ai-memory must follow the exact lifecycle commands in the
   [v0.5.0 tagged guide](https://github.com/antoniofulg/my-workflow/blob/v0.5.0/docs/workflow/ai-memory.md).

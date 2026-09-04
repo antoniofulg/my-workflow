@@ -18,7 +18,7 @@ from typing import Any
 
 STENCIL = "<!-- product-stencil:"
 MANIFEST_SCHEMA = 1
-WORKFLOW_VERSION = "0.8.0"
+WORKFLOW_VERSION = "0.9.0"
 SEMVER_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 MAX_SEMVER_COMPONENT_DIGITS = 9
 LAYERS = ("core", "parallel", "quality", "extras")
